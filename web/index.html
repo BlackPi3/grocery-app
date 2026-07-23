@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Grocery App Demo</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f5f7fb;
+        margin: 0;
+        color: #14213d;
+      }
+      .phone {
+        max-width: 430px;
+        margin: 24px auto;
+        background: white;
+        border-radius: 24px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+        overflow: hidden;
+      }
+      .header {
+        background: linear-gradient(135deg, #2a9d8f, #264653);
+        color: white;
+        padding: 20px;
+      }
+      .card {
+        padding: 16px 20px 20px;
+        border-bottom: 1px solid #eef2f7;
+      }
+      .metric {
+        font-size: 28px;
+        font-weight: 700;
+        margin: 6px 0;
+      }
+      .muted {
+        color: #6b7280;
+        font-size: 14px;
+      }
+      ul {
+        padding-left: 18px;
+        margin: 8px 0 0;
+      }
+      .pill {
+        display: inline-block;
+        background: #e9f7f3;
+        color: #2a9d8f;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="phone">
+      <div class="header">
+        <div class="muted">Grocery App concept demo</div>
+        <h2>Personal inflation is rising</h2>
+        <div class="metric">+8.4%</div>
+        <div>Driven by butter, coffee, and olive oil</div>
+      </div>
+
+      <div class="card">
+        <div class="muted">Next likely needs</div>
+        <h3>Milk in 6 days</h3>
+        <ul>
+          <li>Coffee in 3 weeks</li>
+          <li>Bread in 4 days</li>
+        </ul>
+        <span class="pill">Predicted shopping list</span>
+      </div>
+
+      <div class="card">
+        <div class="muted">Own-brand opportunity</div>
+        <h3>34% of your spend is branded</h3>
+        <p>That is roughly €18/month in items with a store-brand alternative.</p>
+      </div>
+    </div>
+  </body>
+</html>

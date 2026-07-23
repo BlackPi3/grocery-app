@@ -1,0 +1,28 @@
+{
+  "store": "REWE",
+  "date": "2026-07-20",
+  "items": [
+    {
+      "name": "MILCH H 1,5%",
+      "price": 1.19
+    },
+    {
+      "name": "Brot",
+      "price": 2.49
+    },
+    {
+      "name": "Kaffee Bohnen",
+      "price": 6.99
+    },
+    {
+      "name": "Butter",
+      "price": 2.29
+    },
+    {
+      "name": "Olivenöl",
+      "price": 4.99
+    }
+  ],
+  "total": 17.95,
+  "confidence": 0.72
+}
