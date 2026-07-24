@@ -1,0 +1,6 @@
+{
+  "Pizza": ["Pizza flour (Tipo 00)", "Tomato passata", "Mozzarella", "Yeast", "Olive oil"],
+  "Chili con carne": ["Kidney beans", "Minced beef", "Tomato passata", "Onion", "Paprika (ground)", "Rice"],
+  "Breakfast": ["Milk", "Eggs", "Bread", "Butter", "Coffee"],
+  "Pasta night": ["Spaghetti", "Tomato passata", "Parmesan", "Garlic", "Olive oil"]
+}

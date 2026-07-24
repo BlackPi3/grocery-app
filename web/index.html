@@ -153,6 +153,38 @@
   .foot b { color: var(--ink2); font-weight: 600; }
   .reset { color: var(--accent); font-size: 12px; background: none; border: none;
     cursor: pointer; text-decoration: underline; }
+
+  .addbar { display: flex; gap: 8px; margin: 10px 0; }
+  .addbar input { flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface); color: var(--ink); font-size: 14px; font-family: inherit; }
+  .pbtn { border: none; background: var(--accent); color: #fff; border-radius: 10px; padding: 0 16px;
+    font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .pbtn:active { transform: scale(.96); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+    border-radius: 999px; padding: 7px 12px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .chip:active { transform: scale(.96); }
+  .sug { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
+  .sug:first-child { border-top: none; }
+  .sug .n { flex: 1; min-width: 0; }
+  .sug .n .t { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sug .n .s { font-size: 11.5px; color: var(--muted); }
+  .due { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .due.over { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+  .due.soon { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+  .addbtn { border: 1px solid var(--accent); color: var(--accent); background: none; border-radius: 8px;
+    width: 30px; height: 30px; font-size: 17px; cursor: pointer; display: grid; place-items: center; flex: none; }
+  .addbtn:active { transform: scale(.94); }
+  .addbtn.added { background: var(--accent); color: #fff; }
+  .listitem { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+  .listitem:first-child { border-top: none; }
+  .listitem input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+  .listitem .li-n { flex: 1; font-size: 14px; min-width: 0; }
+  .listitem.done .li-n { text-decoration: line-through; color: var(--muted); }
+  .li-tag { font-size: 10px; color: var(--accent); background: var(--series-1-soft);
+    border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+  .listitem .del { border: none; background: none; color: var(--muted); font-size: 15px; cursor: pointer; flex: none; }
+  .empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
 </style>
 </head>
 <body>
@@ -162,7 +194,36 @@
     <div class="sub" id="subhead">receipt intelligence · prototype</div>
   </header>
 
-  <section class="view active" id="view-stats">
+  <section class="view active" id="view-list">
+    <div class="card" style="margin-top:14px">
+      <h2>Shopping list</h2>
+      <div class="hint" id="list-asof">what to buy — projected from your history</div>
+      <div class="addbar">
+        <input id="additem" type="text" placeholder="add an item…" autocomplete="off" autocapitalize="off">
+        <button id="addbtn" class="pbtn">Add</button>
+      </div>
+      <div class="chips" id="recipes"></div>
+    </div>
+
+    <div class="card">
+      <h2>⏱ Predicted needs</h2>
+      <div class="hint">due to run out, based on how often you rebuy</div>
+      <div id="predicted"></div>
+    </div>
+
+    <div class="card">
+      <h2>Buy again</h2>
+      <div class="hint">staples from your recent trips · tap ＋ to add</div>
+      <div id="buyagain"></div>
+    </div>
+
+    <div class="card">
+      <h2>My list <span id="listcount" class="muted" style="font-weight:400;text-transform:none;letter-spacing:0"></span></h2>
+      <div id="mylist"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-stats">
     <div class="hero">
       <div class="tile"><div class="big" id="s-total">–</div><div class="lab">spent (excl. deposits)</div></div>
       <div class="tile"><div class="big" id="s-trips">–</div><div class="lab">shopping trips</div></div>
@@ -224,7 +285,8 @@
 </div>
 
 <nav class="tabbar">
-  <button data-view="stats" class="active"><span class="ic">📊</span>Stats</button>
+  <button data-view="list" class="active"><span class="ic">🛒</span>List</button>
+  <button data-view="stats"><span class="ic">📊</span>Stats</button>
   <button data-view="scan"><span class="ic">＋</span>Scan</button>
   <button data-view="history"><span class="ic">🧾</span>History</button>
 </nav>
@@ -238,7 +300,9 @@ let renames  = JSON.parse(localStorage.getItem(LS.rn) || '{}');
 const saveEx = () => localStorage.setItem(LS.ex, JSON.stringify([...excluded]));
 const saveRn = () => localStorage.setItem(LS.rn, JSON.stringify(renames));
 
-let DATA = null;
+let DATA = null, RECIPES = {}, TODAY = null;
+let list = JSON.parse(localStorage.getItem('basket.list') || '[]');
+const saveList = () => localStorage.setItem('basket.list', JSON.stringify(list));
 
 function displayName(p, i) {
   if (renames[i]) return renames[i];
@@ -246,13 +310,17 @@ function displayName(p, i) {
   return p.raw_name;
 }
 
-fetch('purchases.json')
-  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then(d => { DATA = d; render(); })
-  .catch(() => {
-    document.getElementById('subhead').textContent =
-      'could not load purchases.json — serve over http (e.g. python -m http.server)';
-  });
+Promise.all([
+  fetch('purchases.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+  fetch('recipes.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
+]).then(([d, rec]) => {
+  DATA = d; RECIPES = rec;
+  TODAY = new Date(d.meta.date_range[1] + 'T00:00:00');   // "now" = your last trip
+  render();
+}).catch(() => {
+  document.getElementById('subhead').textContent =
+    'could not load purchases.json — serve over http (e.g. python -m http.server)';
+});
 
 function activeProducts() {
   return DATA.purchases
@@ -282,6 +350,7 @@ function render() {
   renderCats(prods);
   renderOwn(prods);
   renderHistory();
+  renderList();
 
   document.getElementById('foot').innerHTML =
     `Prototype demo. Data from <b>${meta.receipts} real receipts</b>, each reconciled to its printed total. ` +
@@ -419,6 +488,105 @@ function renderHistory() {
     if (v != null && v.trim()) { renames[i] = v.trim(); saveRn(); render(); }
   });
 }
+
+// ---------- shopping list ----------
+const daysBetween = (a, b) => Math.round((b - a) / 86400000);
+const inList = name => list.some(x => x.name.toLowerCase() === name.toLowerCase());
+function addToList(name, tag) {
+  if (inList(name)) return false;
+  list.push({ name, tag: tag || null, checked: false }); saveList(); return true;
+}
+
+function sugRow(title, sub, right) {
+  const d = document.createElement('div'); d.className = 'sug';
+  const added = inList(title);
+  d.innerHTML = `<div class="n"><div class="t">${esc(title)}</div>${sub ? `<div class="s">${esc(sub)}</div>` : ''}</div>
+    ${right || ''}
+    <button class="addbtn ${added ? 'added' : ''}" title="add to list">${added ? '✓' : '＋'}</button>`;
+  d.querySelector('.addbtn').onclick = () => { addToList(title, 'suggestion'); renderList(); };
+  return d;
+}
+
+function renderList() {
+  const prods = activeProducts();
+  const g = {};
+  prods.forEach(p => { if (p.product_id) (g[p.product_id] = g[p.product_id] || []).push(p); });
+
+  // predicted needs from repurchase cadence
+  const preds = [];
+  Object.entries(g).forEach(([id, l]) => {
+    const dates = [...new Set(l.map(p => p.date))].sort();
+    if (dates.length < 2) return;
+    const ds = dates.map(d => new Date(d + 'T00:00:00'));
+    const gaps = []; for (let i = 1; i < ds.length; i++) gaps.push(daysBetween(ds[i - 1], ds[i]));
+    const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    const next = new Date(ds[ds.length - 1].getTime() + avg * 86400000);
+    preds.push({ id, name: l[l.length - 1].product || l[l.length - 1].raw_name, left: daysBetween(TODAY, next), avg });
+  });
+  preds.sort((a, b) => a.left - b.left);
+  const due = preds.filter(p => p.left <= Math.max(2, p.avg));
+
+  const predEl = document.getElementById('predicted');
+  if (!due.length) {
+    predEl.innerHTML = '<div class="empty">Nothing predicted due yet — needs a few more repeat purchases to learn your cadence.</div>';
+  } else {
+    predEl.innerHTML = '';
+    due.forEach(p => {
+      const over = p.left < 0;
+      const label = over ? `overdue ${-p.left}d` : (p.left === 0 ? 'due today' : `in ${p.left}d`);
+      predEl.appendChild(sugRow(p.name, `every ~${Math.round(p.avg)}d`, `<span class="due ${over ? 'over' : 'soon'}">${label}</span>`));
+    });
+  }
+
+  // buy again: other bought staples, by frequency then recency
+  const dueIds = new Set(due.map(p => p.id));
+  const again = Object.entries(g).filter(([id]) => !dueIds.has(id))
+    .map(([id, l]) => ({ name: l[l.length - 1].product || l[l.length - 1].raw_name,
+      brand: l[l.length - 1].brand, count: l.length, last: l.map(p => p.date).sort().pop() }))
+    .sort((a, b) => b.count - a.count || b.last.localeCompare(a.last)).slice(0, 6);
+  const baEl = document.getElementById('buyagain'); baEl.innerHTML = '';
+  again.forEach(a => baEl.appendChild(sugRow(a.name, a.brand || '', '')));
+
+  // recipe chips
+  const rc = document.getElementById('recipes'); rc.innerHTML = '';
+  Object.keys(RECIPES).forEach(name => {
+    const c = document.createElement('button'); c.className = 'chip'; c.textContent = '＋ ' + name;
+    c.onclick = () => { RECIPES[name].forEach(ing => addToList(ing, name)); renderList(); };
+    rc.appendChild(c);
+  });
+
+  // my list
+  document.getElementById('list-asof').textContent =
+    `projected as of your last trip · ${DATA.meta.date_range[1]}`;
+  document.getElementById('listcount').textContent =
+    list.length ? `— ${list.filter(x => !x.checked).length} to buy` : '';
+  const ml = document.getElementById('mylist'); ml.innerHTML = '';
+  if (!list.length) {
+    ml.innerHTML = '<div class="empty">Empty. Add an item above, tap a recipe, or pull from the suggestions.</div>';
+  } else {
+    list.forEach((it, idx) => {
+      const row = document.createElement('div'); row.className = 'listitem' + (it.checked ? ' done' : '');
+      row.innerHTML = `<input type="checkbox" ${it.checked ? 'checked' : ''} data-ck="${idx}">
+        <span class="li-n">${esc(it.name)}</span>
+        ${it.tag && it.tag !== 'manual' && it.tag !== 'suggestion' ? `<span class="li-tag">${esc(it.tag)}</span>` : ''}
+        <button class="del" data-del="${idx}">✕</button>`;
+      ml.appendChild(row);
+    });
+    ml.querySelectorAll('[data-ck]').forEach(cb => cb.onchange = () => {
+      list[+cb.dataset.ck].checked = cb.checked; saveList(); renderList();
+    });
+    ml.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+      list.splice(+b.dataset.del, 1); saveList(); renderList();
+    });
+  }
+}
+
+function addFromInput() {
+  const el = document.getElementById('additem'); const v = el.value.trim();
+  if (v) { addToList(v, 'manual'); el.value = ''; renderList(); }
+}
+document.getElementById('addbtn').onclick = addFromInput;
+document.getElementById('additem').addEventListener('keydown', e => { if (e.key === 'Enter') addFromInput(); });
 
 document.getElementById('resetbtn').onclick = () => {
   if (confirm('Clear all your local edits and exclusions?')) {
