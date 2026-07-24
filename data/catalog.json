@@ -1,0 +1,60 @@
+{
+  "globus-saatenbroetchen": {
+    "product_id": "globus-saatenbroetchen",
+    "brand": "GLOBUS",
+    "product_line": null,
+    "variant": null,
+    "product": "Saatenbrötchen (seeded bread rolls)",
+    "net_quantity": 3,
+    "unit": "piece",
+    "is_organic": false,
+    "category": "Bakery",
+    "is_own_brand": true,
+    "notes": "Standard pack of 3; observed with a temporary +1 gratis promo."
+  },
+  "jeden-tag-kidneybohnen": {
+    "product_id": "jeden-tag-kidneybohnen",
+    "brand": "Jeden Tag",
+    "product_line": null,
+    "variant": null,
+    "product": "Kidney beans (canned)",
+    "net_quantity": 400,
+    "unit": "g",
+    "drained_quantity": 255,
+    "drained_unit": "g",
+    "is_organic": false,
+    "category": "Pantry / Legumes",
+    "is_own_brand": false
+  },
+  "dallmayr-pad-classic": {
+    "product_id": "dallmayr-pad-classic",
+    "brand": "Dallmayr",
+    "product_line": "Pad",
+    "variant": "Classic",
+    "product": "Coffee pods",
+    "net_quantity": 16,
+    "unit": "piece",
+    "net_weight_g": 124,
+    "is_organic": false,
+    "category": "Coffee",
+    "is_own_brand": false,
+    "notes": "Standard pack 16 pads (124 g); observed with +2 gratis promo on IMG_5388.",
+    "enrichment": {
+      "source": "store label / website (not printed on receipt)",
+      "reference_unit_price": { "amount": 24.11, "per": "kg", "currency": "EUR" }
+    }
+  },
+  "palatina-wachtelbohnen": {
+    "product_id": "palatina-wachtelbohnen",
+    "brand": "Palatina",
+    "product_line": null,
+    "variant": null,
+    "product": "Wachtelbohnen (dried borlotti/cranberry beans)",
+    "net_quantity": 500,
+    "unit": "g",
+    "is_organic": false,
+    "category": "Pantry / Legumes",
+    "is_own_brand": false,
+    "notes": "Dried (not ready-to-eat)."
+  }
+}
