@@ -1,82 +1,456 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Grocery App Demo</title>
-    <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #f5f7fb;
-        margin: 0;
-        color: #14213d;
-      }
-      .phone {
-        max-width: 430px;
-        margin: 24px auto;
-        background: white;
-        border-radius: 24px;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.08);
-        overflow: hidden;
-      }
-      .header {
-        background: linear-gradient(135deg, #2a9d8f, #264653);
-        color: white;
-        padding: 20px;
-      }
-      .card {
-        padding: 16px 20px 20px;
-        border-bottom: 1px solid #eef2f7;
-      }
-      .metric {
-        font-size: 28px;
-        font-weight: 700;
-        margin: 6px 0;
-      }
-      .muted {
-        color: #6b7280;
-        font-size: 14px;
-      }
-      ul {
-        padding-left: 18px;
-        margin: 8px 0 0;
-      }
-      .pill {
-        display: inline-block;
-        background: #e9f7f3;
-        color: #2a9d8f;
-        padding: 6px 10px;
-        border-radius: 999px;
-        font-size: 12px;
-        font-weight: 600;
-        margin-top: 8px;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="phone">
-      <div class="header">
-        <div class="muted">Grocery App concept demo</div>
-        <h2>Personal inflation is rising</h2>
-        <div class="metric">+8.4%</div>
-        <div>Driven by butter, coffee, and olive oil</div>
-      </div>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Basket — grocery receipt intelligence</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface: #fcfcfb; --page: #f4f4f1; --card: #ffffff;
+    --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --baseline: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6; --series-1-soft: #cde2fb;
+    --series-2: #eb6834;
+    --good: #006300; --bad: #d03b3b; --warn: #b06a00;
+    --accent: #2a78d6;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface: #1a1a19; --page: #0d0d0d; --card: #1f1f1e;
+      --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.12);
+      --series-1: #3987e5; --series-1-soft: #184f95;
+      --series-2: #d95926;
+      --good: #0ca30c; --bad: #e34948; --warn: #fab219;
+      --accent: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface: #1a1a19; --page: #0d0d0d; --card: #1f1f1e;
+    --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.12);
+    --series-1: #3987e5; --series-1-soft: #184f95;
+    --series-2: #d95926;
+    --good: #0ca30c; --bad: #e34948; --warn: #fab219;
+    --accent: #3987e5;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { overflow-x: hidden; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.45; -webkit-font-smoothing: antialiased;
+    padding-bottom: calc(66px + env(safe-area-inset-bottom));
+  }
+  .app { max-width: 480px; margin: 0 auto; }
+  header.top {
+    padding: 18px 18px 8px; position: sticky; top: 0; z-index: 5;
+    background: linear-gradient(var(--page) 72%, transparent);
+  }
+  header.top h1 { margin: 0; font-size: 20px; letter-spacing: -0.02em; }
+  header.top .sub { color: var(--ink2); font-size: 13px; }
+  .view { padding: 6px 14px 20px; display: none; }
+  .view.active { display: block; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 15px; margin: 12px 0;
+  }
+  .card h2 { margin: 0 0 2px; font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+  .card .hint { color: var(--muted); font-size: 12px; margin: 1px 0 10px; }
 
-      <div class="card">
-        <div class="muted">Next likely needs</div>
-        <h3>Milk in 6 days</h3>
-        <ul>
-          <li>Coffee in 3 weeks</li>
-          <li>Bread in 4 days</li>
-        </ul>
-        <span class="pill">Predicted shopping list</span>
-      </div>
+  .hero { display: flex; gap: 10px; }
+  .hero .tile { flex: 1; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px; }
+  .tile .big { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+  .tile .lab { font-size: 11.5px; color: var(--ink2); margin-top: 2px; }
 
-      <div class="card">
-        <div class="muted">Own-brand opportunity</div>
-        <h3>34% of your spend is branded</h3>
-        <p>That is roughly €18/month in items with a store-brand alternative.</p>
+  .bars { display: flex; flex-direction: column; gap: 9px; margin-top: 4px; }
+  .bar-row { display: grid; grid-template-columns: 92px 1fr auto; align-items: center; gap: 9px; }
+  .bar-row .name { font-size: 13px; color: var(--ink2); overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .track { height: 16px; background: var(--grid); border-radius: 5px; overflow: hidden; }
+  .fill { height: 100%; background: var(--series-1); border-radius: 5px; min-width: 3px; }
+  .bar-row .val { font-size: 12.5px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  .spark { display: flex; align-items: flex-end; gap: 6px; height: 116px;
+    padding-top: 6px; border-bottom: 1px solid var(--baseline); }
+  .spark .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end;
+    align-items: center; gap: 4px; min-width: 0; }
+  .spark .sb { width: 100%; max-width: 30px; background: var(--series-1);
+    border-radius: 5px 5px 0 0; min-height: 3px; }
+  .xlabels { display: flex; gap: 6px; margin-top: 5px; }
+  .xlabels .col { flex: 1; text-align: center; font-size: 10px; color: var(--muted); }
+
+  .watch { display: flex; flex-direction: column; gap: 10px; }
+  .watch .item { display: flex; align-items: center; gap: 12px; }
+  .watch .id { flex: 1; min-width: 0; }
+  .watch .id .n { font-size: 14px; font-weight: 550; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .watch .id .s { font-size: 12px; color: var(--muted); }
+  .watch .delta { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .watch .delta .now { font-size: 14px; font-weight: 600; }
+  .watch .delta .chg { font-size: 12px; font-weight: 600; }
+  .up { color: var(--bad); } .down { color: var(--good); } .flat { color: var(--muted); }
+
+  .split { display: flex; height: 26px; border-radius: 7px; overflow: hidden; gap: 2px; }
+  .split > div { display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: #fff; font-weight: 600; min-width: 34px; }
+  .legend { display: flex; gap: 14px; margin-top: 9px; font-size: 12px; color: var(--ink2); align-items:center; }
+  .legend .k { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  .trip { margin: 14px 0; }
+  .trip .th { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .trip .th .d { font-weight: 600; font-size: 14px; }
+  .trip .th .t { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .line { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center;
+    padding: 9px 0; border-top: 1px solid var(--border); }
+  .line .pn { min-width: 0; }
+  .line .pn .t { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .line .pn .m { font-size: 11.5px; color: var(--muted); }
+  .line .amt { font-variant-numeric: tabular-nums; font-size: 14px; }
+  .line .acts { display: flex; gap: 6px; }
+  .iconbtn { border: 1px solid var(--border); background: var(--surface); color: var(--ink2);
+    border-radius: 8px; width: 30px; height: 30px; font-size: 14px; cursor: pointer;
+    display: grid; place-items: center; }
+  .iconbtn:active { transform: scale(.94); }
+  .line.excluded { opacity: .42; }
+  .line.excluded .amt { text-decoration: line-through; }
+  .badge { font-size: 10px; color: var(--warn); border: 1px solid var(--warn);
+    border-radius: 5px; padding: 0 4px; margin-left: 6px; vertical-align: 1px; }
+  .tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; margin-left: 6px;
+    background: var(--series-1-soft); color: var(--accent); vertical-align: 1px; }
+  .tag.bio { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
+
+  .scan-wrap { text-align: center; padding: 40px 20px; }
+  .scan-btn { width: 118px; height: 118px; border-radius: 50%; border: none; cursor: pointer;
+    background: var(--accent); color: #fff; font-size: 46px; margin: 0 auto 18px;
+    display: grid; place-items: center; box-shadow: 0 8px 26px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .scan-btn:active { transform: scale(.96); }
+  .scan-wrap h3 { margin: 6px 0 4px; }
+  .scan-wrap p { color: var(--ink2); font-size: 13.5px; max-width: 300px; margin: 6px auto; }
+
+  nav.tabbar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+    display: flex; background: color-mix(in srgb, var(--card) 92%, transparent);
+    backdrop-filter: saturate(1.2) blur(10px);
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom); }
+  nav.tabbar button { flex: 1; background: none; border: none; color: var(--muted);
+    padding: 9px 0 8px; font-size: 11px; cursor: pointer; display: flex;
+    flex-direction: column; align-items: center; gap: 3px; font-family: inherit; }
+  nav.tabbar button .ic { font-size: 20px; line-height: 1; }
+  nav.tabbar button.active { color: var(--accent); }
+
+  .tt { position: fixed; z-index: 30; background: var(--ink); color: var(--surface);
+    font-size: 12px; padding: 5px 8px; border-radius: 7px; pointer-events: none;
+    transform: translate(-50%,-115%); white-space: nowrap; opacity: 0; transition: opacity .1s; }
+  .foot { color: var(--muted); font-size: 11.5px; text-align: center; padding: 14px 20px 6px; }
+  .foot b { color: var(--ink2); font-weight: 600; }
+  .reset { color: var(--accent); font-size: 12px; background: none; border: none;
+    cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>Basket</h1>
+    <div class="sub" id="subhead">receipt intelligence · prototype</div>
+  </header>
+
+  <section class="view active" id="view-stats">
+    <div class="hero">
+      <div class="tile"><div class="big" id="s-total">–</div><div class="lab">spent (excl. deposits)</div></div>
+      <div class="tile"><div class="big" id="s-trips">–</div><div class="lab">shopping trips</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Spend over time</h2>
+      <div class="hint">each bar is one shopping trip</div>
+      <div class="spark" id="spark"></div>
+      <div class="xlabels" id="spark-x"></div>
+    </div>
+
+    <div class="card">
+      <h2>⚠ Price watch</h2>
+      <div class="hint">things you buy repeatedly whose unit price moved</div>
+      <div class="watch" id="watch"></div>
+    </div>
+
+    <div class="card">
+      <h2>Where the money goes</h2>
+      <div class="hint">by category · net of discounts</div>
+      <div class="bars" id="cats"></div>
+    </div>
+
+    <div class="card">
+      <h2>Own-brand vs brand</h2>
+      <div class="split" id="ownsplit"></div>
+      <div class="legend">
+        <span class="k"><span class="dot" style="background:var(--series-1)"></span>own-brand <b id="own-pct" style="margin-left:4px">–</b></span>
+        <span class="k"><span class="dot" style="background:var(--series-2)"></span>branded</span>
+        <span class="k" style="margin-left:auto">🌿 organic <b id="bio-pct">–</b></span>
       </div>
     </div>
-  </body>
+
+    <div class="hero">
+      <div class="tile"><div class="big" id="s-saved" style="color:var(--good)">–</div><div class="lab">saved via Personalrabatt</div></div>
+      <div class="tile"><div class="big" id="s-pfand">–</div><div class="lab">Pfand (deposit) net</div></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-scan">
+    <div class="scan-wrap">
+      <button class="scan-btn" id="scanbtn">📷</button>
+      <h3>Scan a receipt</h3>
+      <p id="scanmsg">Point your camera at a receipt to add it to your history.</p>
+    </div>
+  </section>
+
+  <section class="view" id="view-history">
+    <div class="card" style="margin-top:14px">
+      <h2>Past buys</h2>
+      <div class="hint">✏️ fix a wrong name · ⊘ exclude something that isn't yours
+        <button class="reset" id="resetbtn" style="float:right">reset edits</button></div>
+    </div>
+    <div id="history"></div>
+  </section>
+
+  <div class="foot" id="foot"></div>
+</div>
+
+<nav class="tabbar">
+  <button data-view="stats" class="active"><span class="ic">📊</span>Stats</button>
+  <button data-view="scan"><span class="ic">＋</span>Scan</button>
+  <button data-view="history"><span class="ic">🧾</span>History</button>
+</nav>
+<div class="tt" id="tt"></div>
+
+<script>
+const money = n => '€' + n.toFixed(2);
+const LS = { ex: 'basket.excluded', rn: 'basket.renames' };
+let excluded = new Set(JSON.parse(localStorage.getItem(LS.ex) || '[]'));
+let renames  = JSON.parse(localStorage.getItem(LS.rn) || '{}');
+const saveEx = () => localStorage.setItem(LS.ex, JSON.stringify([...excluded]));
+const saveRn = () => localStorage.setItem(LS.rn, JSON.stringify(renames));
+
+let DATA = null;
+
+function displayName(p, i) {
+  if (renames[i]) return renames[i];
+  if (p.product) return p.product;
+  return p.raw_name;
+}
+
+fetch('purchases.json')
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(d => { DATA = d; render(); })
+  .catch(() => {
+    document.getElementById('subhead').textContent =
+      'could not load purchases.json — serve over http (e.g. python -m http.server)';
+  });
+
+function activeProducts() {
+  return DATA.purchases
+    .map((p, i) => ({ ...p, _i: i }))
+    .filter(p => p.type === 'product' && !excluded.has(p._i));
+}
+
+function render() {
+  const meta = DATA.meta;
+  document.getElementById('subhead').textContent =
+    `${meta.receipts} receipts · GLOBUS · ${meta.date_range[0]} → ${meta.date_range[1]}`;
+
+  const prods = activeProducts();
+  const total = prods.reduce((s, p) => s + p.net_paid, 0);
+  const trips = new Set(prods.map(p => p.date)).size;
+  document.getElementById('s-total').textContent = money(total);
+  document.getElementById('s-trips').textContent = trips;
+
+  const saved = prods.reduce((s, p) => s + Math.abs(p.discount || 0), 0);
+  const pfand = DATA.purchases.filter(p => p.type !== 'product')
+    .reduce((s, p) => s + p.net_paid, 0);
+  document.getElementById('s-saved').textContent = money(saved);
+  document.getElementById('s-pfand').textContent = money(pfand);
+
+  renderSpend(prods);
+  renderWatch(prods);
+  renderCats(prods);
+  renderOwn(prods);
+  renderHistory();
+
+  document.getElementById('foot').innerHTML =
+    `Prototype demo. Data from <b>${meta.receipts} real receipts</b>, each reconciled to its printed total. ` +
+    `Live scanning is not wired up. Edits are stored only in this browser.`;
+}
+
+function renderSpend(prods) {
+  const byDate = {};
+  prods.forEach(p => byDate[p.date] = (byDate[p.date] || 0) + p.net_paid);
+  const days = Object.keys(byDate).sort();
+  const max = Math.max(...days.map(d => byDate[d]), 1);
+  const spark = document.getElementById('spark');
+  const xl = document.getElementById('spark-x');
+  spark.innerHTML = ''; xl.innerHTML = '';
+  days.forEach(d => {
+    const v = byDate[d];
+    const col = document.createElement('div'); col.className = 'col';
+    const sb = document.createElement('div'); sb.className = 'sb';
+    sb.style.height = Math.round(v / max * 92) + 'px';
+    hover(sb, `${d}: ${money(v)}`);
+    col.appendChild(sb); spark.appendChild(col);
+    const x = document.createElement('div'); x.className = 'col';
+    x.textContent = d.slice(5).replace('-', '/'); xl.appendChild(x);
+  });
+}
+
+function unitVal(p) {
+  if (p.unit_price && p.unit_price.amount) return { v: p.unit_price.amount, per: p.unit_price.per };
+  return { v: p.net_paid / (p.qty || 1), per: 'item' };
+}
+
+function renderWatch(prods) {
+  const g = {};
+  prods.forEach(p => { if (p.product_id) (g[p.product_id] = g[p.product_id] || []).push(p); });
+  const rows = [];
+  Object.values(g).forEach(list => {
+    const dates = [...new Set(list.map(p => p.date))].sort();
+    if (dates.length < 2) return;
+    const first = list.find(p => p.date === dates[0]);
+    const last  = list.find(p => p.date === dates[dates.length - 1]);
+    const a = unitVal(first), b = unitVal(last);
+    if (a.per !== b.per) return;
+    const pct = a.v ? (b.v - a.v) / a.v * 100 : 0;
+    rows.push({ name: last.product || last.raw_name, per: b.per, now: b.v, pct, times: list.length });
+  });
+  rows.sort((x, y) => Math.abs(y.pct) - Math.abs(x.pct));
+  const el = document.getElementById('watch');
+  if (!rows.length) { el.innerHTML = '<div class="hint">No repeat purchases yet — this fills in as you buy the same items again.</div>'; return; }
+  el.innerHTML = '';
+  rows.forEach(r => {
+    const dir = r.pct > 0.05 ? 'up' : r.pct < -0.05 ? 'down' : 'flat';
+    const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■';
+    const it = document.createElement('div'); it.className = 'item';
+    it.innerHTML =
+      `<div class="id"><div class="n">${esc(r.name)}</div>
+        <div class="s">bought ${r.times}× · per ${r.per}</div></div>
+       <div class="delta"><div class="now">${money(r.now)}<span style="font-size:11px;color:var(--muted)">/${r.per}</span></div>
+        <div class="chg ${dir}">${arrow} ${r.pct >= 0 ? '+' : ''}${r.pct.toFixed(1)}%</div></div>`;
+    el.appendChild(it);
+  });
+}
+
+function renderCats(prods) {
+  const c = {};
+  prods.forEach(p => { const k = (p.category || 'Other').split(' / ')[0]; c[k] = (c[k] || 0) + p.net_paid; });
+  let rows = Object.entries(c).sort((a, b) => b[1] - a[1]);
+  const TOP = 8;
+  if (rows.length > TOP + 1) {
+    const other = rows.slice(TOP).reduce((s, r) => s + r[1], 0);
+    rows = rows.slice(0, TOP); rows.push(['Other', other]);
+  }
+  const max = Math.max(...rows.map(r => r[1]), 1);
+  const el = document.getElementById('cats'); el.innerHTML = '';
+  rows.forEach(([k, v]) => {
+    const row = document.createElement('div'); row.className = 'bar-row';
+    row.innerHTML = `<div class="name">${esc(k)}</div>
+      <div class="track"><div class="fill" style="width:${Math.max(v / max * 100, 3)}%"></div></div>
+      <div class="val">${money(v)}</div>`;
+    hover(row.querySelector('.fill'), `${k}: ${money(v)}`);
+    el.appendChild(row);
+  });
+}
+
+function renderOwn(prods) {
+  let own = 0, bio = 0, tot = 0;
+  prods.forEach(p => { tot += p.net_paid; if (p.is_own_brand) own += p.net_paid; if (p.is_organic) bio += p.net_paid; });
+  const ownPct = tot ? own / tot * 100 : 0, brandPct = 100 - ownPct;
+  document.getElementById('ownsplit').innerHTML =
+    `<div style="flex:${Math.max(ownPct,6)};background:var(--series-1)">${ownPct.toFixed(0)}%</div>
+     <div style="flex:${Math.max(brandPct,6)};background:var(--series-2)">${brandPct.toFixed(0)}%</div>`;
+  document.getElementById('own-pct').textContent = ownPct.toFixed(0) + '%';
+  document.getElementById('bio-pct').textContent = (tot ? bio / tot * 100 : 0).toFixed(0) + '%';
+}
+
+function renderHistory() {
+  const trips = {};
+  DATA.purchases.forEach((p, i) => {
+    const key = p.source_image + '|' + p.date;
+    (trips[key] = trips[key] || { date: p.date, lines: [] }).lines.push({ p, i });
+  });
+  const order = Object.values(trips).sort((a, b) => b.date.localeCompare(a.date));
+  const host = document.getElementById('history'); host.innerHTML = '';
+  order.forEach(t => {
+    const card = document.createElement('div'); card.className = 'card trip';
+    const tot = t.lines.filter(x => x.p.type === 'product' && !excluded.has(x.i))
+      .reduce((s, x) => s + x.p.net_paid, 0);
+    let html = `<div class="th"><span class="d">${fmtDate(t.date)}</span><span class="t">${money(tot)}</span></div>`;
+    t.lines.forEach(({ p, i }) => {
+      const ex = excluded.has(i);
+      const dep = p.type !== 'product';
+      const tags = [];
+      if (p.is_own_brand) tags.push('<span class="tag">own-brand</span>');
+      if (p.is_organic) tags.push('<span class="tag bio">🌿 bio</span>');
+      if (dep) tags.push('<span class="badge">Pfand</span>');
+      const meta = dep ? 'deposit refund' :
+        [p.brand, p.qty > 1 ? '×' + p.qty : '', p.unit_price ? money(p.unit_price.amount) + '/' + p.unit_price.per : '']
+          .filter(Boolean).join(' · ');
+      html += `<div class="line ${ex ? 'excluded' : ''}">
+        <div class="pn"><div class="t">${esc(displayName(p, i))}${tags.join('')}</div>
+          <div class="m">${esc(meta)}</div></div>
+        <div class="amt">${money(p.net_paid)}</div>
+        <div class="acts">${dep ? '' :
+          `<button class="iconbtn" data-edit="${i}" title="rename">✏️</button>
+           <button class="iconbtn" data-ex="${i}" title="${ex ? 'include' : 'exclude'}">${ex ? '↩' : '⊘'}</button>`}
+        </div></div>`;
+    });
+    card.innerHTML = html; host.appendChild(card);
+  });
+  host.querySelectorAll('[data-ex]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.ex; excluded.has(i) ? excluded.delete(i) : excluded.add(i); saveEx(); render();
+  });
+  host.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.edit; const cur = displayName(DATA.purchases[i], i);
+    const v = prompt('Correct the item name:', cur);
+    if (v != null && v.trim()) { renames[i] = v.trim(); saveRn(); render(); }
+  });
+}
+
+document.getElementById('resetbtn').onclick = () => {
+  if (confirm('Clear all your local edits and exclusions?')) {
+    excluded = new Set(); renames = {}; saveEx(); saveRn(); render();
+  }
+};
+
+document.querySelectorAll('nav.tabbar button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav.tabbar button').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  b.classList.add('active');
+  document.getElementById('view-' + b.dataset.view).classList.add('active');
+  window.scrollTo(0, 0);
+});
+
+document.getElementById('scanbtn').onclick = () => {
+  const m = document.getElementById('scanmsg');
+  m.innerHTML = '<b style="color:var(--warn)">This is a concept demo — live scanning isn\'t wired up.</b><br>' +
+    'In the real pipeline a receipt photo is processed offline: parsed, reconciled to its printed total, then normalized into your history.';
+};
+
+const tt = document.getElementById('tt');
+function hover(el, text) {
+  el.addEventListener('pointerenter', () => {
+    tt.textContent = text; tt.style.opacity = '1';
+    const r = el.getBoundingClientRect();
+    tt.style.left = (r.left + r.width / 2) + 'px'; tt.style.top = r.top + 'px';
+  });
+  el.addEventListener('pointerleave', () => tt.style.opacity = '0');
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmtDate(d){ const [,m,day]=d.split('-'); return `${day} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]}`; }
+</script>
+</body>
 </html>
