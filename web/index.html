@@ -231,7 +231,7 @@
 
     <div class="card">
       <h2>Spend over time</h2>
-      <div class="hint">each bar is one shopping trip</div>
+      <div class="hint">monthly total · net of discounts</div>
       <div class="spark" id="spark"></div>
       <div class="xlabels" id="spark-x"></div>
     </div>
@@ -246,16 +246,6 @@
       <h2>Where the money goes</h2>
       <div class="hint">by category · net of discounts</div>
       <div class="bars" id="cats"></div>
-    </div>
-
-    <div class="card">
-      <h2>Own-brand vs brand</h2>
-      <div class="split" id="ownsplit"></div>
-      <div class="legend">
-        <span class="k"><span class="dot" style="background:var(--series-1)"></span>own-brand <b id="own-pct" style="margin-left:4px">–</b></span>
-        <span class="k"><span class="dot" style="background:var(--series-2)"></span>branded</span>
-        <span class="k" style="margin-left:auto">🌿 organic <b id="bio-pct">–</b></span>
-      </div>
     </div>
 
     <div class="hero">
@@ -303,6 +293,9 @@ const saveRn = () => localStorage.setItem(LS.rn, JSON.stringify(renames));
 let DATA = null, RECIPES = {}, TODAY = null;
 let list = JSON.parse(localStorage.getItem('basket.list') || '[]');
 const saveList = () => localStorage.setItem('basket.list', JSON.stringify(list));
+let catOverrides = JSON.parse(localStorage.getItem('basket.categories') || '{}');
+const saveCat = () => localStorage.setItem('basket.categories', JSON.stringify(catOverrides));
+const effCategory = p => (p.product_id && catOverrides[p.product_id]) || p.category || 'Other';
 
 function displayName(p, i) {
   if (renames[i]) return renames[i];
@@ -348,7 +341,6 @@ function render() {
   renderSpend(prods);
   renderWatch(prods);
   renderCats(prods);
-  renderOwn(prods);
   renderHistory();
   renderList();
 
@@ -357,23 +349,25 @@ function render() {
     `Live scanning is not wired up. Edits are stored only in this browser.`;
 }
 
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function monthLabel(m) { const [y, mo] = m.split('-'); return MON[+mo - 1] + " '" + y.slice(2); }
 function renderSpend(prods) {
-  const byDate = {};
-  prods.forEach(p => byDate[p.date] = (byDate[p.date] || 0) + p.net_paid);
-  const days = Object.keys(byDate).sort();
-  const max = Math.max(...days.map(d => byDate[d]), 1);
+  const byMonth = {};
+  prods.forEach(p => { const m = p.date.slice(0, 7); byMonth[m] = (byMonth[m] || 0) + p.net_paid; });
+  const months = Object.keys(byMonth).sort();
+  const max = Math.max(...months.map(m => byMonth[m]), 1);
   const spark = document.getElementById('spark');
   const xl = document.getElementById('spark-x');
   spark.innerHTML = ''; xl.innerHTML = '';
-  days.forEach(d => {
-    const v = byDate[d];
+  months.forEach(m => {
+    const v = byMonth[m];
     const col = document.createElement('div'); col.className = 'col';
     const sb = document.createElement('div'); sb.className = 'sb';
     sb.style.height = Math.round(v / max * 92) + 'px';
-    hover(sb, `${d}: ${money(v)}`);
+    hover(sb, `${monthLabel(m)}: ${money(v)}`);
     col.appendChild(sb); spark.appendChild(col);
     const x = document.createElement('div'); x.className = 'col';
-    x.textContent = d.slice(5).replace('-', '/'); xl.appendChild(x);
+    x.textContent = monthLabel(m); xl.appendChild(x);
   });
 }
 
@@ -415,7 +409,7 @@ function renderWatch(prods) {
 
 function renderCats(prods) {
   const c = {};
-  prods.forEach(p => { const k = (p.category || 'Other').split(' / ')[0]; c[k] = (c[k] || 0) + p.net_paid; });
+  prods.forEach(p => { const k = effCategory(p).split(' / ')[0]; c[k] = (c[k] || 0) + p.net_paid; });
   let rows = Object.entries(c).sort((a, b) => b[1] - a[1]);
   const TOP = 8;
   if (rows.length > TOP + 1) {
@@ -432,17 +426,6 @@ function renderCats(prods) {
     hover(row.querySelector('.fill'), `${k}: ${money(v)}`);
     el.appendChild(row);
   });
-}
-
-function renderOwn(prods) {
-  let own = 0, bio = 0, tot = 0;
-  prods.forEach(p => { tot += p.net_paid; if (p.is_own_brand) own += p.net_paid; if (p.is_organic) bio += p.net_paid; });
-  const ownPct = tot ? own / tot * 100 : 0, brandPct = 100 - ownPct;
-  document.getElementById('ownsplit').innerHTML =
-    `<div style="flex:${Math.max(ownPct,6)};background:var(--series-1)">${ownPct.toFixed(0)}%</div>
-     <div style="flex:${Math.max(brandPct,6)};background:var(--series-2)">${brandPct.toFixed(0)}%</div>`;
-  document.getElementById('own-pct').textContent = ownPct.toFixed(0) + '%';
-  document.getElementById('bio-pct').textContent = (tot ? bio / tot * 100 : 0).toFixed(0) + '%';
 }
 
 function renderHistory() {
@@ -466,7 +449,7 @@ function renderHistory() {
       if (p.is_organic) tags.push('<span class="tag bio">🌿 bio</span>');
       if (dep) tags.push('<span class="badge">Pfand</span>');
       const meta = dep ? 'deposit refund' :
-        [p.brand, p.qty > 1 ? '×' + p.qty : '', p.unit_price ? money(p.unit_price.amount) + '/' + p.unit_price.per : '']
+        [p.brand, effCategory(p), p.qty > 1 ? '×' + p.qty : '', p.unit_price ? money(p.unit_price.amount) + '/' + p.unit_price.per : '']
           .filter(Boolean).join(' · ');
       html += `<div class="line ${ex ? 'excluded' : ''}">
         <div class="pn"><div class="t">${esc(displayName(p, i))}${tags.join('')}</div>
@@ -474,6 +457,7 @@ function renderHistory() {
         <div class="amt">${money(p.net_paid)}</div>
         <div class="acts">${dep ? '' :
           `<button class="iconbtn" data-edit="${i}" title="rename">✏️</button>
+           <button class="iconbtn" data-cat="${i}" title="change category">🏷️</button>
            <button class="iconbtn" data-ex="${i}" title="${ex ? 'include' : 'exclude'}">${ex ? '↩' : '⊘'}</button>`}
         </div></div>`;
     });
@@ -486,6 +470,14 @@ function renderHistory() {
     const i = +b.dataset.edit; const cur = displayName(DATA.purchases[i], i);
     const v = prompt('Correct the item name:', cur);
     if (v != null && v.trim()) { renames[i] = v.trim(); saveRn(); render(); }
+  });
+  host.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.cat; const p = DATA.purchases[i];
+    const v = prompt('Category for ' + displayName(p, i) + ':', effCategory(p));
+    if (v != null && v.trim()) {
+      if (p.product_id) catOverrides[p.product_id] = v.trim();
+      saveCat(); render();
+    }
   });
 }
 
@@ -589,8 +581,9 @@ document.getElementById('addbtn').onclick = addFromInput;
 document.getElementById('additem').addEventListener('keydown', e => { if (e.key === 'Enter') addFromInput(); });
 
 document.getElementById('resetbtn').onclick = () => {
-  if (confirm('Clear all your local edits and exclusions?')) {
-    excluded = new Set(); renames = {}; saveEx(); saveRn(); render();
+  if (confirm('Clear all your local edits, category changes and exclusions?')) {
+    excluded = new Set(); renames = {}; catOverrides = {};
+    saveEx(); saveRn(); saveCat(); render();
   }
 };
 
