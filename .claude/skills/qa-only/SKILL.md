@@ -1,0 +1,1 @@
+/Users/parham/dev/gstack-src/qa-only/SKILL.md

@@ -1,0 +1,1 @@
+/Users/parham/dev/gstack-src/devex-review/SKILL.md

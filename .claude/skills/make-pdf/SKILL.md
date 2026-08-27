@@ -1,0 +1,1 @@
+/Users/parham/dev/gstack-src/make-pdf/SKILL.md

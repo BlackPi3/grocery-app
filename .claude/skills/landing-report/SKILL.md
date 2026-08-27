@@ -1,0 +1,1 @@
+/Users/parham/dev/gstack-src/landing-report/SKILL.md

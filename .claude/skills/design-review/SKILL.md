@@ -1,0 +1,1 @@
+/Users/parham/dev/gstack-src/design-review/SKILL.md

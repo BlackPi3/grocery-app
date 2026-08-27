@@ -1,0 +1,1 @@
+/Users/parham/dev/gstack-src/guard/SKILL.md

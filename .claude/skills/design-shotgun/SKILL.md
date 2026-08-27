@@ -1,0 +1,1 @@
+/Users/parham/dev/gstack-src/design-shotgun/SKILL.md

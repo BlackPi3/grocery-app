@@ -1,0 +1,1 @@
+/Users/parham/dev/gstack-src/setup-browser-cookies/SKILL.md

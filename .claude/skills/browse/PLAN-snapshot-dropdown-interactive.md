@@ -1,0 +1,1 @@
+/Users/parham/dev/gstack-src/browse/PLAN-snapshot-dropdown-interactive.md

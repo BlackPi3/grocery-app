@@ -87,6 +87,11 @@ Therefore, by default in this repository:
 - Review and critique what I write; be direct about mistakes.
 - If I explicitly say "do it" / "write this for me", then go ahead and implement.
 
+## gstack
+Use the `/browse` skill from gstack for all web browsing in this project. Never use `mcp__claude-in-chrome__*` tools.
+
+Available gstack skills: `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-design-review`, `/design-consultation`, `/design-shotgun`, `/design-html`, `/review`, `/ship`, `/land-and-deploy`, `/canary`, `/benchmark`, `/browse`, `/connect-chrome`, `/qa`, `/qa-only`, `/design-review`, `/setup-browser-cookies`, `/setup-deploy`, `/setup-gbrain`, `/retro`, `/investigate`, `/document-release`, `/document-generate`, `/codex`, `/cso`, `/autoplan`, `/plan-devex-review`, `/devex-review`, `/careful`, `/freeze`, `/guard`, `/unfreeze`, `/gstack-upgrade`, `/learn`.
+
 ## Notes for AI assistance
 When helping with this repository:
 - keep the portfolio goal in mind
