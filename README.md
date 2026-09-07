@@ -1,57 +1,40 @@
 # Grocery App
 
-This project is a portfolio scaffold for a receipt-first grocery intelligence app.
+Turns grocery receipts into an item-level purchase history with spending insights.
 
-## Vision
+## Goal
 
-The long-term product reads grocery receipts, builds item-level purchase history, and surfaces insights that banks and supermarket apps cannot:
+Supermarket and banking apps show what a shop cost, not what was bought. The goal here is the item level:
+what I actually buy, how often, and how the price of those items moves over time.
 
-- personal inflation by basket
-- repurchase cadence and predicted needs
-- own-brand vs brand spend
-- store-to-store price comparison
+Pipeline: receipt photo -> extraction -> normalization against a product catalog -> purchase history -> insights.
 
-The architecture is intentionally split so the hard parts stay reusable:
+## Current state (work in progress)
 
-1. receipt parsing
-2. product normalization
-3. purchase history and insight generation
-4. demo UI
+- **Extraction**: receipt photos are read with an LLM, currently driven by a prompt I run over a batch of receipts. The extracted receipts live in `data/gold`, gitignored because they are my own shopping.
+- **Normalization**: a Python layer that resolves raw receipt lines to a product catalog (`data/catalog.json`) through a resolution map (`data/resolution_map.json`), so the same item is recognised across stores and spellings.
+- **Purchase history**: `purchases.json`, built from the extracted receipts by the normalization layer.
+- **Demo**: a self-contained static web page (`web/index.html`) presenting the history in a mobile-style layout.
 
-## Current state
+## Next
 
-This repository contains:
-
-- a Python package for parsing and normalizing receipts
-- a CLI for generating structured JSON artifacts
-- a self-contained HTML demo for mobile-style presentation
-
-## Pipeline
-
-```text
-receipts/*.jpg
-  -> parser
-  -> parsed.json
-  -> normalizer
-  -> purchases.json
-  -> web demo / future iOS app
-```
-
-## Accuracy note
-
-The parsing layer is intentionally honest. The current implementation is a structured baseline, not a production OCR engine. The repository is designed so accuracy can be measured and reported clearly as the project matures.
+- Bring the LLM extraction call into the pipeline so a photo goes end to end without a manual step.
+  Groundwork is in: a hand-transcribed held-out set (`data/holdout/`, gitignored) and an evaluation
+  harness that scores extraction per store and per field — see `docs/receipt-quirks.md` for what
+  real receipts turned out to require.
+- Serve the history through a FastAPI backend on PostgreSQL, replacing the JSON artifacts.
+- Test suite around the normalization layer, then CI on every push.
+- Insights on top of the history: personal inflation per basket, repurchase cadence, own-brand vs brand spend.
 
 ## Run locally
 
 ```bash
-cd /Users/parham/Desktop/grocery-app
 python3 -m pip install -e .
-PYTHONPATH=src python3 -m grocery_app.cli parse --input data/samples/receipt.txt --output data/samples/parsed.json
-PYTHONPATH=src python3 -m grocery_app.cli normalize --input data/samples/parsed.json --output data/samples/purchases.json
-```
-
-Then open the web page in a browser:
-
-```bash
+# build the purchase history from extracted receipts
+PYTHONPATH=src python3 -m grocery_app.cli purchases
+# score a directory of extracted receipts against the held-out set
+PYTHONPATH=src python3 -m grocery_app.cli eval --pred-dir <dir>
+# tests
+PYTHONPATH=src python3 -m pytest
 open web/index.html
 ```
