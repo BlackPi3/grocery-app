@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from grocery_app.evaluate import evaluate, format_report
+from grocery_app.extract import DEFAULT_MODEL, PROMPT_VERSION, extract_directory
 from grocery_app.normalizer import build_purchases, save_json
 
 
@@ -37,6 +38,17 @@ def main() -> None:
     )
     e.add_argument("--json", action="store_true", help="Emit the raw report as JSON")
 
+    x = subparsers.add_parser(
+        "extract",
+        help="Extract structured receipts from photos with a vision model",
+    )
+    x.add_argument("--images", default="data/holdout/images", help="Directory of receipt photos")
+    x.add_argument("--out", default="data/extracted",
+                   help="Base output dir; results land in <out>/<model>/<prompt version>/")
+    x.add_argument("--model", default=DEFAULT_MODEL)
+    x.add_argument("--force", action="store_true", help="Re-extract even if a cached result exists")
+    x.add_argument("--limit", type=int, default=None, help="Only process the first N images")
+
     args = parser.parse_args()
 
     if args.command == "purchases":
@@ -52,6 +64,17 @@ def main() -> None:
             print(f"  UNRESOLVED:     {meta['unresolved_items']}")
         else:
             print("  unresolved:     none — every item resolved")
+
+    if args.command == "extract":
+        print(f"Extracting with {args.model} (prompt {PROMPT_VERSION}) -> {args.out}")
+        summary = extract_directory(
+            args.images, args.out, model=args.model, force=args.force, limit=args.limit
+        )
+        print(
+            f"\n{summary['extracted']} extracted, {summary['cached']} cached, "
+            f"{summary['failed']} failed, ${summary['cost_usd']:.3f} this run"
+        )
+        print(f"Score with: grocery-app eval --pred-dir {summary['out_dir']}")
 
     if args.command == "eval":
         report = evaluate(args.truth_dir, args.pred_dir, tuple(args.exclude_store))

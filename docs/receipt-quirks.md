@@ -12,12 +12,14 @@ SVG Autohof, Eifel West.
 
 | Quirk | Lidl / ALDI SÜD | Globus |
 |---|---|---|
-| Tax class notation | letters (`A`, `B`) | printed rate (`7%`, `19%`) |
+| Tax class notation | letters (`A`, `B`) | digits (`1` = 19%, `2` = 7%) |
 | Umlauts | printed correctly (`Schokokränze`) | **printed as `?`** (`SAATENBR?TCHEN`) |
 | Line discounts | occasional (Preisvorteil) | on nearly every line (personal discount) |
 
-The letter→rate mapping is printed in the receipt footer and **differs by chain**.
-At Lidl: `A` = 7%, `B` = 19%. Do not assume this holds elsewhere; read the footer.
+The symbol→rate mapping is printed in the receipt footer and **differs by chain**:
+Lidl `A` = 7%, `B` = 19%; Globus `1` = 19%, `2` = 7%. Ground truth records the symbol
+as printed; mapping it to a rate is the normalizer's job. (The first transcription
+pass wrote Globus's resolved rates; the first extraction run caught that.)
 
 ## Transcription convention
 
@@ -83,6 +85,23 @@ is a normalizer gap, not a parser one, and it does not exist yet.
    These parse fine but can never resolve to a catalog product — a normalizer
    problem, not a parser one, and a good argument for scoring extraction and
    resolution separately.
+## Model failure modes observed (claude-opus-5, prompt v1, 2026-08-30)
+
+Five errors in 180 lines, all verified against the photos:
+
+- **Brand names get "repaired" into dictionary words.** `Manner` (a wafer
+  brand) became `Männer`. The literal-transcription rule in the prompt did not
+  stop it. This is the mirror image of the `?`-for-umlaut case: the model added
+  an umlaut a Globus printer cannot even produce.
+- **Own-brand prefixes on poor print.** `JT` (Globus's "Jeden Tag" line) read as
+  `GT` twice on one faded receipt; correct on three cleaner ones. A normalizer
+  that knows the chain's own-brand prefixes could absorb this.
+- **One tax-class misread** (`B` as `A`) on a 31-line ALDI receipt.
+
+What did *not* fail, across 15 receipts: no line missed, none invented (the
+Sofortstorno receipt was handled correctly), every price and quantity exact,
+every header field exact.
+
 ## Size range
 
 2 to 31 line items. The long ones matter — a model that drops or duplicates a

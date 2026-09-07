@@ -7,3 +7,4 @@ venv/
 data/samples/receipt_images/
 data/gold/
 data/holdout/
+data/extracted/

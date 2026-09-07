@@ -132,6 +132,17 @@ def test_stores_are_grouped_case_insensitively(tmp_path):
     assert report["store_name_variants"], "the inconsistency should still be surfaced"
 
 
+def test_meta_sidecars_are_not_mistaken_for_receipts(tmp_path):
+    """extract writes IMG_x.meta.json next to IMG_x.json; only the latter is a receipt."""
+    pred = write(tmp_path / "pred", receipt("IMG_1.jpeg"))
+    (pred / "IMG_1.meta.json").write_text(
+        json.dumps({"source_image": "IMG_1.jpeg", "usage": {}}), encoding="utf-8"
+    )
+    truth = write(tmp_path / "truth", receipt("IMG_1.jpeg"))
+    report = evaluate(truth, pred)
+    assert report["totals"]["exact_receipts"] == 1
+
+
 def test_excluded_store_leaves_the_totals(tmp_path):
     truth = write(
         tmp_path / "truth",
