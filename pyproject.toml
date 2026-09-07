@@ -3,7 +3,7 @@ name = "grocery-app"
 version = "0.1.0"
 description = "Grocery receipt extraction, normalization, and purchase-history insights"
 requires-python = ">=3.11"
-dependencies = ["anthropic>=1.4"]
+dependencies = ["anthropic>=1.4", "pillow>=10"]
 
 [project.scripts]
 grocery-app = "grocery_app.cli:main"

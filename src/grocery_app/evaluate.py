@@ -32,6 +32,8 @@ def load_receipts(directory: str | Path) -> dict[str, dict[str, Any]]:
     """Load receipts from a directory, keyed by the image they came from."""
     receipts = {}
     for path in sorted(Path(directory).glob("*.json")):
+        if path.name.endswith(".meta.json"):
+            continue  # extraction sidecar (usage, cost), not a receipt
         data = json.loads(path.read_text(encoding="utf-8"))
         receipts[data.get("source_image", path.stem)] = data
     return receipts
