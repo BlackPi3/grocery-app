@@ -22,7 +22,8 @@ the converter derives unit prices, nets, and totals:
     TOTAL 33.41
 
 Product lines are `name | qty | price` with two optional trailing fields, in
-any order: a discount (starts with `-`) and a tax class (`7%`, `19%`, `A`, `B`).
+any order: a discount (starts with `-`) and a tax class as printed (`A`, `B`,
+`1`, `2`, or a rate like `7%`).
 The price is always the printed line total, not the per-unit price.
 
 Quantity is a count (`1`, `3`), a bare weight (`0.208kg`) when the receipt shows
@@ -57,7 +58,7 @@ WEIGHT_QTY = re.compile(
 )
 BARE_WEIGHT = re.compile(r"^([\d.,]+)\s*(kg|g)$", re.IGNORECASE)
 COUNT_QTY = re.compile(r"^([\d.,]+)\s*[@*x]\s*([\d.,]+)$", re.IGNORECASE)
-TAX_CLASS = re.compile(r"^(\d{1,2}\s*%|[A-Z])$", re.IGNORECASE)
+TAX_CLASS = re.compile(r"^(\d{1,2}\s*%|[A-Z]|\d)$", re.IGNORECASE)  # 7%, A, or Globus's 1/2
 
 
 class TranscriptionError(Exception):

@@ -162,7 +162,13 @@ it's a personal script.
   If non-GLOBUS receipts in the held-out set score poorly, that's expected
   and out-of-scope for this pass, not a bug — this design only commits to
   GLOBUS working well.
-- LLM vision cost and latency per call are unestimated. Since the evaluation
+- ~~LLM vision cost and latency per call are unestimated.~~ **Measured
+  2026-08-30:** `claude-opus-5`, one call per photo, averages $0.07 and ~20 s
+  per receipt ($0.02 for a 2-line receipt, $0.14 and ~40 s for a 31-line one).
+  A full 17-receipt run is about $1.10. Output tokens (JSON plus the model's
+  thinking) dominate the cost; the system prompt is cached after the first
+  call. Results are cached per image, model and prompt version, so re-scoring
+  after a ground-truth correction costs nothing. Since the evaluation
   harness re-runs the held-out set repeatedly during iteration, this is a
   real recurring cost, not a one-time one — get a rough per-call cost/latency
   number before committing to running the harness on every change.
@@ -185,6 +191,39 @@ the 9 in `data/gold/`) is small — accuracy deltas between parser versions
 will be noisy at that sample size, especially skewed toward GLOBUS's format.
 Treat early numbers as directional, not final; grow the held-out set over
 time rather than trusting a single run's percentage.
+
+### First measured result (2026-08-30)
+
+`claude-opus-5`, prompt v1, scored against the 15 grocery receipts of the
+held-out set (180 line items; the two fuel-stop receipts excluded):
+
+| metric | result |
+|---|---|
+| lines missed / invented | 0 / 0 |
+| quantity exact | 100% |
+| price (net) exact | 100% |
+| store, date, printed total | 15/15 each |
+| item name exact | 98.3% (177/180) |
+| tax class exact | 99.4% (179/180) |
+| receipts fully correct | 12/15 (80%) |
+
+The remaining errors are all the model's, verified against the photos: `JT`
+read as `GT` twice on one badly printed Globus receipt (`JT` = the "Jeden Tag"
+own brand, read correctly on three other receipts), the brand `Manner`
+"repaired" to the German word `Männer`, and one ALDI tax class (`B` read as
+`A` on a juice). The reversed-line (Sofortstorno) receipt was handled
+correctly: both voided lines dropped, total reconciled.
+
+The first run also audited the answer key: of 12 initial name disagreements,
+9 turned out to be transcription errors (typos, German commas written as
+points inside names, Globus tax classes written as resolved rates rather than
+the printed `1`/`2`). Each was checked against the photo before the ground
+truth was changed — never corrected toward the model's output.
+
+Provisional accuracy target, now that a baseline exists: hold line-level
+price/quantity at 100% and missed/invented at 0 (these are what corrupt
+`purchases.json`); treat item-name exactness as the metric to improve, since
+its failures are what the normalizer has to absorb.
 
 ### Evaluation Methodology
 
