@@ -192,38 +192,63 @@ will be noisy at that sample size, especially skewed toward GLOBUS's format.
 Treat early numbers as directional, not final; grow the held-out set over
 time rather than trusting a single run's percentage.
 
-### First measured result (2026-08-30)
+### First measured results (2026-08-30)
 
-`claude-opus-5`, prompt v1, scored against the 15 grocery receipts of the
-held-out set (180 line items; the two fuel-stop receipts excluded):
+Prompt v1, scored against the 15 grocery receipts of the held-out set (180
+line items; the two fuel-stop receipts excluded from the totals). Both models
+ran the same prompt, tuned for neither.
 
-| metric | result |
-|---|---|
-| lines missed / invented | 0 / 0 |
-| quantity exact | 100% |
-| price (net) exact | 100% |
-| store, date, printed total | 15/15 each |
-| item name exact | 98.3% (177/180) |
-| tax class exact | 99.4% (179/180) |
-| receipts fully correct | 12/15 (80%) |
+| metric | claude-opus-5 | claude-sonnet-5 |
+|---|---|---|
+| errors in 180 lines | 6 | **1** |
+| lines missed / invented | 0 / 0 | 0 / 0 |
+| price (net) exact | 100% | 100% |
+| quantity exact | **100%** | 99.4% |
+| item name exact | 97.2% | **100%** |
+| tax class exact | 99.4% | **100%** |
+| store, date, printed total | 15/15 | 15/15 |
+| receipts fully correct | 10/15 | **14/15** |
+| cost per receipt | $0.067 | **$0.034** |
+| latency per receipt | ~19 s | ~21 s |
 
-The remaining errors are all the model's, verified against the photos: `JT`
-read as `GT` twice on one badly printed Globus receipt (`JT` = the "Jeden Tag"
-own brand, read correctly on three other receipts), the brand `Manner`
-"repaired" to the German word `Männer`, and one ALDI tax class (`B` read as
-`A` on a juice). The reversed-line (Sofortstorno) receipt was handled
-correctly: both voided lines dropped, total reconciled.
+**Sonnet 5 is the default**: fewer errors at half the cost. The result was not
+expected and is worth stating precisely.
 
-The first run also audited the answer key: of 12 initial name disagreements,
-9 turned out to be transcription errors (typos, German commas written as
-points inside names, Globus tax classes written as resolved rates rather than
-the printed `1`/`2`). Each was checked against the photo before the ground
-truth was changed — never corrected toward the model's output.
+**Opus's failure mode is that it tidies what it reads.** All five of its name
+errors produce a *cleaner* string than the paper: the brand `Manner` becomes
+the German word `Männer`, an `NP` suffix is dropped, the `Retoure` prefix on
+an empties return is dropped, and `JT` (Globus's "Jeden Tag" own brand) reads
+as `GT` on a faded receipt. This is the "helpful repair" instinct that
+`receipt-quirks.md` predicted, and it is exactly wrong for transcription.
+Sonnet copies what is printed.
 
-Provisional accuracy target, now that a baseline exists: hold line-level
-price/quantity at 100% and missed/invented at 0 (these are what corrupt
-`purchases.json`); treat item-name exactness as the metric to improve, since
-its failures are what the normalizer has to absorb.
+**Sonnet's single error is the more dangerous class.** On `SAATENBR?TCHEN 3+1`
+it read `qty: 2`, taking the tax-class digit as a quantity — Globus prints the
+digit directly after the price with no column separation. It also emitted
+`unit_gross` equal to `gross` for that line, which cannot hold for two units,
+so a per-line arithmetic check would catch it. A wrong name is absorbed by the
+normalizer; a wrong quantity flows straight into spend and cadence. Watch this
+as the held-out set grows.
+
+**Both runs audited the answer key, which is the harness's second job.** Of 14
+name disagreements across the two runs, 11 were transcription errors: typos,
+German commas written as decimal points inside names, Globus tax classes
+recorded as resolved rates rather than the printed `1`/`2`, a dropped `NP`
+suffix. Each was verified against the photo before ground truth changed.
+
+One correction was made improperly and is worth recording: after the first run,
+`Retoure Leergut Getr?nke EW` was shortened to match Opus's reading without the
+photo confirming it. That edit inflated Opus's score, and it stood until the
+second model disagreed and the photo settled it. This is precisely the failure
+the rule prevents — **ground truth changes only when the photo says so, never
+to match a model** — and it argues for scoring more than one model whenever the
+answer key is young.
+
+**Accuracy targets, now that a baseline exists:** hold price and quantity at
+100% and missed/invented at 0, since those are what corrupt `purchases.json`.
+Item-name exactness is the metric to improve, because its failures are what the
+normalizer must absorb. These numbers come from 180 lines and one prompt; treat
+a difference of a few errors as directional, not settled.
 
 ### Evaluation Methodology
 

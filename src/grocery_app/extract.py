@@ -28,7 +28,11 @@ from typing import Any
 import anthropic
 from PIL import Image, ImageOps
 
-DEFAULT_MODEL = "claude-opus-5"
+# Measured on the held-out set: Sonnet 5 made 1 error in 180 lines to Opus 5's 6,
+# at half the cost. Opus tends to "repair" what it reads (brand names corrected
+# into dictionary words, suffixes dropped), which is wrong for transcription.
+# See docs/designs/receipt-ingestion-pipeline.md.
+DEFAULT_MODEL = "claude-sonnet-5"
 PROMPT_VERSION = "v1"
 
 # Server-side refusal fallbacks are only accepted on these models; Sonnet and

@@ -85,22 +85,36 @@ is a normalizer gap, not a parser one, and it does not exist yet.
    These parse fine but can never resolve to a catalog product — a normalizer
    problem, not a parser one, and a good argument for scoring extraction and
    resolution separately.
-## Model failure modes observed (claude-opus-5, prompt v1, 2026-08-30)
+## Model failure modes observed (prompt v1, 2026-08-30)
 
-Five errors in 180 lines, all verified against the photos:
+Both models read all 15 grocery receipts with **no line missed and none
+invented**, every price exact, and every header field exact. The Sofortstorno
+receipt was handled correctly by both: the voided lines were dropped and the
+total reconciled. What differed was how they treat the text.
 
-- **Brand names get "repaired" into dictionary words.** `Manner` (a wafer
-  brand) became `Männer`. The literal-transcription rule in the prompt did not
-  stop it. This is the mirror image of the `?`-for-umlaut case: the model added
-  an umlaut a Globus printer cannot even produce.
-- **Own-brand prefixes on poor print.** `JT` (Globus's "Jeden Tag" line) read as
-  `GT` twice on one faded receipt; correct on three cleaner ones. A normalizer
-  that knows the chain's own-brand prefixes could absorb this.
-- **One tax-class misread** (`B` as `A`) on a 31-line ALDI receipt.
+**claude-opus-5 — 6 errors, five of them "repairs".** Every name error made the
+string *cleaner* than the paper:
 
-What did *not* fail, across 15 receipts: no line missed, none invented (the
-Sofortstorno receipt was handled correctly), every price and quantity exact,
-every header field exact.
+- `Manner` (a wafer brand) became `Männer`, a German word — on a Globus receipt
+  whose printer cannot produce an umlaut at all.
+- `ff Cracker Chilli NP` lost its `NP` suffix; `Retoure Leergut …` lost its
+  `Retoure` prefix. Both are printed.
+- `JT` (Globus's "Jeden Tag" own brand) read as `GT` twice on one faded
+  receipt, correct on three cleaner ones.
+
+The prompt already says "transcribe literally, never repair" and it was not
+enough. Assume a capable model will normalise unless measured otherwise.
+
+**claude-sonnet-5 — 1 error, in the more dangerous class.** It read `qty: 2` on
+`SAATENBR?TCHEN 3+1`, taking Globus's tax-class digit as a quantity: Globus
+prints the digit directly after the price with no column separation, and
+prints real quantities elsewhere on the line. The same line came back with
+`unit_gross` equal to `gross`, impossible for two units — so a per-line
+arithmetic check (`unit_gross x qty == gross`) would catch this class of error
+without any extra model call. Worth adding.
+
+**Implication for prompt v2:** name-level repair is the systematic issue, and a
+per-line arithmetic check is cheap insurance against the quantity class.
 
 ## Size range
 
