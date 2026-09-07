@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
+from grocery_app.evaluate import evaluate, format_report
 from grocery_app.normalizer import build_purchases, save_json
 
 
@@ -19,6 +21,22 @@ def main() -> None:
     p.add_argument("--resolution-map", default="data/resolution_map.json")
     p.add_argument("--output", default="data/purchases.json")
 
+    e = subparsers.add_parser(
+        "eval",
+        help="Score extracted receipts against the hand-transcribed held-out set",
+    )
+    e.add_argument("--truth-dir", default="data/holdout")
+    e.add_argument("--pred-dir", required=True, help="Directory of extracted receipt JSON")
+    e.add_argument(
+        "--exclude-store",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="Store to leave out of the totals (repeatable). Use for non-grocery "
+             "receipts kept in the set for format variety.",
+    )
+    e.add_argument("--json", action="store_true", help="Emit the raw report as JSON")
+
     args = parser.parse_args()
 
     if args.command == "purchases":
@@ -34,6 +52,13 @@ def main() -> None:
             print(f"  UNRESOLVED:     {meta['unresolved_items']}")
         else:
             print("  unresolved:     none — every item resolved")
+
+    if args.command == "eval":
+        report = evaluate(args.truth_dir, args.pred_dir, tuple(args.exclude_store))
+        if args.json:
+            print(json.dumps(report, indent=2, ensure_ascii=False))
+        else:
+            print(format_report(report))
 
 
 if __name__ == "__main__":
