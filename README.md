@@ -29,12 +29,16 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 ## Run locally
 
 ```bash
-python3 -m pip install -e .
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+source .venv/bin/activate
+
 # build the purchase history from extracted receipts
-PYTHONPATH=src python3 -m grocery_app.cli purchases
+grocery-app purchases
 # score a directory of extracted receipts against the held-out set
-PYTHONPATH=src python3 -m grocery_app.cli eval --pred-dir <dir>
+grocery-app eval --pred-dir <dir>
 # tests
-PYTHONPATH=src python3 -m pytest
+pytest
 open web/index.html
 ```
+
+Extraction calls the Claude API and reads `ANTHROPIC_API_KEY` from the environment.
