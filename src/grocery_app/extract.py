@@ -28,8 +28,16 @@ from typing import Any
 import anthropic
 from PIL import Image, ImageOps
 
-DEFAULT_MODEL = "claude-opus-5"
+# Measured on the held-out set: Sonnet 5 made 1 error in 180 lines to Opus 5's 6,
+# at half the cost. Opus tends to "repair" what it reads (brand names corrected
+# into dictionary words, suffixes dropped), which is wrong for transcription.
+# See docs/designs/receipt-ingestion-pipeline.md.
+DEFAULT_MODEL = "claude-sonnet-5"
 PROMPT_VERSION = "v1"
+
+# Server-side refusal fallbacks are only accepted on these models; Sonnet and
+# Haiku reject the parameter with a 400.
+FALLBACK_MODELS = {"claude-opus-5", "claude-fable-5", "claude-fable-5-1"}
 
 # Opus 5 / Sonnet 5 accept up to 2576 px on the long edge; anything larger is
 # downscaled server-side anyway, so sending more only costs upload time.
@@ -256,23 +264,15 @@ def estimate_cost(model: str, usage: dict[str, int]) -> float | None:
     )
 
 
-def extract_receipt(
-    image_path: str | Path,
-    client: anthropic.Anthropic,
-    model: str = DEFAULT_MODEL,
-) -> Extraction:
-    """One photo -> one receipt, via a single structured-output model call."""
-    image_path = Path(image_path)
-    image_bytes = prepare_image(image_path)
-    started = time.monotonic()
-
-    response = client.beta.messages.create(
-        model=model,
-        max_tokens=16000,
-        betas=["server-side-fallback-2026-07-01"],
-        fallbacks="default",
-        system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
-        messages=[
+def build_request(model: str, image_bytes: bytes) -> dict[str, Any]:
+    """The full request for one receipt photo, as keyword arguments."""
+    request: dict[str, Any] = {
+        "model": model,
+        "max_tokens": 16000,
+        "system": [
+            {"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}
+        ],
+        "messages": [
             {
                 "role": "user",
                 "content": [
@@ -288,8 +288,25 @@ def extract_receipt(
                 ],
             }
         ],
-        output_config={"format": {"type": "json_schema", "schema": RECEIPT_SCHEMA}},
-    )
+        "output_config": {"format": {"type": "json_schema", "schema": RECEIPT_SCHEMA}},
+    }
+    if model in FALLBACK_MODELS:
+        request["betas"] = ["server-side-fallback-2026-07-01"]
+        request["fallbacks"] = "default"
+    return request
+
+
+def extract_receipt(
+    image_path: str | Path,
+    client: anthropic.Anthropic,
+    model: str = DEFAULT_MODEL,
+) -> Extraction:
+    """One photo -> one receipt, via a single structured-output model call."""
+    image_path = Path(image_path)
+    image_bytes = prepare_image(image_path)
+    started = time.monotonic()
+
+    response = client.beta.messages.create(**build_request(model, image_bytes))
     elapsed = round(time.monotonic() - started, 1)
 
     if response.stop_reason == "refusal":
