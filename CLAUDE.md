@@ -52,13 +52,15 @@ It should not depend on Xcode, provisioning, camera permissions, or a simulator.
 
 ## Current implementation status
 The current repository includes:
-- a Python package scaffold
-- a CLI entry point
-- a simple parser baseline
-- a simple normalizer baseline
+- a Python package with a CLI (`purchases`, `eval`)
+- a normalizer that resolves raw receipt lines to a product catalog
+- a hand-transcribed held-out receipt set (gitignored) and the converter that builds it
+- an evaluation harness that scores extraction per store and per field
 - a static web demo page
 
-This is intentionally a scaffold, not a production OCR solution.
+There is no in-repo parser yet. The gold receipts were extracted with a
+manually-run LLM prompt; bringing that call into the pipeline is the current
+work (see `docs/designs/receipt-ingestion-pipeline.md` and `docs/receipt-quirks.md`).
 
 ## Guidance for future changes
 When making changes:
