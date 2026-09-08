@@ -18,10 +18,13 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 
 ## Next
 
-- Bring the LLM extraction call into the pipeline so a photo goes end to end without a manual step.
-  Groundwork is in: a hand-transcribed held-out set (`data/holdout/`, gitignored) and an evaluation
-  harness that scores extraction per store and per field — see `docs/receipt-quirks.md` for what
-  real receipts turned out to require.
+- **Done:** the extraction call is in the pipeline — `grocery-app extract` turns a photo into
+  structured JSON, scored by `grocery-app eval` against a hand-transcribed held-out set of 17
+  receipts across 6 chains. Measured at 1 error in 180 line items. See
+  `docs/designs/receipt-ingestion-pipeline.md` for the numbers and
+  `docs/receipt-quirks.md` for what real receipts turned out to require.
+- **Next:** product normalization. Extraction produces raw receipt text; only 4 of 154 item names
+  resolve against the current catalog. See `docs/designs/product-normalization.md`.
 - Serve the history through a FastAPI backend on PostgreSQL, replacing the JSON artifacts.
 - Test suite around the normalization layer, then CI on every push.
 - Insights on top of the history: personal inflation per basket, repurchase cadence, own-brand vs brand spend.
