@@ -1,6 +1,6 @@
 # Design: Product Normalization
 
-Written 2026-08-30 · Status: direction agreed, nothing built
+Written 2026-08-30 · Updated 2026-09-08 · Status: catalog fetcher built, bootstrap in progress
 
 ## Problem
 
@@ -117,9 +117,7 @@ So insights split into two tiers:
 
 ## Open questions
 
-- **Other chains.** Kaufland has a real online shop. Lidl and ALDI are
-  discounters with rotating own-brand assortment and thin product data, and 4 of
-  the 17 receipts are ALDI. Check before assuming the approach generalizes.
+- ~~**Other chains.**~~ Answered 2026-09-08: see "The other chains" below. Check before assuming the approach generalizes.
 - **Branch-specific pricing.** Are the observed prices regional defaults or
   Dudweiler's? Needs a market-selected session.
 - **Ground truth for the resolution eval.** `data/gold/` has 55 raw-name ->
@@ -132,20 +130,120 @@ So insights split into two tiers:
 - **Terms of service.** `robots.txt` permits the product pages, but read the
   site terms before building anything that fetches at volume.
 
-## Next step (undecided)
+## Next step: bootstrap first (decided 2026-09-08)
 
-Two candidates, deliberately not chosen yet:
+Option 2 was chosen. Fetch the GLOBUS catalog, propose matches, confirm in bulk,
+and let the confirmed set become the eval.
 
-1. **Eval first**, as with extraction. Have the user confirm a sample of ~40-50
-   raw-name -> product pairs across chains, build the resolution harness against
-   it, then build the resolver. The discipline paid for itself twice during
-   extraction — it caught a real bug in the extractor and 9 errors in the
-   answer key.
-2. **Bootstrap first.** Fetch the GLOBUS catalog, propose matches for the 42
-   GLOBUS names, have the user confirm in bulk, and let the confirmed set become
-   the eval.
+The reasoning that settled it: name similarity alone was measured against all 95
+distinct GLOBUS receipt names (not 42 — that earlier count missed
+`data/extracted`; the union of gold and extracted is 95). 88 of 95 produce *a*
+candidate, but the top hit is usually wrong:
 
-The difference from extraction: "correct" here is partly the user's judgment
-(whether `Kerrygold Butter 250g` and `Kerrygold Butter` are one product or two),
-not a fact readable off the paper. Either path needs the user's decisions before
-any score means anything.
+```
+Finish Salz 1,2kg    -> apfel-boskoop-2kg-beutel
+ALN.MEERSALZ         -> kartoffelsnack-meersalz
+Dallmayr Pad Classic -> kaffee-kapseln-dolce-gusto-dallmayr-prodomo
+Chips Salt & Vinegar -> chips-salt-vinegar-style        <- right
+```
+
+So an eval-first pass would have had the user confirm pairs drawn from a
+candidate list that cannot propose the right answer often enough to be worth
+confirming. Price and brand have to exist locally before the human step is
+worth anyone's time, and those only come from fetching.
+
+## What the fetch turned out to require
+
+Verified against the live site on 2026-09-08 and implemented in
+`src/grocery_app/catalog_globus.py`.
+
+- **The published sitemap is two years stale** (`lastmod` 2024-09-16) and the
+  category tree has since been reorganised — `frische-produkte` no longer
+  exists, it is now `milchprodukte-eier`, `brot-backwaren-fruehstueck` and
+  others. Old product URLs still redirect correctly, keyed by article number.
+- **Listing pages are the cheap source, not product pages.** One category
+  listing request returns 24 products with name, brand
+  (`div.product-manufacturer`), price (`.js-unit-price[data-value]`), pack size,
+  base price per unit and deposit. That is ~3k requests for the whole catalog
+  instead of ~73k. Product-page JSON-LD carries the same fields and is only
+  worth fetching for individual confirmations.
+- **`?limit=N` is not supported** and silently renders zero product cards; only
+  `?p=N` paginates. Pagination must terminate on *no new article numbers*, not
+  on card count.
+- **Level-2 categories already list products** aggregated across their leaves,
+  so the ~124 leaf categories under the three starter branches never need to be
+  walked.
+- **Not every product has an EAN.** Bakery and counter goods carry a short
+  in-house article number (`/117747/baguette-mit-pfefferkruste`). Filtering on
+  barcode-shaped identifiers silently dropped them, including
+  `Baguette mit Pfefferkruste`, which is on a receipt as `Baguette Pfefferkr.`.
+  The catalog is therefore keyed by article number, with `ean` set only when the
+  number is barcode-shaped.
+- **Prices are observed, not permanent.** Each product records `fetched_at`, or
+  comparing a shop price against a months-old receipt line would be
+  unfalsifiable.
+
+## Terms of use
+
+Checked 2026-09-08. `robots.txt` permits product and listing pages, disallowing
+only account, checkout, navigation, recovery, admin and proxy paths. Neither
+`www.globus.de` nor `produkte.globus.de` publishes usage terms restricting
+automated access; there is no general AGB or Nutzungsbedingungen page, only
+voucher terms. The Impressum asserts copyright over "Texte, Fotos und
+grafischen Gestaltungen".
+
+The real constraint is the German sui generis database right (§87b UrhG), which
+restricts extraction of a *substantial part* of a database even where individual
+facts are not protected. Accordingly: fetch only the categories this user's
+receipts actually touch, never mirror the full 73,569-product catalog, do not
+reuse their images or description text, and keep `data/catalog/` gitignored like
+`data/gold/`.
+
+## Still open
+
+- **Branch-specific pricing.** Whether observed prices are regional defaults or
+  Dudweiler's is still unconfirmed; it needs a market-selected session.
+- ~~**Other chains.**~~ Answered 2026-09-08: see "The other chains" below.
+- **Ground truth for the resolution eval.** `data/gold/`'s 55 raw-name ->
+  product_id pairs came from the early LLM prompt and were never fully verified.
+  They cannot be the answer key. The user-confirmed bootstrap set replaces them.
+- **What counts as the same product.** Whether `Kerrygold Butter 250g` and
+  `Kerrygold Butter` are one product or two is the user's judgment call, and it
+  has to be settled while confirming the bootstrap set, not after.
+
+## The other chains (checked 2026-09-08)
+
+None of the three can be done the GLOBUS way, for three different reasons.
+
+- **ALDI Süd** returns HTTP 403 from Akamai for every request, including
+  `robots.txt` itself, so their crawl policy cannot even be read. That is an
+  edge-level refusal of non-browser clients. It could be defeated by spoofing a
+  browser User-Agent; deliberately circumventing an access control is not
+  something this project should ship. (ALDI Nord serves robots.txt normally, but
+  the receipts are ALDI Süd.)
+- **Kaufland**: `www.kaufland.de` (the marketplace) is behind a Cloudflare block
+  page. `filiale.kaufland.de` serves robots.txt and explicitly disallows
+  `/sortiment/das-sortiment`, the assortment listing. Its sitemap holds 6,306
+  URLs, of which 4,217 are recipes and only 73 are `sortiment` pages, all brand
+  landing pages carrying neither products nor prices.
+- **Lidl** is fully open — robots.txt, sitemap, 12,632 product URLs — but sells
+  the wrong things. The online range is non-food Aktionsartikel: Esmara 1,558,
+  Parkside 1,078, Crivit 773, Lupilu 526, Silvercrest 474, and zero products
+  under Milbona, their dairy brand. Lidl does not sell groceries online in
+  Germany.
+
+What this changes: for discounters the retailer catalog is not the route.
+Across the six discounter receipts there are 50 product lines, and **25 of them
+are fresh produce or weighed goods** (Radieschen, Porree, Romatomaten, Zwiebeln,
+Nektarinen) that carry no barcode and appear in no catalog anywhere. Those need
+a small hand-written produce vocabulary, shared across every chain — cheap, and
+the highest-yield work available for the discounters.
+
+Of the remaining 25, the national brands (Coca Cola, Goldbären, Chipsfrisch)
+already appear in the GLOBUS catalog, so cross-store matching covers them for
+free. Only the discounter own-brands (K-Classic, K-Bio, Cremia, Choviva,
+Milbona) need a separate source, and **Open Food Facts** is the honest one:
+free, ODbL-licensed, EAN-keyed and built for reuse. Verified German coverage:
+Milbona 1,568 products, Gut Bio 822, Combino 193. It carries no prices, but a
+discounter offers no catalog price to match against either, so matching there
+is name-and-size based and the receipt supplies the price.

@@ -12,6 +12,7 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 ## Current state (work in progress)
 
 - **Extraction**: receipt photos are read with an LLM, currently driven by a prompt I run over a batch of receipts. The extracted receipts live in `data/gold`, gitignored because they are my own shopping.
+- **Catalog**: `grocery-app catalog` fetches real products from GLOBUS's own category listings (name, brand, price, pack size, barcode), so the catalog comes from the retailer instead of being guessed from receipt abbreviations. Output is gitignored.
 - **Normalization**: a Python layer that resolves raw receipt lines to a product catalog (`data/catalog.json`) through a resolution map (`data/resolution_map.json`), so the same item is recognised across stores and spellings.
 - **Purchase history**: `purchases.json`, built from the extracted receipts by the normalization layer.
 - **Demo**: a self-contained static web page (`web/index.html`) presenting the history in a mobile-style layout.
@@ -23,8 +24,10 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
   receipts across 6 chains. Measured at 1 error in 180 line items. See
   `docs/designs/receipt-ingestion-pipeline.md` for the numbers and
   `docs/receipt-quirks.md` for what real receipts turned out to require.
-- **Next:** product normalization. Extraction produces raw receipt text; only 4 of 154 item names
-  resolve against the current catalog. See `docs/designs/product-normalization.md`.
+- **In progress:** product normalization. Extraction produces raw receipt text; only 4 of 154 item
+  names resolve against the current catalog. The catalog is now sourced from the retailer rather
+  than derived from receipts; next is proposing matches and confirming them by hand to form the
+  resolution eval set. See `docs/designs/product-normalization.md`.
 - Serve the history through a FastAPI backend on PostgreSQL, replacing the JSON artifacts.
 - Test suite around the normalization layer, then CI on every push.
 - Insights on top of the history: personal inflation per basket, repurchase cadence, own-brand vs brand spend.
@@ -35,6 +38,8 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 source .venv/bin/activate
 
+# fetch the product catalog from the store's own listings (starter categories)
+grocery-app catalog
 # build the purchase history from extracted receipts
 grocery-app purchases
 # score a directory of extracted receipts against the held-out set

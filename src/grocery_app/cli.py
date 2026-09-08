@@ -4,6 +4,12 @@ import argparse
 import json
 from pathlib import Path
 
+from grocery_app.catalog_globus import (
+    DEFAULT_CACHE_DIR,
+    DEFAULT_OUTPUT,
+    STARTER_CATEGORIES,
+    crawl,
+)
 from grocery_app.evaluate import evaluate, format_report
 from grocery_app.extract import DEFAULT_MODEL, PROMPT_VERSION, extract_directory
 from grocery_app.normalizer import build_purchases, save_json
@@ -49,6 +55,23 @@ def main() -> None:
     x.add_argument("--force", action="store_true", help="Re-extract even if a cached result exists")
     x.add_argument("--limit", type=int, default=None, help="Only process the first N images")
 
+    c = subparsers.add_parser(
+        "catalog",
+        help="Fetch a store's product catalog from its own category listings",
+    )
+    c.add_argument("--store", default="globus", choices=["globus"])
+    c.add_argument(
+        "--category",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="Category to crawl, e.g. obst-gemuese/frisches-obst (repeatable). "
+             "Defaults to the starter set.",
+    )
+    c.add_argument("--cache-dir", default=DEFAULT_CACHE_DIR)
+    c.add_argument("--output", default=DEFAULT_OUTPUT)
+    c.add_argument("--force", action="store_true", help="Re-fetch even if a page is cached")
+
     args = parser.parse_args()
 
     if args.command == "purchases":
@@ -75,6 +98,17 @@ def main() -> None:
             f"{summary['failed']} failed, ${summary['cost_usd']:.3f} this run"
         )
         print(f"Score with: grocery-app eval --pred-dir {summary['out_dir']}")
+
+    if args.command == "catalog":
+        categories = args.category or STARTER_CATEGORIES
+        print(f"Fetching {len(categories)} {args.store} categories -> {args.output}")
+        summary = crawl(categories, args.cache_dir, args.output, force=args.force)
+        print(
+            f"\n{summary['products']} products in catalog "
+            f"({summary['added']} new this run)"
+        )
+        print(f"  with price: {summary['with_price']}")
+        print(f"  with brand: {summary['with_brand']}")
 
     if args.command == "eval":
         report = evaluate(args.truth_dir, args.pred_dir, tuple(args.exclude_store))
