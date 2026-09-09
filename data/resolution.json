@@ -6,6 +6,15 @@
   "entries": [
     {
       "store": "GLOBUS",
+      "raw_name": "ALN.3-KORN-FLOCKEN",
+      "line_type": "product",
+      "product_id": "p-0054",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-09",
+      "source": "data/proposals/globus-reviewed.csv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "ALN.MEERSALZ",
       "line_type": "product",
       "product_id": "p-0002",
@@ -21,6 +30,15 @@
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Alnatura Eier 10er",
+      "line_type": "product",
+      "product_id": "p-0055",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-09",
+      "source": "data/proposals/globus-reviewed.csv"
     },
     {
       "store": "GLOBUS",
@@ -66,6 +84,15 @@
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Baguette Pfefferkr.",
+      "line_type": "product",
+      "product_id": "p-0056",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-09",
+      "source": "data/proposals/globus-reviewed.csv"
     },
     {
       "store": "GLOBUS",
@@ -186,12 +213,30 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "JT Cheddar gerieben",
+      "line_type": "product",
+      "product_id": "p-0057",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-09",
+      "source": "data/proposals/globus-reviewed.csv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "JT Eier 10er FH",
       "line_type": "product",
       "product_id": "p-0025",
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Kaffeesahne 10%",
+      "line_type": "product",
+      "product_id": "p-0058",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-09",
+      "source": "data/proposals/globus-reviewed.csv"
     },
     {
       "store": "GLOBUS",
@@ -447,6 +492,15 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "Tomaten San Marzano",
+      "line_type": "product",
+      "product_id": "p-0059",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-09",
+      "source": "data/proposals/globus-reviewed.csv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "Topfreiniger 10er",
       "line_type": "product",
       "product_id": "p-0051",
@@ -489,6 +543,15 @@
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Weizenbr?tchen 10er",
+      "line_type": "product",
+      "product_id": "p-0060",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-09",
+      "source": "data/proposals/globus-reviewed.csv"
     },
     {
       "store": "GLOBUS",

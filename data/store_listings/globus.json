@@ -4,5 +4,86 @@
     "store": "GLOBUS",
     "note": "Populated as matches are confirmed. `prices` is the shelf price observed at fetch time, which is a different series from what was paid (that lives in purchases.json). Shelf history cannot be backfilled: the shop publishes today only."
   },
-  "listings": {}
+  "listings": {
+    "4104420010680": {
+      "product_id": "p-0054",
+      "url": "https://produkte.globus.de/brot-backwaren-fruehstueck/muesli/dinkel-getreide-haferflocken/4104420010680/bio-3-korn-flocken",
+      "prices": [
+        {
+          "date": "2026-09-09",
+          "price": 1.99
+        }
+      ]
+    },
+    "4104420182929": {
+      "product_id": "p-0055",
+      "url": "https://produkte.globus.de/milchprodukte-eier/eier/4104420182929/bio-eier-bruderkueken-gr.-m-l",
+      "prices": [
+        {
+          "date": "2026-09-09",
+          "price": 5.29
+        }
+      ]
+    },
+    "4104420203969": {
+      "product_id": "p-0055",
+      "url": "https://produkte.globus.de/milchprodukte-eier/eier/4104420203969/bio-eier-bruderkueken-gr.-m-l",
+      "prices": [
+        {
+          "date": "2026-09-09",
+          "price": 5.29
+        }
+      ]
+    },
+    "4104420204003": {
+      "product_id": "p-0055",
+      "url": "https://produkte.globus.de/milchprodukte-eier/eier/4104420204003/bio-eier-bruderkueken-gr.-m-l",
+      "prices": []
+    },
+    "117747": {
+      "product_id": "p-0056",
+      "url": "https://produkte.globus.de/brot-backwaren-fruehstueck/meisterbaeckerei/brot-broetchen/117747/baguette-mit-pfefferkruste",
+      "prices": [
+        {
+          "date": "2026-09-09",
+          "price": 1.59
+        }
+      ]
+    },
+    "4306188039365": {
+      "product_id": "p-0057",
+      "url": "https://produkte.globus.de/milchprodukte-eier/kaese/reibekaese/4306188039365/cheddar-gerieben",
+      "prices": [
+        {
+          "date": "2026-09-09",
+          "price": 2.19
+        }
+      ]
+    },
+    "4306188399179": {
+      "product_id": "p-0058",
+      "url": "https://produkte.globus.de/brot-backwaren-fruehstueck/kaffee/kaffeesahne-kondensmilch/4306188399179/kaffeesahne-10",
+      "prices": []
+    },
+    "2002085217005": {
+      "product_id": "p-0059",
+      "url": "https://produkte.globus.de/obst-gemuese/frisches-gemuese/tomaten/2002085217005/flaschentomaten-san-marzano-lose",
+      "prices": [
+        {
+          "date": "2026-09-09",
+          "price": 4.99
+        }
+      ]
+    },
+    "2001609657037": {
+      "product_id": "p-0060",
+      "url": "https://produkte.globus.de/brot-backwaren-fruehstueck/meisterbaeckerei/brot-broetchen/2001609657037/weizenbroetchen-10er-10x-1-000-stueck",
+      "prices": [
+        {
+          "date": "2026-09-09",
+          "price": 1.39
+        }
+      ]
+    }
+  }
 }

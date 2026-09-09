@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import date
 from pathlib import Path
 
 from grocery_app.catalog_globus import (
@@ -17,6 +18,8 @@ from grocery_app.resolver import (
     DEFAULT_CATALOG,
     DEFAULT_OUTPUT as PROPOSALS_OUTPUT,
     build_proposals,
+    build_proposals_via_search,
+    confirm,
     to_csv,
 )
 
@@ -88,6 +91,20 @@ def main() -> None:
     r.add_argument("--resolution", default="data/resolution.json")
     r.add_argument("--catalog", default=DEFAULT_CATALOG)
     r.add_argument("--output", default=PROPOSALS_OUTPUT)
+    r.add_argument("--offline", action="store_true",
+                   help="Rank the locally fetched catalog instead of using GLOBUS search")
+
+    f = subparsers.add_parser(
+        "confirm",
+        help="Write reviewed proposals into products, resolution and store listings",
+    )
+    f.add_argument("--reviewed", default="data/proposals/globus-reviewed.csv")
+    f.add_argument("--store", default="GLOBUS")
+    f.add_argument("--products", default="data/products.json")
+    f.add_argument("--resolution", default="data/resolution.json")
+    f.add_argument("--listings", default="data/store_listings/globus.json")
+    f.add_argument("--observed-on", default=date.today().isoformat(),
+                   help="Date the catalog prices were observed")
 
     args = parser.parse_args()
 
@@ -128,8 +145,12 @@ def main() -> None:
         print(f"  with brand: {summary['with_brand']}")
 
     if args.command == "propose":
-        proposals = build_proposals(args.receipts_dir, args.resolution,
-                                    args.catalog, args.store)
+        if args.offline:
+            proposals = build_proposals(args.receipts_dir, args.resolution,
+                                        args.catalog, args.store)
+        else:
+            proposals = build_proposals_via_search(args.receipts_dir, args.resolution,
+                                                   args.store)
         out = Path(args.output)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(to_csv(proposals, args.store), encoding="utf-8")
@@ -140,6 +161,16 @@ def main() -> None:
         print(f"  no candidate found: {len(proposals) - with_candidates}")
         print("\nPut 'y' in the decision column against the correct candidate.")
         print("Leave a whole group blank if none is right — abstaining is a real answer.")
+
+    if args.command == "confirm":
+        summary = confirm(args.reviewed, args.products, args.resolution,
+                          args.listings, args.store, args.observed_on)
+        print(f"Confirmed into {args.products}, {args.resolution}, {args.listings}")
+        print(f"  new products:  {summary['products']}")
+        print(f"  new resolution entries: {summary['entries']}")
+        print(f"  store listings written: {summary['listings']}")
+        if summary["skipped"]:
+            print(f"  already known, skipped: {summary['skipped']}")
 
     if args.command == "eval":
         report = evaluate(args.truth_dir, args.pred_dir, tuple(args.exclude_store))

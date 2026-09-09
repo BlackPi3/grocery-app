@@ -25,6 +25,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from grocery_app.resolver import store_key
+
 
 # --- loading -----------------------------------------------------------------
 
@@ -86,7 +88,7 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
                    products: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """Turn one parsed receipt line into an enriched purchase record."""
     raw_name = line["raw_name"]
-    product_id = resolution.get((receipt.get("store"), raw_name))
+    product_id = resolution.get((store_key(receipt.get("store")), raw_name))
     entry = products.get(product_id) if product_id else None
     net_paid = line.get("net", 0.0)
     qty = line.get("qty", 1)
@@ -142,7 +144,7 @@ def load_resolution(path: str | Path) -> dict[tuple[str, str], str]:
     """
     data = load_json(path)
     return {
-        (entry["store"], entry["raw_name"]): entry["product_id"]
+        (store_key(entry["store"]), entry["raw_name"]): entry["product_id"]
         for entry in data["entries"]
         if entry.get("product_id")
     }

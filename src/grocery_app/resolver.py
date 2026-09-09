@@ -53,6 +53,11 @@ _UMLAUTS = [("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")]
 _SIZE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l|stk|stück|er)\b", re.IGNORECASE)
 
 
+def store_key(store: str | None) -> str:
+    """Stores are compared case-insensitively; GLOBUS and Globus are one chain."""
+    return (store or "").strip().casefold()
+
+
 def fold(text: str) -> str:
     text = (text or "").lower()
     for umlaut, replacement in _UMLAUTS:
@@ -154,7 +159,9 @@ def unresolved_lines(receipts_dir: str | Path, resolution_path: str | Path,
     and `Männer`, which would arrive here as two separate products to decide on.
     """
     resolution = json.loads(Path(resolution_path).read_text(encoding="utf-8"))
-    known = {(e["store"], e["raw_name"]) for e in resolution["entries"]}
+    # Store names are an identity, not a transcription: one chain prints GLOBUS
+    # and another receipt of the same chain prints Globus.
+    known = {(store_key(e["store"]), e["raw_name"]) for e in resolution["entries"]}
 
     pending: dict[str, float | None] = {}
     for path in sorted(Path(receipts_dir).glob("*.json")):
@@ -166,7 +173,7 @@ def unresolved_lines(receipts_dir: str | Path, resolution_path: str | Path,
             if line.get("type") != "product":
                 continue
             raw_name = line.get("raw_name")
-            if raw_name and (store, raw_name) not in known:
+            if raw_name and (store_key(store), raw_name) not in known:
                 pending.setdefault(raw_name, line.get("gross"))
     return pending
 
@@ -211,3 +218,244 @@ def to_csv(proposals: list[dict[str, Any]], store: str) -> str:
                 esc(product.get("article_number")), esc(product.get("url")),
             ]))
     return "\n".join(rows) + "\n"
+
+
+# --- ingesting reviewed proposals ---------------------------------------------
+
+def read_reviewed(path: str | Path) -> list[dict[str, str]]:
+    """Read a reviewed proposal table, accepting comma or semicolon delimiters.
+
+    Excel writes `;` under a German locale, which is how this file comes back.
+    """
+    import csv
+
+    text = Path(path).read_text(encoding="utf-8-sig")
+    delimiter = ";" if text.splitlines()[0].count(";") > text.splitlines()[0].count(",") else ","
+    return list(csv.DictReader(text.splitlines(), delimiter=delimiter))
+
+
+def accepted_rows(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]:
+    """raw_name -> the rows marked with a decision, in file order.
+
+    More than one row may be accepted for a name: the catalog can carry several
+    article numbers for what is one product to a shopper (three listings of the
+    same Alnatura eggs). They become one product with several barcodes.
+    """
+    picked: dict[str, list[dict[str, str]]] = {}
+    for row in rows:
+        if (row.get("decision") or "").strip().upper().startswith("Y"):
+            picked.setdefault(row["raw_name"], []).append(row)
+    return picked
+
+
+_BARCODE_LENGTHS = {8, 12, 13, 14}
+
+
+def _size_from_row(row: dict[str, str]) -> dict[str, Any]:
+    parsed = parse_size(row.get("pack_size") or "") or parse_size(row.get("catalog_name") or "")
+    if not parsed:
+        return {"count": 1, "value": None, "unit": None}
+    return {"count": 1, "value": parsed[0], "unit": parsed[1]}
+
+
+def confirm(reviewed_path: str | Path, products_path: str | Path,
+            resolution_path: str | Path, listings_path: str | Path,
+            store: str, observed_on: str) -> dict[str, Any]:
+    """Write accepted proposals into products, resolution and store listings.
+
+    Only rows a human marked are written. An accepted row is the moment a
+    product earns an id, so ids are minted here and nowhere else.
+    """
+    products_doc = json.loads(Path(products_path).read_text(encoding="utf-8"))
+    resolution_doc = json.loads(Path(resolution_path).read_text(encoding="utf-8"))
+    listings_doc = json.loads(Path(listings_path).read_text(encoding="utf-8"))
+
+    known = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]}
+    accepted = accepted_rows(read_reviewed(reviewed_path))
+
+    added_products = added_entries = added_listings = 0
+    for raw_name, rows in accepted.items():
+        if (store_key(store), raw_name) in known:
+            continue
+
+        product_id = f"p-{products_doc['meta']['next_id']:04d}"
+        products_doc["meta"]["next_id"] += 1
+        first = rows[0]
+
+        # Several accepted rows mean several article numbers for one product;
+        # they become barcodes on it rather than separate products.
+        eans = [r["article_number"] for r in rows
+                if len(r.get("article_number") or "") in _BARCODE_LENGTHS]
+
+        products_doc["products"][product_id] = {
+            "label": first.get("catalog_name"),
+            "name": first.get("catalog_name"),
+            "brand": first.get("brand") or None,
+            "product_line": None,
+            "variant": None,
+            "size": _size_from_row(first),
+            "category": None,
+            "is_organic": None,
+            "is_own_brand": None,
+            "eans": eans,
+            "open_questions": [],
+            "provenance": {"attributes": "globus-catalog", "source": first.get("url")},
+        }
+        added_products += 1
+
+        resolution_doc["entries"].append({
+            "store": store,
+            "raw_name": raw_name,
+            "line_type": "product",
+            "product_id": product_id,
+            "confirmed_by": "parham",
+            "confirmed_at": observed_on,
+            "source": str(reviewed_path),
+        })
+        added_entries += 1
+
+        for row in rows:
+            article = row.get("article_number")
+            if not article:
+                continue
+            price = row.get("catalog_price")
+            listings_doc["listings"][article] = {
+                "product_id": product_id,
+                "url": row.get("url"),
+                # Shelf price observed at fetch time; a different series from
+                # what was paid, which lives in purchases.json.
+                "prices": [{"date": observed_on, "price": float(price)}] if price else [],
+            }
+            added_listings += 1
+
+    resolution_doc["entries"].sort(key=lambda e: (e["store"], e["raw_name"]))
+
+    for path, doc in ((products_path, products_doc), (resolution_path, resolution_doc),
+                      (listings_path, listings_doc)):
+        Path(path).write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
+                              encoding="utf-8")
+
+    return {"products": added_products, "entries": added_entries,
+            "listings": added_listings, "skipped": len(accepted) - added_entries}
+
+
+# --- search-backed candidates -------------------------------------------------
+#
+# Ranking over a locally fetched catalog missed badly: it only knew the three
+# categories that had been crawled, and exact token equality cannot follow a
+# till's truncations (`Konf.Erdbeer` never equals `Konfitüre, Erdbeere`).
+# GLOBUS's own search does German stemming over their whole range, so it is a
+# far better candidate generator than anything hand-rolled here. Local scoring
+# then only has to re-order what it returns.
+
+import time
+import urllib.parse
+import urllib.request
+
+SEARCH_URL = "https://produkte.globus.de/search?query="
+SEARCH_CACHE = "data/catalog_cache/globus/_search"
+SEARCH_DELAY_S = 1.0
+
+
+def search(query: str, cache_dir: str | Path = SEARCH_CACHE,
+           force: bool = False) -> list[dict[str, Any]]:
+    """Products GLOBUS's own search returns for a query, in their order."""
+    from grocery_app.catalog_globus import USER_AGENT, parse_listing
+
+    slug = re.sub(r"[^a-z0-9]+", "_", fold(query)).strip("_") or "_"
+    path = Path(cache_dir) / f"{slug}.html"
+
+    if path.exists() and not force:
+        html = path.read_text(encoding="utf-8")
+    else:
+        request = urllib.request.Request(
+            SEARCH_URL + urllib.parse.quote(query),
+            headers={"User-Agent": USER_AGENT},
+        )
+        with urllib.request.urlopen(request, timeout=45) as response:
+            html = response.read().decode("utf-8", errors="replace")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(html, encoding="utf-8")
+        time.sleep(SEARCH_DELAY_S)
+
+    return parse_listing(html)
+
+
+MAX_UMLAUT_VARIANTS = 9
+
+
+def umlaut_variants(raw_name: str) -> list[str]:
+    """Fill in `?` placeholders a till printed where it could not render an umlaut.
+
+    Search cannot match `SAATENBR?TCHEN`, but it finds `Saatenbrötchen` at once.
+    Every combination of ä/ö/ü is tried because which vowel it was is exactly
+    what the receipt failed to record; wrong guesses simply return nothing.
+    """
+    if "?" not in raw_name:
+        return []
+    variants = [raw_name]
+    for _ in range(raw_name.count("?")):
+        expanded = []
+        for variant in variants:
+            position = variant.index("?")
+            # Match the case of the word the placeholder sits in, so
+            # SAATENBR?TCHEN becomes SAATENBRÖTCHEN and not SAATENBRäTCHEN.
+            before = variant[:position]
+            neighbour = next((c for c in reversed(before) if c.isalpha()), "")
+            vowels = "ÄÖÜ" if neighbour.isupper() else "äöü"
+            for vowel in vowels:
+                expanded.append(variant[:position] + vowel + variant[position + 1:])
+        variants = expanded
+        if len(variants) > MAX_UMLAUT_VARIANTS:
+            break
+    return [v for v in variants if "?" not in v][:MAX_UMLAUT_VARIANTS]
+
+
+def queries_for(raw_name: str) -> list[str]:
+    """The raw line, a brand-expanded form, and umlaut fill-ins for `?`.
+
+    All are worth asking: searching `JT Magerquark 250g` finds the Hansano one,
+    while `Jeden Tag Magerquark` finds the own-brand the receipt actually means.
+    Their engine ignores the `JT` token entirely.
+    """
+    queries = [raw_name]
+    expanded = expand_abbreviations(raw_name)
+    if fold(expanded) != fold(raw_name):
+        queries.append(expanded)
+    queries.extend(umlaut_variants(raw_name))
+    return queries
+
+
+def search_candidates(raw_name: str, receipt_price: float | None,
+                      cache_dir: str | Path = SEARCH_CACHE,
+                      top_n: int = TOP_N) -> list[dict[str, Any]]:
+    """Rank what search returns. Their relevance leads; ours breaks ties."""
+    seen: dict[str, dict[str, Any]] = {}
+    for query in queries_for(raw_name):
+        for position, product in enumerate(search(query, cache_dir)):
+            article = product.get("article_number")
+            if not article or article in seen:
+                continue
+            points, evidence = score(raw_name, receipt_price, product)
+            # Search position is the strongest signal available; a hit they put
+            # first is usually right, and our scoring only reorders near-ties.
+            points += max(0.0, 3.0 - 0.3 * position)
+            evidence.insert(0, f"search#{position + 1}")
+            seen[article] = {"score": round(points, 2), "evidence": evidence,
+                             "product": product}
+    ranked = sorted(seen.values(), key=lambda c: -c["score"])
+    return ranked[:top_n]
+
+
+def build_proposals_via_search(receipts_dir: str | Path, resolution_path: str | Path,
+                               store: str, cache_dir: str | Path = SEARCH_CACHE,
+                               top_n: int = TOP_N) -> list[dict[str, Any]]:
+    pending = unresolved_lines(receipts_dir, resolution_path, store)
+    proposals = []
+    for raw_name, price in sorted(pending.items()):
+        candidates = search_candidates(raw_name, price, cache_dir, top_n)
+        log_line = f"  {raw_name[:28]:28s} {len(candidates)} candidates"
+        print(log_line, flush=True)
+        proposals.append({"raw_name": raw_name, "receipt_price": price,
+                          "candidates": candidates})
+    return proposals

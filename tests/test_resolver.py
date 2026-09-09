@@ -62,3 +62,40 @@ def test_price_is_only_a_hint_and_cannot_carry_a_match():
     # Price contributes, but the match stands on the name.
     without_price, _ = score("Baguette Pfefferkr.", None, CATALOG[2])
     assert without_price > 0
+
+
+def test_umlaut_placeholders_are_filled_in():
+    """Tills print '?' where they cannot render an umlaut. Search cannot match
+    'SAATENBR?TCHEN', but finds 'Saatenbrötchen' immediately."""
+    from grocery_app.resolver import umlaut_variants
+
+    variants = umlaut_variants("SAATENBR?TCHEN 3+1")
+    assert "SAATENBRÖTCHEN 3+1" in variants
+    assert all("?" not in v for v in variants)
+
+
+def test_names_without_a_placeholder_need_no_variants():
+    from grocery_app.resolver import umlaut_variants
+
+    assert umlaut_variants("Kerrygold Butter") == []
+
+
+def test_variant_count_stays_bounded():
+    from grocery_app.resolver import MAX_UMLAUT_VARIANTS, umlaut_variants
+
+    assert len(umlaut_variants("J?ch?nt?ch?r")) <= MAX_UMLAUT_VARIANTS
+
+
+def test_store_names_compare_case_insensitively():
+    """One receipt prints GLOBUS and another Globus; they are one chain."""
+    from grocery_app.resolver import store_key
+
+    assert store_key("GLOBUS") == store_key("Globus") == "globus"
+
+
+def test_brand_expansion_is_offered_as_a_separate_query():
+    from grocery_app.resolver import queries_for
+
+    queries = queries_for("JT Magerquark 250g")
+    assert queries[0] == "JT Magerquark 250g"
+    assert any("jeden tag" in q.lower() for q in queries)

@@ -1,7 +1,7 @@
 {
   "meta": {
     "schema": 1,
-    "next_id": 54,
+    "next_id": 61,
     "note": "product_id is opaque and permanent; `label` is the old slug, kept for readability only. Attributes are model-proposed unless provenance says otherwise; see open_questions."
   },
   "products": {
@@ -1228,6 +1228,167 @@
       "provenance": {
         "attributes": "model-proposed",
         "source": "data/catalog.json"
+      }
+    },
+    "p-0054": {
+      "label": "Bio 3 Korn Flocken",
+      "name": "Bio 3 Korn Flocken",
+      "brand": "Alnatura",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 500.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4104420010680"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/brot-backwaren-fruehstueck/muesli/dinkel-getreide-haferflocken/4104420010680/bio-3-korn-flocken"
+      }
+    },
+    "p-0055": {
+      "label": "Bio Eier Bruderküken, Gr. M-L",
+      "name": "Bio Eier Bruderküken, Gr. M-L",
+      "brand": "Alnatura",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 10.0,
+        "unit": "piece"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4104420182929",
+        "4104420203969",
+        "4104420204003"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/milchprodukte-eier/eier/4104420182929/bio-eier-bruderkueken-gr.-m-l"
+      }
+    },
+    "p-0056": {
+      "label": "Baguette mit Pfefferkruste",
+      "name": "Baguette mit Pfefferkruste",
+      "brand": "GLOBUS Meisterbäckerei",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 250.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/brot-backwaren-fruehstueck/meisterbaeckerei/brot-broetchen/117747/baguette-mit-pfefferkruste"
+      }
+    },
+    "p-0057": {
+      "label": "Cheddar, gerieben",
+      "name": "Cheddar, gerieben",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 200.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4306188039365"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/milchprodukte-eier/kaese/reibekaese/4306188039365/cheddar-gerieben"
+      }
+    },
+    "p-0058": {
+      "label": "Kaffeesahne 10%",
+      "name": "Kaffeesahne 10%",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 200.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4306188399179"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/brot-backwaren-fruehstueck/kaffee/kaffeesahne-kondensmilch/4306188399179/kaffeesahne-10"
+      }
+    },
+    "p-0059": {
+      "label": "Flaschentomaten San Marzano, lose",
+      "name": "Flaschentomaten San Marzano, lose",
+      "brand": null,
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 1000.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "2002085217005"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/obst-gemuese/frisches-gemuese/tomaten/2002085217005/flaschentomaten-san-marzano-lose"
+      }
+    },
+    "p-0060": {
+      "label": "Weizenbrötchen ,10er (10x 1,000 Stück)",
+      "name": "Weizenbrötchen ,10er (10x 1,000 Stück)",
+      "brand": "GLOBUS Meisterbäckerei",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 10.0,
+        "unit": "piece"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "2001609657037"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/brot-backwaren-fruehstueck/meisterbaeckerei/brot-broetchen/2001609657037/weizenbroetchen-10er-10x-1-000-stueck"
       }
     }
   }
