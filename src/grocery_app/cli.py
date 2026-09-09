@@ -13,6 +13,12 @@ from grocery_app.catalog_globus import (
 from grocery_app.evaluate import evaluate, format_report
 from grocery_app.extract import DEFAULT_MODEL, PROMPT_VERSION, extract_directory
 from grocery_app.normalizer import build_purchases, save_json
+from grocery_app.resolver import (
+    DEFAULT_CATALOG,
+    DEFAULT_OUTPUT as PROPOSALS_OUTPUT,
+    build_proposals,
+    to_csv,
+)
 
 
 def main() -> None:
@@ -72,6 +78,17 @@ def main() -> None:
     c.add_argument("--output", default=DEFAULT_OUTPUT)
     c.add_argument("--force", action="store_true", help="Re-fetch even if a page is cached")
 
+    r = subparsers.add_parser(
+        "propose",
+        help="Propose catalog products for receipt lines resolution.json lacks",
+    )
+    r.add_argument("--store", default="GLOBUS")
+    r.add_argument("--receipts-dir", default="data/holdout",
+                   help="Verified receipt JSON; never model output")
+    r.add_argument("--resolution", default="data/resolution.json")
+    r.add_argument("--catalog", default=DEFAULT_CATALOG)
+    r.add_argument("--output", default=PROPOSALS_OUTPUT)
+
     args = parser.parse_args()
 
     if args.command == "purchases":
@@ -109,6 +126,20 @@ def main() -> None:
         )
         print(f"  with price: {summary['with_price']}")
         print(f"  with brand: {summary['with_brand']}")
+
+    if args.command == "propose":
+        proposals = build_proposals(args.receipts_dir, args.resolution,
+                                    args.catalog, args.store)
+        out = Path(args.output)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(to_csv(proposals, args.store), encoding="utf-8")
+        with_candidates = sum(1 for p in proposals if p["candidates"])
+        print(f"Wrote {out}")
+        print(f"  names needing a decision: {len(proposals)}")
+        print(f"  with at least one candidate: {with_candidates}")
+        print(f"  no candidate found: {len(proposals) - with_candidates}")
+        print("\nPut 'y' in the decision column against the correct candidate.")
+        print("Leave a whole group blank if none is right — abstaining is a real answer.")
 
     if args.command == "eval":
         report = evaluate(args.truth_dir, args.pred_dir, tuple(args.exclude_store))
