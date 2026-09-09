@@ -21,11 +21,11 @@ def main() -> None:
 
     p = subparsers.add_parser(
         "purchases",
-        help="Build purchases.json from gold receipts + catalog + resolution map",
+        help="Build purchases.json from verified receipts + products + resolution",
     )
-    p.add_argument("--gold-dir", default="data/gold")
-    p.add_argument("--catalog", default="data/catalog.json")
-    p.add_argument("--resolution-map", default="data/resolution_map.json")
+    p.add_argument("--receipts-dir", default="data/gold")
+    p.add_argument("--products", default="data/products.json")
+    p.add_argument("--resolution", default="data/resolution.json")
     p.add_argument("--output", default="data/purchases.json")
 
     e = subparsers.add_parser(
@@ -75,7 +75,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "purchases":
-        data = build_purchases(args.gold_dir, args.catalog, args.resolution_map)
+        data = build_purchases(args.receipts_dir, args.products, args.resolution)
         save_json(data, args.output)
         meta = data["meta"]
         print(f"Wrote {args.output}")

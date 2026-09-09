@@ -13,7 +13,7 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 
 - **Extraction**: receipt photos are read with an LLM, currently driven by a prompt I run over a batch of receipts. The extracted receipts live in `data/gold`, gitignored because they are my own shopping.
 - **Catalog**: `grocery-app catalog` fetches real products from GLOBUS's own category listings (name, brand, price, pack size, barcode), so the catalog comes from the retailer instead of being guessed from receipt abbreviations. Output is gitignored.
-- **Normalization**: a Python layer that resolves raw receipt lines to a product catalog (`data/catalog.json`) through a resolution map (`data/resolution_map.json`), so the same item is recognised across stores and spellings.
+- **Normalization**: a Python layer that resolves raw receipt lines to products, split across three files — `data/products.json` (what a product is), `data/resolution.json` (which receipt text means which product, store-scoped and with provenance), and `data/store_listings/<store>.json` (what one store sells it as, with price history).
 - **Purchase history**: `purchases.json`, built from the extracted receipts by the normalization layer.
 - **Demo**: a self-contained static web page (`web/index.html`) presenting the history in a mobile-style layout.
 

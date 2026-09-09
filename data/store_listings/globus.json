@@ -1,0 +1,8 @@
+{
+  "meta": {
+    "schema": 1,
+    "store": "GLOBUS",
+    "note": "Populated as matches are confirmed. `prices` is the shelf price observed at fetch time, which is a different series from what was paid (that lives in purchases.json). Shelf history cannot be backfilled: the shop publishes today only."
+  },
+  "listings": {}
+}

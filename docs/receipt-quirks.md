@@ -30,7 +30,7 @@ pass wrote Globus's resolved rates; the first extraction run caught that.)
   Two ALDI branches print `ALDI SÜD` and `Aldi Süd`; both are recorded as
   printed, because the parser is graded on reading the paper, not on knowing the
   brand. Mapping those to one canonical chain is the **normalizer's** job, the
-  same way `raw_name` maps to `product_id` through `resolution_map.json`.
+  same way `raw_name` maps to `product_id` through `resolution.json`.
 - Dates, times and amounts are written canonically (`2026-06-26`, `1.98`) even
   though receipts print `26.06.26` and `1,98`. These have one unambiguous
   meaning, so a canonical form loses nothing — and gold already does this.

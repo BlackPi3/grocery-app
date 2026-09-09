@@ -1,0 +1,1234 @@
+{
+  "meta": {
+    "schema": 1,
+    "next_id": 54,
+    "note": "product_id is opaque and permanent; `label` is the old slug, kept for readability only. Attributes are model-proposed unless provenance says otherwise; see open_questions."
+  },
+  "products": {
+    "p-0001": {
+      "label": "alnatura-bio-schoko",
+      "name": "Chocolate",
+      "brand": "Alnatura",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Sweets & Chocolate",
+      "is_organic": true,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "size unknown (typical 100g)"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0002": {
+      "label": "alnatura-meersalz-500g",
+      "name": "Meersalz (sea salt)",
+      "brand": "Alnatura",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 500,
+        "unit": "g"
+      },
+      "category": "Salt & Seasoning",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "net_quantity assumed 500g — confirm"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0003": {
+      "label": "alpfrischer-kakao-1l",
+      "name": "Chocolate milk drink",
+      "brand": "Weihenstephan",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 1000,
+        "unit": "ml"
+      },
+      "category": "Dairy Drinks",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "brand tentative (Weihenstephan?); receipt prints 'Alpfrischer' — confirm"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0004": {
+      "label": "alpro-barista-drink",
+      "name": "Plant-based drink",
+      "brand": "Alpro",
+      "product_line": "Barista",
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 1000,
+        "unit": "ml"
+      },
+      "category": "Plant-based Drinks",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "variant unknown (soy / oat / almond?)",
+        "size assumed 1L — confirm"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0005": {
+      "label": "apostels-joghurt",
+      "name": "Yogurt",
+      "brand": "Apostels",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Dairy",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "brand 'Apostels' unconfirmed",
+        "size unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0006": {
+      "label": "bake-rolls-sour-cream",
+      "name": "Bread snack rolls",
+      "brand": "TUC",
+      "product_line": "Bake Rolls",
+      "variant": "Sour Cream",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Snacks",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "net_quantity unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0007": {
+      "label": "bialetti-perfetto-moka-classico-250g",
+      "name": "Ground coffee (moka)",
+      "brand": "Bialetti",
+      "product_line": "Perfetto Moka",
+      "variant": "Classico",
+      "size": {
+        "count": 1,
+        "value": 250,
+        "unit": "g"
+      },
+      "category": "Coffee",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "net_quantity assumed 250g — confirm"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0008": {
+      "label": "bio-bluetenhonig",
+      "name": "Blossom honey (Blütenhonig)",
+      "brand": null,
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Honey & Spreads",
+      "is_organic": true,
+      "is_own_brand": null,
+      "eans": [],
+      "open_questions": [
+        "brand unknown",
+        "size unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0009": {
+      "label": "chips-peperoni-150g",
+      "name": "Potato chips",
+      "brand": null,
+      "product_line": null,
+      "variant": "Peperoni",
+      "size": {
+        "count": 1,
+        "value": 150,
+        "unit": "g"
+      },
+      "category": "Snacks",
+      "is_organic": false,
+      "is_own_brand": null,
+      "eans": [],
+      "open_questions": [
+        "brand unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0010": {
+      "label": "chips-salt-vinegar",
+      "name": "Potato chips",
+      "brand": null,
+      "product_line": null,
+      "variant": "Salt & Vinegar",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Snacks",
+      "is_organic": false,
+      "is_own_brand": null,
+      "eans": [],
+      "open_questions": [
+        "brand unknown",
+        "size unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0011": {
+      "label": "dallmayr-pad-classic",
+      "name": "Coffee pods",
+      "brand": "Dallmayr",
+      "product_line": "Pad",
+      "variant": "Classic",
+      "size": {
+        "count": 1,
+        "value": 16,
+        "unit": "piece"
+      },
+      "category": "Coffee",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      },
+      "extra": {
+        "net_weight_g": 124,
+        "notes": "Standard pack 16 pads (124 g); observed with +2 gratis promo on IMG_5388.",
+        "enrichment": {
+          "source": "store label / website (not printed on receipt)",
+          "reference_unit_price": {
+            "amount": 24.11,
+            "per": "kg",
+            "currency": "EUR"
+          }
+        }
+      }
+    },
+    "p-0012": {
+      "label": "dh-magnesium-bisglycinat",
+      "name": "Magnesium bisglycinate (supplement)",
+      "brand": "Doppelherz",
+      "product_line": null,
+      "variant": "Magnesium-Bisglycinat",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": null
+      },
+      "category": "Health / Supplements",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "size/count unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0013": {
+      "label": "dr-beckmann-farb-schmutz",
+      "name": "Farb- und Schmutzfänger (colour & dirt collector sheets)",
+      "brand": "Dr. Beckmann",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "piece"
+      },
+      "category": "Cleaning / Laundry",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "sheet count unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0014": {
+      "label": "finish-dishwasher-salt-1200g",
+      "name": "Dishwasher salt",
+      "brand": "Finish",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 1200,
+        "unit": "g"
+      },
+      "category": "Cleaning / Dishwashing",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0015": {
+      "label": "fleischtomaten-lose",
+      "name": "Beef tomatoes (loose)",
+      "brand": null,
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "kg"
+      },
+      "category": "Produce / Vegetables",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      },
+      "extra": {
+        "sold_by_weight": true
+      }
+    },
+    "p-0016": {
+      "label": "globus-avocado-gold",
+      "name": "Avocado",
+      "brand": "GLOBUS",
+      "product_line": null,
+      "variant": "Gold",
+      "size": {
+        "count": 1,
+        "value": 1,
+        "unit": "piece"
+      },
+      "category": "Produce / Fruit",
+      "is_organic": false,
+      "is_own_brand": true,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0017": {
+      "label": "globus-bio-eier-10",
+      "name": "Eggs (organic)",
+      "brand": "GLOBUS",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 10,
+        "unit": "piece"
+      },
+      "category": "Eggs",
+      "is_organic": true,
+      "is_own_brand": true,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0018": {
+      "label": "globus-guacamole",
+      "name": "Guacamole",
+      "brand": "GLOBUS",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Dips & Spreads",
+      "is_organic": false,
+      "is_own_brand": true,
+      "eans": [],
+      "open_questions": [
+        "net_quantity unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0019": {
+      "label": "globus-saatenbroetchen",
+      "name": "Saatenbrötchen (seeded bread rolls)",
+      "brand": "GLOBUS",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 3,
+        "unit": "piece"
+      },
+      "category": "Bakery",
+      "is_organic": false,
+      "is_own_brand": true,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      },
+      "extra": {
+        "notes": "Standard pack of 3; observed with a temporary +1 gratis promo."
+      }
+    },
+    "p-0020": {
+      "label": "globus-vollkornbroetchen",
+      "name": "Vollkornbrötchen (wholegrain rolls)",
+      "brand": "GLOBUS",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 3,
+        "unit": "piece"
+      },
+      "category": "Bakery",
+      "is_organic": false,
+      "is_own_brand": true,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      },
+      "extra": {
+        "notes": "Standard pack of 3; observed with +1 gratis promo."
+      }
+    },
+    "p-0021": {
+      "label": "insula-paprika-250g",
+      "name": "Paprika (ground)",
+      "brand": "Insula",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 250,
+        "unit": "g"
+      },
+      "category": "Spices & Seasoning",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0022": {
+      "label": "insula-pfeffer-schwarz-gemahlen-250g",
+      "name": "Pfeffer (black pepper, ground)",
+      "brand": "Insula",
+      "product_line": null,
+      "variant": "schwarz, gemahlen",
+      "size": {
+        "count": 1,
+        "value": 250,
+        "unit": "g"
+      },
+      "category": "Spices & Seasoning",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "size 250 inferred from name code — confirm grams"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0023": {
+      "label": "insula-zimt-gemahlen-100g",
+      "name": "Zimt (cinnamon, ground)",
+      "brand": "Insula",
+      "product_line": null,
+      "variant": "gemahlen",
+      "size": {
+        "count": 1,
+        "value": 100,
+        "unit": "g"
+      },
+      "category": "Spices & Seasoning",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0024": {
+      "label": "jeden-tag-bio-ahornsirup",
+      "name": "Maple syrup",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "ml"
+      },
+      "category": "Syrups & Sweeteners",
+      "is_organic": true,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "net_quantity unknown (typical 250ml)"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0025": {
+      "label": "jeden-tag-eier-10-freiland",
+      "name": "Eggs (free-range)",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": "Freilandhaltung",
+      "size": {
+        "count": 1,
+        "value": 10,
+        "unit": "piece"
+      },
+      "category": "Eggs",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0026": {
+      "label": "jeden-tag-kidneybohnen",
+      "name": "Kidney beans (canned)",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 400,
+        "unit": "g"
+      },
+      "category": "Pantry / Legumes",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      },
+      "extra": {
+        "drained_quantity": 255,
+        "drained_unit": "g"
+      }
+    },
+    "p-0027": {
+      "label": "jeden-tag-kokosraspeln-200g",
+      "name": "Desiccated coconut",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 200,
+        "unit": "g"
+      },
+      "category": "Baking",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0028": {
+      "label": "jeden-tag-magerquark-500g",
+      "name": "Magerquark (low-fat quark)",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 500,
+        "unit": "g"
+      },
+      "category": "Dairy",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0029": {
+      "label": "jeden-tag-milch-1-5-esl",
+      "name": "Milk (1.5% fat, ESL)",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": "1,5% ESL",
+      "size": {
+        "count": 1,
+        "value": 1000,
+        "unit": "ml"
+      },
+      "category": "Dairy",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "size assumed 1L — confirm"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0030": {
+      "label": "jeden-tag-soft-cookies-triple-choco",
+      "name": "Soft cookies",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": "Triple Choco",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Sweets & Biscuits",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "net_quantity unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0031": {
+      "label": "kerrygold-butter",
+      "name": "Butter (Irish)",
+      "brand": "Kerrygold",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 250,
+        "unit": "g"
+      },
+      "category": "Dairy",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "net_quantity assumed 250g (standard) — confirm"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0032": {
+      "label": "koerner-balance-toast",
+      "name": "Multigrain toast bread",
+      "brand": "Harry",
+      "product_line": "Körner Balance",
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Bakery",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "net_quantity unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0033": {
+      "label": "lac-vollmilch-3-5",
+      "name": "Whole milk",
+      "brand": "LAC",
+      "product_line": null,
+      "variant": "3,5%",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "ml"
+      },
+      "category": "Dairy",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "size unknown (1L?)"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0034": {
+      "label": "lays-chips-kraeuterbutter",
+      "name": "Potato chips",
+      "brand": "Lay's",
+      "product_line": null,
+      "variant": "Kräuterbutter",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Snacks",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "brand/flavour partly obscured ('Lay?s Kr?uterbutter') — confirm",
+        "size unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0035": {
+      "label": "mav-make-up-entferner",
+      "name": "Make-up remover",
+      "brand": null,
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "ml"
+      },
+      "category": "Personal Care",
+      "is_organic": false,
+      "is_own_brand": null,
+      "eans": [],
+      "open_questions": [
+        "brand 'MAV' unconfirmed",
+        "size unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0036": {
+      "label": "minusl-skyr",
+      "name": "Skyr",
+      "brand": "MinusL",
+      "product_line": null,
+      "variant": "lactose-free",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Dairy",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "size unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0037": {
+      "label": "minusl-speisequark",
+      "name": "Speisequark (quark)",
+      "brand": "MinusL",
+      "product_line": null,
+      "variant": "lactose-free",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Dairy",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "size unknown (typical 250g)"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0038": {
+      "label": "natuvell-wattepads-70",
+      "name": "Cotton pads (Wattepads)",
+      "brand": "natuvell",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 70,
+        "unit": "piece"
+      },
+      "category": "Personal Care",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0039": {
+      "label": "oho-destilliertes-wasser",
+      "name": "Distilled water",
+      "brand": "OHO",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "ml"
+      },
+      "category": "Household",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "size unknown (typical 1L / 5L)"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0040": {
+      "label": "oho-ersatztuecher",
+      "name": "Replacement cleaning cloths",
+      "brand": "OHO",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "piece"
+      },
+      "category": "Cleaning",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "count unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0041": {
+      "label": "oho-muellbeutel-35l",
+      "name": "Garbage bags",
+      "brand": "OHO",
+      "product_line": null,
+      "variant": "35 L",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "piece"
+      },
+      "category": "Household",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "bags per pack unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0042": {
+      "label": "palatina-wachtelbohnen",
+      "name": "Wachtelbohnen (dried borlotti/cranberry beans)",
+      "brand": "Palatina",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 500,
+        "unit": "g"
+      },
+      "category": "Pantry / Legumes",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      },
+      "extra": {
+        "notes": "Dried (not ready-to-eat)."
+      }
+    },
+    "p-0043": {
+      "label": "paprika-gruen-lose",
+      "name": "Green bell pepper (loose)",
+      "brand": null,
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "kg"
+      },
+      "category": "Produce / Vegetables",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      },
+      "extra": {
+        "sold_by_weight": true
+      }
+    },
+    "p-0044": {
+      "label": "pril-original-675ml",
+      "name": "Dishwashing liquid",
+      "brand": "Pril",
+      "product_line": "Original",
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 675,
+        "unit": "ml"
+      },
+      "category": "Cleaning / Dishwashing",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0045": {
+      "label": "sagrotan-schimmelfrei",
+      "name": "Mould remover spray",
+      "brand": "Sagrotan",
+      "product_line": null,
+      "variant": "Schimmelfrei",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "ml"
+      },
+      "category": "Cleaning",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "size unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0046": {
+      "label": "sleepy-reinigungstuecher",
+      "name": "Reinigungstücher für Oberflächen (surface cleaning wipes)",
+      "brand": "Sleepy",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "piece"
+      },
+      "category": "Cleaning",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "count unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0047": {
+      "label": "somat-5in1-deo-perls",
+      "name": "Dishwasher tablets",
+      "brand": "Somat",
+      "product_line": "5in1",
+      "variant": "Deo Perls",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "piece"
+      },
+      "category": "Cleaning / Dishwashing",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "tablet count unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0048": {
+      "label": "sonnenblumenoel-nativ",
+      "name": "Sunflower oil",
+      "brand": null,
+      "product_line": null,
+      "variant": "nativ (cold-pressed)",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "ml"
+      },
+      "category": "Cooking Oils",
+      "is_organic": false,
+      "is_own_brand": null,
+      "eans": [],
+      "open_questions": [
+        "brand unknown",
+        "size unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0049": {
+      "label": "suesskartoffeln-lose",
+      "name": "Sweet potatoes (loose)",
+      "brand": null,
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "kg"
+      },
+      "category": "Produce / Vegetables",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      },
+      "extra": {
+        "sold_by_weight": true
+      }
+    },
+    "p-0050": {
+      "label": "tens-waschemulsion",
+      "name": "Waschemulsion (skin cleansing wash)",
+      "brand": "Tensimed",
+      "product_line": null,
+      "variant": "Nachfüllpack (refill)",
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "ml"
+      },
+      "category": "Personal Care / Skin",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "size unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0051": {
+      "label": "topfreiniger-10er",
+      "name": "Pot scourers (Topfreiniger)",
+      "brand": null,
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 10,
+        "unit": "piece"
+      },
+      "category": "Cleaning",
+      "is_organic": false,
+      "is_own_brand": null,
+      "eans": [],
+      "open_questions": [
+        "brand unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0052": {
+      "label": "walnusskerne-natur",
+      "name": "Walnuts (natural)",
+      "brand": "Knabberlieblinge",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "g"
+      },
+      "category": "Nuts & Dried Fruit",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "net_quantity unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    },
+    "p-0053": {
+      "label": "weihenstephan-kakao",
+      "name": "Cocoa drink",
+      "brand": "Weihenstephan",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": "ml"
+      },
+      "category": "Dairy Drinks",
+      "is_organic": false,
+      "is_own_brand": false,
+      "eans": [],
+      "open_questions": [
+        "brand read from 'Weih.' abbreviation",
+        "size unknown"
+      ],
+      "provenance": {
+        "attributes": "model-proposed",
+        "source": "data/catalog.json"
+      }
+    }
+  }
+}

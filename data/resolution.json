@@ -1,0 +1,503 @@
+{
+  "meta": {
+    "schema": 1,
+    "note": "confirmed_at is null for entries migrated from data/gold: Parham verified them against the photos, but the date was not recorded at the time and is not invented here."
+  },
+  "entries": [
+    {
+      "store": "GLOBUS",
+      "raw_name": "ALN.MEERSALZ",
+      "line_type": "product",
+      "product_id": "p-0002",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "ALNATURA BIO SCHOKO",
+      "line_type": "product",
+      "product_id": "p-0001",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Alpfrischer Kakao 1L",
+      "line_type": "product",
+      "product_id": "p-0003",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Alpro Barista Drink",
+      "line_type": "product",
+      "product_id": "p-0004",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Apostels Jogurt",
+      "line_type": "product",
+      "product_id": "p-0005",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Avocados Globus Gold",
+      "line_type": "product",
+      "product_id": "p-0016",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "BIO BLÜTENHONIG",
+      "line_type": "product",
+      "product_id": "p-0008",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Chips Peperoni 150g",
+      "line_type": "product",
+      "product_id": "p-0009",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Chips Salt & Vinegar",
+      "line_type": "product",
+      "product_id": "p-0010",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "DH Magnesium-Bisglyc",
+      "line_type": "product",
+      "product_id": "p-0012",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Dallmayr Pad Classic",
+      "line_type": "product",
+      "product_id": "p-0011",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Dr.B. Farb-u.Schmutz",
+      "line_type": "product",
+      "product_id": "p-0013",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "FLEISCHTOMATEN LOSE",
+      "line_type": "product",
+      "product_id": "p-0015",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Finish Salz 1,2kg",
+      "line_type": "product",
+      "product_id": "p-0014",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "GLOBUS Bio 10er Eier",
+      "line_type": "product",
+      "product_id": "p-0017",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "GLOBUS Guacamole m.",
+      "line_type": "product",
+      "product_id": "p-0018",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "INS.PAPRIKA SCH.250G",
+      "line_type": "product",
+      "product_id": "p-0021",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "INS.PFEFF.SCH.GE.250",
+      "line_type": "product",
+      "product_id": "p-0022",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "INS.ZIMT GEM.100G",
+      "line_type": "product",
+      "product_id": "p-0023",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Bio Ahornsirup",
+      "line_type": "product",
+      "product_id": "p-0024",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Eier 10er FH",
+      "line_type": "product",
+      "product_id": "p-0025",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Kidney-Bohnen",
+      "line_type": "product",
+      "product_id": "p-0026",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Kokosraspeln 200g",
+      "line_type": "product",
+      "product_id": "p-0027",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Magerquark 500g",
+      "line_type": "product",
+      "product_id": "p-0028",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Milch 1,5% ESL",
+      "line_type": "product",
+      "product_id": "p-0029",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Soft Triple Choco",
+      "line_type": "product",
+      "product_id": "p-0030",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Kerrygold Butter",
+      "line_type": "product",
+      "product_id": "p-0031",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Körner Balance-Toast",
+      "line_type": "product",
+      "product_id": "p-0032",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "LAC VOLLMILCH 3,5%",
+      "line_type": "product",
+      "product_id": "p-0033",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Lay's Kräuterbutter",
+      "line_type": "product",
+      "product_id": "p-0034",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Leergut Getränke Einweg",
+      "line_type": "deposit_return",
+      "product_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Leergut Kühlregal Mehrweg",
+      "line_type": "deposit_return",
+      "product_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "MAV Make-Up Entf.",
+      "line_type": "product",
+      "product_id": "p-0035",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "MinusL Skyr",
+      "line_type": "product",
+      "product_id": "p-0036",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "MinusL Speisequark",
+      "line_type": "product",
+      "product_id": "p-0037",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "OHO Destilliertes Wa",
+      "line_type": "product",
+      "product_id": "p-0039",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "OHO Ersatztücher",
+      "line_type": "product",
+      "product_id": "p-0040",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "OHO Müllbeutel 35 L",
+      "line_type": "product",
+      "product_id": "p-0041",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "PRIL Original 675ml",
+      "line_type": "product",
+      "product_id": "p-0044",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Pal. Wachtelbohnen",
+      "line_type": "product",
+      "product_id": "p-0042",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Paprika grün lose",
+      "line_type": "product",
+      "product_id": "p-0043",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Perfetto Moka Classi",
+      "line_type": "product",
+      "product_id": "p-0007",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "SAATENBRÖTCHEN 3+1",
+      "line_type": "product",
+      "product_id": "p-0019",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "SOMAT 5in1 Deo Perls",
+      "line_type": "product",
+      "product_id": "p-0047",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Sagrotan Schimmelfrei",
+      "line_type": "product",
+      "product_id": "p-0045",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Sleepy Reinigungstc",
+      "line_type": "product",
+      "product_id": "p-0046",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Sonnenblumenöl nativ",
+      "line_type": "product",
+      "product_id": "p-0048",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Süßkartoffeln lose",
+      "line_type": "product",
+      "product_id": "p-0049",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "TENS.WASCHEMULS.NFB",
+      "line_type": "product",
+      "product_id": "p-0050",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Topfreiniger 10er",
+      "line_type": "product",
+      "product_id": "p-0051",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Tuc Bake Rolls SoCr",
+      "line_type": "product",
+      "product_id": "p-0006",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Vollkornbrötchen 3+1",
+      "line_type": "product",
+      "product_id": "p-0020",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Walnusskerne natur",
+      "line_type": "product",
+      "product_id": "p-0052",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Weih. Kakao",
+      "line_type": "product",
+      "product_id": "p-0053",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "natuvell Wattep.70St",
+      "line_type": "product",
+      "product_id": "p-0038",
+      "confirmed_by": "parham",
+      "confirmed_at": null,
+      "source": "data/gold"
+    }
+  ]
+}

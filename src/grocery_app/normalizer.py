@@ -1,16 +1,20 @@
-"""Normalizer: parsed gold receipts -> purchases.json (the central contract).
+"""Normalizer: parsed receipts -> purchases.json (the central contract).
 
 The normalizer joins each parsed receipt line against:
-  - resolution_map.json  (raw receipt string  -> product_id)
-  - catalog.json         (product_id          -> structured product attributes)
+  - resolution.json  ((store, raw receipt string) -> product_id)
+  - products.json    (product_id                  -> structured product attributes)
+
+Resolution is store-scoped because the same printed abbreviation can mean
+different things in different chains, while still allowing two chains to point
+at one product when they genuinely sell the same thing.
 
 and derives fields the receipt never printed (notably price-per-unit), producing
 one flat, enriched list of purchase records that every downstream consumer reads.
 
 Design notes:
-  - Resolution is done from the *raw_name* via the resolution map, exactly as it
-    would be for real parser output. The product_id already present in the gold
-    files is used only as a cross-check.
+  - Resolution is done from (store, raw_name) via resolution.json, exactly as it
+    would be for real parser output. Any product_id still present in a receipt
+    file is used only as a cross-check.
   - Unknown items are flagged (resolved=False), never silently dropped or guessed.
   - Duplicate receipt photos (same transaction) are excluded to avoid double-counting.
 """
@@ -36,7 +40,7 @@ def load_gold_receipts(gold_dir: str | Path) -> list[dict[str, Any]]:
 
 # --- unit-price derivation ---------------------------------------------------
 
-# Convert a catalog (net_quantity, unit) into a base amount for price-per-unit.
+# Convert a product size into a base amount for price-per-unit.
 # Weight -> per kg, volume -> per litre, countable -> per piece.
 _TO_KG = {"kg": 1.0, "g": 0.001}
 _TO_L = {"l": 1.0, "ml": 0.001}
@@ -56,12 +60,14 @@ def compute_unit_price(net_paid: float, qty: int, line: dict[str, Any],
     if not entry:
         return None
 
-    net_quantity = entry.get("net_quantity")
-    unit = entry.get("unit")
+    size = entry.get("size") or {}
+    net_quantity = size.get("value")
+    unit = size.get("unit")
     if not net_quantity or not unit:
         return None
 
-    total = qty * net_quantity  # total amount purchased on this line
+    # count covers multipacks: 6 x 0.33 l is six units, not one.
+    total = qty * (size.get("count") or 1) * net_quantity
     if unit in _TO_KG:
         kg = total * _TO_KG[unit]
         return {"amount": round(net_paid / kg, 2), "per": "kg"} if kg else None
@@ -76,12 +82,12 @@ def compute_unit_price(net_paid: float, qty: int, line: dict[str, Any],
 # --- core join ---------------------------------------------------------------
 
 def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
-                   resolution_map: dict[str, str],
-                   catalog: dict[str, dict[str, Any]]) -> dict[str, Any]:
+                   resolution: dict[tuple[str, str], str],
+                   products: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """Turn one parsed receipt line into an enriched purchase record."""
     raw_name = line["raw_name"]
-    product_id = resolution_map.get(raw_name)
-    entry = catalog.get(product_id) if product_id else None
+    product_id = resolution.get((receipt.get("store"), raw_name))
+    entry = products.get(product_id) if product_id else None
     net_paid = line.get("net", 0.0)
     qty = line.get("qty", 1)
 
@@ -105,7 +111,9 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
             "brand": entry.get("brand"),
             "product_line": entry.get("product_line"),
             "variant": entry.get("variant"),
-            "product": entry.get("product"),
+            # The readable name travels with the opaque id, so purchases.json
+            # stays legible to a human reading it.
+            "product": entry.get("name"),
             "category": entry.get("category"),
             "is_own_brand": entry.get("is_own_brand"),
             "is_organic": entry.get("is_organic"),
@@ -118,20 +126,38 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
     return record
 
 
-def normalize_receipt(receipt: dict[str, Any], resolution_map: dict[str, str],
-                      catalog: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str], str],
+                      products: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     return [
-        normalize_line(line, receipt, resolution_map, catalog)
+        normalize_line(line, receipt, resolution, products)
         for line in receipt.get("lines", [])
     ]
 
 
-def build_purchases(gold_dir: str | Path, catalog_path: str | Path,
-                    resolution_map_path: str | Path) -> dict[str, Any]:
-    """Build the purchases.json contract from the gold receipts + reference data."""
-    catalog = load_json(catalog_path)
-    resolution_map = load_json(resolution_map_path)
-    receipts = load_gold_receipts(gold_dir)
+def load_resolution(path: str | Path) -> dict[tuple[str, str], str]:
+    """Flatten resolution.json into a (store, raw_name) -> product_id lookup.
+
+    Entries whose line_type is not "product" (deposit returns, bags) carry no
+    product_id by design: they are not unresolved, they are not products.
+    """
+    data = load_json(path)
+    return {
+        (entry["store"], entry["raw_name"]): entry["product_id"]
+        for entry in data["entries"]
+        if entry.get("product_id")
+    }
+
+
+def load_products(path: str | Path) -> dict[str, dict[str, Any]]:
+    return load_json(path)["products"]
+
+
+def build_purchases(receipts_dir: str | Path, products_path: str | Path,
+                    resolution_path: str | Path) -> dict[str, Any]:
+    """Build the purchases.json contract from verified receipts + reference data."""
+    products = load_products(products_path)
+    resolution = load_resolution(resolution_path)
+    receipts = load_gold_receipts(receipts_dir)
 
     purchases: list[dict[str, Any]] = []
     used_receipts = 0
@@ -140,10 +166,10 @@ def build_purchases(gold_dir: str | Path, catalog_path: str | Path,
         if receipt.get("is_duplicate"):
             continue
         used_receipts += 1
-        purchases.extend(normalize_receipt(receipt, resolution_map, catalog))
+        purchases.extend(normalize_receipt(receipt, resolution, products))
 
-    products = [p for p in purchases if p["type"] == "product"]
-    unresolved = sorted({p["raw_name"] for p in products if not p["resolved"]})
+    product_lines = [p for p in purchases if p["type"] == "product"]
+    unresolved = sorted({p["raw_name"] for p in product_lines if not p["resolved"]})
     dates = sorted({r["date"] for r in receipts if not r.get("is_duplicate")})
 
     return {
@@ -151,8 +177,8 @@ def build_purchases(gold_dir: str | Path, catalog_path: str | Path,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],
-            "product_lines": len(products),
-            "total_net_paid": round(sum(p["net_paid"] for p in products), 2),
+            "product_lines": len(product_lines),
+            "total_net_paid": round(sum(p["net_paid"] for p in product_lines), 2),
             "unresolved_items": unresolved,
         },
         "purchases": purchases,
