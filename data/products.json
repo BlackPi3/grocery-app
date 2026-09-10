@@ -1,7 +1,7 @@
 {
   "meta": {
     "schema": 1,
-    "next_id": 82,
+    "next_id": 85,
     "note": "product_id is opaque and permanent; `label` is the old slug, kept for readability only. Attributes are model-proposed unless provenance says otherwise; see open_questions."
   },
   "products": {
@@ -1872,6 +1872,75 @@
       "provenance": {
         "attributes": "globus-catalog",
         "source": "https://produkte.globus.de/koerperpflege-gesundheit-kosmetik/hygieneartikel/kosmetik-taschentuecher/7322541402826/taschentuecher-box-duo-original"
+      }
+    },
+    "p-0082": {
+      "label": "Kokos Waffeln",
+      "name": "Kokos Waffeln",
+      "brand": "Manner",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 400.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "9000331607900"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/suesses-salziges/gebaeck/waffelgebaeck/9000331607900/kokos-waffeln"
+      }
+    },
+    "p-0083": {
+      "label": "Rotwein First Edition ",
+      "name": "Rotwein First Edition ",
+      "brand": "Valle Secreto",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": null
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "7804628030653"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-product-page",
+        "source": "https://produkte.globus.de/dudweiler/getraenke/wein/rotwein/7804628030653/rotwein-first-edition"
+      }
+    },
+    "p-0084": {
+      "label": "Linsen Chips Paprika ",
+      "name": "Linsen Chips Paprika ",
+      "brand": "funny-frisch",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 90.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4003586107961"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-product-page",
+        "source": "https://produkte.globus.de/dudweiler/suesses-salziges/snacks-knabberzeug/chips/4003586107961/linsen-chips-paprika"
       }
     }
   }

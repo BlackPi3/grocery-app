@@ -335,11 +335,27 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
     held_back = ambiguous_names(rows)
     accepted = {k: v for k, v in all_accepted.items() if k not in held_back}
 
+    # A row offered no candidate but carries a url: the reviewer looked the
+    # product up and pasted the answer in. That is a decision, not a proposal,
+    # so it is taken from the page itself.
+    supplied: list[tuple[str, str]] = []
+    for row in rows:
+        if row.get("rank", "").strip() != "-":
+            continue
+        url = (row.get("url") or "").strip()
+        if url.startswith("http") and (store_key(store), row["raw_name"]) not in known:
+            supplied.append((row["raw_name"], url))
+
     # "None of these is right" is an answer worth keeping: it stops the name
     # being re-proposed with the same candidates, and marks it as needing a
     # different source rather than more ranking.
     no_match = 0
-    for raw_name in sorted(marked_names(rows, "n")):
+    supplied_names = {name for name, _ in supplied}
+    # A note on a row with no candidate and no url means the reviewer searched
+    # and the product is not on the site.
+    unmatched_names = {r["raw_name"] for r in unclear_rows(rows)
+                       if r.get("rank", "").strip() == "-"} - supplied_names
+    for raw_name in sorted(marked_names(rows, "n") | unmatched_names):
         # `all_accepted`, not `accepted`: a name held back for disambiguation
         # still has a `y` on it and is emphatically not a no-match.
         if (store_key(store), raw_name) in known or raw_name in all_accepted:
@@ -416,8 +432,11 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
 
     return {"products": added_products, "entries": added_entries,
             "listings": added_listings, "no_match": no_match,
+            "supplied": supplied,
             "ambiguous": sorted(held_back),
-            "unclear": [(r.get("decision"), r["raw_name"]) for r in unclear_rows(rows)],
+            "unclear": [(r.get("decision"), r["raw_name"]) for r in unclear_rows(rows)
+                        if r["raw_name"] not in supplied_names
+                        and r["raw_name"] not in unmatched_names],
             "skipped": len(accepted) - added_entries}
 
 

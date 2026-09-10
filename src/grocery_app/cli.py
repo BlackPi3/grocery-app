@@ -19,6 +19,7 @@ from grocery_app.resolver import (
     DEFAULT_OUTPUT as PROPOSALS_OUTPUT,
     build_proposals,
     build_proposals_via_search,
+    read_reviewed,
     confirm,
     confirm_pairs,
     read_pairs,
@@ -95,6 +96,8 @@ def main() -> None:
     r.add_argument("--output", default=PROPOSALS_OUTPUT)
     r.add_argument("--offline", action="store_true",
                    help="Rank the locally fetched catalog instead of using GLOBUS search")
+    r.add_argument("--force", action="store_true",
+                   help="Overwrite the output even if it still holds unread decisions")
 
     f = subparsers.add_parser(
         "confirm",
@@ -150,6 +153,17 @@ def main() -> None:
         print(f"  with brand: {summary['with_brand']}")
 
     if args.command == "propose":
+        # Regenerating over a marked-up file destroys the reviewer's work, which
+        # has already happened once. Run `confirm` first, or pass --force.
+        existing = Path(args.output)
+        if existing.exists() and not args.force:
+            marked = [r for r in read_reviewed(existing)
+                      if (r.get("decision") or "").strip()]
+            if marked:
+                print(f"{existing} still holds {len(marked)} marked rows.")
+                print("Run `grocery-app confirm` to bank them, or pass --force to discard.")
+                return
+
         if args.offline:
             proposals = build_proposals(args.receipts_dir, args.resolution,
                                         args.catalog, args.store)
@@ -180,6 +194,11 @@ def main() -> None:
             return
         summary = confirm(args.reviewed, args.products, args.resolution,
                           args.listings, args.store, args.observed_on)
+        if summary.get("supplied"):
+            extra = confirm_pairs(summary["supplied"], args.products, args.resolution,
+                                  args.listings, args.store, args.observed_on,
+                                  args.reviewed)
+            print(f"  confirmed from urls you pasted: {extra['added']}")
         print(f"Confirmed into {args.products}, {args.resolution}, {args.listings}")
         print(f"  new products:  {summary['products']}")
         print(f"  new resolution entries: {summary['entries']}")

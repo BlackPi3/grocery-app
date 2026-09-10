@@ -439,6 +439,15 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "Linsen Chips Paprika",
+      "line_type": "product",
+      "product_id": "p-0084",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "/tmp/pick.tsv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "MANN.KAK.HN-T?RTCHEN",
       "line_type": "product",
       "product_id": "p-0073",
@@ -454,6 +463,15 @@
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Manner Kokos Waffeln",
+      "line_type": "product",
+      "product_id": "p-0082",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
     },
     {
       "store": "GLOBUS",
@@ -664,6 +682,16 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "T?rt SchokBrownie 40",
+      "line_type": "product",
+      "product_id": null,
+      "status": "no_match_in_catalog",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "TENS.WASCHEMULS.NFB",
       "line_type": "product",
       "product_id": "p-0050",
@@ -706,6 +734,15 @@
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Valle Secreto Verdot",
+      "line_type": "product",
+      "product_id": "p-0083",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
     },
     {
       "store": "GLOBUS",

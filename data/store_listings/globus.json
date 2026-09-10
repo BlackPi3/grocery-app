@@ -259,6 +259,31 @@
       "product_id": "p-0081",
       "url": "https://produkte.globus.de/koerperpflege-gesundheit-kosmetik/hygieneartikel/kosmetik-taschentuecher/7322541402826/taschentuecher-box-duo-original",
       "prices": []
+    },
+    "9000331607900": {
+      "product_id": "p-0082",
+      "url": "https://produkte.globus.de/suesses-salziges/gebaeck/waffelgebaeck/9000331607900/kokos-waffeln",
+      "prices": []
+    },
+    "7804628030653": {
+      "product_id": "p-0083",
+      "url": "https://produkte.globus.de/dudweiler/getraenke/wein/rotwein/7804628030653/rotwein-first-edition",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 7.0
+        }
+      ]
+    },
+    "4003586107961": {
+      "product_id": "p-0084",
+      "url": "https://produkte.globus.de/dudweiler/suesses-salziges/snacks-knabberzeug/chips/4003586107961/linsen-chips-paprika",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 1.99
+        }
+      ]
     }
   }
 }
