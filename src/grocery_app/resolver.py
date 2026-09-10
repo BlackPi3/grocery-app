@@ -238,7 +238,7 @@ def read_reviewed(path: str | Path) -> list[dict[str, str]]:
 
 
 def accepted_rows(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]:
-    """raw_name -> the rows marked with a decision, in file order.
+    """raw_name -> the rows marked `y`, in file order.
 
     More than one row may be accepted for a name: the catalog can carry several
     article numbers for what is one product to a shopper (three listings of the
@@ -246,9 +246,31 @@ def accepted_rows(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]
     """
     picked: dict[str, list[dict[str, str]]] = {}
     for row in rows:
-        if (row.get("decision") or "").strip().upper().startswith("Y"):
+        if decision_of(row) == "y":
             picked.setdefault(row["raw_name"], []).append(row)
     return picked
+
+
+# The vocabulary a reviewer can write in the decision column. Blank has to keep
+# meaning "not looked at yet", so "I looked and none of these is right" needs a
+# mark of its own -- otherwise the two collapse and we cannot tell whether to
+# widen the search or simply wait.
+DECISIONS = {
+    "y": "this candidate is the product",
+    "n": "none of these is right, and I checked",
+    "?": "I am not sure; ask me again",
+}
+
+
+def decision_of(row: dict[str, str]) -> str | None:
+    value = (row.get("decision") or "").strip().lower()
+    if not value:
+        return None
+    return value[0] if value[0] in DECISIONS else None
+
+
+def marked_names(rows: list[dict[str, str]], mark: str) -> set[str]:
+    return {r["raw_name"] for r in rows if decision_of(r) == mark}
 
 
 _BARCODE_LENGTHS = {8, 12, 13, 14}
@@ -274,7 +296,23 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
     listings_doc = json.loads(Path(listings_path).read_text(encoding="utf-8"))
 
     known = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]}
-    accepted = accepted_rows(read_reviewed(reviewed_path))
+    rows = read_reviewed(reviewed_path)
+    accepted = accepted_rows(rows)
+
+    # "None of these is right" is an answer worth keeping: it stops the name
+    # being re-proposed with the same candidates, and marks it as needing a
+    # different source rather than more ranking.
+    no_match = 0
+    for raw_name in sorted(marked_names(rows, "n")):
+        if (store_key(store), raw_name) in known or raw_name in accepted:
+            continue
+        resolution_doc["entries"].append({
+            "store": store, "raw_name": raw_name, "line_type": "product",
+            "product_id": None, "status": "no_match_in_catalog",
+            "confirmed_by": "parham", "confirmed_at": observed_on,
+            "source": str(reviewed_path),
+        })
+        no_match += 1
 
     added_products = added_entries = added_listings = 0
     for raw_name, rows in accepted.items():
@@ -339,7 +377,8 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
                               encoding="utf-8")
 
     return {"products": added_products, "entries": added_entries,
-            "listings": added_listings, "skipped": len(accepted) - added_entries}
+            "listings": added_listings, "no_match": no_match,
+            "skipped": len(accepted) - added_entries}
 
 
 # --- search-backed candidates -------------------------------------------------

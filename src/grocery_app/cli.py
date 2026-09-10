@@ -163,8 +163,11 @@ def main() -> None:
         print(f"  names needing a decision: {len(proposals)}")
         print(f"  with at least one candidate: {with_candidates}")
         print(f"  no candidate found: {len(proposals) - with_candidates}")
-        print("\nPut 'y' in the decision column against the correct candidate.")
-        print("Leave a whole group blank if none is right — abstaining is a real answer.")
+        print("\nIn the decision column write:")
+        print("  y   this candidate is the product")
+        print("  n   none of these is right, and you checked")
+        print("  ?   not sure — you will be asked again")
+        print("  (blank means not looked at yet, which is different from 'n')")
 
     if args.command == "confirm":
         if args.pairs:
@@ -180,6 +183,8 @@ def main() -> None:
         print(f"  new products:  {summary['products']}")
         print(f"  new resolution entries: {summary['entries']}")
         print(f"  store listings written: {summary['listings']}")
+        if summary.get("no_match"):
+            print(f"  recorded as 'no match in catalog': {summary['no_match']}")
         if summary["skipped"]:
             print(f"  already known, skipped: {summary['skipped']}")
 

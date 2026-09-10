@@ -119,3 +119,21 @@ def test_multi_quantity_lines_compare_per_item(tmp_path):
     resolution.write_text(json.dumps({"entries": []}), encoding="utf-8")
 
     assert unresolved_lines(receipts, resolution, "Globus") == {"JT Magerquark 250g": 0.69}
+
+
+def test_blank_and_no_are_different_answers():
+    """Blank means 'not looked at yet'; 'n' means 'I checked and none fits'.
+    Collapsing them loses the signal that a different source is needed."""
+    from grocery_app.resolver import decision_of
+
+    assert decision_of({"decision": "y"}) == "y"
+    assert decision_of({"decision": "N"}) == "n"
+    assert decision_of({"decision": "?"}) == "?"
+    assert decision_of({"decision": ""}) is None
+    assert decision_of({"decision": "   "}) is None
+
+
+def test_unrecognised_marks_are_ignored_rather_than_guessed():
+    from grocery_app.resolver import decision_of
+
+    assert decision_of({"decision": "maybe later"}) is None
