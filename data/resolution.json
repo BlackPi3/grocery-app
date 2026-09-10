@@ -33,16 +33,6 @@
     },
     {
       "store": "GLOBUS",
-      "raw_name": "Alnatura Chiasamen",
-      "line_type": "product",
-      "product_id": null,
-      "status": "no_match_in_catalog",
-      "confirmed_by": "parham",
-      "confirmed_at": "2026-09-10",
-      "source": "data/proposals/globus.csv"
-    },
-    {
-      "store": "GLOBUS",
       "raw_name": "Alnatura Eier 10er",
       "line_type": "product",
       "product_id": "p-0055",
@@ -151,16 +141,6 @@
     },
     {
       "store": "GLOBUS",
-      "raw_name": "Dove Dusche 225ml",
-      "line_type": "product",
-      "product_id": null,
-      "status": "no_match_in_catalog",
-      "confirmed_by": "parham",
-      "confirmed_at": "2026-09-10",
-      "source": "data/proposals/globus.csv"
-    },
-    {
-      "store": "GLOBUS",
       "raw_name": "Dr.B. Farb-u.Schmutz",
       "line_type": "product",
       "product_id": "p-0013",
@@ -218,16 +198,6 @@
       "raw_name": "GLOBUS Konf.Erdbeer",
       "line_type": "product",
       "product_id": "p-0067",
-      "confirmed_by": "parham",
-      "confirmed_at": "2026-09-10",
-      "source": "data/proposals/globus.csv"
-    },
-    {
-      "store": "GLOBUS",
-      "raw_name": "Gefrierbeutel 3 l",
-      "line_type": "product",
-      "product_id": null,
-      "status": "no_match_in_catalog",
       "confirmed_by": "parham",
       "confirmed_at": "2026-09-10",
       "source": "data/proposals/globus.csv"
@@ -466,16 +436,6 @@
       "confirmed_by": null,
       "confirmed_at": null,
       "source": "data/gold"
-    },
-    {
-      "store": "GLOBUS",
-      "raw_name": "Linsen Chips Paprika",
-      "line_type": "product",
-      "product_id": null,
-      "status": "no_match_in_catalog",
-      "confirmed_by": "parham",
-      "confirmed_at": "2026-09-10",
-      "source": "data/proposals/globus.csv"
     },
     {
       "store": "GLOBUS",

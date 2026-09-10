@@ -174,3 +174,17 @@ def test_same_product_in_two_sizes_is_ambiguous():
             {"decision": "y", "raw_name": "chia", "catalog_name": "Bio Chia Samen",
              "pack_size": "0,2 kg"}]
     assert "chia" in ambiguous_names(rows)
+
+
+def test_a_name_held_back_for_disambiguation_is_not_a_no_match():
+    """It carries a `y`. Recording it as 'no match in catalog' would bury a real
+    decision and stop the name ever being asked about again."""
+    from grocery_app.resolver import accepted_rows, ambiguous_names, marked_names
+
+    rows = [{"decision": "y", "raw_name": "dove", "catalog_name": "Dusche A", "pack_size": ""},
+            {"decision": "y", "raw_name": "dove", "catalog_name": "Dusche B", "pack_size": ""},
+            {"decision": "n", "raw_name": "dove", "catalog_name": "Dusche C", "pack_size": ""}]
+    assert "dove" in ambiguous_names(rows)
+    assert "dove" in marked_names(rows, "n")
+    # The guard is that it also has a y, so it must never be written as no-match.
+    assert "dove" in accepted_rows(rows)

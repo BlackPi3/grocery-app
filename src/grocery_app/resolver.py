@@ -330,17 +330,19 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
 
     known = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]}
     rows = read_reviewed(reviewed_path)
-    accepted = accepted_rows(rows)
+    all_accepted = accepted_rows(rows)
     # A name whose accepted rows disagree needs a person, not a merge.
     held_back = ambiguous_names(rows)
-    accepted = {k: v for k, v in accepted.items() if k not in held_back}
+    accepted = {k: v for k, v in all_accepted.items() if k not in held_back}
 
     # "None of these is right" is an answer worth keeping: it stops the name
     # being re-proposed with the same candidates, and marks it as needing a
     # different source rather than more ranking.
     no_match = 0
     for raw_name in sorted(marked_names(rows, "n")):
-        if (store_key(store), raw_name) in known or raw_name in accepted:
+        # `all_accepted`, not `accepted`: a name held back for disambiguation
+        # still has a `y` on it and is emphatically not a no-match.
+        if (store_key(store), raw_name) in known or raw_name in all_accepted:
             continue
         resolution_doc["entries"].append({
             "store": store, "raw_name": raw_name, "line_type": "product",
