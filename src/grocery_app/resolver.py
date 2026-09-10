@@ -433,7 +433,10 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
     return {"products": added_products, "entries": added_entries,
             "listings": added_listings, "no_match": no_match,
             "supplied": supplied,
-            "ambiguous": sorted(held_back),
+            # A name already decided is not an open question, however its rows
+            # are still marked in the sheet.
+            "ambiguous": sorted(n for n in held_back
+                                if (store_key(store), n) not in known),
             "unclear": [(r.get("decision"), r["raw_name"]) for r in unclear_rows(rows)
                         if r["raw_name"] not in supplied_names
                         and r["raw_name"] not in unmatched_names],
