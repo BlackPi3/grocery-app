@@ -1,7 +1,7 @@
 {
   "meta": {
     "schema": 1,
-    "next_id": 86,
+    "next_id": 87,
     "note": "product_id is opaque and permanent; `label` is the old slug, kept for readability only. Attributes are model-proposed unless provenance says otherwise; see open_questions."
   },
   "products": {
@@ -1964,6 +1964,29 @@
       "provenance": {
         "attributes": "globus-product-page",
         "source": "https://produkte.globus.de/dudweiler/suesses-salziges/gebaeck/waffelgebaeck/9000331627908/schoko-waffeln-toertchen-schoko-brownie"
+      }
+    },
+    "p-0086": {
+      "label": "Salami Edelschimmel ",
+      "name": "Salami Edelschimmel ",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 125.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4306188062493"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-product-page",
+        "source": "https://produkte.globus.de/dudweiler/fleisch-wurst/wurst-aufschnitt/salami-paprikawurst/4306188062493/salami-edelschimmel"
       }
     }
   }

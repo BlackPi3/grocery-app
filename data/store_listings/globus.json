@@ -294,6 +294,16 @@
           "price": 3.99
         }
       ]
+    },
+    "4306188062493": {
+      "product_id": "p-0086",
+      "url": "https://produkte.globus.de/dudweiler/fleisch-wurst/wurst-aufschnitt/salami-paprikawurst/4306188062493/salami-edelschimmel",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 1.99
+        }
+      ]
     }
   }
 }
