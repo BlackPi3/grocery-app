@@ -631,13 +631,26 @@ def confirm_pairs(pairs: list[tuple[str, str]], products_path: str | Path,
     products_doc = json.loads(Path(products_path).read_text(encoding="utf-8"))
     resolution_doc = json.loads(Path(resolution_path).read_text(encoding="utf-8"))
     listings_doc = json.loads(Path(listings_path).read_text(encoding="utf-8"))
-    known = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]}
+    # A no-match is a finding, not a verdict: Parham later found `T?rt
+    # SchokBrownie 40` on the site, so supplying a url must be able to correct
+    # one rather than being skipped as already known.
+    resolved = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]
+                if e.get("product_id")}
+    correctable = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]
+                   if e.get("status") == "no_match_in_catalog"}
 
-    added = skipped = 0
+    added = skipped = corrected = 0
     for raw_name, url in pairs:
-        if (store_key(store), raw_name) in known:
+        key = (store_key(store), raw_name)
+        if key in resolved:
             skipped += 1
             continue
+        if key in correctable:
+            resolution_doc["entries"] = [
+                e for e in resolution_doc["entries"]
+                if not (store_key(e["store"]) == key[0] and e["raw_name"] == raw_name)
+            ]
+            corrected += 1
         found = product_from_url(url)
         product_id = f"p-{products_doc['meta']['next_id']:04d}"
         products_doc["meta"]["next_id"] += 1
@@ -676,4 +689,4 @@ def confirm_pairs(pairs: list[tuple[str, str]], products_path: str | Path,
                       (listings_path, listings_doc)):
         Path(path).write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
                               encoding="utf-8")
-    return {"added": added, "skipped": skipped}
+    return {"added": added, "skipped": skipped, "corrected": corrected}

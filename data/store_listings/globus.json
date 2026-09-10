@@ -284,6 +284,16 @@
           "price": 1.99
         }
       ]
+    },
+    "9000331627908": {
+      "product_id": "p-0085",
+      "url": "https://produkte.globus.de/dudweiler/suesses-salziges/gebaeck/waffelgebaeck/9000331627908/schoko-waffeln-toertchen-schoko-brownie",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 3.99
+        }
+      ]
     }
   }
 }

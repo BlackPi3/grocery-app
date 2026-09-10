@@ -190,7 +190,8 @@ def main() -> None:
                                    args.resolution, args.listings, args.store,
                                    args.observed_on, args.pairs)
             print(f"Confirmed {result['added']} from {args.pairs}"
-                  f" ({result['skipped']} already known)")
+                  f" ({result['skipped']} already known,"
+                  f" {result['corrected']} previously recorded as no match)")
             return
         summary = confirm(args.reviewed, args.products, args.resolution,
                           args.listings, args.store, args.observed_on)

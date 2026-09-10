@@ -1,7 +1,7 @@
 {
   "meta": {
     "schema": 1,
-    "next_id": 85,
+    "next_id": 86,
     "note": "product_id is opaque and permanent; `label` is the old slug, kept for readability only. Attributes are model-proposed unless provenance says otherwise; see open_questions."
   },
   "products": {
@@ -1941,6 +1941,29 @@
       "provenance": {
         "attributes": "globus-product-page",
         "source": "https://produkte.globus.de/dudweiler/suesses-salziges/snacks-knabberzeug/chips/4003586107961/linsen-chips-paprika"
+      }
+    },
+    "p-0085": {
+      "label": "Schoko-Waffeln Törtchen, Schoko Brownie",
+      "name": "Schoko-Waffeln Törtchen, Schoko Brownie",
+      "brand": "Manner",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 400.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "9000331627908"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-product-page",
+        "source": "https://produkte.globus.de/dudweiler/suesses-salziges/gebaeck/waffelgebaeck/9000331627908/schoko-waffeln-toertchen-schoko-brownie"
       }
     }
   }

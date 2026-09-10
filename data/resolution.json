@@ -684,11 +684,10 @@
       "store": "GLOBUS",
       "raw_name": "T?rt SchokBrownie 40",
       "line_type": "product",
-      "product_id": null,
-      "status": "no_match_in_catalog",
+      "product_id": "p-0085",
       "confirmed_by": "parham",
       "confirmed_at": "2026-09-10",
-      "source": "data/proposals/globus.csv"
+      "source": "/tmp/fix.tsv"
     },
     {
       "store": "GLOBUS",
