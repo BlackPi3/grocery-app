@@ -134,6 +134,131 @@
           "price": 2.49
         }
       ]
+    },
+    "4003840001936": {
+      "product_id": "p-0066",
+      "url": "https://produkte.globus.de/tiefkuehlprodukte/eis/eis-grosspackungen/4003840001936/eis-saure-drachenzungen-bunt",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 2.99
+        }
+      ]
+    },
+    "4304218731357": {
+      "product_id": "p-0067",
+      "url": "https://produkte.globus.de/brot-backwaren-fruehstueck/aufstriche/fruchtaufstriche/4304218731357/konfituere-extra-erdbeere",
+      "prices": []
+    },
+    "4304218432971": {
+      "product_id": "p-0068",
+      "url": "https://produkte.globus.de/fleisch-wurst/fleisch/gefluegel/4304218432971/haehnchen-innenbrustfilet",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 4.99
+        }
+      ]
+    },
+    "4306188407508": {
+      "product_id": "p-0069",
+      "url": "https://produkte.globus.de/milchprodukte-eier/kaese/reibekaese/4306188407508/mozzarella-gerieben",
+      "prices": []
+    },
+    "4306188034971": {
+      "product_id": "p-0070",
+      "url": "https://produkte.globus.de/suesses-salziges/schokolade/sonstige-schokoladenartikel/4306188034971/schoko-rosinen-vollmilchschokoladee",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 1.29
+        }
+      ]
+    },
+    "4306188053323": {
+      "product_id": "p-0071",
+      "url": "https://produkte.globus.de/tiefkuehlprodukte/eis/eis-grosspackungen/4306188053323/eis-schokolade",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 1.89
+        }
+      ]
+    },
+    "5029053578309": {
+      "product_id": "p-0072",
+      "url": "https://produkte.globus.de/koerperpflege-gesundheit-kosmetik/hygieneartikel/kosmetik-taschentuecher/5029053578309/kosmetiktuecher-box-ultra-soft-verschiedene-designs",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 1.79
+        }
+      ]
+    },
+    "9000331607955": {
+      "product_id": "p-0073",
+      "url": "https://produkte.globus.de/suesses-salziges/gebaeck/waffelgebaeck/9000331607955/waffeltaler-mit-kakao-haselnuss-creme-fuellung",
+      "prices": []
+    },
+    "9000331607993": {
+      "product_id": "p-0074",
+      "url": "https://produkte.globus.de/suesses-salziges/gebaeck/waffelgebaeck/9000331607993/haselnuss-schnitten-waffeln",
+      "prices": []
+    },
+    "5060367450578": {
+      "product_id": "p-0075",
+      "url": "https://produkte.globus.de/suesses-salziges/snacks-knabberzeug/chips/5060367450578/tortilla-chips-avocado",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 1.99
+        }
+      ]
+    },
+    "4304218150776": {
+      "product_id": "p-0076",
+      "url": "https://produkte.globus.de/kueche-haushalt/reinigungsmittel/reinigungszubehoer/4304218150776/haushaltshandschuhe-s-1-paar",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 0.55
+        }
+      ]
+    },
+    "2001609697033": {
+      "product_id": "p-0077",
+      "url": "https://produkte.globus.de/brot-backwaren-fruehstueck/meisterbaeckerei/brot-broetchen/2001609697033/saatenbroetchen-3er-3x-1-000-stueck",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 1.65
+        }
+      ]
+    },
+    "5901122237129": {
+      "product_id": "p-0078",
+      "url": "https://produkte.globus.de/tiefkuehlprodukte/eis/eis-desserts/5901122237129/schofrulade-erdbeere-tielfgekuehlt",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 2.99
+        }
+      ]
+    },
+    "9000331607702": {
+      "product_id": "p-0079",
+      "url": "https://produkte.globus.de/suesses-salziges/gebaeck/waffelgebaeck/9000331607702/waffeln-snack-minis-milch-haselnuss",
+      "prices": []
+    },
+    "9000331607719": {
+      "product_id": "p-0080",
+      "url": "https://produkte.globus.de/suesses-salziges/gebaeck/waffelgebaeck/9000331607719/waffeln-snack-minis-milch-schoko",
+      "prices": []
+    },
+    "7322541402826": {
+      "product_id": "p-0081",
+      "url": "https://produkte.globus.de/koerperpflege-gesundheit-kosmetik/hygieneartikel/kosmetik-taschentuecher/7322541402826/taschentuecher-box-duo-original",
+      "prices": []
     }
   }
 }

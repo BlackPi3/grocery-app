@@ -33,6 +33,16 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "Alnatura Chiasamen",
+      "line_type": "product",
+      "product_id": null,
+      "status": "no_match_in_catalog",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "Alnatura Eier 10er",
       "line_type": "product",
       "product_id": "p-0055",
@@ -141,12 +151,31 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "Dove Dusche 225ml",
+      "line_type": "product",
+      "product_id": null,
+      "status": "no_match_in_catalog",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "Dr.B. Farb-u.Schmutz",
       "line_type": "product",
       "product_id": "p-0013",
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Drachenzungen Eis bu",
+      "line_type": "product",
+      "product_id": "p-0066",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
     },
     {
       "store": "GLOBUS",
@@ -183,6 +212,34 @@
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "GLOBUS Konf.Erdbeer",
+      "line_type": "product",
+      "product_id": "p-0067",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Gefrierbeutel 3 l",
+      "line_type": "product",
+      "product_id": null,
+      "status": "no_match_in_catalog",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "H?hn.Innenbrustfilet",
+      "line_type": "product",
+      "product_id": "p-0068",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
     },
     {
       "store": "GLOBUS",
@@ -303,6 +360,43 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "JT Mozzarella gerieb",
+      "line_type": "product",
+      "product_id": "p-0069",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Salami Edelschim",
+      "line_type": "product",
+      "product_id": null,
+      "status": "no_match_in_catalog",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Schoko Rosinen",
+      "line_type": "product",
+      "product_id": "p-0070",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Schokoladeneis",
+      "line_type": "product",
+      "product_id": "p-0071",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "JT Soft Triple Choco",
       "line_type": "product",
       "product_id": "p-0030",
@@ -318,6 +412,15 @@
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Kleenex KosT? Box",
+      "line_type": "product",
+      "product_id": "p-0072",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
     },
     {
       "store": "GLOBUS",
@@ -366,12 +469,40 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "Linsen Chips Paprika",
+      "line_type": "product",
+      "product_id": null,
+      "status": "no_match_in_catalog",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "MANN.KAK.HN-T?RTCHEN",
+      "line_type": "product",
+      "product_id": "p-0073",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "MAV Make-Up Entf.",
       "line_type": "product",
       "product_id": "p-0035",
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Manner VK Schnitte",
+      "line_type": "product",
+      "product_id": "p-0074",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
     },
     {
       "store": "GLOBUS",
@@ -393,6 +524,15 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "Mr.Freed Avocado",
+      "line_type": "product",
+      "product_id": "p-0075",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "OHO Destilliertes Wa",
       "line_type": "product",
       "product_id": "p-0039",
@@ -408,6 +548,15 @@
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "OHO Haushaltshandsch",
+      "line_type": "product",
+      "product_id": "p-0076",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
     },
     {
       "store": "GLOBUS",
@@ -465,6 +614,15 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "SAATENBR?TCHEN 3+1",
+      "line_type": "product",
+      "product_id": "p-0077",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "SAATENBRÖTCHEN 3+1",
       "line_type": "product",
       "product_id": "p-0019",
@@ -492,12 +650,39 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "Schofrulade Erdbeere",
+      "line_type": "product",
+      "product_id": "p-0078",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "Sleepy Reinigungstc",
       "line_type": "product",
       "product_id": "p-0046",
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Snack Minis 300g",
+      "line_type": "product",
+      "product_id": "p-0079",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Snack Minis Schoko 3",
+      "line_type": "product",
+      "product_id": "p-0080",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
     },
     {
       "store": "GLOBUS",
@@ -525,6 +710,15 @@
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "Tempo Box Duo",
+      "line_type": "product",
+      "product_id": "p-0081",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus.csv"
     },
     {
       "store": "GLOBUS",

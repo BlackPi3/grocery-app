@@ -100,7 +100,8 @@ def main() -> None:
         "confirm",
         help="Write reviewed proposals into products, resolution and store listings",
     )
-    f.add_argument("--reviewed", default="data/proposals/globus-reviewed.csv")
+    f.add_argument("--reviewed", default="data/proposals/globus.csv",
+                   help="The proposal file you marked up")
     f.add_argument("--store", default="GLOBUS")
     f.add_argument("--products", default="data/products.json")
     f.add_argument("--resolution", default="data/resolution.json")
@@ -185,6 +186,10 @@ def main() -> None:
         print(f"  store listings written: {summary['listings']}")
         if summary.get("no_match"):
             print(f"  recorded as 'no match in catalog': {summary['no_match']}")
+        for decision, raw_name in summary.get("unclear", []):
+            print(f"  NOT UNDERSTOOD {decision!r} on {raw_name!r} — left undecided")
+        for raw_name in summary.get("ambiguous", []):
+            print(f"  NEEDS YOU: {raw_name!r} — accepted rows are different products")
         if summary["skipped"]:
             print(f"  already known, skipped: {summary['skipped']}")
 

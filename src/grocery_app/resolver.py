@@ -263,10 +263,43 @@ DECISIONS = {
 
 
 def decision_of(row: dict[str, str]) -> str | None:
+    """The mark, or None when the cell is blank.
+
+    A cell that holds something unrecognised returns None here but must never be
+    treated as blank by callers: `unclear_rows` collects those so a reviewer's
+    note is reported rather than silently dropped. Dropping them once cost
+    Parham a whole review pass.
+    """
     value = (row.get("decision") or "").strip().lower()
     if not value:
         return None
     return value[0] if value[0] in DECISIONS else None
+
+
+def unclear_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Rows whose decision cell holds something we cannot interpret."""
+    return [r for r in rows
+            if (r.get("decision") or "").strip() and decision_of(r) is None]
+
+
+def ambiguous_names(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]:
+    """Names with several `y` rows pointing at products with different names.
+
+    Several accepted rows usually mean one product listed more than once (three
+    entries for the same Alnatura eggs), which merges into one product with
+    several barcodes. But `Dusche Fruchtig Leicht` and `Dusche Sweet Treat` are
+    genuinely different products, and merging those would invent a fact. Where
+    the accepted names differ, a person has to say which it is.
+    """
+    ambiguous = {}
+    for raw_name, picked in accepted_rows(rows).items():
+        # Size counts as a difference: `Bio Chia Samen` at 0,5 kg and at 0,2 kg
+        # are two products, and the receipt prints the same text for both.
+        identities = {((r.get("catalog_name") or "").strip().lower(),
+                       (r.get("pack_size") or "").strip().lower()) for r in picked}
+        if len(identities) > 1:
+            ambiguous[raw_name] = picked
+    return ambiguous
 
 
 def marked_names(rows: list[dict[str, str]], mark: str) -> set[str]:
@@ -298,6 +331,9 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
     known = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]}
     rows = read_reviewed(reviewed_path)
     accepted = accepted_rows(rows)
+    # A name whose accepted rows disagree needs a person, not a merge.
+    held_back = ambiguous_names(rows)
+    accepted = {k: v for k, v in accepted.items() if k not in held_back}
 
     # "None of these is right" is an answer worth keeping: it stops the name
     # being re-proposed with the same candidates, and marks it as needing a
@@ -315,17 +351,17 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
         no_match += 1
 
     added_products = added_entries = added_listings = 0
-    for raw_name, rows in accepted.items():
+    for raw_name, picked in accepted.items():
         if (store_key(store), raw_name) in known:
             continue
 
         product_id = f"p-{products_doc['meta']['next_id']:04d}"
         products_doc["meta"]["next_id"] += 1
-        first = rows[0]
+        first = picked[0]
 
         # Several accepted rows mean several article numbers for one product;
         # they become barcodes on it rather than separate products.
-        eans = [r["article_number"] for r in rows
+        eans = [r["article_number"] for r in picked
                 if len(r.get("article_number") or "") in _BARCODE_LENGTHS]
 
         products_doc["products"][product_id] = {
@@ -355,7 +391,7 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
         })
         added_entries += 1
 
-        for row in rows:
+        for row in picked:
             article = row.get("article_number")
             if not article:
                 continue
@@ -378,6 +414,8 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
 
     return {"products": added_products, "entries": added_entries,
             "listings": added_listings, "no_match": no_match,
+            "ambiguous": sorted(held_back),
+            "unclear": [(r.get("decision"), r["raw_name"]) for r in unclear_rows(rows)],
             "skipped": len(accepted) - added_entries}
 
 

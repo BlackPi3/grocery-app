@@ -137,3 +137,40 @@ def test_unrecognised_marks_are_ignored_rather_than_guessed():
     from grocery_app.resolver import decision_of
 
     assert decision_of({"decision": "maybe later"}) is None
+
+
+def test_unrecognised_decisions_are_reported_not_dropped():
+    """A reviewer's note in the decision cell must never be read as blank.
+    Silently dropping them cost a whole review pass."""
+    from grocery_app.resolver import unclear_rows
+
+    rows = [{"decision": "y", "raw_name": "a"},
+            {"decision": "", "raw_name": "b"},
+            {"decision": "couldn't find it", "raw_name": "c"}]
+    assert [r["raw_name"] for r in unclear_rows(rows)] == ["c"]
+
+
+def test_accepted_rows_naming_different_products_are_held_back():
+    """Three listings of the same eggs merge into one product; 'Dusche Sweet
+    Treat' and 'Dusche Fruchtig Leicht' are different products and must not."""
+    from grocery_app.resolver import ambiguous_names
+
+    same = [{"decision": "y", "raw_name": "eggs", "catalog_name": "Bio Eier", "pack_size": "10"},
+            {"decision": "y", "raw_name": "eggs", "catalog_name": "Bio Eier", "pack_size": "10"}]
+    assert ambiguous_names(same) == {}
+
+    different = [{"decision": "y", "raw_name": "dove", "catalog_name": "Dusche A", "pack_size": ""},
+                 {"decision": "y", "raw_name": "dove", "catalog_name": "Dusche B", "pack_size": ""}]
+    assert "dove" in ambiguous_names(different)
+
+
+def test_same_product_in_two_sizes_is_ambiguous():
+    """`Bio Chia Samen` at 0,5 kg and 0,2 kg are two products, and the receipt
+    prints the same text for both."""
+    from grocery_app.resolver import ambiguous_names
+
+    rows = [{"decision": "y", "raw_name": "chia", "catalog_name": "Bio Chia Samen",
+             "pack_size": "0,5 kg"},
+            {"decision": "y", "raw_name": "chia", "catalog_name": "Bio Chia Samen",
+             "pack_size": "0,2 kg"}]
+    assert "chia" in ambiguous_names(rows)

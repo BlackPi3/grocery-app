@@ -1,7 +1,7 @@
 {
   "meta": {
     "schema": 1,
-    "next_id": 66,
+    "next_id": 82,
     "note": "product_id is opaque and permanent; `label` is the old slug, kept for readability only. Attributes are model-proposed unless provenance says otherwise; see open_questions."
   },
   "products": {
@@ -1504,6 +1504,374 @@
       "provenance": {
         "attributes": "globus-product-page",
         "source": "https://produkte.globus.de/dudweiler/suesses-salziges/snacks-knabberzeug/chips/4003586105455/cheese-cracker-chili-cheese-style"
+      }
+    },
+    "p-0066": {
+      "label": "Eis Saure Drachenzungen, bunt",
+      "name": "Eis Saure Drachenzungen, bunt",
+      "brand": "hitschies",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 460.0,
+        "unit": "ml"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4003840001936"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/tiefkuehlprodukte/eis/eis-grosspackungen/4003840001936/eis-saure-drachenzungen-bunt"
+      }
+    },
+    "p-0067": {
+      "label": "Konfitüre extra, Erdbeere",
+      "name": "Konfitüre extra, Erdbeere",
+      "brand": "GLOBUS",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 340.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4304218731357"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/brot-backwaren-fruehstueck/aufstriche/fruchtaufstriche/4304218731357/konfituere-extra-erdbeere"
+      }
+    },
+    "p-0068": {
+      "label": "Hähnchen Innenbrustfilet",
+      "name": "Hähnchen Innenbrustfilet",
+      "brand": "Fräulein Heidemarie",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 400.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4304218432971"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/fleisch-wurst/fleisch/gefluegel/4304218432971/haehnchen-innenbrustfilet"
+      }
+    },
+    "p-0069": {
+      "label": "Mozzarella, gerieben",
+      "name": "Mozzarella, gerieben",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 250.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4306188407508"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/milchprodukte-eier/kaese/reibekaese/4306188407508/mozzarella-gerieben"
+      }
+    },
+    "p-0070": {
+      "label": "Schoko Rosinen, Vollmilchschokoladee",
+      "name": "Schoko Rosinen, Vollmilchschokoladee",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 200.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4306188034971"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/suesses-salziges/schokolade/sonstige-schokoladenartikel/4306188034971/schoko-rosinen-vollmilchschokoladee"
+      }
+    },
+    "p-0071": {
+      "label": "Eis, Schokolade",
+      "name": "Eis, Schokolade",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 1000.0,
+        "unit": "ml"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4306188053323"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/tiefkuehlprodukte/eis/eis-grosspackungen/4306188053323/eis-schokolade"
+      }
+    },
+    "p-0072": {
+      "label": "Kosmetiktücher Box Ultra Soft, verschiedene Designs",
+      "name": "Kosmetiktücher Box Ultra Soft, verschiedene Designs",
+      "brand": "Kleenex",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 48.0,
+        "unit": "piece"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "5029053578309"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/koerperpflege-gesundheit-kosmetik/hygieneartikel/kosmetik-taschentuecher/5029053578309/kosmetiktuecher-box-ultra-soft-verschiedene-designs"
+      }
+    },
+    "p-0073": {
+      "label": "Waffeltaler mit Kakao-Haselnuss-Creme-Füllung",
+      "name": "Waffeltaler mit Kakao-Haselnuss-Creme-Füllung",
+      "brand": "Manner",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 400.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "9000331607955"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/suesses-salziges/gebaeck/waffelgebaeck/9000331607955/waffeltaler-mit-kakao-haselnuss-creme-fuellung"
+      }
+    },
+    "p-0074": {
+      "label": "Haselnuss-Schnitten, Waffeln",
+      "name": "Haselnuss-Schnitten, Waffeln",
+      "brand": "Manner",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 400.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "9000331607993"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/suesses-salziges/gebaeck/waffelgebaeck/9000331607993/haselnuss-schnitten-waffeln"
+      }
+    },
+    "p-0075": {
+      "label": "Tortilla Chips Avocado",
+      "name": "Tortilla Chips Avocado",
+      "brand": "Mister Freed",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 140.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "5060367450578"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/suesses-salziges/snacks-knabberzeug/chips/5060367450578/tortilla-chips-avocado"
+      }
+    },
+    "p-0076": {
+      "label": "Haushaltshandschuhe S, 1 Paar",
+      "name": "Haushaltshandschuhe S, 1 Paar",
+      "brand": "OHO",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": null
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4304218150776"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/kueche-haushalt/reinigungsmittel/reinigungszubehoer/4304218150776/haushaltshandschuhe-s-1-paar"
+      }
+    },
+    "p-0077": {
+      "label": "Saatenbrötchen 3er (3x 1,000 Stück)",
+      "name": "Saatenbrötchen 3er (3x 1,000 Stück)",
+      "brand": "GLOBUS Meisterbäckerei",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 3.0,
+        "unit": "piece"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "2001609697033"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/brot-backwaren-fruehstueck/meisterbaeckerei/brot-broetchen/2001609697033/saatenbroetchen-3er-3x-1-000-stueck"
+      }
+    },
+    "p-0078": {
+      "label": "Schofrulade Erdbeere, tielfgekühlt",
+      "name": "Schofrulade Erdbeere, tielfgekühlt",
+      "brand": "Oswald",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 130.0,
+        "unit": "ml"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "5901122237129"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/tiefkuehlprodukte/eis/eis-desserts/5901122237129/schofrulade-erdbeere-tielfgekuehlt"
+      }
+    },
+    "p-0079": {
+      "label": "Waffeln Snack minis, Milch-Haselnuss",
+      "name": "Waffeln Snack minis, Milch-Haselnuss",
+      "brand": "Manner",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 300.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "9000331607702"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/suesses-salziges/gebaeck/waffelgebaeck/9000331607702/waffeln-snack-minis-milch-haselnuss"
+      }
+    },
+    "p-0080": {
+      "label": "Waffeln Snack minis, Milch-Schoko",
+      "name": "Waffeln Snack minis, Milch-Schoko",
+      "brand": "Manner",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 300.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "9000331607719"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/suesses-salziges/gebaeck/waffelgebaeck/9000331607719/waffeln-snack-minis-milch-schoko"
+      }
+    },
+    "p-0081": {
+      "label": "Taschentücher-Box Duo, Original",
+      "name": "Taschentücher-Box Duo, Original",
+      "brand": "Tempo",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 200.0,
+        "unit": "piece"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "7322541402826"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-catalog",
+        "source": "https://produkte.globus.de/koerperpflege-gesundheit-kosmetik/hygieneartikel/kosmetik-taschentuecher/7322541402826/taschentuecher-box-duo-original"
       }
     }
   }
