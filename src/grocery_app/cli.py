@@ -20,6 +20,8 @@ from grocery_app.resolver import (
     build_proposals,
     build_proposals_via_search,
     confirm,
+    confirm_pairs,
+    read_pairs,
     to_csv,
 )
 
@@ -105,6 +107,8 @@ def main() -> None:
     f.add_argument("--listings", default="data/store_listings/globus.json")
     f.add_argument("--observed-on", default=date.today().isoformat(),
                    help="Date the catalog prices were observed")
+    f.add_argument("--pairs", default=None,
+                   help="TSV of 'raw_name<TAB>product url' to confirm directly")
 
     args = parser.parse_args()
 
@@ -163,6 +167,13 @@ def main() -> None:
         print("Leave a whole group blank if none is right — abstaining is a real answer.")
 
     if args.command == "confirm":
+        if args.pairs:
+            result = confirm_pairs(read_pairs(args.pairs), args.products,
+                                   args.resolution, args.listings, args.store,
+                                   args.observed_on, args.pairs)
+            print(f"Confirmed {result['added']} from {args.pairs}"
+                  f" ({result['skipped']} already known)")
+            return
         summary = confirm(args.reviewed, args.products, args.resolution,
                           args.listings, args.store, args.observed_on)
         print(f"Confirmed into {args.products}, {args.resolution}, {args.listings}")

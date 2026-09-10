@@ -84,6 +84,56 @@
           "price": 1.39
         }
       ]
+    },
+    "4101530007418": {
+      "product_id": "p-0061",
+      "url": "https://produkte.globus.de/dudweiler/milchprodukte-eier/laktosefrei/4101530007418/bio-h-alpenmilch-1-5-fett-laktosefrei",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 1.89
+        }
+      ]
+    },
+    "8023909011115": {
+      "product_id": "p-0062",
+      "url": "https://produkte.globus.de/dudweiler/getraenke/wein/rotwein/8023909011115/primitivo-tardivo-puglia-igp-rotwein",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 4.99
+        }
+      ]
+    },
+    "4306188051824": {
+      "product_id": "p-0063",
+      "url": "https://produkte.globus.de/dudweiler/kueche-haushalt/kuechenzubehoer/kuechenrollen/4306188051824/kuechentuecher-4-x-64-blatt",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 2.65
+        }
+      ]
+    },
+    "4306188367314": {
+      "product_id": "p-0064",
+      "url": "https://produkte.globus.de/dudweiler/milchprodukte-eier/milch-molkereiprodukte/quark/4306188367314/speisequark-magerstufe",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 0.69
+        }
+      ]
+    },
+    "4003586105455": {
+      "product_id": "p-0065",
+      "url": "https://produkte.globus.de/dudweiler/suesses-salziges/snacks-knabberzeug/chips/4003586105455/cheese-cracker-chili-cheese-style",
+      "prices": [
+        {
+          "date": "2026-09-10",
+          "price": 2.49
+        }
+      ]
     }
   }
 }

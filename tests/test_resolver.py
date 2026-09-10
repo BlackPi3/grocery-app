@@ -99,3 +99,23 @@ def test_brand_expansion_is_offered_as_a_separate_query():
     queries = queries_for("JT Magerquark 250g")
     assert queries[0] == "JT Magerquark 250g"
     assert any("jeden tag" in q.lower() for q in queries)
+
+
+def test_multi_quantity_lines_compare_per_item(tmp_path):
+    """`gross` is the line total: two quark pots at 0.69 print as 1.38, and
+    comparing that against a shelf price is meaningless."""
+    import json
+
+    from grocery_app.resolver import unresolved_lines
+
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    (receipts / "r.json").write_text(json.dumps({
+        "store": "Globus",
+        "lines": [{"type": "product", "raw_name": "JT Magerquark 250g",
+                   "qty": 2, "gross": 1.38}],
+    }), encoding="utf-8")
+    resolution = tmp_path / "resolution.json"
+    resolution.write_text(json.dumps({"entries": []}), encoding="utf-8")
+
+    assert unresolved_lines(receipts, resolution, "Globus") == {"JT Magerquark 250g": 0.69}

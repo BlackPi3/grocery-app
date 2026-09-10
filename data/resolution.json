@@ -87,6 +87,15 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "BIO MILCH LACT.FREI",
+      "line_type": "product",
+      "product_id": "p-0061",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus-urls.tsv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "Baguette Pfefferkr.",
       "line_type": "product",
       "product_id": "p-0056",
@@ -231,6 +240,15 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "JT K?chent?cher 3-la",
+      "line_type": "product",
+      "product_id": "p-0063",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus-urls.tsv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "JT Kaffeesahne 10%",
       "line_type": "product",
       "product_id": "p-0058",
@@ -255,6 +273,15 @@
       "confirmed_by": "parham",
       "confirmed_at": null,
       "source": "data/gold"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "JT Magerquark 250g",
+      "line_type": "product",
+      "product_id": "p-0064",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus-urls.tsv"
     },
     {
       "store": "GLOBUS",
@@ -429,6 +456,15 @@
     },
     {
       "store": "GLOBUS",
+      "raw_name": "Primitivo Puglia",
+      "line_type": "product",
+      "product_id": "p-0062",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus-urls.tsv"
+    },
+    {
+      "store": "GLOBUS",
       "raw_name": "SAATENBRÖTCHEN 3+1",
       "line_type": "product",
       "product_id": "p-0019",
@@ -552,6 +588,15 @@
       "confirmed_by": "parham",
       "confirmed_at": "2026-09-09",
       "source": "data/proposals/globus-reviewed.csv"
+    },
+    {
+      "store": "GLOBUS",
+      "raw_name": "ff Cracker Chilli NP",
+      "line_type": "product",
+      "product_id": "p-0065",
+      "confirmed_by": "parham",
+      "confirmed_at": "2026-09-10",
+      "source": "data/proposals/globus-urls.tsv"
     },
     {
       "store": "GLOBUS",

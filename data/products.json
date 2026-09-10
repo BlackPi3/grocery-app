@@ -1,7 +1,7 @@
 {
   "meta": {
     "schema": 1,
-    "next_id": 61,
+    "next_id": 66,
     "note": "product_id is opaque and permanent; `label` is the old slug, kept for readability only. Attributes are model-proposed unless provenance says otherwise; see open_questions."
   },
   "products": {
@@ -1389,6 +1389,121 @@
       "provenance": {
         "attributes": "globus-catalog",
         "source": "https://produkte.globus.de/brot-backwaren-fruehstueck/meisterbaeckerei/brot-broetchen/2001609657037/weizenbroetchen-10er-10x-1-000-stueck"
+      }
+    },
+    "p-0061": {
+      "label": "Bio H-Alpenmilch 1,5% Fett, Laktosefrei",
+      "name": "Bio H-Alpenmilch 1,5% Fett, Laktosefrei",
+      "brand": "Berchtesgadener Land",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 1000.0,
+        "unit": "ml"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4101530007418"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-product-page",
+        "source": "https://produkte.globus.de/dudweiler/milchprodukte-eier/laktosefrei/4101530007418/bio-h-alpenmilch-1-5-fett-laktosefrei"
+      }
+    },
+    "p-0062": {
+      "label": "Primitivo Tardivo Puglia IGP, Rotwein",
+      "name": "Primitivo Tardivo Puglia IGP, Rotwein",
+      "brand": "Passo Lungo",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": null
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "8023909011115"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-product-page",
+        "source": "https://produkte.globus.de/dudweiler/getraenke/wein/rotwein/8023909011115/primitivo-tardivo-puglia-igp-rotwein"
+      }
+    },
+    "p-0063": {
+      "label": "Küchentücher 4 x 64 Blatt",
+      "name": "Küchentücher 4 x 64 Blatt",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": null,
+        "unit": null
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4306188051824"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-product-page",
+        "source": "https://produkte.globus.de/dudweiler/kueche-haushalt/kuechenzubehoer/kuechenrollen/4306188051824/kuechentuecher-4-x-64-blatt"
+      }
+    },
+    "p-0064": {
+      "label": "Speisequark Magerstufe",
+      "name": "Speisequark Magerstufe",
+      "brand": "Jeden Tag",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 250.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4306188367314"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-product-page",
+        "source": "https://produkte.globus.de/dudweiler/milchprodukte-eier/milch-molkereiprodukte/quark/4306188367314/speisequark-magerstufe"
+      }
+    },
+    "p-0065": {
+      "label": "Cheese Cracker Chili Cheese Style",
+      "name": "Cheese Cracker Chili Cheese Style",
+      "brand": "funny-frisch",
+      "product_line": null,
+      "variant": null,
+      "size": {
+        "count": 1,
+        "value": 100.0,
+        "unit": "g"
+      },
+      "category": null,
+      "is_organic": null,
+      "is_own_brand": null,
+      "eans": [
+        "4003586105455"
+      ],
+      "open_questions": [],
+      "provenance": {
+        "attributes": "globus-product-page",
+        "source": "https://produkte.globus.de/dudweiler/suesses-salziges/snacks-knabberzeug/chips/4003586105455/cheese-cracker-chili-cheese-style"
       }
     }
   }

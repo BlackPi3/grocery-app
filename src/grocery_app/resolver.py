@@ -174,7 +174,10 @@ def unresolved_lines(receipts_dir: str | Path, resolution_path: str | Path,
                 continue
             raw_name = line.get("raw_name")
             if raw_name and (store_key(store), raw_name) not in known:
-                pending.setdefault(raw_name, line.get("gross"))
+                # `gross` is the line total. Two quark pots at 0.69 print as
+                # 1.38, so comparing that against a shelf price is meaningless.
+                gross, qty = line.get("gross"), line.get("qty") or 1
+                pending.setdefault(raw_name, round(gross / qty, 2) if gross else None)
     return pending
 
 
@@ -459,3 +462,117 @@ def build_proposals_via_search(receipts_dir: str | Path, resolution_path: str | 
         proposals.append({"raw_name": raw_name, "receipt_price": price,
                           "candidates": candidates})
     return proposals
+
+
+# --- confirming by URL --------------------------------------------------------
+#
+# When Parham already knows the product, a link is the shortest path: he pastes
+# it, and the page itself supplies name, brand, barcode and price. No ranking is
+# involved and none is wanted -- this is a decision, not a proposal.
+
+def product_from_url(url: str, cache_dir: str | Path = SEARCH_CACHE,
+                     force: bool = False) -> dict[str, Any]:
+    """Read one product page's schema.org JSON-LD."""
+    from grocery_app.catalog_globus import USER_AGENT, _article_number_from_href
+
+    article = _article_number_from_href(url.split("?")[0])
+    path = Path(cache_dir).parent / "_products" / f"{article or 'unknown'}.html"
+
+    if path.exists() and not force:
+        html = path.read_text(encoding="utf-8")
+    else:
+        request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(request, timeout=45) as response:
+            html = response.read().decode("utf-8", errors="replace")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(html, encoding="utf-8")
+        time.sleep(SEARCH_DELAY_S)
+
+    for block in re.findall(r"<script[^>]*application/ld\+json[^>]*>(.*?)</script>",
+                            html, re.S):
+        try:
+            data = json.loads(block)
+        except ValueError:
+            continue
+        for item in (data if isinstance(data, list) else [data]):
+            if not isinstance(item, dict) or item.get("@type") != "Product":
+                continue
+            offers = item.get("offers")
+            offers = offers[0] if isinstance(offers, list) else (offers or {})
+            return {
+                "article_number": item.get("sku") or article,
+                "name": item.get("name"),
+                "brand": (item.get("brand") or {}).get("name"),
+                "price": offers.get("price"),
+                "pack_size": item.get("description"),
+                "url": url.split("?")[0],
+            }
+    raise ValueError(f"no product JSON-LD found at {url}")
+
+
+def read_pairs(path: str | Path) -> list[tuple[str, str]]:
+    """`raw_name<TAB>url` lines; blank lines and # comments ignored."""
+    pairs = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        raw_name, _, url = line.partition("\t")
+        if url.strip():
+            pairs.append((raw_name.strip(), url.strip()))
+    return pairs
+
+
+def confirm_pairs(pairs: list[tuple[str, str]], products_path: str | Path,
+                  resolution_path: str | Path, listings_path: str | Path,
+                  store: str, observed_on: str,
+                  source: str) -> dict[str, Any]:
+    products_doc = json.loads(Path(products_path).read_text(encoding="utf-8"))
+    resolution_doc = json.loads(Path(resolution_path).read_text(encoding="utf-8"))
+    listings_doc = json.loads(Path(listings_path).read_text(encoding="utf-8"))
+    known = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]}
+
+    added = skipped = 0
+    for raw_name, url in pairs:
+        if (store_key(store), raw_name) in known:
+            skipped += 1
+            continue
+        found = product_from_url(url)
+        product_id = f"p-{products_doc['meta']['next_id']:04d}"
+        products_doc["meta"]["next_id"] += 1
+        article = found["article_number"] or ""
+
+        products_doc["products"][product_id] = {
+            "label": found["name"],
+            "name": found["name"],
+            "brand": found["brand"],
+            "product_line": None,
+            "variant": None,
+            "size": _size_from_row({"pack_size": found.get("pack_size"),
+                                    "catalog_name": found.get("name")}),
+            "category": None,
+            "is_organic": None,
+            "is_own_brand": None,
+            "eans": [article] if len(article) in _BARCODE_LENGTHS else [],
+            "open_questions": [],
+            "provenance": {"attributes": "globus-product-page", "source": found["url"]},
+        }
+        resolution_doc["entries"].append({
+            "store": store, "raw_name": raw_name, "line_type": "product",
+            "product_id": product_id, "confirmed_by": "parham",
+            "confirmed_at": observed_on, "source": source,
+        })
+        if article:
+            listings_doc["listings"][article] = {
+                "product_id": product_id, "url": found["url"],
+                "prices": ([{"date": observed_on, "price": float(found["price"])}]
+                           if found.get("price") else []),
+            }
+        added += 1
+
+    resolution_doc["entries"].sort(key=lambda e: (e["store"], e["raw_name"]))
+    for path, doc in ((products_path, products_doc), (resolution_path, resolution_doc),
+                      (listings_path, listings_doc)):
+        Path(path).write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
+                              encoding="utf-8")
+    return {"added": added, "skipped": skipped}
