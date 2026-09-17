@@ -34,6 +34,7 @@ The project has three goals in priority order:
 3. Real product eventually, so avoid throwaway implementation choices where possible
 
 ## Important constraints
+- Never commit personal data. The repo is public: everything under `data/` and `web/purchases.json` is gitignored, and docs, tests and fixtures use made-up examples only.
 - Do not hand-fix parser output in demos. Report accuracy honestly.
 - The parser should be treated as an imperfect, testable system rather than a polished demo trick.
 - The normalization layer is one of the most important and interesting parts of the project.
