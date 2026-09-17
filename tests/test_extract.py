@@ -46,7 +46,7 @@ def test_prepare_image_applies_exif_rotation_and_downscales(tmp_path):
 
 def test_parse_model_output_matches_gold_shape():
     text = json.dumps({
-        "store": "Lidl", "store_location": "Dudweiler", "date": "2026-06-26",
+        "store": "Lidl", "store_location": "Musterstadt", "date": "2026-06-26",
         "time": "11:49", "currency": "EUR", "printed_total": 3.23,
         "printed_savings": None,
         "tax_buckets": [{"rate": "A", "amount": 2.98}, {"rate": "B", "amount": 0.25}],

@@ -65,7 +65,7 @@ the mechanism, not the data. Nothing has been downloaded.
   promotional flyers.
 - Search endpoint is `?query=`. **`?search=` silently redirects to the homepage
   rather than erroring** — a real time-waster.
-- Per-branch pages (`globus.de/dudweiler`) are marketing only; they link to the
+- Per-branch pages (`globus.de/<branch>`) are marketing only; they link to the
   same shared shop. Store selection happens inside the shop via a
   `market-selection` widget. Whether branch-specific pricing is reachable was
   not confirmed.
@@ -119,7 +119,7 @@ So insights split into two tiers:
 
 - ~~**Other chains.**~~ Answered 2026-09-08: see "The other chains" below. Check before assuming the approach generalizes.
 - **Branch-specific pricing.** Are the observed prices regional defaults or
-  Dudweiler's? Needs a market-selected session.
+  the local branch's? Needs a market-selected session.
 - **Ground truth for the resolution eval.** `data/gold/` has 55 raw-name ->
   product_id pairs, but they were produced by the early LLM prompt (the lines
   carry a model `confidence` field) and were not fully verified. Scoring against
@@ -202,7 +202,7 @@ reuse their images or description text, and keep `data/catalog/` gitignored like
 ## Still open
 
 - **Branch-specific pricing.** Whether observed prices are regional defaults or
-  Dudweiler's is still unconfirmed; it needs a market-selected session.
+  the local branch's is still unconfirmed; it needs a market-selected session.
 - ~~**Other chains.**~~ Answered 2026-09-08: see "The other chains" below.
 - **Ground truth for the resolution eval.** `data/gold/`'s 55 raw-name ->
   product_id pairs came from the early LLM prompt and were never fully verified.

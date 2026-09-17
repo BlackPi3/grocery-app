@@ -8,7 +8,7 @@ The text format is one receipt per file. Type only what the receipt prints —
 the converter derives unit prices, nets, and totals:
 
     IMG_5311.jpeg
-    Lidl | Sulzbachtalstrasse 86-90, 66125 Dudweiler
+    Lidl | Musterstrasse 1, 12345 Musterstadt
     2026-06-26 | 11:49 | EUR
 
     Minze geschnitten     | 1              | 0.89

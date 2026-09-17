@@ -57,7 +57,7 @@ Key deviations from the first plan, and why:
 - **🛒 List (home)** — predicted needs (from repurchase cadence), recipe chips
   (`data/recipes.json` → ingredients into the list), add-your-own, check-off list.
 - **📊 Stats** — monthly spend, ⚠ price watch (repeat items whose €/unit moved),
-  spend by category (**editable** categories), savings via Personalrabatt, Pfand net.
+  spend by category (**editable** categories), savings via discounts, Pfand net.
 - **＋ Scan** — honest stub (no live scanning).
 - **🧾 History** — trips with per-item rename / recategorize / exclude, persisted in localStorage.
 
