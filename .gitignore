@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .DS_Store
 
-# Real receipt-derived data never goes in git. Everything under data/ is private.
+# Receipts, transcriptions, catalog sheets and caches stay private: everything under data/.
+# The two contract snapshots the demo reads (web/purchases.json, web/insights.json) are
+# published deliberately: they are the item-level history the insights are computed from.
 data/
-web/purchases.json
