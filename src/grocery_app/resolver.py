@@ -53,9 +53,10 @@ BRAND_ABBREVIATIONS = {
 # A store's own brands, by store key. A brand that starts with one of these
 # is the store's; any other recorded brand is not; no brand recorded is not
 # known either way. Parham, who works at GLOBUS: "the main ones are Globus
-# and Jeden Tag. Manner and Alnatura definitely aren't its own brand."
+# and Jeden Tag. Manner and Alnatura definitely aren't its own brand." OHO
+# (household goods) is GLOBUS's as well.
 OWN_BRANDS: dict[str, tuple[str, ...]] = {
-    "globus": ("GLOBUS", "Jeden Tag"),
+    "globus": ("GLOBUS", "Jeden Tag", "OHO"),
 }
 
 
