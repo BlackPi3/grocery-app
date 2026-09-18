@@ -52,6 +52,11 @@ def test_every_resolved_entry_points_at_a_real_product(products, resolution):
     for entry in resolution["entries"]:
         if entry["product_id"] is not None:
             assert entry["product_id"] in known, entry["raw_name"]
+        for product_id in entry.get("product_ids", []):
+            assert product_id in known, entry["raw_name"]
+        # A family is several ids or none; never one id in both places.
+        if entry.get("product_ids"):
+            assert entry["product_id"] is None and len(entry["product_ids"]) > 1
 
 
 def test_non_product_lines_are_distinguished_from_unresolved_ones(resolution):

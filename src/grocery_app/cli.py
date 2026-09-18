@@ -210,8 +210,8 @@ def main() -> None:
             print(f"  recorded as 'no match in catalog': {summary['no_match']}")
         for decision, raw_name in summary.get("unclear", []):
             print(f"  NOT UNDERSTOOD {decision!r} on {raw_name!r} — left undecided")
-        for raw_name in summary.get("ambiguous", []):
-            print(f"  NEEDS YOU: {raw_name!r} — accepted rows are different products")
+        for raw_name, count in summary.get("families", {}).items():
+            print(f"  family: {raw_name!r} -> {count} products the receipt cannot tell apart")
         if summary["skipped"]:
             print(f"  already known, skipped: {summary['skipped']}")
 

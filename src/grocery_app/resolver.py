@@ -282,22 +282,29 @@ def unclear_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
             if (r.get("decision") or "").strip() and decision_of(r) is None]
 
 
+def identity_of(row: dict[str, str]) -> tuple[str, str]:
+    """What makes two catalog rows the same product to a shopper.
+
+    Size counts: `Bio Chia Samen` at 0,5 kg and at 0,2 kg are two products,
+    and the receipt prints the same text for both.
+    """
+    return ((row.get("catalog_name") or "").strip().lower(),
+            (row.get("pack_size") or "").strip().lower())
+
+
 def ambiguous_names(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]:
-    """Names with several `y` rows pointing at products with different names.
+    """Names with several `y` rows pointing at products with different identities.
 
     Several accepted rows usually mean one product listed more than once (three
     entries for the same Alnatura eggs), which merges into one product with
     several barcodes. But `Dusche Fruchtig Leicht` and `Dusche Sweet Treat` are
-    genuinely different products, and merging those would invent a fact. Where
-    the accepted names differ, a person has to say which it is.
+    genuinely different products, and merging those would invent a fact. Such a
+    name is a family: the till prints one text for all of them, so the name
+    resolves to every one of them and to nothing narrower.
     """
     ambiguous = {}
     for raw_name, picked in accepted_rows(rows).items():
-        # Size counts as a difference: `Bio Chia Samen` at 0,5 kg and at 0,2 kg
-        # are two products, and the receipt prints the same text for both.
-        identities = {((r.get("catalog_name") or "").strip().lower(),
-                       (r.get("pack_size") or "").strip().lower()) for r in picked}
-        if len(identities) > 1:
+        if len({identity_of(r) for r in picked}) > 1:
             ambiguous[raw_name] = picked
     return ambiguous
 
@@ -330,10 +337,10 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
 
     known = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]}
     rows = read_reviewed(reviewed_path)
-    all_accepted = accepted_rows(rows)
-    # A name whose accepted rows disagree needs a person, not a merge.
-    held_back = ambiguous_names(rows)
-    accepted = {k: v for k, v in all_accepted.items() if k not in held_back}
+    accepted = accepted_rows(rows)
+    # A name whose accepted rows are different products becomes a family, not a
+    # merge: each product gets its own id and the name resolves to all of them.
+    families = ambiguous_names(rows)
 
     # A row offered no candidate but carries a url: the reviewer looked the
     # product up and pasted the answer in. That is a decision, not a proposal,
@@ -356,9 +363,8 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
     unmatched_names = {r["raw_name"] for r in unclear_rows(rows)
                        if r.get("rank", "").strip() == "-"} - supplied_names
     for raw_name in sorted(marked_names(rows, "n") | unmatched_names):
-        # `all_accepted`, not `accepted`: a name held back for disambiguation
-        # still has a `y` on it and is emphatically not a no-match.
-        if (store_key(store), raw_name) in known or raw_name in all_accepted:
+        # A family still has `y`s on it and is emphatically not a no-match.
+        if (store_key(store), raw_name) in known or raw_name in accepted:
             continue
         resolution_doc["entries"].append({
             "store": store, "raw_name": raw_name, "line_type": "product",
@@ -373,55 +379,31 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
         if (store_key(store), raw_name) in known:
             continue
 
-        product_id = f"p-{products_doc['meta']['next_id']:04d}"
-        products_doc["meta"]["next_id"] += 1
-        first = picked[0]
-
-        # Several accepted rows mean several article numbers for one product;
-        # they become barcodes on it rather than separate products.
-        eans = [r["article_number"] for r in picked
-                if len(r.get("article_number") or "") in _BARCODE_LENGTHS]
-
-        products_doc["products"][product_id] = {
-            "label": first.get("catalog_name"),
-            "name": first.get("catalog_name"),
-            "brand": first.get("brand") or None,
-            "product_line": None,
-            "variant": None,
-            "size": _size_from_row(first),
-            "category": None,
-            "is_organic": None,
-            "is_own_brand": None,
-            "eans": eans,
-            "open_questions": [],
-            "provenance": {"attributes": "globus-catalog", "source": first.get("url")},
-        }
-        added_products += 1
-
-        resolution_doc["entries"].append({
-            "store": store,
-            "raw_name": raw_name,
-            "line_type": "product",
-            "product_id": product_id,
-            "confirmed_by": "parham",
-            "confirmed_at": observed_on,
+        entry = {
+            "store": store, "raw_name": raw_name, "line_type": "product",
+            "product_id": None,
+            "confirmed_by": "parham", "confirmed_at": observed_on,
             "source": str(reviewed_path),
-        })
-        added_entries += 1
+        }
+        if raw_name in families:
+            # One product per identity, and the name points at all of them.
+            groups: dict[tuple[str, str], list[dict[str, str]]] = {}
+            for row in picked:
+                groups.setdefault(identity_of(row), []).append(row)
+            ids = [_add_product(products_doc, listings_doc, group, observed_on)
+                   for group in groups.values()]
+            entry.update({"product_ids": ids, "status": "ambiguous_on_receipt"})
+            added_products += len(ids)
+            added_listings += sum(1 for r in picked if r.get("article_number"))
+        else:
+            # Several accepted rows here mean several article numbers for one
+            # product; they become barcodes on it rather than separate products.
+            entry["product_id"] = _add_product(products_doc, listings_doc, picked, observed_on)
+            added_products += 1
+            added_listings += sum(1 for r in picked if r.get("article_number"))
 
-        for row in picked:
-            article = row.get("article_number")
-            if not article:
-                continue
-            price = row.get("catalog_price")
-            listings_doc["listings"][article] = {
-                "product_id": product_id,
-                "url": row.get("url"),
-                # Shelf price observed at fetch time; a different series from
-                # what was paid, which lives in purchases.json.
-                "prices": [{"date": observed_on, "price": float(price)}] if price else [],
-            }
-            added_listings += 1
+        resolution_doc["entries"].append(entry)
+        added_entries += 1
 
     resolution_doc["entries"].sort(key=lambda e: (e["store"], e["raw_name"]))
 
@@ -433,14 +415,56 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
     return {"products": added_products, "entries": added_entries,
             "listings": added_listings, "no_match": no_match,
             "supplied": supplied,
-            # A name already decided is not an open question, however its rows
-            # are still marked in the sheet.
-            "ambiguous": sorted(n for n in held_back
-                                if (store_key(store), n) not in known),
+            # Families written this run, so the reviewer sees that two `y`s
+            # became "either of these" and can object if one was a slip.
+            "families": {n: len({identity_of(r) for r in rows_}) for n, rows_ in families.items()
+                         if (store_key(store), n) not in known},
             "unclear": [(r.get("decision"), r["raw_name"]) for r in unclear_rows(rows)
                         if r["raw_name"] not in supplied_names
                         and r["raw_name"] not in unmatched_names],
             "skipped": len(accepted) - added_entries}
+
+
+def _add_product(products_doc: dict[str, Any], listings_doc: dict[str, Any],
+                 rows: list[dict[str, str]], observed_on: str) -> str:
+    """Mint one product from catalog rows that all describe it; return its id.
+
+    An accepted row is the moment a product earns an id, so ids are minted here
+    and nowhere else. Several rows are several article numbers for one product.
+    """
+    product_id = f"p-{products_doc['meta']['next_id']:04d}"
+    products_doc["meta"]["next_id"] += 1
+    first = rows[0]
+
+    products_doc["products"][product_id] = {
+        "label": first.get("catalog_name"),
+        "name": first.get("catalog_name"),
+        "brand": first.get("brand") or None,
+        "product_line": None,
+        "variant": None,
+        "size": _size_from_row(first),
+        "category": None,
+        "is_organic": None,
+        "is_own_brand": None,
+        "eans": [r["article_number"] for r in rows
+                 if len(r.get("article_number") or "") in _BARCODE_LENGTHS],
+        "open_questions": [],
+        "provenance": {"attributes": "globus-catalog", "source": first.get("url")},
+    }
+
+    for row in rows:
+        article = row.get("article_number")
+        if not article:
+            continue
+        price = row.get("catalog_price")
+        listings_doc["listings"][article] = {
+            "product_id": product_id,
+            "url": row.get("url"),
+            # Shelf price observed at fetch time; a different series from
+            # what was paid, which lives in purchases.json.
+            "prices": [{"date": observed_on, "price": float(price)}] if price else [],
+        }
+    return product_id
 
 
 # --- search-backed candidates -------------------------------------------------
