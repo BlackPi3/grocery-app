@@ -57,7 +57,7 @@ def test_a_receipt_round_trips_with_its_lines(session):
     receipt = Receipt(
         source_image="IMG_1.jpeg", transcribed_by="hand", store="Musterladen",
         date=date(2026, 1, 5), time="10:00", currency="EUR",
-        printed_total=Decimal("3.09"), tax_buckets={"7%": Decimal("0.20")},
+        printed_total=Decimal("3.09"), tax_buckets={"7%": 0.20},  # plain JSON, as in the files
         lines=[
             ReceiptLine(position=0, type="product", raw_name="MU Milch 1,5%", qty=1,
                         gross=Decimal("1.09"), discount=Decimal("0"), net=Decimal("1.09"),
