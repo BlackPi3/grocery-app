@@ -211,6 +211,62 @@ reuse their images or description text, and keep `data/catalog/` gitignored like
   `Kerrygold Butter` are one product or two is the user's judgment call, and it
   has to be settled while confirming the bootstrap set, not after.
 
+## When the receipt cannot say: families (decided 2026-09-18)
+
+Confirming the GLOBUS bootstrap set left five names where the reviewer had
+marked several `y`s on genuinely different products. They were not slips. A
+till line is a shortened label, and the shop prints one label for products it
+does not bother to tell apart:
+
+- four `Dove Dusche` lines on one receipt were several different variants;
+- `FEINSTES H?HNCHENBRU` was the Kräuter one, and the receipt shows neither
+  Natur nor Kräuter;
+- `Alnatura Chiasamen` is one name for the 0,5 kg and the 0,2 kg pack.
+
+So `(store, raw_name) -> one product_id` claims more than a receipt contains.
+The contract now has three levels of certainty, and `purchases.json` says
+which one applies to each line (`resolution`):
+
+| `resolution` | what it means | product_id |
+|---|---|---|
+| `exact` | the name resolves to one product | set |
+| `price` | the name resolves to a family, and the paid amount matches exactly one member's shelf price (3.99 is the 0,5 kg seeds; the 0,2 kg pack costs 2.49) | set |
+| `user` | the shopper said which one it was, for this line | set |
+| `family` | the receipt supports only a set of candidates | null; `candidate_ids` lists them |
+| `none` | nothing known | null |
+
+A family row keeps only the attributes every candidate agrees on: `Dove
+Dusche` has a brand, a category and an own-brand flag, and a null variant.
+That is a true statement, and it is enough for every insight the app is built
+for — brand share, repurchase cadence, price over time — none of which depend
+on the scent. Picking one would be a guess dressed up as a match.
+
+**Where each fact lives.**
+
+- `resolution.json` may carry `product_ids` (with `status:
+  ambiguous_on_receipt`) instead of `product_id`. Written by `confirm` whenever
+  the accepted rows are different products; each earns its own id, and an
+  article number already in the store listings keeps the product it has.
+- Shelf prices in `store_listings/` do the `price` narrowing, so `confirm`
+  fills in a price the search page left blank by reading the product page.
+- `line_resolutions.json` holds the shopper's answers per `(source_image,
+  line_index)`. It is a separate file on purpose: the receipts record only what
+  the photo shows (the ground-truth rule), and `resolution.json` is keyed by
+  name, so neither can hold a fact about one line. The normalizer applies an
+  answer only inside the family the name resolves to and only while the line's
+  text still matches, and labels the result `user` so it is never scored as
+  extraction.
+
+This is a product feature, not a workaround: the app resolves what it can and
+asks "which one?" only where the receipt cannot say — the question no bank or
+supermarket app asks. It belongs in the iOS design.
+
+**Known limit.** `price` narrowing trusts a shelf price observed on one day.
+`Gefrierbeutel 3 l` at 1.00 resolved to the Toppits bag (shelf 1.00) over the
+OHO bag (shelf 0.99), which is the rule working as designed on a one-cent gap.
+Shelf history is thin today; the rule gets safer as more prices are recorded,
+and a wrong pick can always be overridden per line.
+
 ## The other chains (checked 2026-09-08)
 
 None of the three can be done the GLOBUS way, for three different reasons.
