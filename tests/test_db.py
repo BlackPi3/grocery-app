@@ -162,7 +162,7 @@ def test_export_reproduces_the_files(session, data, tmp_path):
     import json
 
     from grocery_app.db.io import export_data, import_data
-    from grocery_app.normalizer import build_purchases
+    from grocery_app.normalizer import build_purchases, receipt_files
     from tests.conftest import LINE_RESOLUTIONS, LISTINGS, PRODUCTS, RESOLUTION
 
     import_data(session, *_paths(data))
@@ -175,7 +175,7 @@ def test_export_reproduces_the_files(session, data, tmp_path):
     def load(path):
         return json.loads(path.read_text(encoding="utf-8"))
 
-    for original in sorted((data / "receipts" / "truth").glob("IMG_*.json")):
+    for original in receipt_files(data / "receipts" / "truth"):
         assert load(out / "receipts" / "truth" / original.name) == load(original)
     assert load(out / "products" / "products.json")["products"] == PRODUCTS["products"]
     by_name = sorted(load(out / "products" / "resolution.json")["entries"],

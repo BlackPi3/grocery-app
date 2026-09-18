@@ -291,13 +291,16 @@ def import_data(session: Session, receipts_dir: str | Path, products_path: str |
 
     header = tuple(f for f in RECEIPT_FIELDS if f != "lines")
     for path in receipt_files(receipts_dir):
-        new = receipt_from_dict(load_json(path))
+        d = load_json(path)
+        new = receipt_from_dict(d)
         existing = session.scalar(select(Receipt).where(Receipt.source_image == new.source_image))
         if existing:
             _copy(existing, new, header)
             existing.lines = []
             session.flush()  # the old positions must be gone before the new ones land
-            existing.lines = list(new.lines)
+            # Fresh line objects: moving `new.lines` over would drag the
+            # transient `new` receipt into the session behind them.
+            existing.lines = [line_from_dict(i, line) for i, line in enumerate(d.get("lines", []))]
             summary["receipts"]["updated"] += 1
         else:
             session.add(new)
