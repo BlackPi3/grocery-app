@@ -1,9 +1,10 @@
 """Extract structured receipt data from a photo with a vision model.
 
 The pipeline step this project was missing: photo -> JSON in the same shape as
-`data/gold/`. One API call per image, constrained to a JSON schema so the output
-is always parseable, with the extraction rules learned from hand-transcribing
-the held-out set (`docs/receipt-quirks.md`) written into the prompt.
+the verified receipts in `data/receipts/truth/`. One API call per image,
+constrained to a JSON schema so the output is always parseable, with the
+extraction rules learned from hand-transcribing receipts
+(`docs/receipt-quirks.md`) written into the prompt.
 
 Every result is cached under `<out>/<model>/<prompt version>/<image>.json` with
 a sidecar `.meta.json` recording token usage and cost. Re-running only bills for
@@ -197,7 +198,7 @@ def prepare_image(path: str | Path, max_long_edge: int = MAX_LONG_EDGE) -> bytes
 
 
 def _tidy_line(line: dict[str, Any]) -> dict[str, Any]:
-    """Drop the schema's nullable placeholders so the shape matches gold."""
+    """Drop the schema's nullable placeholders so the shape matches the truth files."""
     tidy: dict[str, Any] = {"type": line["type"], "raw_name": line["raw_name"]}
     qty = line["qty"]
     tidy["qty"] = int(qty) if float(qty).is_integer() else qty
@@ -222,7 +223,7 @@ def _tidy_line(line: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_model_output(text: str, source_image: str) -> dict[str, Any]:
-    """Turn the model's JSON text into a receipt in the gold shape."""
+    """Turn the model's JSON text into a receipt in the truth shape."""
     try:
         raw = json.loads(text)
     except json.JSONDecodeError as exc:

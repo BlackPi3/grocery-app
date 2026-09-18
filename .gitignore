@@ -4,12 +4,6 @@ __pycache__/
 .venv/
 venv/
 .DS_Store
-data/samples/receipt_images/
-data/gold/
-data/holdout/
-data/extracted/
-data/catalog_cache/
-data/catalog/
 
 # Real receipt-derived data never goes in git. Everything under data/ is private.
 data/

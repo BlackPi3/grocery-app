@@ -36,20 +36,20 @@ def main() -> None:
         "purchases",
         help="Build purchases.json from verified receipts + products + resolution",
     )
-    p.add_argument("--receipts-dir", default="data/gold")
-    p.add_argument("--products", default="data/products.json")
-    p.add_argument("--resolution", default="data/resolution.json")
-    p.add_argument("--line-resolutions", default="data/line_resolutions.json",
+    p.add_argument("--receipts-dir", default="data/receipts/truth")
+    p.add_argument("--products", default="data/products/products.json")
+    p.add_argument("--resolution", default="data/products/resolution.json")
+    p.add_argument("--line-resolutions", default="data/receipts/line_resolutions.json",
                    help="Per-line answers from the shopper; optional")
-    p.add_argument("--listings-dir", default="data/store_listings",
+    p.add_argument("--products-dir", default="data/products",
                    help="Shelf prices, used to tell same-named products apart; optional")
     p.add_argument("--output", default="data/purchases.json")
 
     e = subparsers.add_parser(
         "eval",
-        help="Score extracted receipts against the hand-transcribed held-out set",
+        help="Score extracted receipts against the verified receipts",
     )
-    e.add_argument("--truth-dir", default="data/holdout")
+    e.add_argument("--truth-dir", default="data/receipts/truth")
     e.add_argument("--pred-dir", required=True, help="Directory of extracted receipt JSON")
     e.add_argument(
         "--exclude-store",
@@ -65,7 +65,7 @@ def main() -> None:
         "extract",
         help="Extract structured receipts from photos with a vision model",
     )
-    x.add_argument("--images", default="data/holdout/images", help="Directory of receipt photos")
+    x.add_argument("--images", default="data/receipts/images", help="Directory of receipt photos")
     x.add_argument("--out", default="data/extracted",
                    help="Base output dir; results land in <out>/<model>/<prompt version>/")
     x.add_argument("--model", default=DEFAULT_MODEL)
@@ -94,9 +94,9 @@ def main() -> None:
         help="Propose catalog products for receipt lines resolution.json lacks",
     )
     r.add_argument("--store", default="GLOBUS")
-    r.add_argument("--receipts-dir", default="data/holdout",
+    r.add_argument("--receipts-dir", default="data/receipts/truth",
                    help="Verified receipt JSON; never model output")
-    r.add_argument("--resolution", default="data/resolution.json")
+    r.add_argument("--resolution", default="data/products/resolution.json")
     r.add_argument("--catalog", default=DEFAULT_CATALOG)
     r.add_argument("--output", default=PROPOSALS_OUTPUT)
     r.add_argument("--offline", action="store_true",
@@ -108,12 +108,12 @@ def main() -> None:
         "confirm",
         help="Write reviewed proposals into products, resolution and store listings",
     )
-    f.add_argument("--reviewed", default="data/proposals/globus.csv",
+    f.add_argument("--reviewed", default="data/products/proposals/globus.csv",
                    help="The proposal file you marked up")
     f.add_argument("--store", default="GLOBUS")
-    f.add_argument("--products", default="data/products.json")
-    f.add_argument("--resolution", default="data/resolution.json")
-    f.add_argument("--listings", default="data/store_listings/globus.json")
+    f.add_argument("--products", default="data/products/products.json")
+    f.add_argument("--resolution", default="data/products/resolution.json")
+    f.add_argument("--listings", default="data/products/globus/listings.json")
     f.add_argument("--observed-on", default=date.today().isoformat(),
                    help="Date the catalog prices were observed")
     f.add_argument("--pairs", default=None,
@@ -123,7 +123,7 @@ def main() -> None:
 
     if args.command == "purchases":
         data = build_purchases(args.receipts_dir, args.products, args.resolution,
-                               args.line_resolutions, args.listings_dir)
+                               args.line_resolutions, args.products_dir)
         save_json(data, args.output)
         meta = data["meta"]
         print(f"Wrote {args.output}")

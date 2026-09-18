@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from grocery_app.evaluate import evaluate, match_lines, score_receipt
+from grocery_app.evaluate import evaluate, format_report, match_lines, score_receipt
 
 
 def line(name: str, net: float, qty: int = 1, tax: str | None = "A") -> dict:
@@ -154,3 +154,15 @@ def test_excluded_store_leaves_the_totals(tmp_path):
     assert report["totals"]["receipts"] == 1
     assert "SVG Autohof" not in report["by_store"]
     assert len(report["results"]) == 2, "excluded receipts are still scored, just not totalled"
+
+
+def test_a_receipt_never_extracted_is_reported_not_scored(tmp_path):
+    """One truth set holds receipts the parser has not been run on. They must
+    not drag the totals down as if every line had been missed."""
+    write(tmp_path / "truth", receipt("IMG_1.jpeg"), receipt("IMG_2.jpeg"))
+    write(tmp_path / "pred", receipt("IMG_1.jpeg"))
+    report = evaluate(tmp_path / "truth", tmp_path / "pred")
+    assert report["not_extracted"] == ["IMG_2.jpeg"]
+    assert report["totals"]["receipts"] == 1
+    assert report["totals"]["missed"] == 0
+    assert "IMG_2.jpeg" in format_report(report)

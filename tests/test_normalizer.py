@@ -108,7 +108,8 @@ def test_shelf_prices_are_collected_across_listing_files(tmp_path):
 
     from grocery_app.normalizer import load_shelf_prices
 
-    (tmp_path / "a.json").write_text(json.dumps({"listings": {
+    (tmp_path / "globus").mkdir()
+    (tmp_path / "globus" / "listings.json").write_text(json.dumps({"listings": {
         "111": {"product_id": "p-1", "prices": [{"date": "2026-01-01", "price": 3.99}]},
         "222": {"product_id": "p-1", "prices": [{"date": "2026-02-01", "price": 4.29}]},
         "333": {"product_id": "p-2", "prices": []}}}), encoding="utf-8")

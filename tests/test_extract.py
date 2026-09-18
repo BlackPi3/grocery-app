@@ -44,7 +44,7 @@ def test_prepare_image_applies_exif_rotation_and_downscales(tmp_path):
     assert max(out.size) == 2576
 
 
-def test_parse_model_output_matches_gold_shape():
+def test_parse_model_output_matches_truth_shape():
     text = json.dumps({
         "store": "Lidl", "store_location": "Musterstadt", "date": "2026-06-26",
         "time": "11:49", "currency": "EUR", "printed_total": 3.23,
@@ -73,7 +73,7 @@ def test_parse_model_output_matches_gold_shape():
     assert count_line["qty"] == 2 and count_line["unit_gross"] == 0.99
     assert "weight_kg" not in count_line, "nullable placeholders must be dropped"
     assert weight_line["sold_by_weight"] and weight_line["unit_price_basis"] == "kg"
-    assert "gross" not in return_line, "returns carry a bare net, like gold"
+    assert "gross" not in return_line, "returns carry a bare net, like the truth files"
     assert receipt["computed_total"] == 3.23 and receipt["reconciled"] is True
 
 

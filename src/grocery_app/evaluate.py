@@ -1,8 +1,8 @@
-"""Score extracted receipts against the hand-transcribed held-out set.
+"""Score extracted receipts against the verified receipts in `data/receipts/truth/`.
 
 This measures the **parser** only: did it read what is printed on the paper.
-It deliberately does not score product resolution — the held-out ground truth in
-`data/holdout/` carries no `product_id`, because a human transcribing a receipt
+It deliberately does not score product resolution — the ground truth carries
+no `product_id`, because a human transcribing a receipt
 can only be trusted for what the receipt says, not for which catalog entry it
 maps to. Normalizer coverage is a separate metric against the catalog, and
 conflating the two would blame the parser for a missing catalog entry.
@@ -156,7 +156,12 @@ def evaluate(
     truth = load_receipts(truth_dir)
     predictions = load_receipts(pred_dir)
 
-    results = [score_receipt(t, predictions.get(image)) for image, t in truth.items()]
+    # A receipt the parser was never run on is not a receipt it got wrong. It
+    # is named in the report and left out of the totals, so an incomplete run
+    # reads as incomplete rather than as a collapse in accuracy.
+    not_extracted = sorted(image for image in truth if image not in predictions)
+    results = [score_receipt(t, predictions[image])
+               for image, t in truth.items() if image in predictions]
     excluded = {s.casefold() for s in exclude_stores}
     included = [r for r in results if r["store"].casefold() not in excluded]
 
@@ -180,6 +185,7 @@ def evaluate(
         "included": included,
         "excluded_stores": sorted(exclude_stores),
         "unexpected": sorted(set(predictions) - set(truth)),
+        "not_extracted": not_extracted,
         "store_name_variants": variants,
         "totals": _aggregate(included),
         "by_store": by_store,
@@ -266,6 +272,10 @@ def format_report(report: dict[str, Any]) -> str:
 
     if report["unexpected"]:
         out.append(f"\nPredictions with no ground truth: {', '.join(report['unexpected'])}")
+    if report.get("not_extracted"):
+        out.append(f"\nGround truth with no prediction (not scored): "
+                   f"{len(report['not_extracted'])} receipt(s) — "
+                   f"{', '.join(report['not_extracted'])}")
 
     worst = sorted(
         (r for r in report["included"] if not r["exact"]),

@@ -29,8 +29,8 @@ import re
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-DEFAULT_CATALOG = "data/catalog/globus.json"
-DEFAULT_OUTPUT = "data/proposals/globus.csv"
+DEFAULT_CATALOG = "data/products/globus/crawl.json"
+DEFAULT_OUTPUT = "data/products/proposals/globus.csv"
 
 TOP_N = 3
 
@@ -505,7 +505,7 @@ import urllib.parse
 import urllib.request
 
 SEARCH_URL = "https://produkte.globus.de/search?query="
-SEARCH_CACHE = "data/catalog_cache/globus/_search"
+SEARCH_CACHE = "data/products/globus/cache/_search"
 SEARCH_DELAY_S = 1.0
 
 
