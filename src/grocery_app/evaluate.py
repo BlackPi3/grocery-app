@@ -22,6 +22,8 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
+from grocery_app.normalizer import receipt_files
+
 # A candidate pair below this combined score is treated as "no match at all"
 # rather than a badly-read line, so genuine misses stay visible as misses.
 MATCH_THRESHOLD = 0.45
@@ -31,9 +33,7 @@ COMPARED_FIELDS = ("raw_name", "qty", "net", "tax_class")
 def load_receipts(directory: str | Path) -> dict[str, dict[str, Any]]:
     """Load receipts from a directory, keyed by the image they came from."""
     receipts = {}
-    for path in sorted(Path(directory).glob("*.json")):
-        if path.name.endswith(".meta.json"):
-            continue  # extraction sidecar (usage, cost), not a receipt
+    for path in receipt_files(directory):
         data = json.loads(path.read_text(encoding="utf-8"))
         receipts[data.get("source_image", path.stem)] = data
     return receipts
