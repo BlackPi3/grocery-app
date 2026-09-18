@@ -23,6 +23,7 @@ from grocery_app.resolver import (
     confirm,
     confirm_pairs,
     read_pairs,
+    shelf_price,
     to_csv,
 )
 
@@ -38,6 +39,10 @@ def main() -> None:
     p.add_argument("--receipts-dir", default="data/gold")
     p.add_argument("--products", default="data/products.json")
     p.add_argument("--resolution", default="data/resolution.json")
+    p.add_argument("--line-resolutions", default="data/line_resolutions.json",
+                   help="Per-line answers from the shopper; optional")
+    p.add_argument("--listings-dir", default="data/store_listings",
+                   help="Shelf prices, used to tell same-named products apart; optional")
     p.add_argument("--output", default="data/purchases.json")
 
     e = subparsers.add_parser(
@@ -117,7 +122,8 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "purchases":
-        data = build_purchases(args.receipts_dir, args.products, args.resolution)
+        data = build_purchases(args.receipts_dir, args.products, args.resolution,
+                               args.line_resolutions, args.listings_dir)
         save_json(data, args.output)
         meta = data["meta"]
         print(f"Wrote {args.output}")
@@ -129,6 +135,8 @@ def main() -> None:
             print(f"  UNRESOLVED:     {meta['unresolved_items']}")
         else:
             print("  unresolved:     none — every item resolved")
+        if meta["ambiguous_items"]:
+            print(f"  ambiguous:      {meta['ambiguous_items']}")
 
     if args.command == "extract":
         print(f"Extracting with {args.model} (prompt {PROMPT_VERSION}) -> {args.out}")
@@ -194,7 +202,8 @@ def main() -> None:
                   f" {result['corrected']} previously recorded as no match)")
             return
         summary = confirm(args.reviewed, args.products, args.resolution,
-                          args.listings, args.store, args.observed_on)
+                          args.listings, args.store, args.observed_on,
+                          price_lookup=shelf_price)
         if summary.get("supplied"):
             extra = confirm_pairs(summary["supplied"], args.products, args.resolution,
                                   args.listings, args.store, args.observed_on,
@@ -208,8 +217,8 @@ def main() -> None:
             print(f"  recorded as 'no match in catalog': {summary['no_match']}")
         for decision, raw_name in summary.get("unclear", []):
             print(f"  NOT UNDERSTOOD {decision!r} on {raw_name!r} — left undecided")
-        for raw_name in summary.get("ambiguous", []):
-            print(f"  NEEDS YOU: {raw_name!r} — accepted rows are different products")
+        for raw_name, count in summary.get("families", {}).items():
+            print(f"  family: {raw_name!r} -> {count} products the receipt cannot tell apart")
         if summary["skipped"]:
             print(f"  already known, skipped: {summary['skipped']}")
 

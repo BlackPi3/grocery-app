@@ -150,7 +150,7 @@ def test_unrecognised_decisions_are_reported_not_dropped():
     assert [r["raw_name"] for r in unclear_rows(rows)] == ["c"]
 
 
-def test_accepted_rows_naming_different_products_are_held_back():
+def test_accepted_rows_naming_different_products_form_a_family():
     """Three listings of the same eggs merge into one product; 'Dusche Sweet
     Treat' and 'Dusche Fruchtig Leicht' are different products and must not."""
     from grocery_app.resolver import ambiguous_names
@@ -176,8 +176,8 @@ def test_same_product_in_two_sizes_is_ambiguous():
     assert "chia" in ambiguous_names(rows)
 
 
-def test_a_name_held_back_for_disambiguation_is_not_a_no_match():
-    """It carries a `y`. Recording it as 'no match in catalog' would bury a real
+def test_a_family_is_not_a_no_match():
+    """It carries `y`s. Recording it as 'no match in catalog' would bury a real
     decision and stop the name ever being asked about again."""
     from grocery_app.resolver import accepted_rows, ambiguous_names, marked_names
 
@@ -188,3 +188,105 @@ def test_a_name_held_back_for_disambiguation_is_not_a_no_match():
     assert "dove" in marked_names(rows, "n")
     # The guard is that it also has a y, so it must never be written as no-match.
     assert "dove" in accepted_rows(rows)
+
+
+def test_confirm_writes_a_family_as_several_products_under_one_name(tmp_path):
+    """Two `y`s on different products do not merge and are not held back: each
+    earns its own id, and the name resolves to both."""
+    import json
+
+    from grocery_app.resolver import confirm
+
+    reviewed = tmp_path / "reviewed.csv"
+    reviewed.write_text(
+        "decision,raw_name,receipt_price,rank,score,evidence,"
+        "catalog_name,brand,pack_size,catalog_price,article_number,url\n"
+        "y,Dove Dusche,2.49,1,7.0,search#1,Dusche A,Dove,\"0,25 l\",2.29,8720181848834,https://x/a\n"
+        "y,Dove Dusche,2.49,2,6.7,search#2,Dusche B,Dove,\"0,25 l\",2.29,8720181923883,https://x/b\n"
+        "y,Eier,2.99,1,7.0,search#1,Bio Eier,Alnatura,10 Stk,2.99,4104420000001,https://x/e\n"
+        "y,Eier,2.99,2,6.9,search#2,Bio Eier,Alnatura,10 Stk,2.99,4104420000002,https://x/e2\n",
+        encoding="utf-8")
+    products = tmp_path / "products.json"
+    products.write_text(json.dumps({"meta": {"next_id": 1}, "products": {}}), encoding="utf-8")
+    resolution = tmp_path / "resolution.json"
+    resolution.write_text(json.dumps({"entries": []}), encoding="utf-8")
+    listings = tmp_path / "listings.json"
+    listings.write_text(json.dumps({"listings": {}}), encoding="utf-8")
+
+    summary = confirm(reviewed, products, resolution, listings, "GLOBUS", "2026-01-01")
+
+    assert summary["families"] == {"Dove Dusche": 2}
+    assert summary["products"] == 3 and summary["entries"] == 2
+    entries = {e["raw_name"]: e for e in json.loads(resolution.read_text())["entries"]}
+    dove, eggs = entries["Dove Dusche"], entries["Eier"]
+    assert dove["product_id"] is None and dove["status"] == "ambiguous_on_receipt"
+    assert len(dove["product_ids"]) == 2
+    assert eggs["product_id"] and "product_ids" not in eggs
+    stored = json.loads(products.read_text())["products"]
+    assert {stored[i]["name"] for i in dove["product_ids"]} == {"Dusche A", "Dusche B"}
+    assert stored[eggs["product_id"]]["eans"] == ["4104420000001", "4104420000002"]
+    written = json.loads(listings.read_text())["listings"]
+    assert {written[a]["product_id"] for a in ("8720181848834", "8720181923883")} == set(dove["product_ids"])
+
+
+def test_confirm_fills_a_missing_shelf_price_from_the_product_page(tmp_path):
+    """The search page showed no price for the 0,2 kg seeds; without one, the
+    paid amount could never tell the two packs apart."""
+    import json
+
+    from grocery_app.resolver import confirm
+
+    reviewed = tmp_path / "reviewed.csv"
+    reviewed.write_text(
+        "decision,raw_name,receipt_price,rank,score,evidence,"
+        "catalog_name,brand,pack_size,catalog_price,article_number,url\n"
+        "y,Chia,3.99,1,5.5,search#1,Bio Chia Samen,Alnatura,\"0,5 kg\",3.99,4104420249967,https://x/big\n"
+        "y,Chia,3.99,2,4.7,search#2,Bio Chia Samen,Alnatura,\"0,2 kg\",,4104420244092,https://x/small\n",
+        encoding="utf-8")
+    for name, doc in (("products.json", {"meta": {"next_id": 1}, "products": {}}),
+                      ("resolution.json", {"entries": []}), ("listings.json", {"listings": {}})):
+        (tmp_path / name).write_text(json.dumps(doc), encoding="utf-8")
+
+    asked = []
+    def lookup(url):
+        asked.append(url)
+        return 2.49
+
+    confirm(reviewed, tmp_path / "products.json", tmp_path / "resolution.json",
+            tmp_path / "listings.json", "GLOBUS", "2026-01-01", price_lookup=lookup)
+
+    assert asked == ["https://x/small"]
+    listings = json.loads((tmp_path / "listings.json").read_text())["listings"]
+    assert listings["4104420244092"]["prices"] == [{"date": "2026-01-01", "price": 2.49}]
+    assert listings["4104420249967"]["prices"] == [{"date": "2026-01-01", "price": 3.99}]
+
+
+def test_one_article_in_two_families_is_one_product(tmp_path):
+    """The same Bridgerton bottle was accepted under `Dove Dusche` and under
+    `Dove Dusche 225ml`. It must not be minted twice."""
+    import json
+
+    from grocery_app.resolver import confirm
+
+    reviewed = tmp_path / "reviewed.csv"
+    reviewed.write_text(
+        "decision,raw_name,receipt_price,rank,score,evidence,"
+        "catalog_name,brand,pack_size,catalog_price,article_number,url\n"
+        "y,Dove Dusche,2.49,1,7.0,search#1,Dusche A,Dove,\"0,25 l\",2.29,8720181848834,https://x/a\n"
+        "y,Dove Dusche,2.49,2,5.2,search#7,Bridgerton,Dove,\"0,23 l\",2.79,8720181871375,https://x/b\n"
+        "y,Dove Dusche 225ml,2.49,1,5.0,search#2,Bridgerton,Dove,\"0,23 l\",2.79,8720181871375,https://x/b\n"
+        "y,Dove Dusche 225ml,2.49,2,4.7,search#3,Pflege Oel,Dove,\"0,23 l\",,8720181460029,https://x/c\n",
+        encoding="utf-8")
+    for name, doc in (("products.json", {"meta": {"next_id": 1}, "products": {}}),
+                      ("resolution.json", {"entries": []}), ("listings.json", {"listings": {}})):
+        (tmp_path / name).write_text(json.dumps(doc), encoding="utf-8")
+
+    summary = confirm(reviewed, tmp_path / "products.json", tmp_path / "resolution.json",
+                      tmp_path / "listings.json", "GLOBUS", "2026-01-01")
+
+    products = json.loads((tmp_path / "products.json").read_text())["products"]
+    assert len(products) == 3 and summary["products"] == 3
+    entries = {e["raw_name"]: e["product_ids"]
+               for e in json.loads((tmp_path / "resolution.json").read_text())["entries"]}
+    shared = set(entries["Dove Dusche"]) & set(entries["Dove Dusche 225ml"])
+    assert len(shared) == 1 and products[shared.pop()]["name"] == "Bridgerton"
