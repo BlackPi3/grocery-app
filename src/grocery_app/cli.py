@@ -13,6 +13,7 @@ from grocery_app.catalog_globus import (
 )
 from grocery_app.evaluate import evaluate, format_report
 from grocery_app.extract import DEFAULT_MODEL, PROMPT_VERSION, extract_directory
+from grocery_app.insights import build_insights, load_purchases
 from grocery_app.normalizer import build_purchases, save_json
 from grocery_app.resolver import (
     DEFAULT_CATALOG,
@@ -122,6 +123,16 @@ def main() -> None:
                    help="Date the catalog prices were observed")
     f.add_argument("--pairs", default=None,
                    help="TSV of 'raw_name<TAB>product url' to confirm directly")
+
+    i = subparsers.add_parser(
+        "insights",
+        help="Compute the insights (repurchase cadence, price watch, basket index, "
+             "own-brand share, cross-store) from purchases.json",
+    )
+    i.add_argument("--purchases", default="data/purchases.json")
+    i.add_argument("--output", default="data/insights.json")
+    i.add_argument("--as-of", default=None,
+                   help="Date the cadence is judged against (default: the last receipt)")
 
     n = subparsers.add_parser(
         "enrich",
@@ -247,6 +258,31 @@ def main() -> None:
             print(f"  family: {raw_name!r} -> {count} products the receipt cannot tell apart")
         if summary["skipped"]:
             print(f"  already known, skipped: {summary['skipped']}")
+
+    if args.command == "insights":
+        purchases = load_purchases(args.purchases)
+        as_of = date.fromisoformat(args.as_of) if args.as_of else None
+        data = build_insights(purchases, as_of=as_of)
+        save_json(data, args.output)
+        cov = data["coverage"]
+        print(f"Wrote {args.output} (as of {data['as_of']})")
+        print(f"  based on:       {cov['resolved_lines']}/{cov['product_lines']} product lines, "
+              f"€{cov['resolved_spend']:.2f} of €{cov['spend']:.2f}")
+        due = [r for r in data["repurchase"] if r["status"] == "due"]
+        print(f"  repurchase:     {len(data['repurchase'])} products bought more than once, {len(due)} due")
+        moved = [r for r in data["price_changes"] if r["change_pct"]]
+        print(f"  price watch:    {len(data['price_changes'])} products tracked, {len(moved)} changed price")
+        for entry in data["basket_index"]["series"]:
+            if entry["index"] is None:
+                print(f"  basket index:   {entry['month']}: n/a ({entry['reason']})")
+            else:
+                print(f"  basket index:   {entry['month']}: {entry['index']} "
+                      f"({entry['month_over_month_pct']:+.1f}% on {entry['products']} products)")
+        ob = data["own_brand"]["overall"]
+        share = ob["own_brand_share_of_known"]
+        print(f"  own brand:      {share*100:.0f}% of the €{ob['own_brand']+ob['brand']:.2f} with a known status"
+              if share is not None else "  own brand:      no product with a known status")
+        print(f"  cross-store:    {len(data['cross_store']['products'])} products at more than one store")
 
     if args.command == "enrich":
         from grocery_app.openfoodfacts import enrich
