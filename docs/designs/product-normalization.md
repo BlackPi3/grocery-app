@@ -339,5 +339,32 @@ and plain HTTP:
   K-Classic).
 
 Of the 111 names: 55 packaged, 53 produce, 3 bags and deposits. ALDI Süd
-accounts for 66 of them (32 packaged, 34 produce), and its catalog lists
-produce with prices, so the crawl covers more than the packaged goods.
+accounts for 66 of them (32 packaged, 34 produce). Its online catalog turned
+out to hold no loose produce (canned and frozen only), so the produce
+vocabulary is still needed for those 34.
+
+### Open Food Facts as the second half of every product (decided 2026-09-18)
+
+A store listing says what a product is called and costs, not what it is:
+after the GLOBUS and ALDI work, 43 of 96 products had `category` and
+`is_organic` null. Open Food Facts answers that from the barcode: for
+Alnatura Chiasamen (`4104420249967`) it returns the taxonomy chain `seeds →
+chia`, `en:organic`, Nutri-Score A and NOVA 1. For Jeden Tag Salami it
+returns nothing, which is the honest limit: regional own-brands are patchy.
+
+`grocery-app enrich` (`openfoodfacts.py`) looks up every product with an EAN
+once, caches the answer including misses, and fills only attributes that are
+null, listing what it filled under `enrichment.filled` so a confirmed value is
+never overwritten. `is_organic` is set only on an explicit organic label; a
+missing label in a crowd-sourced record proves nothing, so it stays null.
+Nutri-Score and NOVA go under `nutrition`, apart from the attributes a person
+may have confirmed.
+
+Why this matters beyond filling nulls: the EAN is the same in every store,
+so it is the key for "same item across stores", and the taxonomy gives a
+category axis for spend insights that no receipt provides. Two things it does
+not do: prices (Open Food Facts has none) and produce (no barcode). Open Food
+Facts also runs Open Prices, a crowd-sourced price database fed by receipts,
+which is exactly what this pipeline produces; contributing is a possible
+future step, per contribution and with consent, since a store, a date and a
+price is a trace of where the shopper was.

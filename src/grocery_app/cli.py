@@ -123,6 +123,14 @@ def main() -> None:
     f.add_argument("--pairs", default=None,
                    help="TSV of 'raw_name<TAB>product url' to confirm directly")
 
+    n = subparsers.add_parser(
+        "enrich",
+        help="Fill null product attributes from Open Food Facts, by barcode",
+    )
+    n.add_argument("--products", default="data/products/products.json")
+    n.add_argument("--cache-dir", default="data/products/off")
+    n.add_argument("--force", action="store_true", help="Re-ask even for cached barcodes")
+
     args = parser.parse_args()
 
     if args.command == "purchases":
@@ -239,6 +247,15 @@ def main() -> None:
             print(f"  family: {raw_name!r} -> {count} products the receipt cannot tell apart")
         if summary["skipped"]:
             print(f"  already known, skipped: {summary['skipped']}")
+
+    if args.command == "enrich":
+        from grocery_app.openfoodfacts import enrich
+
+        print(f"Enriching {args.products} from Open Food Facts")
+        summary = enrich(args.products, args.cache_dir, force=args.force)
+        print(f"\n{summary['with_ean']} products with a barcode, {summary['found']} found "
+              f"({summary['cached']} answered from cache), "
+              f"{summary['filled']} attributes filled")
 
     if args.command == "eval":
         report = evaluate(args.truth_dir, args.pred_dir, tuple(args.exclude_store))
