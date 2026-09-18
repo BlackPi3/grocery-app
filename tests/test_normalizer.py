@@ -114,3 +114,21 @@ def test_shelf_prices_are_collected_across_listing_files(tmp_path):
         "222": {"product_id": "p-1", "prices": [{"date": "2026-02-01", "price": 4.29}]},
         "333": {"product_id": "p-2", "prices": []}}}), encoding="utf-8")
     assert load_shelf_prices(tmp_path) == {"p-1": {3.99, 4.29}}
+
+
+def test_a_tax_class_means_different_rates_at_different_stores():
+    from grocery_app.normalizer import tax_rate
+
+    assert tax_rate("Lidl", "A") == 0.07 and tax_rate("Kaufland", "A") == 0.19
+    assert tax_rate("GLOBUS", "2") == 0.07 and tax_rate("Globus", "1") == 0.19
+    assert tax_rate("ALDI SÜD", "b") == 0.19
+    # Unknown store, unknown class, or nothing printed: no guess.
+    assert tax_rate("Some Shop", "A") is None
+    assert tax_rate("Lidl", "C") is None
+    assert tax_rate("Lidl", None) is None
+
+
+def test_purchase_rows_carry_the_rate_beside_the_printed_class():
+    line = dict(LINE, tax_class="1")
+    record = normalize_line(line, RECEIPT, {}, PRODUCTS)
+    assert record["tax_class"] == "1" and record["tax_rate"] == 0.19
