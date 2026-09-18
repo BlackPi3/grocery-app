@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from grocery_app.resolver import (
     expand_abbreviations,
+    own_brand_status,
     parse_size,
     rank,
     score,
@@ -299,3 +300,11 @@ def test_generic_tokens_do_not_carry_a_match():
     juice = {"article_number": "9", "name": "Bio-Apfelschorle 330 ml", "brand": "BIO",
              "pack_size": "0,33 l", "price": 0.75}
     assert rank("Bananen Bio", 0.97, [juice]) == []
+
+
+def test_own_brand_is_decided_per_store_from_the_brand():
+    assert own_brand_status("GLOBUS", "Jeden Tag") is True
+    assert own_brand_status("Globus", "GLOBUS Meisterbäckerei") is True, "a store line counts"
+    assert own_brand_status("GLOBUS", "Manner") is False
+    assert own_brand_status("GLOBUS", None) is None, "no brand, no answer"
+    assert own_brand_status("Musterladen", "Jeden Tag") is None, "no list for this store yet"

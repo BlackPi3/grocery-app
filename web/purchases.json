@@ -1875,7 +1875,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Saatenbrötchen 3er (3x 1,000 Stück)",
       "unit_price": {
@@ -1903,7 +1903,7 @@
       "product_line": null,
       "variant": null,
       "category": "Pantry / Legumes",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Kidney beans (canned)",
       "unit_price": {
@@ -2023,7 +2023,7 @@
       "product_line": null,
       "variant": "1,5% ESL",
       "category": "Dairy",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Milk (1.5% fat, ESL)",
       "unit_price": {
@@ -2051,7 +2051,7 @@
       "product_line": null,
       "variant": null,
       "category": "Dairy",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Magerquark (low-fat quark)",
       "unit_price": {
@@ -2584,7 +2584,7 @@
       "product_line": null,
       "variant": null,
       "category": "Dairy",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Magerquark (low-fat quark)",
       "unit_price": {
@@ -2640,7 +2640,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Saatenbrötchen 3er (3x 1,000 Stück)",
       "unit_price": {
@@ -2796,7 +2796,7 @@
       "product_line": null,
       "variant": "Freilandhaltung",
       "category": "Eggs",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Eggs (free-range)",
       "unit_price": {
@@ -2824,7 +2824,7 @@
       "product_line": null,
       "variant": null,
       "category": "Baking",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Desiccated coconut",
       "unit_price": {
@@ -3245,7 +3245,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Tafelschokolade Amicelli",
       "unit_price": {
@@ -3273,7 +3273,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Lactofree Milch 1,5%",
       "unit_price": {
@@ -3301,7 +3301,7 @@
       "product_line": null,
       "variant": null,
       "category": "Dairy",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Magerquark (low-fat quark)",
       "unit_price": {
@@ -3329,7 +3329,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Salz-Dill-Gurken",
       "unit_price": {
@@ -3357,7 +3357,7 @@
       "product_line": null,
       "variant": null,
       "category": "blend of rolled cereal flakes",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": true,
       "product": "Bio 3 Korn Flocken",
       "unit_price": {
@@ -3385,7 +3385,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Deo-Stick Whole Body, Lavendel & Kamillenduft",
       "unit_price": {
@@ -3413,7 +3413,7 @@
       "product_line": null,
       "variant": "Triple Choco",
       "category": "Sweets & Biscuits",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Soft cookies",
       "unit_price": null
@@ -3513,7 +3513,7 @@
       "product_line": null,
       "variant": null,
       "category": "Syrups & Sweeteners",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": true,
       "product": "Maple syrup",
       "unit_price": null
@@ -3566,7 +3566,7 @@
       "product_line": null,
       "variant": null,
       "category": "wines",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Primitivo Tardivo Puglia IGP, Rotwein",
       "unit_price": null
@@ -3591,7 +3591,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Schoko Rosinen, Vollmilchschokoladee",
       "unit_price": {
@@ -3619,7 +3619,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Linsen Chips Paprika ",
       "unit_price": {
@@ -3647,7 +3647,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Kaffeesahne 10%",
       "unit_price": {
@@ -3675,7 +3675,7 @@
       "product_line": null,
       "variant": null,
       "category": "chocolate covered fruits",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Schofrulade Erdbeere, tielfgekühlt",
       "unit_price": {
@@ -3703,7 +3703,7 @@
       "product_line": null,
       "variant": null,
       "category": "frozen desserts",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Eis Saure Drachenzungen, bunt",
       "unit_price": {
@@ -3731,7 +3731,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Eis, Schokolade",
       "unit_price": {
@@ -3759,7 +3759,7 @@
       "product_line": null,
       "variant": null,
       "category": "corn chips",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Tortilla Chips Avocado",
       "unit_price": {
@@ -3787,7 +3787,7 @@
       "product_line": null,
       "variant": null,
       "category": "flavoured potato crisps",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Cheese Cracker Chili Cheese Style",
       "unit_price": {
@@ -3815,7 +3815,7 @@
       "product_line": null,
       "variant": null,
       "category": "stuffed wafers",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Kokos Waffeln",
       "unit_price": {
@@ -3843,7 +3843,7 @@
       "product_line": null,
       "variant": null,
       "category": "stuffed wafers",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Waffeltaler mit Kakao-Haselnuss-Creme-Füllung",
       "unit_price": {
@@ -3871,7 +3871,7 @@
       "product_line": null,
       "variant": null,
       "category": "waffles",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Schoko-Waffeln Törtchen, Schoko Brownie",
       "unit_price": {
@@ -3899,7 +3899,7 @@
       "product_line": null,
       "variant": null,
       "category": "lean quark",
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Speisequark Magerstufe",
       "unit_price": {
@@ -3927,7 +3927,7 @@
       "product_line": null,
       "variant": null,
       "category": "lactose free milk",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": true,
       "product": "Bio H-Alpenmilch 1,5% Fett, Laktosefrei",
       "unit_price": {
@@ -3955,7 +3955,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Schoko Rosinen, Vollmilchschokoladee",
       "unit_price": {
@@ -3983,7 +3983,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Cheddar, gerieben",
       "unit_price": {
@@ -4011,7 +4011,7 @@
       "product_line": null,
       "variant": null,
       "category": "mozzarella",
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Mozzarella, gerieben",
       "unit_price": {
@@ -4039,7 +4039,7 @@
       "product_line": null,
       "variant": null,
       "category": "chicken and its products",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Hähnchen Innenbrustfilet",
       "unit_price": {
@@ -4095,7 +4095,7 @@
       "product_line": null,
       "variant": null,
       "category": "blend of rolled cereal flakes",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": true,
       "product": "Bio 3 Korn Flocken",
       "unit_price": {
@@ -4123,7 +4123,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Saatenbrötchen 3er (3x 1,000 Stück)",
       "unit_price": {
@@ -4235,7 +4235,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Waffeln Snack minis, Milch-Haselnuss",
       "unit_price": {
@@ -4263,7 +4263,7 @@
       "product_line": null,
       "variant": null,
       "category": "stuffed wafers",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Haselnuss-Schnitten, Waffeln",
       "unit_price": {
@@ -4291,7 +4291,7 @@
       "product_line": null,
       "variant": null,
       "category": "wafers",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Waffeln Snack minis, Milch-Schoko",
       "unit_price": {
@@ -4319,7 +4319,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Kosmetiktücher Box Ultra Soft, verschiedene Designs",
       "unit_price": {
@@ -4347,7 +4347,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Taschentücher-Box Duo, Original",
       "unit_price": {
@@ -4403,7 +4403,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Saatenbrötchen 3er (3x 1,000 Stück)",
       "unit_price": {
@@ -4516,7 +4516,7 @@
       "product_line": null,
       "variant": null,
       "category": "lean quark",
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Speisequark Magerstufe",
       "unit_price": {
@@ -4544,7 +4544,7 @@
       "product_line": null,
       "variant": null,
       "category": "lactose free milk",
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": true,
       "product": "Bio H-Alpenmilch 1,5% Fett, Laktosefrei",
       "unit_price": {
@@ -4572,7 +4572,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Baguette mit Pfefferkruste",
       "unit_price": {
@@ -4600,7 +4600,7 @@
       "product_line": null,
       "variant": null,
       "category": "bread rolls",
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Weizenbrötchen ,10er (10x 1,000 Stück)",
       "unit_price": {
@@ -4628,7 +4628,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Salami Edelschimmel ",
       "unit_price": {
@@ -4684,7 +4684,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": true,
       "product": "Bio Eier Bruderküken, Gr. M-L",
       "unit_price": {
@@ -4712,7 +4712,7 @@
       "product_line": null,
       "variant": null,
       "category": "lean quark",
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Speisequark Magerstufe",
       "unit_price": {
@@ -4740,7 +4740,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Konfitüre extra, Erdbeere",
       "unit_price": {
@@ -4768,7 +4768,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Waffeln Snack minis, Milch-Haselnuss",
       "unit_price": {
@@ -4796,7 +4796,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Rotwein First Edition ",
       "unit_price": null
@@ -4839,7 +4839,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": false,
       "is_organic": null,
       "product": "Haushaltshandschuhe S, 1 Paar",
       "unit_price": null
@@ -4864,7 +4864,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": null,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Küchentücher 4 x 64 Blatt",
       "unit_price": null
