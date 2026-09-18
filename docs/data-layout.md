@@ -34,6 +34,7 @@ data/
       crawl.json                SKU -> product, from the store's JSON API, one branch's prices
       cache/<branch>/           raw API responses: category-tree.json, <category>/offsetN.json
       listings.json             written by `confirm` as ALDI matches are banked
+    off/<ean>.json              Open Food Facts records, one per barcode, misses included
   purchases.json                the output contract (copied to web/purchases.json for the demo)
 ```
 
