@@ -259,3 +259,34 @@ def test_confirm_fills_a_missing_shelf_price_from_the_product_page(tmp_path):
     listings = json.loads((tmp_path / "listings.json").read_text())["listings"]
     assert listings["4104420244092"]["prices"] == [{"date": "2026-01-01", "price": 2.49}]
     assert listings["4104420249967"]["prices"] == [{"date": "2026-01-01", "price": 3.99}]
+
+
+def test_one_article_in_two_families_is_one_product(tmp_path):
+    """The same Bridgerton bottle was accepted under `Dove Dusche` and under
+    `Dove Dusche 225ml`. It must not be minted twice."""
+    import json
+
+    from grocery_app.resolver import confirm
+
+    reviewed = tmp_path / "reviewed.csv"
+    reviewed.write_text(
+        "decision,raw_name,receipt_price,rank,score,evidence,"
+        "catalog_name,brand,pack_size,catalog_price,article_number,url\n"
+        "y,Dove Dusche,2.49,1,7.0,search#1,Dusche A,Dove,\"0,25 l\",2.29,8720181848834,https://x/a\n"
+        "y,Dove Dusche,2.49,2,5.2,search#7,Bridgerton,Dove,\"0,23 l\",2.79,8720181871375,https://x/b\n"
+        "y,Dove Dusche 225ml,2.49,1,5.0,search#2,Bridgerton,Dove,\"0,23 l\",2.79,8720181871375,https://x/b\n"
+        "y,Dove Dusche 225ml,2.49,2,4.7,search#3,Pflege Oel,Dove,\"0,23 l\",,8720181460029,https://x/c\n",
+        encoding="utf-8")
+    for name, doc in (("products.json", {"meta": {"next_id": 1}, "products": {}}),
+                      ("resolution.json", {"entries": []}), ("listings.json", {"listings": {}})):
+        (tmp_path / name).write_text(json.dumps(doc), encoding="utf-8")
+
+    summary = confirm(reviewed, tmp_path / "products.json", tmp_path / "resolution.json",
+                      tmp_path / "listings.json", "GLOBUS", "2026-01-01")
+
+    products = json.loads((tmp_path / "products.json").read_text())["products"]
+    assert len(products) == 3 and summary["products"] == 3
+    entries = {e["raw_name"]: e["product_ids"]
+               for e in json.loads((tmp_path / "resolution.json").read_text())["entries"]}
+    shared = set(entries["Dove Dusche"]) & set(entries["Dove Dusche 225ml"])
+    assert len(shared) == 1 and products[shared.pop()]["name"] == "Bridgerton"

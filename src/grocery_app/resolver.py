@@ -379,7 +379,8 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
         })
         no_match += 1
 
-    added_products = added_entries = added_listings = 0
+    products_before = len(products_doc["products"])
+    added_entries = added_listings = 0
     for raw_name, picked in accepted.items():
         if (store_key(store), raw_name) in known:
             continue
@@ -398,14 +399,11 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
             ids = [_add_product(products_doc, listings_doc, group, observed_on, price_lookup)
                    for group in groups.values()]
             entry.update({"product_ids": ids, "status": "ambiguous_on_receipt"})
-            added_products += len(ids)
-            added_listings += sum(1 for r in picked if r.get("article_number"))
         else:
             # Several accepted rows here mean several article numbers for one
             # product; they become barcodes on it rather than separate products.
             entry["product_id"] = _add_product(products_doc, listings_doc, picked, observed_on)
-            added_products += 1
-            added_listings += sum(1 for r in picked if r.get("article_number"))
+        added_listings += sum(1 for r in picked if r.get("article_number"))
 
         resolution_doc["entries"].append(entry)
         added_entries += 1
@@ -417,7 +415,8 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
         Path(path).write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
                               encoding="utf-8")
 
-    return {"products": added_products, "entries": added_entries,
+    return {"products": len(products_doc["products"]) - products_before,
+            "entries": added_entries,
             "listings": added_listings, "no_match": no_match,
             "supplied": supplied,
             # Families written this run, so the reviewer sees that two `y`s
@@ -437,7 +436,15 @@ def _add_product(products_doc: dict[str, Any], listings_doc: dict[str, Any],
 
     An accepted row is the moment a product earns an id, so ids are minted here
     and nowhere else. Several rows are several article numbers for one product.
+    An article the listings already know keeps its product: the same Bridgerton
+    bottle sits in the `Dove Dusche` and the `Dove Dusche 225ml` families, and
+    it is one product, not two.
     """
+    for row in rows:
+        listed = listings_doc["listings"].get(row.get("article_number") or "")
+        if listed:
+            return listed["product_id"]
+
     product_id = f"p-{products_doc['meta']['next_id']:04d}"
     products_doc["meta"]["next_id"] += 1
     first = rows[0]
