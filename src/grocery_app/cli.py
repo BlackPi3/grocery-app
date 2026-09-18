@@ -38,6 +38,8 @@ def main() -> None:
     p.add_argument("--receipts-dir", default="data/gold")
     p.add_argument("--products", default="data/products.json")
     p.add_argument("--resolution", default="data/resolution.json")
+    p.add_argument("--line-resolutions", default="data/line_resolutions.json",
+                   help="Per-line answers from the shopper; optional")
     p.add_argument("--output", default="data/purchases.json")
 
     e = subparsers.add_parser(
@@ -117,7 +119,8 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "purchases":
-        data = build_purchases(args.receipts_dir, args.products, args.resolution)
+        data = build_purchases(args.receipts_dir, args.products, args.resolution,
+                               args.line_resolutions)
         save_json(data, args.output)
         meta = data["meta"]
         print(f"Wrote {args.output}")

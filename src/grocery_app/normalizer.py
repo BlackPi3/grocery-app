@@ -87,15 +87,26 @@ def compute_unit_price(net_paid: float, qty: int, line: dict[str, Any],
 
 def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
                    resolution: dict[tuple[str, str], list[str]],
-                   products: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    """Turn one parsed receipt line into an enriched purchase record."""
+                   products: dict[str, dict[str, Any]],
+                   pinpoint: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Turn one parsed receipt line into an enriched purchase record.
+
+    `pinpoint` is the shopper's own answer for this line, when there is one:
+    it narrows a family to one product, and is labelled as coming from them.
+    """
     raw_name = line["raw_name"]
     ids = resolution.get((store_key(receipt.get("store")), raw_name), [])
     candidates = [products[i] for i in ids if i in products]
     net_paid = line.get("net", 0.0)
     qty = line.get("qty", 1)
 
-    if len(candidates) == 1:
+    if pinpoint and pinpoint["product_id"] in ids and pinpoint["product_id"] in products:
+        # The receipt could not tell, the shopper could. It must stay inside the
+        # family the name resolves to; an answer outside it is a stale note.
+        ids = [pinpoint["product_id"]]
+        candidates = [products[ids[0]]]
+        product_id, how = ids[0], "user"
+    elif len(candidates) == 1:
         product_id, how = ids[0], "exact"
     elif candidates:
         product_id, how = None, "family"
@@ -127,7 +138,7 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
         # Unit price needs a pack size, and only an exact match has one we can
         # trust: a family may span 0,5 kg and 0,2 kg of the same seeds.
         record["unit_price"] = compute_unit_price(
-            net_paid, qty, line, candidates[0] if how == "exact" else None)
+            net_paid, qty, line, candidates[0] if how in ("exact", "user") else None)
     else:
         # Unresolved: keep the money, be honest about the missing identity.
         record["unit_price"] = compute_unit_price(net_paid, qty, line, None)
@@ -158,11 +169,19 @@ def shared_attributes(candidates: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str], list[str]],
-                      products: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        normalize_line(line, receipt, resolution, products)
-        for line in receipt.get("lines", [])
-    ]
+                      products: dict[str, dict[str, Any]],
+                      line_resolutions: dict[tuple[str, int], dict[str, Any]] | None = None,
+                      ) -> list[dict[str, Any]]:
+    image = receipt.get("source_image")
+    records = []
+    for index, line in enumerate(receipt.get("lines", [])):
+        pinpoint = (line_resolutions or {}).get((image, index))
+        # A pinpoint is bound to the line's text as well as its position, so a
+        # re-transcribed receipt cannot silently move it onto another product.
+        if pinpoint and pinpoint.get("raw_name") != line.get("raw_name"):
+            pinpoint = None
+        records.append(normalize_line(line, receipt, resolution, products, pinpoint))
+    return records
 
 
 def load_resolution(path: str | Path) -> dict[tuple[str, str], list[str]]:
@@ -189,11 +208,29 @@ def load_products(path: str | Path) -> dict[str, dict[str, Any]]:
     return load_json(path)["products"]
 
 
+def load_line_resolutions(path: str | Path | None) -> dict[tuple[str, int], dict[str, Any]]:
+    """(source_image, line_index) -> the shopper's answer for that one line.
+
+    This is what the receipt could not say and the shopper could ("it was the
+    Kräuter one"). It lives apart from the receipts, which record only what the
+    photo shows, and apart from resolution.json, which is keyed by name and so
+    cannot hold a per-line fact. A missing file simply means no answers yet.
+    """
+    if not path or not Path(path).exists():
+        return {}
+    return {
+        (entry["source_image"], entry["line_index"]): entry
+        for entry in load_json(path)["entries"]
+    }
+
+
 def build_purchases(receipts_dir: str | Path, products_path: str | Path,
-                    resolution_path: str | Path) -> dict[str, Any]:
+                    resolution_path: str | Path,
+                    line_resolutions_path: str | Path | None = None) -> dict[str, Any]:
     """Build the purchases.json contract from verified receipts + reference data."""
     products = load_products(products_path)
     resolution = load_resolution(resolution_path)
+    line_resolutions = load_line_resolutions(line_resolutions_path)
     receipts = load_gold_receipts(receipts_dir)
 
     purchases: list[dict[str, Any]] = []
@@ -203,7 +240,7 @@ def build_purchases(receipts_dir: str | Path, products_path: str | Path,
         if receipt.get("is_duplicate"):
             continue
         used_receipts += 1
-        purchases.extend(normalize_receipt(receipt, resolution, products))
+        purchases.extend(normalize_receipt(receipt, resolution, products, line_resolutions))
 
     product_lines = [p for p in purchases if p["type"] == "product"]
     unresolved = sorted({p["raw_name"] for p in product_lines if p["resolution"] == "none"})

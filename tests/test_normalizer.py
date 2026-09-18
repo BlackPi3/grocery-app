@@ -49,3 +49,37 @@ def test_load_resolution_reads_both_shapes(tmp_path):
                     '{"store": "GLOBUS", "raw_name": "Leergut", "product_id": null}]}',
                     encoding="utf-8")
     assert load_resolution(path) == {("globus", "A"): ["p-1"], ("globus", "B"): ["p-1", "p-2"]}
+
+
+def test_a_pinpoint_narrows_a_family_and_is_labelled_as_the_shoppers():
+    from grocery_app.normalizer import normalize_receipt
+
+    receipt = dict(RECEIPT, lines=[LINE, LINE])
+    answers = {("fake.jpeg", 1): {"source_image": "fake.jpeg", "line_index": 1,
+                                  "raw_name": "Dove Dusche", "product_id": "p-2"}}
+    first, second = normalize_receipt(receipt, {("globus", "Dove Dusche"): ["p-1", "p-2"]},
+                                      PRODUCTS, answers)
+    assert first["resolution"] == "family" and first["product_id"] is None
+    assert second["resolution"] == "user" and second["product_id"] == "p-2"
+    assert second["variant"] == "Fruchtig Leicht" and second["candidate_ids"] == []
+    assert second["unit_price"] == {"amount": 8.96, "per": "l"}
+
+
+def test_a_pinpoint_is_refused_when_the_line_or_family_no_longer_matches():
+    from grocery_app.normalizer import normalize_receipt
+
+    receipt = dict(RECEIPT, lines=[LINE])
+    family = {("globus", "Dove Dusche"): ["p-1", "p-2"]}
+    # The line was re-transcribed under another name: the note is stale.
+    stale = {("fake.jpeg", 0): {"raw_name": "Dove Deo", "product_id": "p-2"}}
+    assert normalize_receipt(receipt, family, PRODUCTS, stale)[0]["resolution"] == "family"
+    # The answer points outside the family the name resolves to.
+    outside = {("fake.jpeg", 0): {"raw_name": "Dove Dusche", "product_id": "p-9"}}
+    assert normalize_receipt(receipt, family, PRODUCTS, outside)[0]["resolution"] == "family"
+
+
+def test_missing_line_resolutions_file_means_no_answers(tmp_path):
+    from grocery_app.normalizer import load_line_resolutions
+
+    assert load_line_resolutions(None) == {}
+    assert load_line_resolutions(tmp_path / "absent.json") == {}
