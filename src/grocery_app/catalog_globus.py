@@ -47,8 +47,8 @@ USER_AGENT = (
 REQUEST_DELAY_S = 1.0
 MAX_PAGES = 100  # guard against a listing that serves the same page forever
 
-DEFAULT_CACHE_DIR = "data/catalog_cache/globus"
-DEFAULT_OUTPUT = "data/catalog/globus.json"
+DEFAULT_CACHE_DIR = "data/products/globus/cache"
+DEFAULT_OUTPUT = "data/products/globus/crawl.json"
 
 # The three starter branches, as level-2 categories. Level-2 pages already list
 # products aggregated across their leaves, so the ~124 leaf categories below them

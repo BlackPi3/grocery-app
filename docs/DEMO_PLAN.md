@@ -12,8 +12,8 @@ Last updated: reflects the app as actually built (List/Stats/Scan/History dashbo
 | Piece | State |
 |---|---|
 | Verified receipts (`data/receipts/truth/*.json`) | ✅ 26 receipts (27 photos − 1 duplicate), one schema; 9 LLM-extracted then verified against the photo, 17 hand-transcribed |
-| Products (`data/products.json`) | ✅ 53 products, opaque ids, structured brand/line/variant/size/organic/own-brand; 35 carry open questions about attributes |
-| Resolution (`data/resolution.json`) | ✅ 55 entries, store-scoped, with provenance; 53 resolved, 2 non-product lines, 0 unknowns |
+| Products (`data/products/products.json`) | ✅ 96 products, opaque ids, sourced from GLOBUS's own listings |
+| Resolution (`data/products/resolution.json`) | ✅ 93 entries, store-scoped, with provenance; 86 exact, 5 families, 2 non-product lines |
 | Normalizer + CLI (`src/grocery_app/`) | ✅ real join + unit-price derivation; `python -m grocery_app.cli purchases` |
 | `data/purchases.json` (the contract) | ✅ 55 records, `contract_version: 1` |
 | Hand transcriptions (`data/receipts/transcripts/`) | ✅ 17 receipts, 6 chains, 184 lines; arithmetic-checked by `scripts/convert_transcripts.py` |

@@ -251,16 +251,17 @@ def load_line_resolutions(path: str | Path | None) -> dict[tuple[str, int], dict
     }
 
 
-def load_shelf_prices(listings_dir: str | Path | None) -> dict[str, set[float]]:
+def load_shelf_prices(products_dir: str | Path | None) -> dict[str, set[float]]:
     """product_id -> every shelf price recorded for it, across all stores' listings.
 
-    Shelf prices are a separate series from what was paid; here they serve only
-    to tell family members apart. A missing directory means no prices.
+    Reads `<products_dir>/<store>/listings.json` for every store. Shelf prices
+    are a separate series from what was paid; here they serve only to tell
+    family members apart. A missing directory means no prices.
     """
     prices: dict[str, set[float]] = {}
-    if not listings_dir or not Path(listings_dir).is_dir():
+    if not products_dir or not Path(products_dir).is_dir():
         return prices
-    for path in sorted(Path(listings_dir).glob("*.json")):
+    for path in sorted(Path(products_dir).glob("*/listings.json")):
         for listing in load_json(path).get("listings", {}).values():
             for observed in listing.get("prices", []):
                 prices.setdefault(listing["product_id"], set()).add(float(observed["price"]))
@@ -270,12 +271,12 @@ def load_shelf_prices(listings_dir: str | Path | None) -> dict[str, set[float]]:
 def build_purchases(receipts_dir: str | Path, products_path: str | Path,
                     resolution_path: str | Path,
                     line_resolutions_path: str | Path | None = None,
-                    listings_dir: str | Path | None = None) -> dict[str, Any]:
+                    products_dir: str | Path | None = None) -> dict[str, Any]:
     """Build the purchases.json contract from verified receipts + reference data."""
     products = load_products(products_path)
     resolution = load_resolution(resolution_path)
     line_resolutions = load_line_resolutions(line_resolutions_path)
-    shelf_prices = load_shelf_prices(listings_dir)
+    shelf_prices = load_shelf_prices(products_dir)
     receipts = load_receipts(receipts_dir)
 
     purchases: list[dict[str, Any]] = []

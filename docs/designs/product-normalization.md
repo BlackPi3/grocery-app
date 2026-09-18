@@ -196,7 +196,7 @@ The real constraint is the German sui generis database right (§87b UrhG), which
 restricts extraction of a *substantial part* of a database even where individual
 facts are not protected. Accordingly: fetch only the categories this user's
 receipts actually touch, never mirror the full 73,569-product catalog, do not
-reuse their images or description text, and keep `data/catalog/` gitignored like
+reuse their images or description text, and keep the fetched pages (`data/products/globus/cache/`) gitignored like
 `data/gold/`.
 
 ## Still open
