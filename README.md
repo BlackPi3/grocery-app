@@ -20,7 +20,7 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 - **Enrichment**: `grocery-app enrich` fills what a store listing never says (category, organic label, Nutri-Score, NOVA group) from [Open Food Facts](https://openfoodfacts.org) by barcode, only where the product has no confirmed value. Open Food Facts data is licensed under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/).
 - **Purchase history**: `purchases.json`, built from the extracted receipts by the normalization layer.
 - **Insights**: `grocery-app insights` reads purchases.json and writes `insights.json`: repurchase cadence with an expected next date, price over time per product, a personal basket index (last month's repeat basket priced at this month's prices), own-brand vs brand share, and the same item across stores. Every figure carries the coverage it rests on.
-- **API**: `grocery-app serve` exposes the same two documents over HTTP (`/v1/purchases`, `/v1/insights`, OpenAPI at `/docs`), read-only, from the JSON files for now. Storage sits behind a repository seam so PostgreSQL can replace the files without changing a route. The plan for that, and for receipt upload and corrections from a phone, is in `docs/designs/backend-api.md`.
+- **API**: `grocery-app serve` exposes the same two documents over HTTP (`/v1/purchases`, `/v1/insights`, OpenAPI at `/docs`), read-only, from the JSON files or from PostgreSQL (`grocery-app db upgrade`, `db import`, `db export`); the same normalizer runs either way, and a test proves the two agree. The plan for that, and for receipt upload and corrections from a phone, is in `docs/designs/backend-api.md`.
 - **Demo**: a self-contained static web page (`web/index.html`) presenting the history and the insights in a mobile-style layout, live at **https://blackpi3.github.io/grocery-app/**. The two JSON files it reads are my real shopping history, published deliberately.
 
 ## What it says today
@@ -71,6 +71,9 @@ pytest
 open web/index.html
 # serve purchases.json and the insights over HTTP, OpenAPI docs at /docs
 grocery-app serve
+# or serve from PostgreSQL: migrate, load the data/ files, serve (DATABASE_URL selects it)
+export DATABASE_URL=postgresql+psycopg://user@localhost:5432/grocery
+grocery-app db upgrade && grocery-app db import && grocery-app serve
 ```
 
 Extraction calls the Claude API and reads `ANTHROPIC_API_KEY` from the environment.

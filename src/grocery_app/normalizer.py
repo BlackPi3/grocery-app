@@ -305,16 +305,20 @@ def load_shelf_prices(products_dir: str | Path | None) -> dict[str, set[float]]:
     return prices
 
 
-def build_purchases(receipts_dir: str | Path, products_path: str | Path,
-                    resolution_path: str | Path,
-                    line_resolutions_path: str | Path | None = None,
-                    products_dir: str | Path | None = None) -> dict[str, Any]:
-    """Build the purchases.json contract from verified receipts + reference data."""
-    products = load_products(products_path)
-    resolution = load_resolution(resolution_path)
-    line_resolutions = load_line_resolutions(line_resolutions_path)
-    shelf_prices = load_shelf_prices(products_dir)
-    receipts = load_receipts(receipts_dir)
+def assemble_purchases(receipts: list[dict[str, Any]],
+                       products: dict[str, dict[str, Any]],
+                       resolution: dict[tuple[str, str], list[str]],
+                       line_resolutions: dict[tuple[str, int], dict[str, Any]] | None = None,
+                       shelf_prices: dict[str, set[float]] | None = None) -> dict[str, Any]:
+    """The purchases.json contract from already-loaded inputs.
+
+    This is the whole normalizer; `build_purchases` loads the files and calls
+    it, the database repository loads rows and calls it. Neither side does any
+    joining of its own.
+    """
+    line_resolutions = line_resolutions or {}
+    shelf_prices = shelf_prices or {}
+    receipts = sorted(receipts, key=lambda r: (r.get("date", ""), r.get("source_image", "")))
 
     purchases: list[dict[str, Any]] = []
     used_receipts = 0
@@ -345,6 +349,20 @@ def build_purchases(receipts_dir: str | Path, products_path: str | Path,
         },
         "purchases": purchases,
     }
+
+
+def build_purchases(receipts_dir: str | Path, products_path: str | Path,
+                    resolution_path: str | Path,
+                    line_resolutions_path: str | Path | None = None,
+                    products_dir: str | Path | None = None) -> dict[str, Any]:
+    """Build the purchases.json contract from verified receipts + reference data on disk."""
+    return assemble_purchases(
+        load_receipts(receipts_dir),
+        load_products(products_path),
+        load_resolution(resolution_path),
+        load_line_resolutions(line_resolutions_path),
+        load_shelf_prices(products_dir),
+    )
 
 
 def save_json(data: Any, output_path: str | Path) -> None:

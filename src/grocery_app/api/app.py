@@ -7,12 +7,11 @@ hands in the JSON files; `default_app()` is the latter, for uvicorn.
 
 from __future__ import annotations
 
-import os
 from datetime import date
 
 from fastapi import FastAPI, HTTPException, Query
 
-from grocery_app.api.repository import JsonRepository, Repository
+from grocery_app.api.repository import DEFAULT_PURCHASES, Repository, default_repository
 from grocery_app.api.schemas import (
     INSIGHTS_CONTRACT_VERSION,
     PURCHASES_CONTRACT_VERSION,
@@ -22,7 +21,7 @@ from grocery_app.api.schemas import (
 )
 from grocery_app.insights import build_insights
 
-DEFAULT_PURCHASES = "data/purchases.json"
+__all__ = ["DEFAULT_PURCHASES", "create_app", "default_app"]
 
 
 def create_app(repository: Repository) -> FastAPI:
@@ -70,6 +69,7 @@ def create_app(repository: Repository) -> FastAPI:
 def default_app() -> FastAPI:
     """The app `uvicorn --factory grocery_app.api.app:default_app` runs.
 
-    `GROCERY_PURCHASES` points at the purchases.json to serve.
+    `DATABASE_URL` selects PostgreSQL; otherwise `GROCERY_PURCHASES` names the
+    purchases.json to serve.
     """
-    return create_app(JsonRepository(os.environ.get("GROCERY_PURCHASES", DEFAULT_PURCHASES)))
+    return create_app(default_repository())

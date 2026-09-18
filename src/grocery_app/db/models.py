@@ -99,6 +99,11 @@ class Product(Base):
     open_questions: Mapped[list[str]] = mapped_column(ARRAY(String), default=list,
                                                       server_default="{}")
     provenance: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # Filled by `grocery-app enrich` from Open Food Facts; `extra` is an older
+    # free-form note on a few products, kept whole rather than dropped.
+    nutrition: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    enrichment: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    extra: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class Resolution(Base):

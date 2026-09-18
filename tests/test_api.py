@@ -103,6 +103,7 @@ def test_json_repository_rereads_the_file(tmp_path):
 def test_default_app_reads_the_path_from_the_environment(tmp_path, monkeypatch):
     path = tmp_path / "elsewhere.json"
     save_json(PURCHASES, path)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv("GROCERY_PURCHASES", str(path))
     assert TestClient(default_app()).get("/health").status_code == 200
     monkeypatch.delenv("GROCERY_PURCHASES")
