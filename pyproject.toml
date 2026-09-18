@@ -21,7 +21,13 @@ where = ["src"]
 [project.optional-dependencies]
 dev = ["pytest", "ruff", "httpx"]
 # The HTTP layer is optional so the pipeline CLI stays installable without it.
-api = ["fastapi>=0.115", "uvicorn>=0.30"]
+api = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.1",
+]
 
 [tool.ruff]
 line-length = 100
