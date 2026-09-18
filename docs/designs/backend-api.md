@@ -1,6 +1,6 @@
 # Design: The Backend
 
-Status: phase 0 built (2026-09-18). Phases 1 to 3 are specified here and not started.
+Status: phase 0 built, phase 1 in progress (2026-09-18: tables, migration and `db upgrade` are in; the repository, import/export are next). Phases 2 and 3 are specified and not started.
 This is the document a future session picks up from; the checklist at the end says where.
 
 ## Why a backend
@@ -221,13 +221,15 @@ Phase 1, in order:
 
 1. `pip install -e ".[dev,api]"`, `pytest`, then `grocery-app serve` and open
    `/docs` to see phase 0 running.
-2. Add `sqlalchemy>=2`, `alembic`, `psycopg[binary]` to the `api` extra.
-3. Write the models in `src/grocery_app/db/models.py` from the table sketch above, and
-   the first Alembic migration.
+2. Done: `sqlalchemy`, `alembic`, `psycopg[binary]` are in the `api` extra.
+3. Done: `src/grocery_app/db/models.py`, migration `0001`, `grocery-app db upgrade`,
+   and `tests/test_db.py` (runs against the PostgreSQL service in CI; skipped without
+   `DATABASE_URL`, and there is no local PostgreSQL on the dev machine yet, so
+   `brew install postgresql@16` is the first thing to do before working on step 4).
 4. Write `PostgresRepository.purchases()` in `api/repository.py` by loading rows into
    the dict shapes `normalize_receipt` already takes. Do not reimplement normalization.
 5. `grocery-app db import` from `data/`, idempotent. Then `db export`.
-6. Add the PostgreSQL service to `.github/workflows/ci.yml` and the seam test.
+6. Done: the PostgreSQL service is in `.github/workflows/ci.yml`. Still to do: the seam test.
 7. `serve` picks the repository from `DATABASE_URL`.
 
 Each step is one PR with tests on made-up data (`CLAUDE.md` rules apply: every branch

@@ -152,6 +152,15 @@ def main() -> None:
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)
 
+    d = subparsers.add_parser(
+        "db",
+        help="The PostgreSQL store behind `serve` (needs the 'api' extra and DATABASE_URL)",
+    )
+    d.add_argument("action", choices=["upgrade"],
+                   help="upgrade: apply the migrations up to the current revision")
+    d.add_argument("--url", default=None,
+                   help="Database URL; defaults to the DATABASE_URL environment variable")
+
     args = parser.parse_args()
 
     if args.command == "purchases":
@@ -322,6 +331,17 @@ def main() -> None:
         print(f"Serving {args.purchases} at http://{args.host}:{args.port} "
               f"(docs at /docs)")
         uvicorn.run(create_app(JsonRepository(args.purchases)), host=args.host, port=args.port)
+
+    if args.command == "db":
+        from grocery_app.db.migrate import upgrade
+        from grocery_app.db.session import database_url
+
+        url = args.url or database_url()
+        if not url:
+            raise SystemExit("no database: pass --url or set DATABASE_URL")
+        if args.action == "upgrade":
+            upgrade(url)
+            print("Database is at the current revision")
 
     if args.command == "eval":
         report = evaluate(args.truth_dir, args.pred_dir, tuple(args.exclude_store))
