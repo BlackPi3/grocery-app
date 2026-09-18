@@ -316,6 +316,17 @@ def marked_names(rows: list[dict[str, str]], mark: str) -> set[str]:
 _BARCODE_LENGTHS = {8, 12, 13, 14}
 
 
+def _load_listings(path: str | Path, store: str) -> dict[str, Any]:
+    """A store's listings file, or an empty one the first time that store is confirmed."""
+    if Path(path).exists():
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    return {"meta": {"schema": 1, "store": store,
+                     "note": "Populated as matches are confirmed. `prices` is the shelf "
+                             "price observed at fetch time, a different series from what "
+                             "was paid (that lives in purchases.json)."},
+            "listings": {}}
+
+
 def _size_from_row(row: dict[str, str]) -> dict[str, Any]:
     parsed = parse_size(row.get("pack_size") or "") or parse_size(row.get("catalog_name") or "")
     if not parsed:

@@ -76,7 +76,7 @@ def main() -> None:
         "catalog",
         help="Fetch a store's product catalog from its own category listings",
     )
-    c.add_argument("--store", default="globus", choices=["globus"])
+    c.add_argument("--store", default="globus", choices=["globus", "aldi-sued"])
     c.add_argument(
         "--category",
         action="append",
@@ -85,8 +85,12 @@ def main() -> None:
         help="Category to crawl, e.g. obst-gemuese/frisches-obst (repeatable). "
              "Defaults to the starter set.",
     )
-    c.add_argument("--cache-dir", default=DEFAULT_CACHE_DIR)
-    c.add_argument("--output", default=DEFAULT_OUTPUT)
+    c.add_argument("--cache-dir", default=None,
+                   help="Defaults to data/products/<store>/cache")
+    c.add_argument("--output", default=None,
+                   help="Defaults to data/products/<store>/crawl.json")
+    c.add_argument("--service-point", default=None,
+                   help="aldi-sued only: the branch whose prices to fetch (default BC08)")
     c.add_argument("--force", action="store_true", help="Re-fetch even if a page is cached")
 
     r = subparsers.add_parser(
@@ -150,9 +154,23 @@ def main() -> None:
         print(f"Score with: grocery-app eval --pred-dir {summary['out_dir']}")
 
     if args.command == "catalog":
-        categories = args.category or STARTER_CATEGORIES
-        print(f"Fetching {len(categories)} {args.store} categories -> {args.output}")
-        summary = crawl(categories, args.cache_dir, args.output, force=args.force)
+        if args.store == "aldi-sued":
+            from grocery_app import catalog_aldi_sued as aldi
+
+            cache_dir = args.cache_dir or aldi.DEFAULT_CACHE_DIR
+            output = args.output or aldi.DEFAULT_OUTPUT
+            service_point = args.service_point or aldi.DEFAULT_SERVICE_POINT
+            print(f"Fetching ALDI SÜD catalog for branch {service_point} -> {output}")
+            # No category means every leaf of the store's category tree.
+            summary = aldi.crawl(args.category or None, cache_dir, output,
+                                 force=args.force, service_point=service_point)
+            print(f"  categories: {summary['categories']}")
+        else:
+            categories = args.category or STARTER_CATEGORIES
+            cache_dir = args.cache_dir or DEFAULT_CACHE_DIR
+            output = args.output or DEFAULT_OUTPUT
+            print(f"Fetching {len(categories)} {args.store} categories -> {output}")
+            summary = crawl(categories, cache_dir, output, force=args.force)
         print(
             f"\n{summary['products']} products in catalog "
             f"({summary['added']} new this run)"
