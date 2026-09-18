@@ -20,6 +20,7 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 - **Enrichment**: `grocery-app enrich` fills what a store listing never says (category, organic label, Nutri-Score, NOVA group) from [Open Food Facts](https://openfoodfacts.org) by barcode, only where the product has no confirmed value. Open Food Facts data is licensed under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/).
 - **Purchase history**: `purchases.json`, built from the extracted receipts by the normalization layer.
 - **Insights**: `grocery-app insights` reads purchases.json and writes `insights.json`: repurchase cadence with an expected next date, price over time per product, a personal basket index (last month's repeat basket priced at this month's prices), own-brand vs brand share, and the same item across stores. Every figure carries the coverage it rests on.
+- **API**: `grocery-app serve` exposes the same two documents over HTTP (`/v1/purchases`, `/v1/insights`, OpenAPI at `/docs`), read-only, from the JSON files for now. Storage sits behind a repository seam so PostgreSQL can replace the files without changing a route. The plan for that, and for receipt upload and corrections from a phone, is in `docs/designs/backend-api.md`.
 - **Demo**: a self-contained static web page (`web/index.html`) presenting the history and the insights in a mobile-style layout, live at **https://blackpi3.github.io/grocery-app/**. The two JSON files it reads are my real shopping history, published deliberately.
 
 ## What it says today
@@ -43,7 +44,9 @@ From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insig
   names resolve against the current catalog. The catalog is now sourced from the retailer rather
   than derived from receipts; next is proposing matches and confirming them by hand to form the
   resolution eval set. See `docs/designs/product-normalization.md`.
-- Serve the history through a FastAPI backend on PostgreSQL, replacing the JSON artifacts.
+- **In progress:** the backend. Phase 0 (a read-only FastAPI layer over the JSON files, with a
+  strict schema for the purchase record) is in; phases 1 to 3 (PostgreSQL, receipt upload and
+  line corrections, auth and deployment) are specified in `docs/designs/backend-api.md`.
 - Test suite around the normalization layer, then CI on every push.
 - **Done:** the first insights, computed from purchases.json alone (see "What it says today").
 - Next on the insights: mark own-brand status on the catalog products, resolve the other stores so the cross-store comparison has data.
@@ -51,7 +54,7 @@ From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insig
 ## Run locally
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev,api]"
 source .venv/bin/activate
 
 # fetch the product catalog from the store's own listings (starter categories)
@@ -66,6 +69,8 @@ grocery-app eval --pred-dir <dir>
 # tests
 pytest
 open web/index.html
+# serve purchases.json and the insights over HTTP, OpenAPI docs at /docs
+grocery-app serve
 ```
 
 Extraction calls the Claude API and reads `ANTHROPIC_API_KEY` from the environment.
