@@ -290,3 +290,12 @@ def test_one_article_in_two_families_is_one_product(tmp_path):
                for e in json.loads((tmp_path / "resolution.json").read_text())["entries"]}
     shared = set(entries["Dove Dusche"]) & set(entries["Dove Dusche 225ml"])
     assert len(shared) == 1 and products[shared.pop()]["name"] == "Bridgerton"
+
+
+def test_generic_tokens_do_not_carry_a_match():
+    """`Bananen Bio` must not match a bio apple juice on the word `bio` alone,
+    and `300g` is a size, scored by parse_size, not a name."""
+    assert tokens("Bananen Bio 300g lose") == {"bananen"}
+    juice = {"article_number": "9", "name": "Bio-Apfelschorle 330 ml", "brand": "BIO",
+             "pack_size": "0,33 l", "price": 0.75}
+    assert rank("Bananen Bio", 0.97, [juice]) == []

@@ -65,8 +65,17 @@ def fold(text: str) -> str:
     return text
 
 
+# Tokens that describe almost every product and so say nothing about which
+# one this is. Sizes are scored separately by parse_size; `bio` and `lose`
+# apply to half a shelf. Left in the overlap they let `Bananen Bio` match a
+# bio apple juice on the strength of one word.
+_SIZE_TOKEN = re.compile(r"^\d+(kg|g|ml|l|er|stk)$")
+_WEAK_TOKENS = {"bio", "lose", "stk", "stueck", "rot", "gelb", "gruen", "weiss"}
+
+
 def tokens(text: str) -> set[str]:
-    return {t for t in re.split(r"[^a-z0-9]+", fold(text)) if len(t) > 2}
+    return {t for t in re.split(r"[^a-z0-9]+", fold(text))
+            if len(t) > 2 and t not in _WEAK_TOKENS and not _SIZE_TOKEN.match(t)}
 
 
 def expand_abbreviations(raw_name: str) -> str:
@@ -349,7 +358,7 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
     """
     products_doc = json.loads(Path(products_path).read_text(encoding="utf-8"))
     resolution_doc = json.loads(Path(resolution_path).read_text(encoding="utf-8"))
-    listings_doc = json.loads(Path(listings_path).read_text(encoding="utf-8"))
+    listings_doc = _load_listings(listings_path, store)
 
     known = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]}
     rows = read_reviewed(reviewed_path)
@@ -689,7 +698,7 @@ def confirm_pairs(pairs: list[tuple[str, str]], products_path: str | Path,
                   source: str) -> dict[str, Any]:
     products_doc = json.loads(Path(products_path).read_text(encoding="utf-8"))
     resolution_doc = json.loads(Path(resolution_path).read_text(encoding="utf-8"))
-    listings_doc = json.loads(Path(listings_path).read_text(encoding="utf-8"))
+    listings_doc = _load_listings(listings_path, store)
     # A no-match is a finding, not a verdict: Parham later found `T?rt
     # SchokBrownie 40` on the site, so supplying a url must be able to correct
     # one rather than being skipped as already known.
