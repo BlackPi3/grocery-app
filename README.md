@@ -17,7 +17,18 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 - **Normalization**: a Python layer that resolves raw receipt lines to products, split across `data/products/`: `products.json` (what a product is), `resolution.json` (which receipt text means which product — or which *family* of products, when the till prints one name for several — store-scoped and with provenance), `<store>/listings.json` (what one store sells it as, with price history), and `data/receipts/line_resolutions.json` (the shopper's own answer for a line the receipt could not pin down). The full tree is in `docs/data-layout.md`.
 - **Enrichment**: `grocery-app enrich` fills what a store listing never says (category, organic label, Nutri-Score, NOVA group) from [Open Food Facts](https://openfoodfacts.org) by barcode, only where the product has no confirmed value. Open Food Facts data is licensed under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/).
 - **Purchase history**: `purchases.json`, built from the extracted receipts by the normalization layer.
-- **Demo**: a self-contained static web page (`web/index.html`) presenting the history in a mobile-style layout.
+- **Insights**: `grocery-app insights` reads purchases.json and writes `insights.json`: repurchase cadence with an expected next date, price over time per product, a personal basket index (last month's repeat basket priced at this month's prices), own-brand vs brand share, and the same item across stores. Every figure carries the coverage it rests on.
+- **Demo**: a self-contained static web page (`web/index.html`) presenting the history and the insights in a mobile-style layout, live at **https://blackpi3.github.io/grocery-app/**. The two JSON files it reads are my real shopping history, published deliberately.
+
+## What it says today
+
+From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insights use the 106 of 237 lines (49% of spend) that resolve to a catalog product; the rest counts as money only, and the demo says so in its footer.
+
+- **Price watch**: 10 products bought on more than one date; 3 changed price. The quark went up 30% per kg, avocados came down 25%, the bread rolls up 2%.
+- **Personal basket index**: August vs July, over the 5 products bought in both months: 94.0, so last month's repeat basket cost 6% less at August prices. Five products is a thin basket; the index refuses to report on fewer than three.
+- **Repurchase cadence**: 10 products with a typical interval; most rest on a single gap between two trips, and the demo labels those "bought twice, N days apart" rather than "every N days".
+- **Own brand**: about 10% of the spend whose own-brand status is recorded. Half of the resolved spend has no status yet, and the insight lists the brands behind that gap instead of guessing.
+- **Same item across stores**: nothing yet. Only GLOBUS lines resolve so far, and the insight says exactly that.
 
 ## Next
 
@@ -32,7 +43,8 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
   resolution eval set. See `docs/designs/product-normalization.md`.
 - Serve the history through a FastAPI backend on PostgreSQL, replacing the JSON artifacts.
 - Test suite around the normalization layer, then CI on every push.
-- Insights on top of the history: personal inflation per basket, repurchase cadence, own-brand vs brand spend.
+- **Done:** the first insights, computed from purchases.json alone (see "What it says today").
+- Next on the insights: mark own-brand status on the catalog products, resolve the other stores so the cross-store comparison has data.
 
 ## Run locally
 
@@ -44,6 +56,9 @@ source .venv/bin/activate
 grocery-app catalog
 # build the purchase history from the verified receipts
 grocery-app purchases
+# compute the insights from it, then give the demo its copies
+grocery-app insights
+cp data/purchases.json data/insights.json web/
 # score a directory of extracted receipts against the verified ones
 grocery-app eval --pred-dir <dir>
 # tests

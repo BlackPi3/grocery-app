@@ -243,6 +243,18 @@
     </div>
 
     <div class="card">
+      <h2>Personal basket index</h2>
+      <div class="hint">last month's repeat basket, priced at this month's prices</div>
+      <div id="basket"></div>
+    </div>
+
+    <div class="card">
+      <h2>Own brand vs brand</h2>
+      <div class="hint">share of spend on store brands · resolved items only</div>
+      <div class="bars" id="ownbrand"></div>
+    </div>
+
+    <div class="card">
       <h2>Where the money goes</h2>
       <div class="hint">by category · net of discounts</div>
       <div class="bars" id="cats"></div>
@@ -290,12 +302,12 @@ let renames  = JSON.parse(localStorage.getItem(LS.rn) || '{}');
 const saveEx = () => localStorage.setItem(LS.ex, JSON.stringify([...excluded]));
 const saveRn = () => localStorage.setItem(LS.rn, JSON.stringify(renames));
 
-let DATA = null, RECIPES = {}, TODAY = null;
+let DATA = null, INS = null, RECIPES = {}, TODAY = null;
 let list = JSON.parse(localStorage.getItem('basket.list') || '[]');
 const saveList = () => localStorage.setItem('basket.list', JSON.stringify(list));
 let catOverrides = JSON.parse(localStorage.getItem('basket.categories') || '{}');
 const saveCat = () => localStorage.setItem('basket.categories', JSON.stringify(catOverrides));
-const effCategory = p => (p.product_id && catOverrides[p.product_id]) || p.category || 'Other';
+const effCategory = p => (p.product_id && catOverrides[p.product_id]) || p.category || (p.product_id ? 'Uncategorised' : 'Not yet resolved');
 
 function displayName(p, i) {
   if (renames[i]) return renames[i];
@@ -305,9 +317,10 @@ function displayName(p, i) {
 
 Promise.all([
   fetch('purchases.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+  fetch('insights.json').then(r => r.ok ? r.json() : null).catch(() => null),
   fetch('recipes.json').then(r => r.ok ? r.json() : {}).catch(() => ({}))
-]).then(([d, rec]) => {
-  DATA = d; RECIPES = rec;
+]).then(([d, ins, rec]) => {
+  DATA = d; INS = ins; RECIPES = rec;
   TODAY = new Date(d.meta.date_range[1] + 'T00:00:00');   // "now" = your last trip
   render();
 }).catch(() => {
@@ -323,8 +336,10 @@ function activeProducts() {
 
 function render() {
   const meta = DATA.meta;
+  const stores = INS ? Object.keys(INS.coverage.by_store).length
+                     : new Set(DATA.purchases.map(p => (p.store || '').toLowerCase())).size;
   document.getElementById('subhead').textContent =
-    `${meta.receipts} receipts · GLOBUS · ${meta.date_range[0]} → ${meta.date_range[1]}`;
+    `${meta.receipts} receipts · ${stores} stores · ${meta.date_range[0]} → ${meta.date_range[1]}`;
 
   const prods = activeProducts();
   const total = prods.reduce((s, p) => s + p.net_paid, 0);
@@ -340,12 +355,18 @@ function render() {
 
   renderSpend(prods);
   renderWatch(prods);
+  renderBasket();
+  renderOwnBrand();
   renderCats(prods);
   renderHistory();
   renderList();
 
+  const cov = INS ? INS.coverage : null;
   document.getElementById('foot').innerHTML =
     `Prototype demo. Data from <b>${meta.receipts} real receipts</b>, each reconciled to its printed total. ` +
+    (cov ? `Product-level insights rest on the <b>${cov.resolved_lines} of ${cov.product_lines}</b> lines ` +
+           `(${Math.round(cov.resolved_share_of_spend * 100)}% of spend) that resolve to a catalog product; ` +
+           `the rest counts as money only. ` : '') +
     `Live scanning is not wired up. Edits are stored only in this browser.`;
 }
 
@@ -377,6 +398,7 @@ function unitVal(p) {
 }
 
 function renderWatch(prods) {
+  if (INS) return renderWatchFrom(INS.price_changes);
   const g = {};
   prods.forEach(p => { if (p.product_id) (g[p.product_id] = g[p.product_id] || []).push(p); });
   const rows = [];
@@ -407,6 +429,71 @@ function renderWatch(prods) {
   });
 }
 
+function renderWatchFrom(changes) {
+  const rows = changes.map(c => ({ name: c.product, per: c.per, now: c.last.price, pct: c.change_pct || 0,
+                                   times: c.observations.length, first: c.first }));
+  const el = document.getElementById('watch');
+  if (!rows.length) { el.innerHTML = '<div class="hint">No repeat purchases yet — this fills in as you buy the same items again.</div>'; return; }
+  el.innerHTML = '';
+  rows.forEach(r => {
+    const dir = r.pct > 0.05 ? 'up' : r.pct < -0.05 ? 'down' : 'flat';
+    const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■';
+    const it = document.createElement('div'); it.className = 'item';
+    it.innerHTML =
+      `<div class="id"><div class="n">${esc(r.name)}</div>
+        <div class="s">${r.times} dates · was ${money(r.first.price)} on ${fmtDate(r.first.date)}</div></div>
+       <div class="delta"><div class="now">${money(r.now)}<span style="font-size:11px;color:var(--muted)">/${r.per}</span></div>
+        <div class="chg ${dir}">${arrow} ${r.pct >= 0 ? '+' : ''}${r.pct.toFixed(1)}%</div></div>`;
+    el.appendChild(it);
+  });
+}
+
+function renderBasket() {
+  const el = document.getElementById('basket');
+  if (!INS) { el.innerHTML = '<div class="empty">insights.json not found — run <code>grocery-app insights</code>.</div>'; return; }
+  const series = INS.basket_index.series;
+  if (!series.length) { el.innerHTML = '<div class="empty">Needs two months of history.</div>'; return; }
+  el.innerHTML = '';
+  series.forEach(e => {
+    const row = document.createElement('div'); row.className = 'sug';
+    if (e.index == null) {
+      row.innerHTML = `<div class="n"><div class="t">${monthLabel(e.month)} vs ${monthLabel(e.versus)}</div>
+        <div class="s">${esc(e.reason)}</div></div>`;
+    } else {
+      const dir = e.month_over_month_pct > 0.05 ? 'up' : e.month_over_month_pct < -0.05 ? 'down' : 'flat';
+      row.innerHTML = `<div class="n"><div class="t">${monthLabel(e.month)} vs ${monthLabel(e.versus)}</div>
+        <div class="s">${e.products} products bought in both · ${money(e.basket_cost_at_previous_prices)} → ${money(e.basket_cost_at_current_prices)}</div></div>
+        <div class="delta"><div class="now">${e.index.toFixed(1)}</div>
+        <div class="chg ${dir}">${e.month_over_month_pct >= 0 ? '+' : ''}${e.month_over_month_pct.toFixed(1)}%</div></div>`;
+    }
+    el.appendChild(row);
+  });
+  const note = document.createElement('div'); note.className = 'hint'; note.style.marginTop = '8px';
+  note.textContent = `index = 100 in ${monthLabel(INS.basket_index.base_month)} · ${INS.basket_index.method}`;
+  el.appendChild(note);
+}
+
+function renderOwnBrand() {
+  const el = document.getElementById('ownbrand'); el.innerHTML = '';
+  if (!INS) { el.innerHTML = '<div class="empty">insights.json not found.</div>'; return; }
+  const o = INS.own_brand.overall;
+  const rows = [['own brand', o.own_brand], ['brand', o.brand], ['status unknown', o.unknown]];
+  const max = Math.max(...rows.map(r => r[1]), 1);
+  rows.forEach(([k, v]) => {
+    const row = document.createElement('div'); row.className = 'bar-row';
+    row.innerHTML = `<div class="name">${esc(k)}</div>
+      <div class="track"><div class="fill" style="width:${Math.max(v / max * 100, 3)}%"></div></div>
+      <div class="val">${money(v)}</div>`;
+    el.appendChild(row);
+  });
+  const note = document.createElement('div'); note.className = 'hint'; note.style.marginTop = '8px';
+  const share = o.own_brand_share_of_known;
+  note.textContent = (share == null ? 'no product has a recorded own-brand status yet'
+      : `${Math.round(share * 100)}% of the ${money(o.own_brand + o.brand)} with a known status`) +
+    ` · ${money(o.unresolved)} not yet resolved to a product`;
+  el.appendChild(note);
+}
+
 function renderCats(prods) {
   const c = {};
   prods.forEach(p => { const k = effCategory(p).split(' / ')[0]; c[k] = (c[k] || 0) + p.net_paid; });
@@ -414,7 +501,7 @@ function renderCats(prods) {
   const TOP = 8;
   if (rows.length > TOP + 1) {
     const other = rows.slice(TOP).reduce((s, r) => s + r[1], 0);
-    rows = rows.slice(0, TOP); rows.push(['Other', other]);
+    rows = rows.slice(0, TOP); rows.push(['Everything else', other]);
   }
   const max = Math.max(...rows.map(r => r[1]), 1);
   const el = document.getElementById('cats'); el.innerHTML = '';
@@ -504,9 +591,12 @@ function renderList() {
   const g = {};
   prods.forEach(p => { if (p.product_id) (g[p.product_id] = g[p.product_id] || []).push(p); });
 
-  // predicted needs from repurchase cadence
+  // predicted needs from repurchase cadence (insights.json when present)
   const preds = [];
-  Object.entries(g).forEach(([id, l]) => {
+  if (INS) INS.repurchase.forEach(r => preds.push({
+    id: r.product_id, name: r.product, avg: r.typical_interval_days, gaps: r.gaps_observed,
+    left: daysBetween(TODAY, new Date(r.expected_next + 'T00:00:00')) }));
+  else Object.entries(g).forEach(([id, l]) => {
     const dates = [...new Set(l.map(p => p.date))].sort();
     if (dates.length < 2) return;
     const ds = dates.map(d => new Date(d + 'T00:00:00'));
@@ -526,7 +616,8 @@ function renderList() {
     due.forEach(p => {
       const over = p.left < 0;
       const label = over ? `overdue ${-p.left}d` : (p.left === 0 ? 'due today' : `in ${p.left}d`);
-      predEl.appendChild(sugRow(p.name, `every ~${Math.round(p.avg)}d`, `<span class="due ${over ? 'over' : 'soon'}">${label}</span>`));
+      const basis = p.gaps === 1 ? 'bought twice, ' + p.avg + 'd apart' : `every ~${Math.round(p.avg)}d`;
+      predEl.appendChild(sugRow(p.name, basis, `<span class="due ${over ? 'over' : 'soon'}">${label}</span>`));
     });
   }
 
