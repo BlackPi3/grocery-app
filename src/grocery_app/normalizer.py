@@ -83,6 +83,31 @@ def compute_unit_price(net_paid: float, qty: int, line: dict[str, Any],
     return None
 
 
+# --- tax classes -------------------------------------------------------------
+
+# What a printed tax class means, per chain. The letters are not standardised:
+# Kaufland's A is 19% while Lidl's is 7%, so a shared table would be wrong for
+# one of them. Each row was read off the VAT legend printed on a receipt of
+# that chain (photo in data/receipts/images), or, for GLOBUS, deduced from its
+# receipts' VAT buckets, which sum class 2 lines under 7% and class 1 under 19%.
+# A store or class not listed here yields None: unknown, never guessed.
+TAX_CLASSES: dict[str, dict[str, float]] = {
+    "globus": {"1": 0.19, "2": 0.07},
+    "lidl": {"A": 0.07, "B": 0.19},
+    "aldi süd": {"A": 0.07, "B": 0.19},
+    "kaufland": {"A": 0.19, "B": 0.07},
+    "eifel west": {"A": 0.19, "B": 0.07},
+    "svg autohof": {"A": 0.19},
+}
+
+
+def tax_rate(store: str | None, tax_class: str | None) -> float | None:
+    """The VAT rate a printed class stands for at this store, or None."""
+    if tax_class is None:
+        return None
+    return TAX_CLASSES.get(store_key(store), {}).get(tax_class.strip().upper())
+
+
 # --- core join ---------------------------------------------------------------
 
 def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
@@ -139,7 +164,9 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
         "gross": line.get("gross"),
         "discount": line.get("discount", 0.0),
         "net_paid": net_paid,
+        # The class as printed stays; the rate is the normalizer's reading of it.
         "tax_class": line.get("tax_class"),
+        "tax_rate": tax_rate(receipt.get("store"), line.get("tax_class")),
     }
 
     if candidates:
