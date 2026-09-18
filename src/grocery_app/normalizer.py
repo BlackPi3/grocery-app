@@ -29,7 +29,6 @@ from typing import Any
 
 from grocery_app.resolver import store_key
 
-
 # --- loading -----------------------------------------------------------------
 
 def load_json(path: str | Path) -> Any:

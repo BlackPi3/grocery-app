@@ -1,5 +1,7 @@
 # Grocery App
 
+[![ci](https://github.com/BlackPi3/grocery-app/actions/workflows/ci.yml/badge.svg)](https://github.com/BlackPi3/grocery-app/actions/workflows/ci.yml)
+
 Turns grocery receipts into an item-level purchase history with spending insights.
 
 ## Goal
@@ -67,3 +69,15 @@ open web/index.html
 ```
 
 Extraction calls the Claude API and reads `ANTHROPIC_API_KEY` from the environment.
+
+## Development
+
+Every change goes through a pull request, and `main` only takes a PR whose checks are green:
+
+```bash
+ruff check src tests   # lint: errors, unused names, import order, bugbear, modern syntax
+pytest                 # unit tests per stage, plus tests/test_pipeline.py end to end
+```
+
+CI (`.github/workflows/ci.yml`) runs both on Python 3.11 and 3.12 for every push and PR.
+Tests use made-up data only; nothing under `data/` is needed to run them.

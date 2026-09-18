@@ -66,6 +66,10 @@ products, purchases), and keep interpretation out of the truth files — a truth
 file holds what the paper prints (`tax_class` `A`/`1`), never what it means.
 
 ## Guidance for future changes
+Every change goes through a pull request with green CI (`ruff check src tests` and
+`pytest`). New behaviour comes with tests on made-up data; a change that touches a
+seam between stages extends `tests/test_pipeline.py`.
+
 When making changes:
 - preserve the separation between parsing, normalization, and UI
 - keep artifacts like parsed.json and purchases.json well-structured and explicit

@@ -26,9 +26,10 @@ import re
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from grocery_app.catalog_globus import USER_AGENT, log
 
@@ -78,7 +79,7 @@ def fetch_product(ean: str, cache_dir: str | Path = DEFAULT_CACHE_DIR,
                 continue
             raise
 
-    doc["fetched_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    doc["fetched_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     time.sleep(REQUEST_DELAY_S)

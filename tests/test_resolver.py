@@ -227,7 +227,8 @@ def test_confirm_writes_a_family_as_several_products_under_one_name(tmp_path):
     assert {stored[i]["name"] for i in dove["product_ids"]} == {"Dusche A", "Dusche B"}
     assert stored[eggs["product_id"]]["eans"] == ["4104420000001", "4104420000002"]
     written = json.loads(listings.read_text())["listings"]
-    assert {written[a]["product_id"] for a in ("8720181848834", "8720181923883")} == set(dove["product_ids"])
+    articles = ("8720181848834", "8720181923883")
+    assert {written[a]["product_id"] for a in articles} == set(dove["product_ids"])
 
 
 def test_confirm_fills_a_missing_shelf_price_from_the_product_page(tmp_path):

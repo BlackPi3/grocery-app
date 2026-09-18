@@ -108,7 +108,7 @@ def repurchase(rows: list[dict[str, Any]], as_of: date) -> list[dict[str, Any]]:
         dates = sorted({_parse(p["date"]) for p in group if p.get("date")})
         if len(dates) < 2:
             continue
-        gaps = [(b - a).days for a, b in zip(dates, dates[1:])]
+        gaps = [(b - a).days for a, b in zip(dates, dates[1:], strict=False)]
         typical = int(round(statistics.median(gaps)))
         expected = dates[-1] + timedelta(days=typical)
         out.append({
@@ -185,7 +185,8 @@ def _month_prices(rows: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, f
     in: pieces for packs, kilograms for loose goods. That keeps price x quantity
     equal to money for every kind of line.
     """
-    acc: dict[str, dict[str, dict[str, list[float]]]] = defaultdict(lambda: defaultdict(lambda: {"prices": [], "spend": []}))
+    acc: dict[str, dict[str, dict[str, list[float]]]] = defaultdict(
+        lambda: defaultdict(lambda: {"prices": [], "spend": []}))
     for p in rows:
         if not p.get("product_id") or not p.get("date"):
             continue
@@ -200,7 +201,8 @@ def _month_prices(rows: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, f
         out[month] = {}
         for pid, v in products.items():
             price = statistics.mean(v["prices"])
-            out[month][pid] = {"price": price, "quantity": sum(v["spend"]) / price if price else 0.0}
+            quantity = sum(v["spend"]) / price if price else 0.0
+            out[month][pid] = {"price": price, "quantity": quantity}
     return out
 
 
@@ -216,7 +218,7 @@ def basket_index(rows: list[dict[str, Any]]) -> dict[str, Any]:
     order = sorted(months)
     series: list[dict[str, Any]] = []
     level = 100.0
-    for prev, cur in zip(order, order[1:]):
+    for prev, cur in zip(order, order[1:], strict=False):
         overlap = sorted(set(months[prev]) & set(months[cur]))
         entry: dict[str, Any] = {"month": cur, "versus": prev, "products": len(overlap)}
         if len(overlap) < MIN_BASKET_PRODUCTS:
@@ -225,8 +227,10 @@ def basket_index(rows: list[dict[str, Any]]) -> dict[str, Any]:
                                     f"(need {MIN_BASKET_PRODUCTS})"})
             series.append(entry)
             continue
-        base_cost = sum(months[prev][pid]["quantity"] * months[prev][pid]["price"] for pid in overlap)
-        cur_cost = sum(months[prev][pid]["quantity"] * months[cur][pid]["price"] for pid in overlap)
+        base_cost = sum(months[prev][pid]["quantity"] * months[prev][pid]["price"]
+                        for pid in overlap)
+        cur_cost = sum(months[prev][pid]["quantity"] * months[cur][pid]["price"]
+                       for pid in overlap)
         ratio = cur_cost / base_cost if base_cost else 1.0
         level = round(level * ratio, 1)
         entry.update({

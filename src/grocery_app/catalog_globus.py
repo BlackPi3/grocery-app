@@ -30,9 +30,10 @@ import json
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from bs4 import BeautifulSoup
 
@@ -247,7 +248,7 @@ def crawl(categories: Iterable[str], cache_dir: str | Path = DEFAULT_CACHE_DIR,
     if output.exists():
         catalog = json.loads(output.read_text(encoding="utf-8"))
 
-    fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    fetched_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     before = len(catalog)
 
     for category in categories:

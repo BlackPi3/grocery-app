@@ -17,15 +17,17 @@ from grocery_app.insights import build_insights, load_purchases
 from grocery_app.normalizer import build_purchases, save_json
 from grocery_app.resolver import (
     DEFAULT_CATALOG,
-    DEFAULT_OUTPUT as PROPOSALS_OUTPUT,
     build_proposals,
     build_proposals_via_search,
-    read_reviewed,
     confirm,
     confirm_pairs,
     read_pairs,
+    read_reviewed,
     shelf_price,
     to_csv,
+)
+from grocery_app.resolver import (
+    DEFAULT_OUTPUT as PROPOSALS_OUTPUT,
 )
 
 
@@ -269,9 +271,11 @@ def main() -> None:
         print(f"  based on:       {cov['resolved_lines']}/{cov['product_lines']} product lines, "
               f"€{cov['resolved_spend']:.2f} of €{cov['spend']:.2f}")
         due = [r for r in data["repurchase"] if r["status"] == "due"]
-        print(f"  repurchase:     {len(data['repurchase'])} products bought more than once, {len(due)} due")
+        print(f"  repurchase:     {len(data['repurchase'])} products bought more than once, "
+              f"{len(due)} due")
         moved = [r for r in data["price_changes"] if r["change_pct"]]
-        print(f"  price watch:    {len(data['price_changes'])} products tracked, {len(moved)} changed price")
+        print(f"  price watch:    {len(data['price_changes'])} products tracked, "
+              f"{len(moved)} changed price")
         for entry in data["basket_index"]["series"]:
             if entry["index"] is None:
                 print(f"  basket index:   {entry['month']}: n/a ({entry['reason']})")
@@ -280,9 +284,13 @@ def main() -> None:
                       f"({entry['month_over_month_pct']:+.1f}% on {entry['products']} products)")
         ob = data["own_brand"]["overall"]
         share = ob["own_brand_share_of_known"]
-        print(f"  own brand:      {share*100:.0f}% of the €{ob['own_brand']+ob['brand']:.2f} with a known status"
-              if share is not None else "  own brand:      no product with a known status")
-        print(f"  cross-store:    {len(data['cross_store']['products'])} products at more than one store")
+        if share is None:
+            print("  own brand:      no product with a known status")
+        else:
+            print(f"  own brand:      {share*100:.0f}% of the €{ob['own_brand']+ob['brand']:.2f} "
+                  f"with a known status")
+        print(f"  cross-store:    {len(data['cross_store']['products'])} products "
+              f"at more than one store")
 
     if args.command == "enrich":
         from grocery_app.openfoodfacts import enrich
