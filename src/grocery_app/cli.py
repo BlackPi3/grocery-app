@@ -144,6 +144,14 @@ def main() -> None:
     n.add_argument("--cache-dir", default="data/products/off")
     n.add_argument("--force", action="store_true", help="Re-ask even for cached barcodes")
 
+    s = subparsers.add_parser(
+        "serve",
+        help="Serve purchases.json and the insights over HTTP (needs the 'api' extra)",
+    )
+    s.add_argument("--purchases", default="data/purchases.json")
+    s.add_argument("--host", default="127.0.0.1")
+    s.add_argument("--port", type=int, default=8000)
+
     args = parser.parse_args()
 
     if args.command == "purchases":
@@ -300,6 +308,20 @@ def main() -> None:
         print(f"\n{summary['with_ean']} products with a barcode, {summary['found']} found "
               f"({summary['cached']} answered from cache), "
               f"{summary['filled']} attributes filled")
+
+    if args.command == "serve":
+        try:
+            import uvicorn
+
+            from grocery_app.api.app import create_app
+            from grocery_app.api.repository import JsonRepository
+        except ImportError as exc:
+            raise SystemExit(
+                f"the HTTP layer is not installed ({exc.name}); run: pip install -e '.[api]'"
+            ) from exc
+        print(f"Serving {args.purchases} at http://{args.host}:{args.port} "
+              f"(docs at /docs)")
+        uvicorn.run(create_app(JsonRepository(args.purchases)), host=args.host, port=args.port)
 
     if args.command == "eval":
         report = evaluate(args.truth_dir, args.pred_dir, tuple(args.exclude_store))

@@ -141,3 +141,29 @@ def test_the_cli_runs_the_same_path(data, monkeypatch, capsys):
     written = json.loads(out_insights.read_text(encoding="utf-8"))
     assert set(written) == {"contract_version", "as_of", "coverage", "repurchase",
                             "price_changes", "basket_index", "own_brand", "cross_store"}
+
+
+def test_the_server_serves_what_the_normalizer_built(data):
+    """The seam between the pipeline and the HTTP layer.
+
+    The schema is strict, so a field added to `normalize_line` without a
+    matching line in `api/schemas.py` fails here, not on a client.
+    """
+    from fastapi.testclient import TestClient
+
+    from grocery_app.api.app import create_app
+    from grocery_app.api.repository import InMemoryRepository
+    from grocery_app.api.schemas import PurchasesDocument
+
+    purchases = build_purchases(data / "receipts" / "truth",
+                                data / "products" / "products.json",
+                                data / "products" / "resolution.json",
+                                None, data / "products")
+    PurchasesDocument.model_validate(purchases)
+
+    client = TestClient(create_app(InMemoryRepository(purchases)))
+    served = client.get("/v1/purchases").json()
+    assert served["meta"] == purchases["meta"]
+    assert [p["raw_name"] for p in served["purchases"]] == \
+        [p["raw_name"] for p in purchases["purchases"]]
+    assert client.get("/v1/insights").json() == build_insights(purchases)
