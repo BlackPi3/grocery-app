@@ -11,7 +11,8 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 
 ## Current state (work in progress)
 
-- **Extraction**: receipt photos are read with an LLM, currently driven by a prompt I run over a batch of receipts. The extracted receipts live in `data/gold`, gitignored because they are my own shopping.
+- **Receipts**: `data/receipts/` holds the photos, one verified transcription per receipt (`truth/`, the schema everything downstream reads), and the hand-typed sources those were converted from (`transcripts/`). All gitignored: it is my own shopping.
+- **Extraction**: `grocery-app extract` reads a photo with a vision model into the same schema; results are cached under `data/extracted/<model>/<prompt version>/` with their cost.
 - **Catalog**: `grocery-app catalog` fetches real products from GLOBUS's own category listings (name, brand, price, pack size, barcode), so the catalog comes from the retailer instead of being guessed from receipt abbreviations. Output is gitignored.
 - **Normalization**: a Python layer that resolves raw receipt lines to products, split across three files — `data/products.json` (what a product is), `data/resolution.json` (which receipt text means which product — or which *family* of products, when the till prints one name for several — store-scoped and with provenance), `data/store_listings/<store>.json` (what one store sells it as, with price history), and `data/line_resolutions.json` (the shopper's own answer for a line the receipt could not pin down).
 - **Purchase history**: `purchases.json`, built from the extracted receipts by the normalization layer.
@@ -20,8 +21,8 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 ## Next
 
 - **Done:** the extraction call is in the pipeline — `grocery-app extract` turns a photo into
-  structured JSON, scored by `grocery-app eval` against a hand-transcribed held-out set of 17
-  receipts across 6 chains. Measured at 1 error in 180 line items. See
+  structured JSON, scored by `grocery-app eval` against the verified receipts (17 of the 26
+  were hand-transcribed, across 6 chains). Measured at 1 error in 180 line items. See
   `docs/designs/receipt-ingestion-pipeline.md` for the numbers and
   `docs/receipt-quirks.md` for what real receipts turned out to require.
 - **In progress:** product normalization. Extraction produces raw receipt text; only 4 of 154 item
@@ -40,9 +41,9 @@ source .venv/bin/activate
 
 # fetch the product catalog from the store's own listings (starter categories)
 grocery-app catalog
-# build the purchase history from extracted receipts
+# build the purchase history from the verified receipts
 grocery-app purchases
-# score a directory of extracted receipts against the held-out set
+# score a directory of extracted receipts against the verified ones
 grocery-app eval --pred-dir <dir>
 # tests
 pytest

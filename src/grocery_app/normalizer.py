@@ -13,8 +13,8 @@ one flat, enriched list of purchase records that every downstream consumer reads
 
 Design notes:
   - Resolution is done from (store, raw_name) via resolution.json, exactly as it
-    would be for real parser output. Any product_id still present in a receipt
-    file is used only as a cross-check.
+    would be for real parser output. Receipt files carry no product_id: a
+    receipt says what was printed, never which catalog entry it means.
   - Unknown items are flagged (resolution="none"), never silently dropped or
     guessed. A name the receipt prints for several products it cannot tell
     apart resolves to all of them (resolution="family") and to nothing narrower.
@@ -36,9 +36,9 @@ def load_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def load_gold_receipts(gold_dir: str | Path) -> list[dict[str, Any]]:
-    """Load every gold receipt, sorted by date then source image for stable output."""
-    receipts = [load_json(p) for p in sorted(Path(gold_dir).glob("*.json"))]
+def load_receipts(truth_dir: str | Path) -> list[dict[str, Any]]:
+    """Load every verified receipt, sorted by date then source image for stable output."""
+    receipts = [load_json(p) for p in sorted(Path(truth_dir).glob("*.json"))]
     return sorted(receipts, key=lambda r: (r.get("date", ""), r.get("source_image", "")))
 
 
@@ -276,7 +276,7 @@ def build_purchases(receipts_dir: str | Path, products_path: str | Path,
     resolution = load_resolution(resolution_path)
     line_resolutions = load_line_resolutions(line_resolutions_path)
     shelf_prices = load_shelf_prices(listings_dir)
-    receipts = load_gold_receipts(receipts_dir)
+    receipts = load_receipts(receipts_dir)
 
     purchases: list[dict[str, Any]] = []
     used_receipts = 0

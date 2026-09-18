@@ -81,7 +81,7 @@ same `product_id` records.
 ### 9. VAT class as a free signal (essentials split, tax paid, reclassification)
 German receipts print a tax class per line (letters whose mapping is printed in
 the receipt footer and differs by chain — at Lidl, `A` = 7% and `B` = 19%). We
-capture it already in the gold and held-out schemas, so three insights come for
+capture it already in the receipt schema, so three insights come for
 free — no product classification, no enrichment, no extra data source:
 
 - **Essentials vs. discretionary split.** The reduced 7% rate is a legal list of

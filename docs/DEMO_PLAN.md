@@ -11,12 +11,12 @@ Last updated: reflects the app as actually built (List/Stats/Scan/History dashbo
 
 | Piece | State |
 |---|---|
-| Gold receipts (`data/gold/*.json`) | ✅ 9 unique receipts (10 images − 1 duplicate), all reconciled to printed total + tax buckets |
+| Verified receipts (`data/receipts/truth/*.json`) | ✅ 26 receipts (27 photos − 1 duplicate), one schema; 9 LLM-extracted then verified against the photo, 17 hand-transcribed |
 | Products (`data/products.json`) | ✅ 53 products, opaque ids, structured brand/line/variant/size/organic/own-brand; 35 carry open questions about attributes |
 | Resolution (`data/resolution.json`) | ✅ 55 entries, store-scoped, with provenance; 53 resolved, 2 non-product lines, 0 unknowns |
 | Normalizer + CLI (`src/grocery_app/`) | ✅ real join + unit-price derivation; `python -m grocery_app.cli purchases` |
 | `data/purchases.json` (the contract) | ✅ 55 records, `contract_version: 1` |
-| Held-out eval set (`data/holdout/`) | ✅ 17 hand-transcribed receipts, 6 chains, 184 lines; arithmetic-checked by `scripts/convert_holdout.py` |
+| Hand transcriptions (`data/receipts/transcripts/`) | ✅ 17 receipts, 6 chains, 184 lines; arithmetic-checked by `scripts/convert_transcripts.py` |
 | Extraction eval harness | ✅ `python -m grocery_app.cli eval` — per-store field accuracy, missed/spurious lines; 11 tests |
 | Web dashboard (`web/index.html`) | ✅ built, verified (screenshots + no JS errors) |
 | Deploy | ⏸ deferred (see below) |

@@ -1,8 +1,9 @@
-"""Convert hand-transcribed receipt text files into held-out ground-truth JSON.
+"""Convert hand-transcribed receipt text files into verified receipt JSON.
 
-Input:  data/holdout/raw/*.txt   (typed by hand while reading the paper receipt)
-Output: data/holdout/*.json      (same field names as data/gold/, minus the
-                                  fields a human cannot transcribe)
+Input:  data/receipts/transcripts/*.txt  (typed by hand while reading the paper receipt)
+Output: data/receipts/truth/*.json       (the receipt schema the whole pipeline
+                                          reads; `transcribed_by: hand` records
+                                          how this one was made)
 
 The text format is one receipt per file. Type only what the receipt prints —
 the converter derives unit prices, nets, and totals:
@@ -74,7 +75,7 @@ def _money(value: str, field: str, line_no: int) -> float:
 
 
 def _parse_quantity(value: str, line_no: int) -> dict:
-    """Return either a plain count or the weight fields the gold schema uses."""
+    """Return either a plain count or the weight fields the receipt schema uses."""
     cleaned = value.replace("€", "").strip()
     if match := WEIGHT_QTY.match(cleaned):
         amount, unit, unit_price = match.groups()
@@ -275,6 +276,9 @@ def parse_receipt(text: str) -> dict:
 
     return {
         "source_image": source_image,
+        # How this truth came to be: typed by a person from the paper. The eval
+        # can then say which receipts the prompt was never developed against.
+        "transcribed_by": "hand",
         "store": store,
         "store_location": store_location,
         "date": date,
@@ -288,9 +292,9 @@ def parse_receipt(text: str) -> dict:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Convert transcriptions into held-out ground truth")
-    ap.add_argument("--raw-dir", default="data/holdout/raw")
-    ap.add_argument("--output-dir", default="data/holdout")
+    ap = argparse.ArgumentParser(description="Convert hand transcriptions into verified receipts")
+    ap.add_argument("--raw-dir", default="data/receipts/transcripts")
+    ap.add_argument("--output-dir", default="data/receipts/truth")
     args = ap.parse_args()
 
     raw_dir = Path(args.raw_dir)

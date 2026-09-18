@@ -36,7 +36,7 @@ def main() -> None:
         "purchases",
         help="Build purchases.json from verified receipts + products + resolution",
     )
-    p.add_argument("--receipts-dir", default="data/gold")
+    p.add_argument("--receipts-dir", default="data/receipts/truth")
     p.add_argument("--products", default="data/products.json")
     p.add_argument("--resolution", default="data/resolution.json")
     p.add_argument("--line-resolutions", default="data/line_resolutions.json",
@@ -49,7 +49,7 @@ def main() -> None:
         "eval",
         help="Score extracted receipts against the hand-transcribed held-out set",
     )
-    e.add_argument("--truth-dir", default="data/holdout")
+    e.add_argument("--truth-dir", default="data/receipts/truth")
     e.add_argument("--pred-dir", required=True, help="Directory of extracted receipt JSON")
     e.add_argument(
         "--exclude-store",
@@ -65,7 +65,7 @@ def main() -> None:
         "extract",
         help="Extract structured receipts from photos with a vision model",
     )
-    x.add_argument("--images", default="data/holdout/images", help="Directory of receipt photos")
+    x.add_argument("--images", default="data/receipts/images", help="Directory of receipt photos")
     x.add_argument("--out", default="data/extracted",
                    help="Base output dir; results land in <out>/<model>/<prompt version>/")
     x.add_argument("--model", default=DEFAULT_MODEL)
@@ -94,7 +94,7 @@ def main() -> None:
         help="Propose catalog products for receipt lines resolution.json lacks",
     )
     r.add_argument("--store", default="GLOBUS")
-    r.add_argument("--receipts-dir", default="data/holdout",
+    r.add_argument("--receipts-dir", default="data/receipts/truth",
                    help="Verified receipt JSON; never model output")
     r.add_argument("--resolution", default="data/resolution.json")
     r.add_argument("--catalog", default=DEFAULT_CATALOG)

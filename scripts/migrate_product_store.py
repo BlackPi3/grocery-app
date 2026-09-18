@@ -1,5 +1,9 @@
 """Migrate the first-attempt catalog into the product / listing / resolution split.
 
+Historical: ran once on 2026-09-09 against the data layout of that day. The
+receipts now live in data/receipts/truth/ and carry no product_id. Kept as the
+record of where the first 53 products and resolution entries came from.
+
 Input:  data/catalog.json        53 product entries, attributes partly model-proposed
         data/gold/*.json         9 receipts whose product_id choices Parham verified
 

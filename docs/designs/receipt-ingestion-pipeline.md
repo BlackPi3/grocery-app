@@ -2,6 +2,11 @@
 
 Written 2026-08-27 · Status: approved, in progress
 
+> Layout note (2026-09-18): the `data/gold/` and `data/holdout/` sets this
+> document distinguishes were merged into one verified set,
+> `data/receipts/truth/`, with a `transcribed_by` field per receipt in place of
+> the folder split. Paths below are as they were when the decisions were made.
+
 ## Problem Statement
 
 Track personal grocery spend automatically from receipt photos, surfacing patterns
