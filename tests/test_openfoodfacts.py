@@ -28,7 +28,8 @@ def test_free_text_tags_do_not_pass_for_a_category():
     """Contributors can type anything into categories; only taxonomy entries
     (lowercase, hyphenated) count, and the deepest one wins."""
     typed = json.loads(json.dumps(FOUND))
-    typed["product"]["categories_tags"] = ["en:meats", "en:chicken", "en:Hühnchen", "en:Snacks sucres"]
+    typed["product"]["categories_tags"] = ["en:meats", "en:chicken", "en:Hühnchen",
+                                           "en:Snacks sucres"]
     assert attributes_from(typed)["category"] == "chicken"
     typed["product"]["categories_tags"] = ["en:Waffeln"]
     assert attributes_from(typed)["category"] is None

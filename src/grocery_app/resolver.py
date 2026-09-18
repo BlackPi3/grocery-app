@@ -26,8 +26,12 @@ from __future__ import annotations
 
 import json
 import re
+import time
+import urllib.parse
+import urllib.request
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any
 
 DEFAULT_CATALOG = "data/products/globus/crawl.json"
 DEFAULT_OUTPUT = "data/products/proposals/globus.csv"
@@ -542,10 +546,6 @@ def shelf_price(url: str) -> float | None:
 # GLOBUS's own search does German stemming over their whole range, so it is a
 # far better candidate generator than anything hand-rolled here. Local scoring
 # then only has to re-order what it returns.
-
-import time
-import urllib.parse
-import urllib.request
 
 SEARCH_URL = "https://produkte.globus.de/search?query="
 SEARCH_CACHE = "data/products/globus/cache/_search"

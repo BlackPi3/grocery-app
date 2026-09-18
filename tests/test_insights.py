@@ -133,7 +133,8 @@ def test_cross_store_is_empty_and_says_so_until_a_product_resolves_twice():
 
 
 def test_one_store_spelled_two_ways_is_one_store():
-    rows = [row("p-1", "2026-01-01", 1.0, store="GLOBUS"), row("p-1", "2026-01-09", 1.0, store="Globus"),
+    rows = [row("p-1", "2026-01-01", 1.0, store="GLOBUS"),
+            row("p-1", "2026-01-09", 1.0, store="Globus"),
             row("p-2", "2026-01-09", 1.0, store="GLOBUS")]
     assert cross_store(rows)["products"] == []
     assert list(own_brand(rows)["by_store"]) == ["GLOBUS"], "the common spelling is the label"

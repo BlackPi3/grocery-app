@@ -30,9 +30,10 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from grocery_app.catalog_globus import USER_AGENT, log
 
@@ -184,7 +185,7 @@ def crawl(categories: Iterable[str] | None = None, cache_dir: str | Path = DEFAU
     leaves = leaf_categories(tree)
     wanted = list(categories) if categories else list(leaves)
 
-    fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    fetched_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     before = len(catalog)
     for key in wanted:
         log(f"  {leaves.get(key, key)}")
