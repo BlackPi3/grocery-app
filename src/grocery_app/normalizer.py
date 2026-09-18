@@ -88,11 +88,14 @@ def compute_unit_price(net_paid: float, qty: int, line: dict[str, Any],
 def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
                    resolution: dict[tuple[str, str], list[str]],
                    products: dict[str, dict[str, Any]],
-                   pinpoint: dict[str, Any] | None = None) -> dict[str, Any]:
+                   pinpoint: dict[str, Any] | None = None,
+                   shelf_prices: dict[str, set[float]] | None = None) -> dict[str, Any]:
     """Turn one parsed receipt line into an enriched purchase record.
 
     `pinpoint` is the shopper's own answer for this line, when there is one:
     it narrows a family to one product, and is labelled as coming from them.
+    `shelf_prices` (product_id -> prices ever seen on the shelf) lets the paid
+    amount narrow a family when exactly one candidate has been sold at it.
     """
     raw_name = line["raw_name"]
     ids = resolution.get((store_key(receipt.get("store")), raw_name), [])
@@ -108,6 +111,12 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
         product_id, how = ids[0], "user"
     elif len(candidates) == 1:
         product_id, how = ids[0], "exact"
+    elif (by_price := priced_like(line, ids, shelf_prices)) is not None:
+        # The name is ambiguous but the amount is not: 3.99 is the 0,5 kg
+        # chia seeds, the 0,2 kg pack has only ever been seen at 2.49.
+        ids = [by_price]
+        candidates = [products[by_price]]
+        product_id, how = by_price, "price"
     elif candidates:
         product_id, how = None, "family"
     else:
@@ -138,12 +147,28 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
         # Unit price needs a pack size, and only an exact match has one we can
         # trust: a family may span 0,5 kg and 0,2 kg of the same seeds.
         record["unit_price"] = compute_unit_price(
-            net_paid, qty, line, candidates[0] if how in ("exact", "user") else None)
+            net_paid, qty, line, candidates[0] if how != "family" else None)
     else:
         # Unresolved: keep the money, be honest about the missing identity.
         record["unit_price"] = compute_unit_price(net_paid, qty, line, None)
 
     return record
+
+
+def priced_like(line: dict[str, Any], ids: list[str],
+                shelf_prices: dict[str, set[float]] | None) -> str | None:
+    """The one candidate whose shelf price matches what this line paid, or None.
+
+    Compares the per-item gross (before discount, which is what the shelf
+    shows) against every price ever recorded for each candidate. Two or more
+    matches is no answer: same-priced variants stay a family.
+    """
+    if len(ids) < 2 or not shelf_prices or not line.get("gross"):
+        return None
+    per_item = round(line["gross"] / (line.get("qty") or 1), 2)
+    matches = [i for i in ids
+               if any(abs(p - per_item) < 0.005 for p in shelf_prices.get(i, ()))]
+    return matches[0] if len(matches) == 1 else None
 
 
 _SHARED = ("brand", "product_line", "variant", "category", "is_own_brand", "is_organic")
@@ -171,6 +196,7 @@ def shared_attributes(candidates: list[dict[str, Any]]) -> dict[str, Any]:
 def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str], list[str]],
                       products: dict[str, dict[str, Any]],
                       line_resolutions: dict[tuple[str, int], dict[str, Any]] | None = None,
+                      shelf_prices: dict[str, set[float]] | None = None,
                       ) -> list[dict[str, Any]]:
     image = receipt.get("source_image")
     records = []
@@ -180,7 +206,8 @@ def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str],
         # re-transcribed receipt cannot silently move it onto another product.
         if pinpoint and pinpoint.get("raw_name") != line.get("raw_name"):
             pinpoint = None
-        records.append(normalize_line(line, receipt, resolution, products, pinpoint))
+        records.append(normalize_line(line, receipt, resolution, products,
+                                      pinpoint, shelf_prices))
     return records
 
 
@@ -224,13 +251,31 @@ def load_line_resolutions(path: str | Path | None) -> dict[tuple[str, int], dict
     }
 
 
+def load_shelf_prices(listings_dir: str | Path | None) -> dict[str, set[float]]:
+    """product_id -> every shelf price recorded for it, across all stores' listings.
+
+    Shelf prices are a separate series from what was paid; here they serve only
+    to tell family members apart. A missing directory means no prices.
+    """
+    prices: dict[str, set[float]] = {}
+    if not listings_dir or not Path(listings_dir).is_dir():
+        return prices
+    for path in sorted(Path(listings_dir).glob("*.json")):
+        for listing in load_json(path).get("listings", {}).values():
+            for observed in listing.get("prices", []):
+                prices.setdefault(listing["product_id"], set()).add(float(observed["price"]))
+    return prices
+
+
 def build_purchases(receipts_dir: str | Path, products_path: str | Path,
                     resolution_path: str | Path,
-                    line_resolutions_path: str | Path | None = None) -> dict[str, Any]:
+                    line_resolutions_path: str | Path | None = None,
+                    listings_dir: str | Path | None = None) -> dict[str, Any]:
     """Build the purchases.json contract from verified receipts + reference data."""
     products = load_products(products_path)
     resolution = load_resolution(resolution_path)
     line_resolutions = load_line_resolutions(line_resolutions_path)
+    shelf_prices = load_shelf_prices(listings_dir)
     receipts = load_gold_receipts(receipts_dir)
 
     purchases: list[dict[str, Any]] = []
@@ -240,7 +285,8 @@ def build_purchases(receipts_dir: str | Path, products_path: str | Path,
         if receipt.get("is_duplicate"):
             continue
         used_receipts += 1
-        purchases.extend(normalize_receipt(receipt, resolution, products, line_resolutions))
+        purchases.extend(normalize_receipt(receipt, resolution, products,
+                                           line_resolutions, shelf_prices))
 
     product_lines = [p for p in purchases if p["type"] == "product"]
     unresolved = sorted({p["raw_name"] for p in product_lines if p["resolution"] == "none"})

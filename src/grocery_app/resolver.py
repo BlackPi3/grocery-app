@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 DEFAULT_CATALOG = "data/catalog/globus.json"
 DEFAULT_OUTPUT = "data/proposals/globus.csv"
@@ -325,11 +325,16 @@ def _size_from_row(row: dict[str, str]) -> dict[str, Any]:
 
 def confirm(reviewed_path: str | Path, products_path: str | Path,
             resolution_path: str | Path, listings_path: str | Path,
-            store: str, observed_on: str) -> dict[str, Any]:
+            store: str, observed_on: str,
+            price_lookup: Callable[[str], float | None] | None = None) -> dict[str, Any]:
     """Write accepted proposals into products, resolution and store listings.
 
     Only rows a human marked are written. An accepted row is the moment a
     product earns an id, so ids are minted here and nowhere else.
+
+    `price_lookup(url)` fills in a shelf price the search page did not show.
+    It matters for families: the paid amount can only tell 0,5 kg from 0,2 kg
+    of chia seeds if both prices are on record.
     """
     products_doc = json.loads(Path(products_path).read_text(encoding="utf-8"))
     resolution_doc = json.loads(Path(resolution_path).read_text(encoding="utf-8"))
@@ -390,7 +395,7 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
             groups: dict[tuple[str, str], list[dict[str, str]]] = {}
             for row in picked:
                 groups.setdefault(identity_of(row), []).append(row)
-            ids = [_add_product(products_doc, listings_doc, group, observed_on)
+            ids = [_add_product(products_doc, listings_doc, group, observed_on, price_lookup)
                    for group in groups.values()]
             entry.update({"product_ids": ids, "status": "ambiguous_on_receipt"})
             added_products += len(ids)
@@ -426,7 +431,8 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
 
 
 def _add_product(products_doc: dict[str, Any], listings_doc: dict[str, Any],
-                 rows: list[dict[str, str]], observed_on: str) -> str:
+                 rows: list[dict[str, str]], observed_on: str,
+                 price_lookup: Callable[[str], float | None] | None = None) -> str:
     """Mint one product from catalog rows that all describe it; return its id.
 
     An accepted row is the moment a product earns an id, so ids are minted here
@@ -457,6 +463,8 @@ def _add_product(products_doc: dict[str, Any], listings_doc: dict[str, Any],
         if not article:
             continue
         price = row.get("catalog_price")
+        if not price and price_lookup and row.get("url"):
+            price = price_lookup(row["url"])
         listings_doc["listings"][article] = {
             "product_id": product_id,
             "url": row.get("url"),
@@ -465,6 +473,15 @@ def _add_product(products_doc: dict[str, Any], listings_doc: dict[str, Any],
             "prices": [{"date": observed_on, "price": float(price)}] if price else [],
         }
     return product_id
+
+
+def shelf_price(url: str) -> float | None:
+    """The price on a product page, for a listing the search page left blank."""
+    try:
+        price = product_from_url(url).get("price")
+    except (OSError, ValueError):
+        return None
+    return float(price) if price else None
 
 
 # --- search-backed candidates -------------------------------------------------

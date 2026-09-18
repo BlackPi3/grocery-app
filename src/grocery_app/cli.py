@@ -23,6 +23,7 @@ from grocery_app.resolver import (
     confirm,
     confirm_pairs,
     read_pairs,
+    shelf_price,
     to_csv,
 )
 
@@ -40,6 +41,8 @@ def main() -> None:
     p.add_argument("--resolution", default="data/resolution.json")
     p.add_argument("--line-resolutions", default="data/line_resolutions.json",
                    help="Per-line answers from the shopper; optional")
+    p.add_argument("--listings-dir", default="data/store_listings",
+                   help="Shelf prices, used to tell same-named products apart; optional")
     p.add_argument("--output", default="data/purchases.json")
 
     e = subparsers.add_parser(
@@ -120,7 +123,7 @@ def main() -> None:
 
     if args.command == "purchases":
         data = build_purchases(args.receipts_dir, args.products, args.resolution,
-                               args.line_resolutions)
+                               args.line_resolutions, args.listings_dir)
         save_json(data, args.output)
         meta = data["meta"]
         print(f"Wrote {args.output}")
@@ -199,7 +202,8 @@ def main() -> None:
                   f" {result['corrected']} previously recorded as no match)")
             return
         summary = confirm(args.reviewed, args.products, args.resolution,
-                          args.listings, args.store, args.observed_on)
+                          args.listings, args.store, args.observed_on,
+                          price_lookup=shelf_price)
         if summary.get("supplied"):
             extra = confirm_pairs(summary["supplied"], args.products, args.resolution,
                                   args.listings, args.store, args.observed_on,

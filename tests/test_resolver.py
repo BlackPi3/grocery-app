@@ -227,3 +227,35 @@ def test_confirm_writes_a_family_as_several_products_under_one_name(tmp_path):
     assert stored[eggs["product_id"]]["eans"] == ["4104420000001", "4104420000002"]
     written = json.loads(listings.read_text())["listings"]
     assert {written[a]["product_id"] for a in ("8720181848834", "8720181923883")} == set(dove["product_ids"])
+
+
+def test_confirm_fills_a_missing_shelf_price_from_the_product_page(tmp_path):
+    """The search page showed no price for the 0,2 kg seeds; without one, the
+    paid amount could never tell the two packs apart."""
+    import json
+
+    from grocery_app.resolver import confirm
+
+    reviewed = tmp_path / "reviewed.csv"
+    reviewed.write_text(
+        "decision,raw_name,receipt_price,rank,score,evidence,"
+        "catalog_name,brand,pack_size,catalog_price,article_number,url\n"
+        "y,Chia,3.99,1,5.5,search#1,Bio Chia Samen,Alnatura,\"0,5 kg\",3.99,4104420249967,https://x/big\n"
+        "y,Chia,3.99,2,4.7,search#2,Bio Chia Samen,Alnatura,\"0,2 kg\",,4104420244092,https://x/small\n",
+        encoding="utf-8")
+    for name, doc in (("products.json", {"meta": {"next_id": 1}, "products": {}}),
+                      ("resolution.json", {"entries": []}), ("listings.json", {"listings": {}})):
+        (tmp_path / name).write_text(json.dumps(doc), encoding="utf-8")
+
+    asked = []
+    def lookup(url):
+        asked.append(url)
+        return 2.49
+
+    confirm(reviewed, tmp_path / "products.json", tmp_path / "resolution.json",
+            tmp_path / "listings.json", "GLOBUS", "2026-01-01", price_lookup=lookup)
+
+    assert asked == ["https://x/small"]
+    listings = json.loads((tmp_path / "listings.json").read_text())["listings"]
+    assert listings["4104420244092"]["prices"] == [{"date": "2026-01-01", "price": 2.49}]
+    assert listings["4104420249967"]["prices"] == [{"date": "2026-01-01", "price": 3.99}]

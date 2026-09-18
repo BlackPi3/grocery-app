@@ -83,3 +83,33 @@ def test_missing_line_resolutions_file_means_no_answers(tmp_path):
 
     assert load_line_resolutions(None) == {}
     assert load_line_resolutions(tmp_path / "absent.json") == {}
+
+
+def test_the_paid_amount_narrows_a_family_when_exactly_one_price_fits():
+    from grocery_app.normalizer import load_shelf_prices, priced_like
+
+    seeds = {("globus", "Chiasamen"): ["p-1", "p-2"]}
+    line = {"type": "product", "raw_name": "Chiasamen", "qty": 1, "gross": 3.99, "net": 3.59}
+    shelf = {"p-1": {3.99}, "p-2": {2.49}}
+    record = normalize_line(line, RECEIPT, seeds, PRODUCTS, shelf_prices=shelf)
+    assert record["resolution"] == "price" and record["product_id"] == "p-1"
+    assert record["resolved"] is True and record["candidate_ids"] == []
+    # Two pots of the small pack: compare per item, not the line total.
+    two = dict(line, qty=2, gross=4.98)
+    assert priced_like(two, ["p-1", "p-2"], shelf) == "p-2"
+    # Same price on both shelves says nothing.
+    assert priced_like(line, ["p-1", "p-2"], {"p-1": {3.99}, "p-2": {3.99}}) is None
+    assert priced_like(line, ["p-1", "p-2"], {}) is None
+    assert load_shelf_prices(None) == {}
+
+
+def test_shelf_prices_are_collected_across_listing_files(tmp_path):
+    import json
+
+    from grocery_app.normalizer import load_shelf_prices
+
+    (tmp_path / "a.json").write_text(json.dumps({"listings": {
+        "111": {"product_id": "p-1", "prices": [{"date": "2026-01-01", "price": 3.99}]},
+        "222": {"product_id": "p-1", "prices": [{"date": "2026-02-01", "price": 4.29}]},
+        "333": {"product_id": "p-2", "prices": []}}}), encoding="utf-8")
+    assert load_shelf_prices(tmp_path) == {"p-1": {3.99, 4.29}}
