@@ -303,3 +303,41 @@ free, ODbL-licensed, EAN-keyed and built for reuse. Verified German coverage:
 Milbona 1,568 products, Gut Bio 822, Combino 193. It carries no prices, but a
 discounter offers no catalog price to match against either, so matching there
 is name-and-size based and the receipt supplies the price.
+
+### Update 2026-09-18: ALDI Süd has an API, and it answers honest clients
+
+Re-checked against the 111 unresolved names (127 lines) with a real browser
+and plain HTTP:
+
+- **ALDI Süd.** The website still returns 403 to any non-browser client, and
+  `robots.txt` on both hosts still answers "Access Denied", so their policy
+  remains unreadable. But the site is a JavaScript app, and the JSON API it
+  calls, `api.aldi-sued.de`, responds to a client that identifies itself as
+  `grocery-app/0.1 (...)` with 200. No browser spoofing, no bypass: the same
+  identified User-Agent the GLOBUS crawl uses. `v2/product-category-tree` gives
+  162 leaf categories; `v3/product-search?categoryKey=…&servicePoint=…` pages
+  through each at 30 products per request with name, brand, pack size, price
+  and unit price, keyed by an in-house SKU (no barcode). There is no free-text
+  search (every query parameter tried returns 400), so this is a category
+  crawl and local ranking, `propose --offline`. Prices are per branch:
+  `servicePoint=BC08` is the Sulzbachtalstraße store on three of the four
+  receipts. Fetcher: `catalog_aldi_sued.py`. The unreadable policy is the
+  reason the crawl stays small (about 300 requests, cached, one per second)
+  and is a decision to revisit rather than a settled one.
+- **Lidl.** Confirmed again: the `/h/` food categories and the search list
+  the online shop only ("Pistazien" returns a baby carrier). The in-store
+  range lives in the Lidl Plus app.
+- **Kaufland.** `www.kaufland.de` returns 403 even to a real headless browser;
+  `filiale.kaufland.de` renders only the weekly offers.
+- **Open Food Facts.** The legacy `/cgi/search.pl` endpoint is down (503).
+  `search.openfoodfacts.org/search?q=…&langs=de` works and takes a
+  `brands:<own-brand>` filter, which is what makes it usable for discounter
+  own-brands: `Pistazien brands:alesto` → Alesto Kalifornische Pistazien 375 g;
+  `Pufuletti brands:k-classic` → K-Classic Pufuletti; `Skyr Drink
+  brands:milbona` → Milbona Skyr 330 ml. Receipt abbreviations need the same
+  expansion step `propose` does for GLOBUS (`BB` → Bergbauern, `KLC` →
+  K-Classic).
+
+Of the 111 names: 55 packaged, 53 produce, 3 bags and deposits. ALDI Süd
+accounts for 66 of them (32 packaged, 34 produce), and its catalog lists
+produce with prices, so the crawl covers more than the packaged goods.
