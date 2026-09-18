@@ -15,7 +15,9 @@ Design notes:
   - Resolution is done from (store, raw_name) via resolution.json, exactly as it
     would be for real parser output. Any product_id still present in a receipt
     file is used only as a cross-check.
-  - Unknown items are flagged (resolved=False), never silently dropped or guessed.
+  - Unknown items are flagged (resolution="none"), never silently dropped or
+    guessed. A name the receipt prints for several products it cannot tell
+    apart resolves to all of them (resolution="family") and to nothing narrower.
   - Duplicate receipt photos (same transaction) are excluded to avoid double-counting.
 """
 
@@ -84,14 +86,21 @@ def compute_unit_price(net_paid: float, qty: int, line: dict[str, Any],
 # --- core join ---------------------------------------------------------------
 
 def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
-                   resolution: dict[tuple[str, str], str],
+                   resolution: dict[tuple[str, str], list[str]],
                    products: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """Turn one parsed receipt line into an enriched purchase record."""
     raw_name = line["raw_name"]
-    product_id = resolution.get((store_key(receipt.get("store")), raw_name))
-    entry = products.get(product_id) if product_id else None
+    ids = resolution.get((store_key(receipt.get("store")), raw_name), [])
+    candidates = [products[i] for i in ids if i in products]
     net_paid = line.get("net", 0.0)
     qty = line.get("qty", 1)
+
+    if len(candidates) == 1:
+        product_id, how = ids[0], "exact"
+    elif candidates:
+        product_id, how = None, "family"
+    else:
+        product_id, how = None, "none"
 
     record: dict[str, Any] = {
         "date": receipt.get("date"),
@@ -100,7 +109,12 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
         "type": line.get("type", "product"),
         "raw_name": raw_name,
         "product_id": product_id,
-        "resolved": entry is not None,
+        # `resolved` keeps meaning "product_id is set"; `resolution` says how we
+        # got there. "family" is the honest middle: known brand and range,
+        # unknown variant, because the till printed one name for all of them.
+        "resolved": product_id is not None,
+        "resolution": how,
+        "candidate_ids": ids if how == "family" else [],
         "qty": qty,
         "gross": line.get("gross"),
         "discount": line.get("discount", 0.0),
@@ -108,19 +122,12 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
         "tax_class": line.get("tax_class"),
     }
 
-    if entry:
-        record.update({
-            "brand": entry.get("brand"),
-            "product_line": entry.get("product_line"),
-            "variant": entry.get("variant"),
-            # The readable name travels with the opaque id, so purchases.json
-            # stays legible to a human reading it.
-            "product": entry.get("name"),
-            "category": entry.get("category"),
-            "is_own_brand": entry.get("is_own_brand"),
-            "is_organic": entry.get("is_organic"),
-        })
-        record["unit_price"] = compute_unit_price(net_paid, qty, line, entry)
+    if candidates:
+        record.update(shared_attributes(candidates))
+        # Unit price needs a pack size, and only an exact match has one we can
+        # trust: a family may span 0,5 kg and 0,2 kg of the same seeds.
+        record["unit_price"] = compute_unit_price(
+            net_paid, qty, line, candidates[0] if how == "exact" else None)
     else:
         # Unresolved: keep the money, be honest about the missing identity.
         record["unit_price"] = compute_unit_price(net_paid, qty, line, None)
@@ -128,7 +135,29 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
     return record
 
 
-def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str], str],
+_SHARED = ("brand", "product_line", "variant", "category", "is_own_brand", "is_organic")
+
+
+def shared_attributes(candidates: list[dict[str, Any]]) -> dict[str, Any]:
+    """Attributes every candidate agrees on; the rest stay None.
+
+    For an exact match this is simply the product. For a family it is what can
+    be said without guessing: `Dove Dusche` has a brand and a category, but no
+    variant, because the receipt never printed one.
+    """
+    shared: dict[str, Any] = {}
+    for key in _SHARED:
+        values = {json.dumps(c.get(key), sort_keys=True) for c in candidates}
+        shared[key] = candidates[0].get(key) if len(values) == 1 else None
+    # The readable name travels with the opaque id, so purchases.json stays
+    # legible to a human reading it.
+    names = {c.get("name") for c in candidates}
+    shared["product"] = (candidates[0].get("name") if len(names) == 1
+                         else f"{len(candidates)} candidates")
+    return shared
+
+
+def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str], list[str]],
                       products: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     return [
         normalize_line(line, receipt, resolution, products)
@@ -136,18 +165,24 @@ def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str],
     ]
 
 
-def load_resolution(path: str | Path) -> dict[tuple[str, str], str]:
-    """Flatten resolution.json into a (store, raw_name) -> product_id lookup.
+def load_resolution(path: str | Path) -> dict[tuple[str, str], list[str]]:
+    """Flatten resolution.json into a (store, raw_name) -> [product_id, ...] lookup.
+
+    One id is an exact resolution. Several ids are a family: the receipt prints
+    one name for products it cannot tell apart (`Dove Dusche` for every 250 ml
+    variant), so the name resolves to all of them and nothing narrower.
 
     Entries whose line_type is not "product" (deposit returns, bags) carry no
     product_id by design: they are not unresolved, they are not products.
     """
     data = load_json(path)
-    return {
-        (store_key(entry["store"]), entry["raw_name"]): entry["product_id"]
-        for entry in data["entries"]
-        if entry.get("product_id")
-    }
+    lookup: dict[tuple[str, str], list[str]] = {}
+    for entry in data["entries"]:
+        ids = entry.get("product_ids") or (
+            [entry["product_id"]] if entry.get("product_id") else [])
+        if ids:
+            lookup[(store_key(entry["store"]), entry["raw_name"])] = ids
+    return lookup
 
 
 def load_products(path: str | Path) -> dict[str, dict[str, Any]]:
@@ -171,17 +206,21 @@ def build_purchases(receipts_dir: str | Path, products_path: str | Path,
         purchases.extend(normalize_receipt(receipt, resolution, products))
 
     product_lines = [p for p in purchases if p["type"] == "product"]
-    unresolved = sorted({p["raw_name"] for p in product_lines if not p["resolved"]})
+    unresolved = sorted({p["raw_name"] for p in product_lines if p["resolution"] == "none"})
+    # A family is not unresolved: brand and category are known, the variant is
+    # not. It is listed separately so neither number lies.
+    ambiguous = sorted({p["raw_name"] for p in product_lines if p["resolution"] == "family"})
     dates = sorted({r["date"] for r in receipts if not r.get("is_duplicate")})
 
     return {
-        "contract_version": 1,
+        "contract_version": 2,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],
             "product_lines": len(product_lines),
             "total_net_paid": round(sum(p["net_paid"] for p in product_lines), 2),
             "unresolved_items": unresolved,
+            "ambiguous_items": ambiguous,
         },
         "purchases": purchases,
     }

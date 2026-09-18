@@ -129,6 +129,8 @@ def main() -> None:
             print(f"  UNRESOLVED:     {meta['unresolved_items']}")
         else:
             print("  unresolved:     none — every item resolved")
+        if meta["ambiguous_items"]:
+            print(f"  ambiguous:      {meta['ambiguous_items']}")
 
     if args.command == "extract":
         print(f"Extracting with {args.model} (prompt {PROMPT_VERSION}) -> {args.out}")
