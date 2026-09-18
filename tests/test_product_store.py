@@ -1,85 +1,115 @@
-"""Invariants of the product / resolution contract.
+"""The product-store invariants, exercised on made-up files.
 
-These two files are the join every downstream consumer depends on, and they are
-edited by hand as matches are confirmed. A dangling product_id or a duplicated
-id would surface as a silently unresolved item rather than an error, so the
-cheapest place to catch it is here.
+The real products.json and resolution.json are private and gitignored, so the
+checks are tested here on fixtures that break each rule in turn. The last test
+runs the same checks on the real files when they are present, so a bad bank of
+matches still fails locally, and simply skips on a clean clone.
 """
 
 from __future__ import annotations
 
+import copy
 import json
-import re
 from pathlib import Path
 
 import pytest
 
-DATA = Path(__file__).resolve().parents[1] / "data" / "products"
+from grocery_app.product_store import problems
+
+PRODUCTS = {
+    "meta": {"next_id": 3},
+    "products": {
+        "p-0001": {"label": "Bio Eier", "name": "Bio Eier", "brand": "Alnatura",
+                   "size": {"count": 1, "value": 10.0, "unit": "piece"}, "eans": ["4104420000001"]},
+        "p-0002": {"label": "Dusche Sweet Treat", "name": "Dusche Sweet Treat", "brand": "Dove",
+                   "size": {"count": 1, "value": 250.0, "unit": "ml"}, "eans": []},
+    },
+}
+RESOLUTION = {
+    "entries": [
+        {"store": "GLOBUS", "raw_name": "ALN Bio Eier", "line_type": "product",
+         "product_id": "p-0001", "confirmed_by": "reviewer", "source": "reviewed.csv"},
+        {"store": "GLOBUS", "raw_name": "Dove Dusche", "line_type": "product",
+         "product_id": None, "product_ids": ["p-0001", "p-0002"],
+         "status": "ambiguous_on_receipt", "confirmed_by": "reviewer", "source": "reviewed.csv"},
+        {"store": "GLOBUS", "raw_name": "Leergut", "line_type": "deposit_return",
+         "product_id": None, "confirmed_by": None, "source": "receipts"},
+    ]
+}
 
 
-@pytest.fixture(scope="module")
-def products():
-    return json.loads((DATA / "products.json").read_text(encoding="utf-8"))
+def broken(products=None, resolution=None):
+    """Fresh copies of the fixtures, with the caller's edits applied."""
+    p, r = copy.deepcopy(PRODUCTS), copy.deepcopy(RESOLUTION)
+    if products:
+        products(p)
+    if resolution:
+        resolution(r)
+    return problems(p, r)
 
 
-@pytest.fixture(scope="module")
-def resolution():
-    return json.loads((DATA / "resolution.json").read_text(encoding="utf-8"))
+def test_a_consistent_store_has_no_problems():
+    assert problems(PRODUCTS, RESOLUTION) == []
 
 
-def test_product_ids_are_opaque_and_unique(products):
-    ids = list(products["products"])
-    assert ids == sorted(set(ids))
-    for product_id in ids:
-        assert re.fullmatch(r"p-\d{4}", product_id), product_id
+def test_product_ids_must_be_opaque():
+    def rename(p):
+        p["products"]["kerrygold-butter"] = p["products"].pop("p-0002")
+    assert any("not opaque" in m for m in broken(products=rename))
 
 
-def test_next_id_is_ahead_of_every_existing_id(products):
-    highest = max(int(pid.split("-")[1]) for pid in products["products"])
-    assert products["meta"]["next_id"] > highest
+def test_next_id_must_stay_ahead_of_existing_ids():
+    def stale(p):
+        p["meta"]["next_id"] = 2
+    assert any("next_id" in m for m in broken(products=stale))
 
 
-def test_every_product_keeps_a_readable_label_and_a_size_shape(products):
-    for product_id, product in products["products"].items():
-        assert product["label"], product_id
-        size = product["size"]
-        assert set(size) == {"count", "value", "unit"}
-        assert isinstance(product["eans"], list)
+def test_every_product_keeps_a_label_and_a_size_shape():
+    def strip(p):
+        p["products"]["p-0002"]["label"] = ""
+        p["products"]["p-0002"]["size"] = {"value": 250.0}
+    messages = broken(products=strip)
+    assert any("label" in m for m in messages) and any("size" in m for m in messages)
 
 
-def test_every_resolved_entry_points_at_a_real_product(products, resolution):
-    known = set(products["products"])
-    for entry in resolution["entries"]:
-        if entry["product_id"] is not None:
-            assert entry["product_id"] in known, entry["raw_name"]
-        for product_id in entry.get("product_ids", []):
-            assert product_id in known, entry["raw_name"]
-        # A family is several ids or none; never one id in both places.
-        if entry.get("product_ids"):
-            assert entry["product_id"] is None and len(entry["product_ids"]) > 1
+def test_a_resolution_must_point_at_a_real_product():
+    def dangling(r):
+        r["entries"][0]["product_id"] = "p-0099"
+    assert any("unknown product p-0099" in m for m in broken(resolution=dangling))
 
 
-def test_non_product_lines_are_distinguished_from_unresolved_ones(resolution):
-    """A deposit return is not an unresolved product, and conflating the two
-    would quietly understate every coverage figure we report."""
-    non_products = [e for e in resolution["entries"] if e["line_type"] != "product"]
-    assert non_products, "expected at least the Leergut lines"
-    for entry in non_products:
-        assert entry["product_id"] is None
+def test_a_family_is_several_ids_and_never_one_in_both_places():
+    def both(r):
+        r["entries"][1]["product_id"] = "p-0001"
+    def lonely(r):
+        r["entries"][1]["product_ids"] = ["p-0001"]
+    assert any("family" in m for m in broken(resolution=both))
+    assert any("family" in m for m in broken(resolution=lonely))
 
 
-def test_a_name_never_resolves_to_two_products_within_one_store(resolution):
-    seen: dict[tuple[str, str], str] = {}
-    for entry in resolution["entries"]:
-        key = (entry["store"], entry["raw_name"])
-        assert key not in seen or seen[key] == entry["product_id"], key
-        seen[key] = entry["product_id"]
+def test_non_product_lines_carry_no_product():
+    def mislabelled(r):
+        r["entries"][2]["product_id"] = "p-0001"
+    assert any("non-product line" in m for m in broken(resolution=mislabelled))
 
 
-def test_confirmed_entries_record_who_confirmed_them(resolution):
-    """Provenance is the thing that keeps verified work distinguishable from a
-    matcher's guess. Losing it once already caused a real misreading here."""
-    for entry in resolution["entries"]:
-        if entry["product_id"]:
-            assert entry["confirmed_by"], entry["raw_name"]
-            assert entry["source"], entry["raw_name"]
+def test_a_name_resolves_once_per_store():
+    def twice(r):
+        r["entries"].append(dict(r["entries"][0], product_id="p-0002"))
+    assert any("more than once" in m for m in broken(resolution=twice))
+
+
+def test_resolved_entries_record_who_confirmed_them():
+    def anonymous(r):
+        r["entries"][0]["confirmed_by"] = None
+    assert any("confirmed_by" in m for m in broken(resolution=anonymous))
+
+
+REAL = Path(__file__).resolve().parents[1] / "data" / "products"
+
+
+@pytest.mark.skipif(not (REAL / "products.json").exists(), reason="private data not present")
+def test_the_real_store_if_present_is_consistent():
+    products = json.loads((REAL / "products.json").read_text(encoding="utf-8"))
+    resolution = json.loads((REAL / "resolution.json").read_text(encoding="utf-8"))
+    assert problems(products, resolution) == []
