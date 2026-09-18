@@ -3170,7 +3170,7 @@
       "product_line": null,
       "variant": null,
       "category": "Cleaning",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Replacement cleaning cloths",
       "unit_price": null
@@ -3195,7 +3195,7 @@
       "product_line": null,
       "variant": null,
       "category": "Household",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Distilled water",
       "unit_price": null
@@ -3220,7 +3220,7 @@
       "product_line": null,
       "variant": "35 L",
       "category": "Household",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Garbage bags",
       "unit_price": null
@@ -4839,7 +4839,7 @@
       "product_line": null,
       "variant": null,
       "category": null,
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": null,
       "product": "Haushaltshandschuhe S, 1 Paar",
       "unit_price": null
@@ -4914,7 +4914,7 @@
       "product_line": null,
       "variant": null,
       "category": "Household",
-      "is_own_brand": false,
+      "is_own_brand": true,
       "is_organic": false,
       "product": "Distilled water",
       "unit_price": null

@@ -485,11 +485,11 @@
   },
   "own_brand": {
     "overall": {
-      "own_brand": 56.71,
-      "brand": 177.95,
+      "own_brand": 66.64,
+      "brand": 168.02,
       "unknown": 17.07,
       "unresolved": 264.15,
-      "own_brand_share_of_known": 0.242
+      "own_brand_share_of_known": 0.284
     },
     "by_store": {
       "ALDI SÜD": {
@@ -514,11 +514,11 @@
         "own_brand_share_of_known": null
       },
       "GLOBUS": {
-        "own_brand": 56.71,
-        "brand": 177.95,
+        "own_brand": 66.64,
+        "brand": 168.02,
         "unknown": 17.07,
         "unresolved": 8.96,
-        "own_brand_share_of_known": 0.242
+        "own_brand_share_of_known": 0.284
       },
       "Kaufland": {
         "own_brand": 0.0,

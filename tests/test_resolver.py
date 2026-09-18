@@ -306,6 +306,7 @@ def test_generic_tokens_do_not_carry_a_match():
 def test_own_brand_is_decided_per_store_from_the_brand():
     assert own_brand_status("GLOBUS", "Jeden Tag") is True
     assert own_brand_status("Globus", "GLOBUS Meisterbäckerei") is True, "a store line counts"
+    assert own_brand_status("GLOBUS", "OHO") is True
     assert own_brand_status("GLOBUS", "Manner") is False
     assert own_brand_status("GLOBUS", None) is None, "no brand, no answer"
     assert own_brand_status("Musterladen", "Jeden Tag") is None, "no list for this store yet"
