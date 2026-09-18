@@ -1,6 +1,6 @@
 # Design: The Backend
 
-Status: phase 0 built, phase 1 in progress (2026-09-18: tables, migration and `db upgrade` are in; the repository, import/export are next). Phases 2 and 3 are specified and not started.
+Status: phases 0 and 1 built (2026-09-18). Phases 2 and 3 are specified and not started.
 This is the document a future session picks up from; the checklist at the end says where.
 
 ## Why a backend
@@ -126,14 +126,16 @@ Two rules carry over from the files (`docs/data-layout.md`):
   `resolutions` and `line_resolutions`, at read time, by the normalizer.
 
 **Purchases are derived, not stored.** `PostgresRepository.purchases()` loads
-receipts, products, resolutions and line resolutions, and calls the same
-`normalize_receipt` the CLI calls. Storing purchases would be a second source of truth
+receipts, products, resolutions and line resolutions into the dict shapes the
+file loaders produce and calls the same `assemble_purchases` the CLI calls. Storing purchases would be a second source of truth
 that goes stale the moment a resolution is confirmed. If it is ever too slow, cache
 the document with an invalidation key; do not persist it.
 
-**Commands**: `grocery-app db upgrade` (Alembic), `grocery-app db import [--data
-data/]` (files to tables, idempotent, keyed by `source_image` and `p-xxxx` ids),
-`grocery-app db export` (tables to files, so `eval` and the tests keep their inputs).
+**Commands**: `grocery-app db upgrade` (Alembic), `grocery-app db import` (files to
+tables, idempotent, keyed by `source_image`, `p-xxxx` ids and the other natural keys),
+`grocery-app db export --out DIR` (tables to files in the data/ layout, so `eval` and
+the tests keep their inputs; it never writes into data/ unasked). Export round-trips
+content, not formatting or entry order.
 
 **Configuration**: `DATABASE_URL` in the environment; absent, `serve` falls back to
 `JsonRepository` and says so on startup.
@@ -226,11 +228,15 @@ Phase 1, in order:
    and `tests/test_db.py` (runs against the PostgreSQL service in CI; skipped without
    `DATABASE_URL`, and there is no local PostgreSQL on the dev machine yet, so
    `brew install postgresql@16` is the first thing to do before working on step 4).
-4. Write `PostgresRepository.purchases()` in `api/repository.py` by loading rows into
-   the dict shapes `normalize_receipt` already takes. Do not reimplement normalization.
-5. `grocery-app db import` from `data/`, idempotent. Then `db export`.
-6. Done: the PostgreSQL service is in `.github/workflows/ci.yml`. Still to do: the seam test.
-7. `serve` picks the repository from `DATABASE_URL`.
+4. Done: `PostgresRepository.purchases()` in `api/repository.py` calls
+   `normalizer.assemble_purchases` on the dicts `db/io.py` builds from the rows.
+5. Done: `grocery-app db import` (idempotent, natural keys) and `db export --out DIR`.
+   A key the tables have no column for fails the import rather than being dropped.
+6. Done: the PostgreSQL service in CI and the seam test
+   (`tests/test_db.py::test_import_then_serve_matches_the_files`).
+7. Done: `serve` and `default_app()` pick PostgreSQL when `DATABASE_URL` is set.
+
+Phase 1 is complete. Phase 2 starts with the `jobs` table and `POST /v1/receipts`.
 
 Each step is one PR with tests on made-up data (`CLAUDE.md` rules apply: every branch
 gets a PR, CI must be green).
