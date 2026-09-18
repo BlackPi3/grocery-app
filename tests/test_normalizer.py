@@ -1,6 +1,8 @@
 """The normalizer's join, on made-up data only: nothing here comes from a receipt."""
 
-from grocery_app.normalizer import load_resolution, normalize_line
+import json
+
+from grocery_app.normalizer import load_receipts, load_resolution, normalize_line
 
 PRODUCTS = {
     "p-1": {"name": "Dusche Sweet Treat", "brand": "Dove", "product_line": None,
@@ -132,3 +134,14 @@ def test_purchase_rows_carry_the_rate_beside_the_printed_class():
     line = dict(LINE, tax_class="1")
     record = normalize_line(line, RECEIPT, {}, PRODUCTS)
     assert record["tax_class"] == "1" and record["tax_rate"] == 0.19
+
+
+def test_meta_sidecars_are_not_mistaken_for_receipts(tmp_path):
+    """`purchases` must accept an extraction directory, where every IMG_x.json has
+    an IMG_x.meta.json sidecar beside it."""
+    receipt = {"source_image": "IMG_1.jpeg", "store": "GLOBUS", "date": "2026-07-14", "lines": []}
+    (tmp_path / "IMG_1.json").write_text(json.dumps(receipt), encoding="utf-8")
+    (tmp_path / "IMG_1.meta.json").write_text(
+        json.dumps({"source_image": "IMG_1.jpeg", "cost_usd": 0.03}), encoding="utf-8"
+    )
+    assert load_receipts(tmp_path) == [receipt]

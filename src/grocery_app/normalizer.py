@@ -36,9 +36,20 @@ def load_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def load_receipts(truth_dir: str | Path) -> list[dict[str, Any]]:
-    """Load every verified receipt, sorted by date then source image for stable output."""
-    receipts = [load_json(p) for p in sorted(Path(truth_dir).glob("*.json"))]
+def receipt_files(directory: str | Path) -> list[Path]:
+    """The receipt JSON files in a directory, in name order.
+
+    Works for the verified truth and for an extraction directory alike: `extract`
+    writes an `IMG_x.meta.json` sidecar (tokens, cost) next to every `IMG_x.json`,
+    and the sidecar is not a receipt.
+    """
+    return [p for p in sorted(Path(directory).glob("*.json"))
+            if not p.name.endswith(".meta.json")]
+
+
+def load_receipts(receipts_dir: str | Path) -> list[dict[str, Any]]:
+    """Load every receipt, sorted by date then source image for stable output."""
+    receipts = [load_json(p) for p in receipt_files(receipts_dir)]
     return sorted(receipts, key=lambda r: (r.get("date", ""), r.get("source_image", "")))
 
 

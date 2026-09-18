@@ -17,8 +17,8 @@ Two rules shape it:
 ```
 data/
   receipts/                     one entry per paper receipt
-    images/                     the photos (27; one is a duplicate shot with no truth)
-    truth/                      26 verified transcriptions, one schema, `transcribed_by` says how
+    images/                     the photos (27)
+    truth/                      27 verified transcriptions, one schema, `transcribed_by` says how
     transcripts/                the 17 hand-typed sources; scripts/convert_transcripts.py -> truth/
     line_resolutions.json       the shopper's answer for a line the receipt could not pin down
   extracted/<model>/<prompt>/   parser output per photo, with a .meta.json (tokens, cost)
