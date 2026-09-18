@@ -27,7 +27,7 @@ From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insig
 - **Price watch**: 10 products bought on more than one date; 3 changed price. The quark went up 30% per kg, avocados came down 25%, the bread rolls up 2%.
 - **Personal basket index**: August vs July, over the 5 products bought in both months: 94.0, so last month's repeat basket cost 6% less at August prices. Five products is a thin basket; the index refuses to report on fewer than three.
 - **Repurchase cadence**: 10 products with a typical interval; most rest on a single gap between two trips, and the demo labels those "bought twice, N days apart" rather than "every N days".
-- **Own brand**: about 10% of the spend whose own-brand status is recorded. Half of the resolved spend has no status yet, and the insight lists the brands behind that gap instead of guessing.
+- **Own brand**: 24% of the resolved spend goes to GLOBUS's own brands (GLOBUS and Jeden Tag). The status comes from a per-store own-brand list applied when a product enters the catalog; the insight lists the brands still unknown instead of guessing.
 - **Same item across stores**: nothing yet. Only GLOBUS lines resolve so far, and the insight says exactly that.
 
 ## Next

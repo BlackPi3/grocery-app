@@ -46,6 +46,27 @@ BRAND_ABBREVIATIONS = {
     "ins": "instant",
 }
 
+# A store's own brands, by store key. A brand that starts with one of these
+# is the store's; any other recorded brand is not; no brand recorded is not
+# known either way. Parham, who works at GLOBUS: "the main ones are Globus
+# and Jeden Tag. Manner and Alnatura definitely aren't its own brand."
+OWN_BRANDS: dict[str, tuple[str, ...]] = {
+    "globus": ("GLOBUS", "Jeden Tag"),
+}
+
+
+def own_brand_status(store: str | None, brand: str | None) -> bool | None:
+    """True if `brand` is one of the store's own brands, False if it is another
+    brand, None when no brand is recorded or the store has no list yet."""
+    if not brand:
+        return None
+    own = OWN_BRANDS.get(store_key(store))
+    if own is None:
+        return None
+    folded = brand.strip().casefold()
+    return any(folded.startswith(o.casefold()) for o in own)
+
+
 _UMLAUTS = [("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")]
 
 # `?` is what a till prints when it cannot render an umlaut, so it must not be
@@ -416,13 +437,14 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
             groups: dict[tuple[str, str], list[dict[str, str]]] = {}
             for row in picked:
                 groups.setdefault(identity_of(row), []).append(row)
-            ids = [_add_product(products_doc, listings_doc, group, observed_on, price_lookup)
+            ids = [_add_product(products_doc, listings_doc, group, observed_on, price_lookup, store)
                    for group in groups.values()]
             entry.update({"product_ids": ids, "status": "ambiguous_on_receipt"})
         else:
             # Several accepted rows here mean several article numbers for one
             # product; they become barcodes on it rather than separate products.
-            entry["product_id"] = _add_product(products_doc, listings_doc, picked, observed_on)
+            entry["product_id"] = _add_product(products_doc, listings_doc, picked, observed_on,
+                                               price_lookup, store)
         added_listings += sum(1 for r in picked if r.get("article_number"))
 
         resolution_doc["entries"].append(entry)
@@ -451,7 +473,8 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
 
 def _add_product(products_doc: dict[str, Any], listings_doc: dict[str, Any],
                  rows: list[dict[str, str]], observed_on: str,
-                 price_lookup: Callable[[str], float | None] | None = None) -> str:
+                 price_lookup: Callable[[str], float | None] | None = None,
+                 store: str | None = None) -> str:
     """Mint one product from catalog rows that all describe it; return its id.
 
     An accepted row is the moment a product earns an id, so ids are minted here
@@ -478,7 +501,7 @@ def _add_product(products_doc: dict[str, Any], listings_doc: dict[str, Any],
         "size": _size_from_row(first),
         "category": None,
         "is_organic": None,
-        "is_own_brand": None,
+        "is_own_brand": own_brand_status(store, first.get("brand")),
         "eans": [r["article_number"] for r in rows
                  if len(r.get("article_number") or "") in _BARCODE_LENGTHS],
         "open_questions": [],
@@ -734,7 +757,7 @@ def confirm_pairs(pairs: list[tuple[str, str]], products_path: str | Path,
                                     "catalog_name": found.get("name")}),
             "category": None,
             "is_organic": None,
-            "is_own_brand": None,
+            "is_own_brand": own_brand_status(store, found["brand"]),
             "eans": [article] if len(article) in _BARCODE_LENGTHS else [],
             "open_questions": [],
             "provenance": {"attributes": "globus-product-page", "source": found["url"]},

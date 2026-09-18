@@ -485,11 +485,11 @@
   },
   "own_brand": {
     "overall": {
-      "own_brand": 12.9,
-      "brand": 110.14,
-      "unknown": 128.69,
+      "own_brand": 56.71,
+      "brand": 177.95,
+      "unknown": 17.07,
       "unresolved": 264.15,
-      "own_brand_share_of_known": 0.105
+      "own_brand_share_of_known": 0.242
     },
     "by_store": {
       "ALDI SÜD": {
@@ -514,11 +514,11 @@
         "own_brand_share_of_known": null
       },
       "GLOBUS": {
-        "own_brand": 12.9,
-        "brand": 110.14,
-        "unknown": 128.69,
+        "own_brand": 56.71,
+        "brand": 177.95,
+        "unknown": 17.07,
         "unresolved": 8.96,
-        "own_brand_share_of_known": 0.105
+        "own_brand_share_of_known": 0.242
       },
       "Kaufland": {
         "own_brand": 0.0,
@@ -544,88 +544,12 @@
     },
     "unknown_brands": [
       {
-        "brand": "Manner",
-        "spend": 21.52
-      },
-      {
-        "brand": "Jeden Tag",
-        "spend": 17.2
-      },
-      {
-        "brand": "Alnatura",
-        "spend": 11.93
-      },
-      {
         "brand": "(no brand recorded)",
         "spend": 11.09
       },
       {
-        "brand": "GLOBUS Meisterbäckerei",
-        "spend": 8.52
-      },
-      {
-        "brand": "Valle Secreto",
-        "spend": 6.3
-      },
-      {
-        "brand": "hitschies",
-        "spend": 4.99
-      },
-      {
-        "brand": "Dove",
-        "spend": 4.94
-      },
-      {
-        "brand": "Passo Lungo",
-        "spend": 4.49
-      },
-      {
-        "brand": "Fräulein Heidemarie",
-        "spend": 4.49
-      },
-      {
-        "brand": "Oswald",
-        "spend": 3.89
-      },
-      {
-        "brand": "funny-frisch",
-        "spend": 3.8
-      },
-      {
-        "brand": "OHO",
-        "spend": 3.44
-      },
-      {
-        "brand": "Berchtesgadener Land",
-        "spend": 3.4
-      },
-      {
-        "brand": "Tempo",
-        "spend": 3.32
-      },
-      {
-        "brand": "Kühne",
-        "spend": 2.96
-      },
-      {
-        "brand": "Arla",
-        "spend": 2.68
-      },
-      {
-        "brand": "Mister Freed",
-        "spend": 2.33
-      },
-      {
-        "brand": "Ritter Sport",
-        "spend": 1.79
-      },
-      {
-        "brand": "Kleenex",
-        "spend": 1.61
-      },
-      {
-        "brand": "GLOBUS",
-        "spend": 1.61
+        "brand": "Alnatura",
+        "spend": 3.59
       },
       {
         "brand": "Ponnath",
