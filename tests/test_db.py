@@ -8,13 +8,13 @@ test module runs inside one database, migrated from scratch and torn down.
 from __future__ import annotations
 
 import os
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
-from grocery_app.db.models import Base, Product, Receipt, ReceiptLine, Resolution
+from grocery_app.db.models import Base, Job, Product, Receipt, ReceiptLine, Resolution
 from grocery_app.db.session import make_engine, make_session_factory
 
 URL = os.environ.get("DATABASE_URL")
@@ -122,6 +122,91 @@ def test_the_same_text_at_the_same_store_resolves_once(session):
         session.commit()
 
 
+# --- extraction jobs ----------------------------------------------------------
+
+
+def test_a_job_starts_queued_and_knows_nothing_yet(session):
+    job = Job(image_sha256="a" * 64, original_filename="image.jpg")
+    session.add(job)
+    session.commit()
+    session.expire_all()  # the factory keeps objects alive past commit; reload
+
+    loaded = session.get(Job, job.id)
+    assert loaded.status == "queued"
+    assert loaded.created_at is not None, "written by the database, not the caller"
+    assert (loaded.started_at, loaded.finished_at) == (None, None)
+    assert loaded.receipt_id is None and loaded.cost_usd is None
+
+
+def test_a_finished_job_records_the_receipt_and_what_it_cost(session):
+    """The fields are the .meta.json sidecar `extract` writes, in a table."""
+    receipt = Receipt(source_image="IMG_1.jpeg", transcribed_by="llm",
+                      image_sha256="b" * 64, store="Musterladen")
+    job = Job(image_sha256="b" * 64, status="running")
+    session.add_all([receipt, job])
+    session.commit()
+
+    job.receipt = receipt
+    job.status = "done"
+    job.model = "test-model"
+    job.prompt_version = "v1"
+    job.request_id = "req_test_1"
+    job.usage = {"input_tokens": 1500, "output_tokens": 900}
+    job.cost_usd = Decimal("0.03102")
+    job.finished_at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
+    session.commit()
+    session.expire_all()
+
+    loaded = session.get(Job, job.id)
+    assert loaded.receipt.source_image == "IMG_1.jpeg"
+    assert loaded.cost_usd == Decimal("0.03102"), "cents of a cent, not rounded to money"
+    assert loaded.usage["input_tokens"] == 1500
+    assert loaded.receipt.transcribed_by == "llm", "a model reading is never truth"
+
+
+def test_an_earlier_job_for_the_same_photo_is_findable(session):
+    """The dedup check before spending money: same bytes, same hash, found."""
+    done = Job(image_sha256="c" * 64, status="done", cost_usd=Decimal("0.03"))
+    session.add_all([done, Job(image_sha256="d" * 64, status="done")])
+    session.commit()
+    session.expire_all()
+
+    found = session.scalars(select(Job).where(Job.image_sha256 == "c" * 64)).all()
+    assert [j.id for j in found] == [done.id]
+
+
+def test_one_photo_may_be_extracted_again_under_a_new_prompt(session):
+    """So the hash is indexed and not unique: re-reading a photo with a better
+    prompt is deliberate work, not a mistake to be blocked by a constraint."""
+    session.add_all([
+        Job(image_sha256="e" * 64, status="done", prompt_version="v1"),
+        Job(image_sha256="e" * 64, status="done", prompt_version="v2"),
+    ])
+    session.commit()
+    assert session.scalar(
+        select(func.count()).select_from(Job).where(Job.image_sha256 == "e" * 64)) == 2
+
+
+def test_a_job_outlives_the_receipt_it_produced(session):
+    """What was spent was still spent: deleting a receipt must not erase the
+    record of the call that paid for it."""
+    receipt = Receipt(source_image="IMG_2.jpeg", transcribed_by="llm")
+    session.add(receipt)
+    session.commit()
+    job = Job(image_sha256="f" * 64, status="done", receipt=receipt,
+              cost_usd=Decimal("0.03"))
+    session.add(job)
+    session.commit()
+
+    session.delete(receipt)
+    session.commit()
+    session.expire_all()
+
+    loaded = session.get(Job, job.id)
+    assert loaded is not None and loaded.receipt_id is None
+    assert loaded.cost_usd == Decimal("0.03")
+
+
 # --- the files, the tables, and the server agree ------------------------------
 
 
@@ -157,8 +242,6 @@ def test_import_then_serve_matches_the_files(engine, session, data):
 
 
 def test_import_twice_updates_and_adds_nothing(session, data):
-    from sqlalchemy import func
-
     from grocery_app.db.io import import_data
     from grocery_app.db.models import LineResolution
 
