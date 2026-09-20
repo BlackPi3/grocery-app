@@ -45,3 +45,9 @@ known-first-party = ["grocery_app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Tests that call a paid API are deselected by default, so `pytest` and CI
+# stay free. `pytest -m paid` runs them; the command line overrides this.
+addopts = "-m 'not paid'"
+markers = [
+    "paid: makes a real model call. Costs money. Run deliberately: pytest -m paid",
+]

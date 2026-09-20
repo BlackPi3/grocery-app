@@ -55,9 +55,10 @@ def client():
 def test_health_reports_contract_versions_and_receipts(client):
     body = client.get("/health").json()
     assert body == {"status": "ok", "purchases_contract_version": 2,
-                    "insights_contract_version": 1, "receipts": 2, "uploads": False}
-    assert body["uploads"] is False, \
-        "a file-backed server cannot accept photos, and says so rather than 404ing later"
+                    "insights_contract_version": 1, "receipts": 2,
+                    "uploads": False, "writes": False}
+    assert (body["uploads"], body["writes"]) == (False, False), \
+        "a file-backed server can do neither, and says so rather than 404ing later"
 
 
 def test_purchases_is_the_contract_unchanged(client):

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import date
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -16,10 +17,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app.api.jobs import job_to_dict
-from grocery_app.db.io import load_normalizer_inputs
-from grocery_app.db.models import Job
+from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict
+from grocery_app.db.models import Job, LineResolution, Product, Receipt
 from grocery_app.db.session import database_url, make_engine, make_session_factory
-from grocery_app.normalizer import assemble_purchases
+from grocery_app.normalizer import assemble_purchases, normalize_receipt
 
 DEFAULT_PURCHASES = "data/purchases.json"
 
@@ -30,15 +31,24 @@ class Repository(Protocol):
         ...
 
 
+class NotFound(LookupError):
+    """No such receipt, or no such line on it."""
+
+
+class UnknownProduct(ValueError):
+    """A resolution naming a product the catalog does not have."""
+
+
 @runtime_checkable
-class JobRepository(Protocol):
-    """A repository that can also accept a photo and track its extraction.
+class WriteRepository(Protocol):
+    """A repository that can accept a photo and the shopper's corrections.
 
     Reading and writing are separate protocols because `JsonRepository` can
-    honestly do one and not the other. A job is runtime state with a lifecycle;
-    keeping it in a JSON file would be a second, worse database. So the write
-    routes are served only by a repository that satisfies this, and a
-    file-backed server says 503 rather than pretending.
+    honestly do one and not the other. A job is runtime state with a lifecycle
+    and a correction is a durable fact about a line; keeping either in a JSON
+    file would be a second, worse database. So the write routes are served only
+    by a repository that satisfies this, and a file-backed server says 503
+    rather than pretending.
     """
 
     session_factory: sessionmaker[Session]
@@ -50,6 +60,17 @@ class JobRepository(Protocol):
         ...
 
     def job_for_image(self, image_sha256: str) -> dict[str, Any] | None:
+        ...
+
+    def receipt(self, receipt_id: int) -> dict[str, Any] | None:
+        ...
+
+    def set_line_resolution(self, receipt_id: int, position: int, product_id: str | None,
+                            confirmed_by: str | None, basis: str | None) -> dict[str, Any]:
+        ...
+
+    def update_receipt(self, receipt_id: int, is_duplicate: bool | None,
+                       store: str | None) -> dict[str, Any]:
         ...
 
 
@@ -113,6 +134,91 @@ class PostgresRepository:
         with self.session_factory() as session:
             job = session.get(Job, job_id)
             return job_to_dict(job) if job else None
+
+    # --- the shopper's corrections -------------------------------------------
+
+    def _receipt_view(self, session: Session, row: Receipt) -> dict[str, Any]:
+        """One receipt as the truth schema holds it, plus the normalizer's
+        reading of every line.
+
+        The reading is not stored and not recomputed here: `normalize_receipt`
+        is the same function the whole history goes through, so a line's
+        `resolution` on this screen is the one the insights will use. The route
+        does no joining, per the design rule that a route holding business
+        logic is a bug.
+        """
+        inputs = load_normalizer_inputs(session)
+        doc = receipt_to_dict(row)
+        records = normalize_receipt(doc, inputs["resolution"], inputs["products"],
+                                    inputs["line_resolutions"], inputs["shelf_prices"])
+        return {"receipt_id": row.id, "receipt": doc,
+                "lines": [{**record, "position": i} for i, record in enumerate(records)]}
+
+    def _get(self, session: Session, receipt_id: int) -> Receipt:
+        row = session.get(Receipt, receipt_id)
+        if row is None:
+            raise NotFound(f"no receipt {receipt_id}")
+        return row
+
+    def receipt(self, receipt_id: int) -> dict[str, Any] | None:
+        with self.session_factory() as session:
+            row = session.get(Receipt, receipt_id)
+            return self._receipt_view(session, row) if row else None
+
+    def set_line_resolution(self, receipt_id: int, position: int, product_id: str | None,
+                            confirmed_by: str | None = None,
+                            basis: str | None = None) -> dict[str, Any]:
+        """Record, or withdraw, the shopper's answer for one line.
+
+        This is the most valuable data the project has: the till prints a name
+        the catalog cannot always place, and only the person who was there
+        knows what it was. The answer is stored against the line's *text* as
+        well as its position, so re-extracting the photo later cannot silently
+        move it onto a different product.
+        """
+        with self.session_factory() as session:
+            row = self._get(session, receipt_id)
+            line = next((line for line in row.lines if line.position == position), None)
+            if line is None:
+                raise NotFound(f"receipt {receipt_id} has no line {position}")
+
+            existing = session.scalars(
+                select(LineResolution).where(LineResolution.receipt_id == receipt_id,
+                                             LineResolution.position == position)).first()
+            if product_id is None:
+                if existing is not None:
+                    session.delete(existing)
+            else:
+                if session.get(Product, product_id) is None:
+                    raise UnknownProduct(f"no product {product_id}")
+                answer = existing or LineResolution(receipt_id=receipt_id, position=position)
+                answer.raw_name = line.raw_name
+                answer.product_id = product_id
+                answer.confirmed_by = confirmed_by or "shopper"
+                answer.confirmed_at = date.today()
+                answer.basis = basis
+                session.add(answer)
+            session.commit()
+            return self._receipt_view(session, self._get(session, receipt_id))
+
+    def update_receipt(self, receipt_id: int, is_duplicate: bool | None = None,
+                       store: str | None = None) -> dict[str, Any]:
+        """The two header facts a shopper can correct from a phone.
+
+        `is_duplicate` is the answer to the same paper photographed twice: the
+        normalizer drops such a receipt from the history entirely, so this is
+        not a label, it changes the numbers. `store` is for a photo whose
+        header was cropped off, which leaves every line unresolvable because
+        resolution is store-scoped.
+        """
+        with self.session_factory() as session:
+            row = self._get(session, receipt_id)
+            if is_duplicate is not None:
+                row.is_duplicate = is_duplicate
+            if store is not None:
+                row.store = store
+            session.commit()
+            return self._receipt_view(session, self._get(session, receipt_id))
 
     def job_for_image(self, image_sha256: str) -> dict[str, Any] | None:
         """The newest job for these exact bytes, unless it failed.
