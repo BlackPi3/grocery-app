@@ -6,8 +6,11 @@ whole pipeline, without anything real.
 """
 
 import json
+import os
 
 import pytest
+
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 RECEIPTS = [
     {
@@ -106,3 +109,36 @@ def data(tmp_path):
     (truth.parent / "line_resolutions.json").write_text(
         json.dumps(LINE_RESOLUTIONS), encoding="utf-8")
     return tmp_path
+
+
+# --- PostgreSQL, for the tests that need the real thing -----------------------
+#
+# One database per module, migrated from scratch and torn down. Skipped
+# without `DATABASE_URL`; CI provides one through a service container, and
+# SQLite is not a stand-in (jsonb and arrays are used on purpose).
+
+
+@pytest.fixture(scope="module")
+def engine():
+    from grocery_app.db.migrate import downgrade, upgrade
+    from grocery_app.db.session import make_engine
+
+    upgrade(DATABASE_URL)
+    engine = make_engine(DATABASE_URL)
+    yield engine
+    engine.dispose()
+    downgrade(DATABASE_URL)
+
+
+@pytest.fixture
+def session(engine):
+    from grocery_app.db.models import Base
+    from grocery_app.db.session import make_session_factory
+
+    factory = make_session_factory(engine)
+    with factory() as s:
+        yield s
+        s.rollback()
+        for table in reversed(Base.metadata.sorted_tables):
+            s.execute(table.delete())
+        s.commit()

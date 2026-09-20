@@ -1,7 +1,8 @@
 # Design: The Backend
 
-Status: phases 0 and 1 built (2026-09-18). Phase 2 is under way (the `jobs` table is
-built; the routes are not). Phase 3 is specified and not started.
+Status: phases 0 and 1 built (2026-09-18). Phase 2 is under way: a photo can be
+uploaded, extracted and served (2026-09-20); the correction routes are not built.
+Phase 3 is specified and not started.
 This is the document a future session picks up from; the checklist at the end says where.
 
 ## Why a backend
@@ -156,8 +157,8 @@ the product is about; nothing else gets a write endpoint until they work.
 
 | Route | Does |
 |---|---|
-| `POST /v1/receipts` (multipart photo) | Stores the image, creates an extraction job, returns `202` with the job id |
-| `GET /v1/jobs/{id}` | `queued` / `running` / `done` / `failed`, with the receipt id when done |
+| `POST /v1/receipts` (multipart photo) | Built. Stores the image, creates an extraction job, returns `202` with the job id — or `200` with the existing job when these exact bytes have been read before |
+| `GET /v1/jobs/{id}` | Built. `queued` / `running` / `done` / `failed`, with the receipt id when done and the cost when it is known |
 | `GET /v1/receipts/{id}` | The extracted receipt in the truth schema, plus which lines resolved and how |
 | `PUT /v1/receipts/{id}/lines/{position}/resolution` | The shopper's answer for one line: a `product_id` from the family, or `null` to withdraw it. Writes `line_resolutions`. |
 | `PATCH /v1/receipts/{id}` | `is_duplicate`, `store` correction, nothing else |
@@ -260,17 +261,32 @@ Phase 1 is complete. Phase 2, in order:
 
 1. Done: the `jobs` table, `receipts.image_sha256`, migration `0003`, and the job
    tests in `tests/test_db.py`.
-2. `ImageStore` beside `Repository`: `put(sha256, data)` / `path(sha256)`, with
-   `DiskImageStore(root)` from `GROCERY_IMAGES` as the only implementation. Object
-   storage (R2/S3) is the phase 3 swap; the protocol is what makes it a swap. Store
-   the bytes as uploaded, not the downscaled copy `prepare_image` makes, so a better
-   prompt can be run against the original.
-3. `POST /v1/receipts` and `GET /v1/jobs/{id}`, with the runner. `create_app` takes
-   the extraction function as an argument, defaulting to `None` rather than to the
-   real one, so no test can reach a paid API by forgetting an argument. The runner
-   takes a `job_id` and opens its own session: the request's session is closed by the
-   time a background task runs. `python-multipart` goes in the `api` extra for
-   `UploadFile`.
+2. Done: `api/images.py`. Photos are content-addressed — the file is named by the
+   sha256 of its bytes, with no extension, because the name is an identity and the
+   extractor sniffs the format anyway. Bytes are stored as uploaded, never the
+   downscaled copy `prepare_image` makes, so a better prompt can be run later against
+   the original. `DiskImageStore(GROCERY_IMAGES)` is the only implementation; object
+   storage (R2/S3) is the phase 3 swap, and the protocol is what makes it a swap.
+3. Done: `POST /v1/receipts`, `GET /v1/jobs/{id}`, and the runner in `api/jobs.py`.
+   Notes on what that settled:
+   - **The extractor is an argument with no default.** A model call costs real money,
+     so there is no argument a test can forget that would make one happen; a server
+     built without one answers 503. `default_app()` and `grocery-app serve` are the
+     only places the real extractor is wired in.
+   - **Uploads need PostgreSQL.** `Repository` stays the read protocol and
+     `JobRepository` is the write one; a file-backed server keeps serving reads and
+     says 503 to a photo. `/health` carries `uploads` so a client can find out
+     without trying.
+   - **A photo is read once.** The dedup lookup is by hash and ignores `failed` jobs,
+     so a timeout can be retried but a success cannot be paid for twice. On a hit the
+     stored file's length is compared with the upload — a guard against a bug here
+     (the wrong buffer hashed, a short read), not against sha256.
+   - **An unreadable file is refused at upload**, not discovered in a failed job ten
+     seconds later. Known limit: Pillow cannot open HEIC without `pillow-heif`, so an
+     iPhone that uploads HEIC is refused until it converts or that is installed.
+   - The extracted receipt enters `receipts` with `transcribed_by = "llm"`;
+     `computed_total` and `reconciled` are dropped, being a reading of the lines
+     rather than something the paper says.
 4. `GET /v1/receipts/{id}`, `PUT /v1/receipts/{id}/lines/{position}/resolution`,
    `PATCH /v1/receipts/{id}`. Writes need a repository that can write: keep
    `Repository` as the read protocol, add a write protocol, and register the write
