@@ -26,9 +26,11 @@ pytestmark = pytest.mark.skipif(not URL, reason="DATABASE_URL not set")
 def corrections(engine, session, data):
     from grocery_app.db.io import import_data
 
+    # No line answers imported: every test here makes its own, so the state
+    # each one starts from is visible in the test rather than in a fixture.
     import_data(session, data / "receipts" / "truth", data / "products" / "products.json",
-                data / "products" / "resolution.json",
-                data / "receipts" / "line_resolutions.json", data / "products")
+                data / "products" / "resolution.json", data / "absent.json",
+                data / "products")
     session.commit()
     client = TestClient(create_app(PostgresRepository(make_session_factory(engine))))
     receipt_id = session.scalars(
@@ -125,29 +127,45 @@ def test_an_answer_is_bound_to_the_line_text_not_just_its_position(corrections):
     assert line["resolution"] == "family", "the stale answer is ignored, not reapplied"
 
 
-def test_an_answer_the_normalizer_cannot_act_on_is_still_recorded(corrections, tmp_path):
-    """A documented limit, not an accident.
-
-    `normalize_line` only lets an answer narrow a family: an answer for a name
-    that resolves to nothing at all is kept, exported, and ignored. That is the
-    wrong half of the rule for the 109 names in the real data that resolve to
-    nothing — see the PR. The answer is not lost: `db export` writes it into
-    line_resolutions.json, where the propose/confirm loop picks it up.
-    """
+def test_answering_a_line_the_catalog_cannot_place_at_all(corrections, tmp_path):
+    """The case the phone flow exists for, and the one that makes a product
+    reachable from a second store: the name means nothing to the catalog, and
+    the shopper says which known product it was."""
     from grocery_app.db.io import export_data
     from grocery_app.normalizer import load_json
 
     client, session, receipt_id = corrections
+    assert client.get(f"/v1/receipts/{receipt_id}").json()["lines"][2]["resolution"] == "none"
+
     response = client.put(f"/v1/receipts/{receipt_id}/lines/2/resolution",
                           json={"product_id": "p-0001", "basis": "memory"})
-
     assert response.status_code == 200
-    assert response.json()["lines"][2]["resolution"] == "none", "stored, but not acted on"
+    line = response.json()["lines"][2]
+    assert (line["resolution"], line["product_id"], line["resolved"]) == ("user", "p-0001", True)
+    assert line["product"] == "Milch 1,5%"
 
+    served = client.get("/v1/purchases").json()
+    assert served["meta"]["unresolved_items"] == [], "it counts in the history now"
+
+    # And it is still the shopper's note, not catalog fact: `db export` hands
+    # it back to the propose/confirm loop on the laptop.
     export_data(session, tmp_path / "out")
     answers = load_json(tmp_path / "out" / "receipts" / "line_resolutions.json")["entries"]
     assert {"source_image": "IMG_2.jpeg", "line_index": 2, "product_id": "p-0001"}.items() <= \
         next(e for e in answers if e["line_index"] == 2).items()
+
+
+def test_a_deposit_line_cannot_be_answered_as_a_product(corrections):
+    """Pfand is not a product, so an answer on it is a misclick. Refused at the
+    route so the shopper hears about it, and ignored by the normalizer so a
+    hand-written file cannot do it either."""
+    client, session, _ = corrections
+    first = session.scalars(select(Receipt).where(Receipt.source_image == "IMG_1.jpeg")).one()
+
+    response = client.put(f"/v1/receipts/{first.id}/lines/2/resolution",
+                          json={"product_id": "p-0001"})
+    assert response.status_code == 422
+    assert "deposit" in response.json()["detail"]
 
 
 def test_an_answer_naming_a_product_the_catalog_lacks_is_refused(corrections):

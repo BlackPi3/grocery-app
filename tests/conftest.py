@@ -78,8 +78,8 @@ LISTINGS = {
     },
 }
 
-# An answer for a line that is not in a family: stored and exported faithfully,
-# and ignored by the normalizer, which only takes an answer inside a family.
+# An answer for a line the catalog cannot place at all: the shopper says what
+# `Geheimnis` was, and the normalizer takes it (see `normalize_line`).
 LINE_RESOLUTIONS = {
     "meta": {"schema": 1},
     "entries": [

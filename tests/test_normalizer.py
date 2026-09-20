@@ -11,6 +11,10 @@ PRODUCTS = {
     "p-2": {"name": "Dusche Fruchtig Leicht", "brand": "Dove", "product_line": None,
             "variant": "Fruchtig Leicht", "category": "Body care", "is_own_brand": False,
             "is_organic": False, "size": {"count": 1, "value": 250.0, "unit": "ml"}},
+    # In the catalog, outside the Dove Dusche family: the shape of a stale note.
+    "p-3": {"name": "Zahnpasta", "brand": "Muster", "product_line": None, "variant": None,
+            "category": "Body care", "is_own_brand": True, "is_organic": False,
+            "size": {"count": 1, "value": 75.0, "unit": "ml"}},
 }
 RECEIPT = {"store": "GLOBUS", "date": "2026-01-01", "source_image": "fake.jpeg"}
 LINE = {"type": "product", "raw_name": "Dove Dusche", "qty": 1, "gross": 2.49, "net": 2.24}
@@ -75,9 +79,45 @@ def test_a_pinpoint_is_refused_when_the_line_or_family_no_longer_matches():
     # The line was re-transcribed under another name: the note is stale.
     stale = {("fake.jpeg", 0): {"raw_name": "Dove Deo", "product_id": "p-2"}}
     assert normalize_receipt(receipt, family, PRODUCTS, stale)[0]["resolution"] == "family"
-    # The answer points outside the family the name resolves to.
-    outside = {("fake.jpeg", 0): {"raw_name": "Dove Dusche", "product_id": "p-9"}}
+    # The answer names a real product, outside the family the name resolves
+    # to. The family is the catalog's statement about what the name can mean,
+    # so the answer contradicts it and is treated as stale.
+    outside = {("fake.jpeg", 0): {"raw_name": "Dove Dusche", "product_id": "p-3"}}
     assert normalize_receipt(receipt, family, PRODUCTS, outside)[0]["resolution"] == "family"
+    # And an answer naming nothing in the catalog is refused by a different
+    # guard, which is why both cases are here.
+    unknown = {("fake.jpeg", 0): {"raw_name": "Dove Dusche", "product_id": "p-9"}}
+    assert normalize_receipt(receipt, family, PRODUCTS, unknown)[0]["resolution"] == "family"
+
+
+def test_a_pinpoint_places_a_line_the_catalog_cannot_place_at_all():
+    """The other half of the rule, and the only way one product becomes
+    reachable from a second store: the till at a shop you have no catalog for
+    prints its own string, nothing resolves, and the shopper says what it was."""
+    from grocery_app.normalizer import normalize_receipt
+
+    lidl = dict(RECEIPT, store="LIDL",
+                lines=[dict(LINE, raw_name="DOVE DUSCHGEL FRUCHT")])
+    answer = {("fake.jpeg", 0): {"raw_name": "DOVE DUSCHGEL FRUCHT", "product_id": "p-2"}}
+
+    unanswered = normalize_receipt(lidl, {}, PRODUCTS)[0]
+    assert (unanswered["resolution"], unanswered["resolved"]) == ("none", False)
+
+    answered = normalize_receipt(lidl, {}, PRODUCTS, answer)[0]
+    assert (answered["resolution"], answered["product_id"]) == ("user", "p-2")
+    assert answered["brand"] == "Dove", "the catalog's facts, reached by the shopper's answer"
+
+
+def test_a_pinpoint_cannot_turn_a_deposit_line_into_a_product():
+    """Pfand is not a product. Guarded here as well as at the route, so a
+    hand-edited line_resolutions.json cannot do it either."""
+    from grocery_app.normalizer import normalize_receipt
+
+    receipt = dict(RECEIPT, lines=[{"type": "deposit", "raw_name": "Pfand",
+                                    "qty": 1, "gross": 0.25, "net": 0.25}])
+    answer = {("fake.jpeg", 0): {"raw_name": "Pfand", "product_id": "p-1"}}
+    record = normalize_receipt(receipt, {}, PRODUCTS, answer)[0]
+    assert (record["resolution"], record["product_id"]) == ("none", None)
 
 
 def test_missing_line_resolutions_file_means_no_answers(tmp_path):
