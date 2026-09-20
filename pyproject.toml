@@ -23,6 +23,8 @@ dev = ["pytest", "ruff", "httpx"]
 # The HTTP layer is optional so the pipeline CLI stays installable without it.
 api = [
     "fastapi>=0.115",
+    # FastAPI parses multipart uploads (POST /v1/receipts) only with this present.
+    "python-multipart>=0.0.9",
     "uvicorn>=0.30",
     "sqlalchemy>=2.0",
     "alembic>=1.13",

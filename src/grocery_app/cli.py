@@ -331,16 +331,26 @@ def main() -> None:
             import uvicorn
 
             from grocery_app.api.app import create_app
+            from grocery_app.api.images import default_image_store
+            from grocery_app.api.jobs import anthropic_extractor
             from grocery_app.api.repository import default_repository
         except ImportError as exc:
             raise SystemExit(
                 f"the HTTP layer is not installed ({exc.name}); run: pip install -e '.[api]'"
             ) from exc
         repository = default_repository(args.purchases)
-        source = "PostgreSQL (DATABASE_URL)" if type(repository).__name__ == "PostgresRepository" \
-            else args.purchases
+        on_postgres = type(repository).__name__ == "PostgresRepository"
+        source = "PostgreSQL (DATABASE_URL)" if on_postgres else args.purchases
+        store = default_image_store()
         print(f"Serving {source} at http://{args.host}:{args.port} (docs at /docs)")
-        uvicorn.run(create_app(repository), host=args.host, port=args.port)
+        if on_postgres:
+            print(f"  uploads:  POST /v1/receipts, photos in {store.root}")
+        else:
+            print("  uploads:  off (needs DATABASE_URL)")
+        # The extractor builds its client on first use, so no API key is
+        # needed to start a server that only ever serves reads.
+        uvicorn.run(create_app(repository, store, anthropic_extractor()),
+                    host=args.host, port=args.port)
 
     if args.command == "db":
         from grocery_app.db.migrate import upgrade

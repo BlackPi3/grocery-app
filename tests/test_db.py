@@ -7,7 +7,6 @@ test module runs inside one database, migrated from scratch and torn down.
 
 from __future__ import annotations
 
-import os
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -15,32 +14,10 @@ import pytest
 from sqlalchemy import func, select
 
 from grocery_app.db.models import Base, Job, Product, Receipt, ReceiptLine, Resolution
-from grocery_app.db.session import make_engine, make_session_factory
+from grocery_app.db.session import make_session_factory
+from tests.conftest import DATABASE_URL as URL
 
-URL = os.environ.get("DATABASE_URL")
 pytestmark = pytest.mark.skipif(not URL, reason="DATABASE_URL not set")
-
-
-@pytest.fixture(scope="module")
-def engine():
-    from grocery_app.db.migrate import downgrade, upgrade
-
-    upgrade(URL)
-    engine = make_engine(URL)
-    yield engine
-    engine.dispose()
-    downgrade(URL)
-
-
-@pytest.fixture
-def session(engine):
-    factory = make_session_factory(engine)
-    with factory() as s:
-        yield s
-        s.rollback()
-        for table in reversed(Base.metadata.sorted_tables):
-            s.execute(table.delete())
-        s.commit()
 
 
 def test_migration_matches_the_models(engine):

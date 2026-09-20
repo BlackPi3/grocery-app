@@ -10,11 +10,14 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from grocery_app.api.jobs import job_to_dict
 from grocery_app.db.io import load_normalizer_inputs
+from grocery_app.db.models import Job
 from grocery_app.db.session import database_url, make_engine, make_session_factory
 from grocery_app.normalizer import assemble_purchases
 
@@ -24,6 +27,29 @@ DEFAULT_PURCHASES = "data/purchases.json"
 class Repository(Protocol):
     def purchases(self) -> dict[str, Any]:
         """The purchases.json document (contract 2), as a plain dict."""
+        ...
+
+
+@runtime_checkable
+class JobRepository(Protocol):
+    """A repository that can also accept a photo and track its extraction.
+
+    Reading and writing are separate protocols because `JsonRepository` can
+    honestly do one and not the other. A job is runtime state with a lifecycle;
+    keeping it in a JSON file would be a second, worse database. So the write
+    routes are served only by a repository that satisfies this, and a
+    file-backed server says 503 rather than pretending.
+    """
+
+    session_factory: sessionmaker[Session]
+
+    def create_job(self, image_sha256: str, original_filename: str | None) -> dict[str, Any]:
+        ...
+
+    def job(self, job_id: str) -> dict[str, Any] | None:
+        ...
+
+    def job_for_image(self, image_sha256: str) -> dict[str, Any] | None:
         ...
 
 
@@ -67,6 +93,43 @@ class PostgresRepository:
     def purchases(self) -> dict[str, Any]:
         with self.session_factory() as session:
             return assemble_purchases(**load_normalizer_inputs(session))
+
+    def create_job(self, image_sha256: str,
+                   original_filename: str | None = None) -> dict[str, Any]:
+        """Write the job and commit it, before any work is scheduled.
+
+        A queue forgets an item once a worker takes it, and the queue here is
+        an in-process list that dies with the process. Scheduling work that no
+        committed row describes would leave nothing to poll and nothing to
+        recover.
+        """
+        with self.session_factory() as session:
+            job = Job(image_sha256=image_sha256, original_filename=original_filename)
+            session.add(job)
+            session.commit()
+            return job_to_dict(job)
+
+    def job(self, job_id: str) -> dict[str, Any] | None:
+        with self.session_factory() as session:
+            job = session.get(Job, job_id)
+            return job_to_dict(job) if job else None
+
+    def job_for_image(self, image_sha256: str) -> dict[str, Any] | None:
+        """The newest job for these exact bytes, unless it failed.
+
+        This is what stops one photo being paid for twice. A failed job is not
+        returned, so re-uploading after a timeout retries rather than handing
+        back a dead job id; re-reading a photo under a new prompt version is
+        deliberate work and is not blocked here either.
+        """
+        with self.session_factory() as session:
+            job = session.scalars(
+                select(Job).where(Job.image_sha256 == image_sha256)
+                .order_by(Job.created_at.desc(), Job.id)
+            ).first()
+            if job is None or job.status == "failed":
+                return None
+            return job_to_dict(job)
 
 
 def default_repository(purchases_path: str | Path | None = None) -> Repository:

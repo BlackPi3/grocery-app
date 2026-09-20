@@ -97,6 +97,29 @@ class InsightsDocument(BaseModel):
     cross_store: dict[str, Any]
 
 
+class JobDocument(BaseModel):
+    """One extraction job, as the phone polls it.
+
+    `cost_usd` is in dollars because the provider bills in dollars; the euro
+    amounts elsewhere come off a receipt and are a different thing.
+    """
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+    job_id: str
+    status: Literal["queued", "running", "done", "failed"]
+    image_sha256: str
+    original_filename: str | None
+    receipt_id: int | None = Field(description="The receipt, once the job is done")
+    model: str | None
+    prompt_version: str | None
+    cost_usd: float | None
+    error: str | None
+    created_at: str | None
+    started_at: str | None
+    finished_at: str | None
+
+
 class Health(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -104,3 +127,6 @@ class Health(BaseModel):
     purchases_contract_version: int
     insights_contract_version: int
     receipts: int = Field(description="Receipts behind the served history")
+    uploads: bool = Field(
+        default=False,
+        description="Whether this server can accept a photo at POST /v1/receipts")
