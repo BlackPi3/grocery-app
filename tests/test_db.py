@@ -137,8 +137,17 @@ def test_import_then_serve_matches_the_files(engine, session, data):
         "products": 2, "receipts": 2, "resolutions": 2, "listings": 1, "line_resolutions": 1}
     assert summary["line_resolutions_skipped"] == []
 
-    served = PostgresRepository(make_session_factory(engine)).purchases()
-    assert served == build_purchases(*_paths(data))
+    from_files = build_purchases(*_paths(data))
+    repository = PostgresRepository(make_session_factory(engine))
+    assert repository.purchases() == from_files
+
+    # And the same again over HTTP: the tables, the normalizer and the wire
+    # format together must produce the document the files produce.
+    from fastapi.testclient import TestClient
+
+    from grocery_app.api.app import create_app
+
+    assert TestClient(create_app(repository)).get("/v1/purchases").json() == from_files
 
 
 def test_import_twice_updates_and_adds_nothing(session, data):

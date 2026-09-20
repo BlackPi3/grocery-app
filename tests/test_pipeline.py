@@ -88,8 +88,7 @@ def test_the_server_serves_what_the_normalizer_built(data):
     PurchasesDocument.model_validate(purchases)
 
     client = TestClient(create_app(InMemoryRepository(purchases)))
-    served = client.get("/v1/purchases").json()
-    assert served["meta"] == purchases["meta"]
-    assert [p["raw_name"] for p in served["purchases"]] == \
-        [p["raw_name"] for p in purchases["purchases"]]
+    # The whole document, not a summary of it: comparing only `meta` and the
+    # names let the server add null attributes to unresolved lines unnoticed.
+    assert client.get("/v1/purchases").json() == purchases
     assert client.get("/v1/insights").json() == build_insights(purchases)

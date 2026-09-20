@@ -41,7 +41,12 @@ def create_app(repository: Repository) -> FastAPI:
             receipts=doc.get("meta", {}).get("receipts", 0),
         )
 
-    @app.get("/v1/purchases", response_model=PurchasesDocument)
+    # `exclude_unset` is what makes "exactly as the CLI writes it" true: the
+    # normalizer omits the product attributes on an unresolved line, and
+    # without this the response model would send them as seven explicit nulls.
+    # Nulls the document really does carry (unit_price, tax_class) still go out.
+    @app.get("/v1/purchases", response_model=PurchasesDocument,
+             response_model_exclude_unset=True)
     def purchases() -> PurchasesDocument:
         """The purchases.json contract, exactly as the CLI writes it."""
         return PurchasesDocument.model_validate(repository.purchases())
