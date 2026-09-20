@@ -156,10 +156,18 @@ def main() -> None:
         "db",
         help="The PostgreSQL store behind `serve` (needs the 'api' extra and DATABASE_URL)",
     )
-    d.add_argument("action", choices=["upgrade"],
-                   help="upgrade: apply the migrations up to the current revision")
+    d.add_argument("action", choices=["upgrade", "import", "export"],
+                   help="upgrade: apply the migrations; import: load the data/ files into "
+                        "the tables (idempotent); export: write the tables out as files")
     d.add_argument("--url", default=None,
                    help="Database URL; defaults to the DATABASE_URL environment variable")
+    d.add_argument("--receipts-dir", default="data/receipts/truth")
+    d.add_argument("--products", default="data/products/products.json")
+    d.add_argument("--resolution", default="data/products/resolution.json")
+    d.add_argument("--line-resolutions", default="data/receipts/line_resolutions.json")
+    d.add_argument("--products-dir", default="data/products")
+    d.add_argument("--out", default=None,
+                   help="export: directory to write the data/ layout into (required)")
 
     args = parser.parse_args()
 
@@ -323,14 +331,16 @@ def main() -> None:
             import uvicorn
 
             from grocery_app.api.app import create_app
-            from grocery_app.api.repository import JsonRepository
+            from grocery_app.api.repository import default_repository
         except ImportError as exc:
             raise SystemExit(
                 f"the HTTP layer is not installed ({exc.name}); run: pip install -e '.[api]'"
             ) from exc
-        print(f"Serving {args.purchases} at http://{args.host}:{args.port} "
-              f"(docs at /docs)")
-        uvicorn.run(create_app(JsonRepository(args.purchases)), host=args.host, port=args.port)
+        repository = default_repository(args.purchases)
+        source = "PostgreSQL (DATABASE_URL)" if type(repository).__name__ == "PostgresRepository" \
+            else args.purchases
+        print(f"Serving {source} at http://{args.host}:{args.port} (docs at /docs)")
+        uvicorn.run(create_app(repository), host=args.host, port=args.port)
 
     if args.command == "db":
         from grocery_app.db.migrate import upgrade
@@ -342,6 +352,29 @@ def main() -> None:
         if args.action == "upgrade":
             upgrade(url)
             print("Database is at the current revision")
+            return
+        from grocery_app.db.io import export_data, import_data
+        from grocery_app.db.session import make_engine, make_session_factory
+
+        factory = make_session_factory(make_engine(url))
+        if args.action == "import":
+            with factory() as session:
+                summary = import_data(session, args.receipts_dir, args.products, args.resolution,
+                                      args.line_resolutions, args.products_dir)
+                session.commit()
+            for kind in ("products", "receipts", "resolutions", "listings", "line_resolutions"):
+                print(f"  {kind + ':':<18}{summary[kind]['added']} added, "
+                      f"{summary[kind]['updated']} updated")
+            for image in summary["line_resolutions_skipped"]:
+                print(f"  SKIPPED line answer for {image}: no such receipt")
+        if args.action == "export":
+            if not args.out:
+                raise SystemExit("export needs --out DIR (it will not write into data/ unasked)")
+            with factory() as session:
+                counts = export_data(session, args.out)
+            print(f"Wrote the data/ layout to {args.out}")
+            for kind, n in counts.items():
+                print(f"  {kind + ':':<18}{n}")
 
     if args.command == "eval":
         report = evaluate(args.truth_dir, args.pred_dir, tuple(args.exclude_store))

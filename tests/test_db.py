@@ -114,3 +114,75 @@ def test_the_same_text_at_the_same_store_resolves_once(session):
                            product_id="p-0001"))
     with pytest.raises(IntegrityError):
         session.commit()
+
+
+# --- the files, the tables, and the server agree ------------------------------
+
+
+def _paths(root):
+    return (root / "receipts" / "truth", root / "products" / "products.json",
+            root / "products" / "resolution.json", root / "receipts" / "line_resolutions.json",
+            root / "products")
+
+
+def test_import_then_serve_matches_the_files(engine, session, data):
+    """The phase 1 seam: the same purchases.json from the tables as from the files."""
+    from grocery_app.api.repository import PostgresRepository
+    from grocery_app.db.io import import_data
+    from grocery_app.normalizer import build_purchases
+
+    summary = import_data(session, *_paths(data))
+    session.commit()
+    assert {k: v["added"] for k, v in summary.items() if isinstance(v, dict)} == {
+        "products": 2, "receipts": 2, "resolutions": 2, "listings": 1, "line_resolutions": 1}
+    assert summary["line_resolutions_skipped"] == []
+
+    served = PostgresRepository(make_session_factory(engine)).purchases()
+    assert served == build_purchases(*_paths(data))
+
+
+def test_import_twice_updates_and_adds_nothing(session, data):
+    from sqlalchemy import func
+
+    from grocery_app.db.io import import_data
+    from grocery_app.db.models import LineResolution
+
+    import_data(session, *_paths(data))
+    session.commit()
+    again = import_data(session, *_paths(data))
+    session.commit()
+    assert all(v["added"] == 0 for v in again.values() if isinstance(v, dict))
+    assert again["receipts"]["updated"] == 2
+    assert session.scalar(select(func.count()).select_from(ReceiptLine)) == 6
+    assert session.scalar(select(func.count()).select_from(LineResolution)) == 1, \
+        "a line answer survives its receipt being re-imported"
+
+
+def test_export_reproduces_the_files(session, data, tmp_path):
+    import json
+
+    from grocery_app.db.io import export_data, import_data
+    from grocery_app.normalizer import build_purchases, receipt_files
+    from tests.conftest import LINE_RESOLUTIONS, LISTINGS, PRODUCTS, RESOLUTION
+
+    import_data(session, *_paths(data))
+    session.commit()
+    out = tmp_path / "export"
+    counts = export_data(session, out)
+    assert counts == {"receipts": 2, "products": 2, "resolutions": 2, "listings": 1,
+                      "line_resolutions": 1}
+
+    def load(path):
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    for original in receipt_files(data / "receipts" / "truth"):
+        assert load(out / "receipts" / "truth" / original.name) == load(original)
+    assert load(out / "products" / "products.json")["products"] == PRODUCTS["products"]
+    by_name = sorted(load(out / "products" / "resolution.json")["entries"],
+                     key=lambda e: e["raw_name"])
+    assert by_name == sorted(RESOLUTION["entries"], key=lambda e: e["raw_name"])
+    assert load(out / "products" / "musterladen" / "listings.json")["listings"] == \
+        LISTINGS["listings"]
+    assert load(out / "receipts" / "line_resolutions.json")["entries"] == \
+        LINE_RESOLUTIONS["entries"]
+    assert build_purchases(*_paths(out)) == build_purchases(*_paths(data))
