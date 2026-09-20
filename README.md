@@ -23,6 +23,15 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 - **API**: `grocery-app serve` exposes the same two documents over HTTP (`/v1/purchases`, `/v1/insights`, OpenAPI at `/docs`), from the JSON files or from PostgreSQL (`grocery-app db upgrade`, `db import`, `db export`); the same normalizer runs either way, and a test proves the two agree. With PostgreSQL it also takes photos: `POST /v1/receipts` stores the image, returns a job id, and extracts in the background; `GET /v1/jobs/{id}` reports `queued` / `running` / `done` / `failed` with the model's cost. One photo is never extracted twice. A shopper can read a receipt back (`GET /v1/receipts/{id}`), say what a line actually was (`PUT .../lines/{position}/resolution`), and mark a receipt as a duplicate (`PATCH /v1/receipts/{id}`) — the corrections land in `line_resolutions` and `db export` writes them back out for the catalog loop. The plan, and what is deliberately not done yet, is in `docs/designs/backend-api.md`.
 - **Demo**: a self-contained static web page (`web/index.html`) presenting the history and the insights in a mobile-style layout, live at **https://blackpi3.github.io/grocery-app/**. The two JSON files it reads are my real shopping history, published deliberately.
 
+## Produce
+
+Loose produce has no barcode, no article number and no brand, so the route that resolves
+packaged goods — a store's online catalogue — cannot touch it. `grocery-app produce
+propose` matches printed names against a store-independent vocabulary of *kinds*
+(`Gurke Stk`, `Salatgurken St` and `Gurken` are all `Gurken`) and writes a CSV to review;
+`produce confirm` mints the kinds and resolves them at every store at once. The design,
+including what it deliberately does not model, is in `docs/designs/produce-vocabulary.md`.
+
 ## What it says today
 
 From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insights use the 106 of 237 lines (49% of spend) that resolve to a catalog product; the rest counts as money only, and the demo says so in its footer.

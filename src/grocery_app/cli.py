@@ -144,6 +144,23 @@ def main() -> None:
     n.add_argument("--cache-dir", default="data/products/off")
     n.add_argument("--force", action="store_true", help="Re-ask even for cached barcodes")
 
+    pr = subparsers.add_parser(
+        "produce",
+        help="Resolve loose produce, which has no barcode and no article number, "
+             "through a store-independent vocabulary of kinds",
+    )
+    pr.add_argument("action", choices=["propose", "confirm"],
+                    help="propose: write a review CSV of unresolved names; "
+                         "confirm: write the rows you marked into the catalog")
+    pr.add_argument("--purchases", default="data/purchases.json",
+                    help="propose: the history to read unresolved names from")
+    pr.add_argument("--out", default="data/products/proposals/produce.csv",
+                    help="propose: where to write the review CSV")
+    pr.add_argument("--reviewed", default="data/products/proposals/produce.csv",
+                    help="confirm: the CSV you marked up")
+    pr.add_argument("--products", default="data/products/products.json")
+    pr.add_argument("--resolution", default="data/products/resolution.json")
+
     s = subparsers.add_parser(
         "serve",
         help="Serve purchases.json and the insights over HTTP (needs the 'api' extra)",
@@ -325,6 +342,34 @@ def main() -> None:
         print(f"\n{summary['with_ean']} products with a barcode, {summary['found']} found "
               f"({summary['cached']} answered from cache), "
               f"{summary['filled']} attributes filled")
+
+    if args.command == "produce":
+        from grocery_app import produce as produce_module
+
+        if args.action == "propose":
+            rows = produce_module.propose(load_purchases(args.purchases))
+            produce_module.write_proposals(rows, args.out)
+            guessed = [r for r in rows if r["kind"]]
+            lines = sum(r["lines"] for r in guessed)
+            print(f"Wrote {len(rows)} rows to {args.out}")
+            print(f"  the vocabulary has a guess for: {len(guessed)} names, {lines} lines")
+            print(f"  no guess (mark them or leave them): {len(rows) - len(guessed)}")
+            print("  mark `decision` y / n, or type a kind name to override, then:")
+            print(f"    grocery-app produce confirm --reviewed {args.out}")
+            return
+
+        summary = produce_module.confirm(args.reviewed, args.products, args.resolution)
+        print(f"Confirmed into {args.products}, {args.resolution}")
+        print(f"  new produce kinds:      {summary['products']}")
+        print(f"  new resolution entries: {summary['entries']}")
+        if summary["rejected"]:
+            print(f"  rejected:               {summary['rejected']}")
+        if summary["skipped"]:
+            print(f"  already known, skipped: {summary['skipped']}")
+        if summary["undecided"]:
+            print(f"  left undecided:         {summary['undecided']}")
+        for name in sorted(set(summary["new_kinds"])):
+            print(f"  NOT IN THE VOCABULARY yet: {name!r} — add it to produce.py")
 
     if args.command == "serve":
         try:
