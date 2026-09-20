@@ -1,6 +1,7 @@
 # Design: The Backend
 
-Status: phases 0 and 1 built (2026-09-18). Phases 2 and 3 are specified and not started.
+Status: phases 0 and 1 built (2026-09-18). Phase 2 is under way (the `jobs` table is
+built; the routes are not). Phase 3 is specified and not started.
 This is the document a future session picks up from; the checklist at the end says where.
 
 ## Why a backend
@@ -161,11 +162,30 @@ the product is about; nothing else gets a write endpoint until they work.
 | `PUT /v1/receipts/{id}/lines/{position}/resolution` | The shopper's answer for one line: a `product_id` from the family, or `null` to withdraw it. Writes `line_resolutions`. |
 | `PATCH /v1/receipts/{id}` | `is_duplicate`, `store` correction, nothing else |
 
-**Jobs**: a `jobs` table and a worker loop in the same process (FastAPI
-`BackgroundTasks` is enough for one user; a queue is a later problem). Extraction
-costs money per call (see `receipt-ingestion-pipeline.md` for the numbers), so the job
-stores the model, prompt version and cost, the same as the `.meta.json` sidecar does
-today, and a receipt is never extracted twice for the same image hash.
+**Jobs** (built, `db/models.py`): a `jobs` table and a worker loop in the same process
+(FastAPI `BackgroundTasks` is enough for one user; a queue is a later problem).
+Extraction costs money per call, so the job stores the model, prompt version, request
+id, token usage and cost — the same facts as the `.meta.json` sidecar `extract` writes
+today — and a photo is never extracted twice for the same image hash.
+
+Four decisions the table encodes:
+
+- **The row is the record; the queue is a hint.** A queue forgets an item once a worker
+  takes it, and `BackgroundTasks` is an in-process list that dies with the process. So
+  the row is written and committed *before* any work is scheduled. Recovery, if it is
+  ever needed, is a startup scan for `queued` rows; moving to Redis later changes the
+  line that schedules work and nothing else.
+- **`jobs.image_sha256` is indexed, not unique.** It answers "have I already paid to
+  read this photo?" before a model is called. Unique would forbid re-extracting one
+  photo under a new `prompt_version`, which is deliberate work this project does.
+  `receipts.image_sha256` is likewise not unique: two photos of one paper are a
+  duplicate receipt (`is_duplicate`), a judgement rather than a constraint.
+- **The id is a uuid.** It is the one id a client holds and quotes back.
+- **`cost_usd` is `Numeric(10, 5)` and stays in dollars.** The provider bills in
+  dollars and one extraction costs fractions of a cent; converting to euros would mean
+  inventing an exchange rate for a date. It is not the `Money` type, which is euros off
+  a receipt. A job also outlives the receipt it produced (`ON DELETE SET NULL`): what
+  was spent was still spent.
 
 **A model-extracted receipt is not truth.** It enters `receipts` with
 `transcribed_by = "llm"`, and the eval harness keeps scoring the model against the
@@ -236,7 +256,26 @@ Phase 1, in order:
    (`tests/test_db.py::test_import_then_serve_matches_the_files`).
 7. Done: `serve` and `default_app()` pick PostgreSQL when `DATABASE_URL` is set.
 
-Phase 1 is complete. Phase 2 starts with the `jobs` table and `POST /v1/receipts`.
+Phase 1 is complete. Phase 2, in order:
+
+1. Done: the `jobs` table, `receipts.image_sha256`, migration `0003`, and the job
+   tests in `tests/test_db.py`.
+2. `ImageStore` beside `Repository`: `put(sha256, data)` / `path(sha256)`, with
+   `DiskImageStore(root)` from `GROCERY_IMAGES` as the only implementation. Object
+   storage (R2/S3) is the phase 3 swap; the protocol is what makes it a swap. Store
+   the bytes as uploaded, not the downscaled copy `prepare_image` makes, so a better
+   prompt can be run against the original.
+3. `POST /v1/receipts` and `GET /v1/jobs/{id}`, with the runner. `create_app` takes
+   the extraction function as an argument, defaulting to `None` rather than to the
+   real one, so no test can reach a paid API by forgetting an argument. The runner
+   takes a `job_id` and opens its own session: the request's session is closed by the
+   time a background task runs. `python-multipart` goes in the `api` extra for
+   `UploadFile`.
+4. `GET /v1/receipts/{id}`, `PUT /v1/receipts/{id}/lines/{position}/resolution`,
+   `PATCH /v1/receipts/{id}`. Writes need a repository that can write: keep
+   `Repository` as the read protocol, add a write protocol, and register the write
+   routes only for a repository that satisfies it, so the file-backed server keeps
+   serving reads.
 
 Each step is one PR with tests on made-up data (`CLAUDE.md` rules apply: every branch
 gets a PR, CI must be green).
