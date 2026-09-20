@@ -78,7 +78,13 @@ def test_a_receipt_round_trips_with_its_lines(session):
 
 
 def test_a_receipt_line_cannot_carry_a_product_id():
-    assert not hasattr(ReceiptLine, "product_id"), "resolution is a join, not a column"
+    """The rule from docs/data-layout.md: a receipt says what was printed,
+    never which catalog entry it means. Checked on the table, which is what
+    the migration creates, rather than on the class."""
+    columns = set(ReceiptLine.__table__.columns.keys())
+    assert "product_id" not in columns, "resolution is a join, not a column"
+    assert "tax_rate" not in columns, "the rate is the normalizer's reading, not truth"
+    assert "tax_class" in columns
 
 
 def test_resolution_holds_a_product_or_a_family(session):
@@ -137,8 +143,17 @@ def test_import_then_serve_matches_the_files(engine, session, data):
         "products": 2, "receipts": 2, "resolutions": 2, "listings": 1, "line_resolutions": 1}
     assert summary["line_resolutions_skipped"] == []
 
-    served = PostgresRepository(make_session_factory(engine)).purchases()
-    assert served == build_purchases(*_paths(data))
+    from_files = build_purchases(*_paths(data))
+    repository = PostgresRepository(make_session_factory(engine))
+    assert repository.purchases() == from_files
+
+    # And the same again over HTTP: the tables, the normalizer and the wire
+    # format together must produce the document the files produce.
+    from fastapi.testclient import TestClient
+
+    from grocery_app.api.app import create_app
+
+    assert TestClient(create_app(repository)).get("/v1/purchases").json() == from_files
 
 
 def test_import_twice_updates_and_adds_nothing(session, data):
@@ -186,3 +201,82 @@ def test_export_reproduces_the_files(session, data, tmp_path):
     assert load(out / "receipts" / "line_resolutions.json")["entries"] == \
         LINE_RESOLUTIONS["entries"]
     assert build_purchases(*_paths(out)) == build_purchases(*_paths(data))
+
+
+def test_purchases_are_derived_on_every_call_not_stored(engine, session, data):
+    """The claim the design rests on: confirming a resolution changes what the
+    server says, with no re-import and no rebuild of purchases anywhere."""
+    from grocery_app.api.repository import PostgresRepository
+    from grocery_app.db.io import import_data
+
+    import_data(session, *_paths(data))
+    session.commit()
+    repository = PostgresRepository(make_session_factory(engine))
+
+    def geheimnis():
+        return next(p for p in repository.purchases()["purchases"]
+                    if p["raw_name"] == "Geheimnis")
+
+    assert geheimnis()["resolved"] is False
+    session.add(Resolution(store="Musterladen", raw_name="Geheimnis", line_type="product",
+                           product_id="p-0001", confirmed_by="test"))
+    session.commit()
+
+    now = geheimnis()
+    assert now["resolved"] is True
+    assert now["product"] == "Milch 1,5%"
+
+
+def test_an_answer_for_an_unknown_receipt_is_reported_not_applied(session, data, tmp_path):
+    """A line answer naming a receipt that is not there must not vanish
+    silently: the shopper would never learn their correction did nothing."""
+    import json
+
+    from grocery_app.db.io import import_data
+
+    answers = tmp_path / "line_resolutions.json"
+    answers.write_text(json.dumps({"meta": {"schema": 1}, "entries": [
+        {"source_image": "IMG_404.jpeg", "line_index": 0, "raw_name": "Geheimnis",
+         "product_id": "p-0001", "confirmed_by": "test", "confirmed_at": "2026-02-06",
+         "basis": "memory"}]}), encoding="utf-8")
+    receipts, products, resolution, _, products_dir = _paths(data)
+
+    summary = import_data(session, receipts, products, resolution, answers, products_dir)
+    session.commit()
+    assert summary["line_resolutions_skipped"] == ["IMG_404.jpeg"]
+    assert summary["line_resolutions"] == {"added": 0, "updated": 0}
+
+
+def test_the_cli_imports_and_exports_the_same_data(data, tmp_path, monkeypatch, capsys):
+    """The developer interface, end to end: files in through the CLI, files
+    back out through the CLI, and the pipeline reads the result."""
+    import sys
+
+    from grocery_app.cli import main
+    from grocery_app.normalizer import build_purchases
+
+    receipts, products, resolution, answers, products_dir = _paths(data)
+    out = tmp_path / "exported"
+    common = ["--url", URL, "--receipts-dir", str(receipts), "--products", str(products),
+              "--resolution", str(resolution), "--line-resolutions", str(answers),
+              "--products-dir", str(products_dir)]
+
+    monkeypatch.setattr(sys, "argv", ["grocery-app", "db", "import", *common])
+    main()
+    assert "receipts:         2 added" in capsys.readouterr().out
+
+    monkeypatch.setattr(sys, "argv", ["grocery-app", "db", "export", "--url", URL,
+                                      "--out", str(out)])
+    main()
+    assert build_purchases(*_paths(out)) == build_purchases(*_paths(data))
+
+
+def test_export_refuses_to_run_without_a_destination(monkeypatch):
+    """`--out` is required so an export can never overwrite data/ by default."""
+    import sys
+
+    from grocery_app.cli import main
+
+    monkeypatch.setattr(sys, "argv", ["grocery-app", "db", "export", "--url", URL])
+    with pytest.raises(SystemExit, match="--out"):
+        main()

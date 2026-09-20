@@ -11,9 +11,9 @@ from datetime import date
 import pytest
 from fastapi.testclient import TestClient
 
-from grocery_app.api.app import DEFAULT_PURCHASES, create_app, default_app
+from grocery_app.api.app import create_app, default_app
 from grocery_app.api.repository import InMemoryRepository, JsonRepository
-from grocery_app.api.schemas import Purchase, PurchasesDocument
+from grocery_app.api.schemas import Purchase
 from grocery_app.insights import build_insights
 from grocery_app.normalizer import save_json
 
@@ -59,11 +59,38 @@ def test_health_reports_contract_versions_and_receipts(client):
 
 
 def test_purchases_is_the_contract_unchanged(client):
+    """The wire format is the document, key for key.
+
+    Comparing against a copy re-normalized by the same schema would prove
+    nothing: it would hide exactly the kind of field the schema adds or drops
+    on the way out. So this compares with the document as written.
+    """
     r = client.get("/v1/purchases")
     assert r.status_code == 200
-    # Fields the normalizer leaves out for unresolved lines come back as null,
-    # so compare after the schema has normalized both sides.
-    assert r.json() == PurchasesDocument.model_validate(PURCHASES).model_dump()
+    assert r.json() == PURCHASES
+
+
+def test_an_unresolved_line_gains_no_attributes_on_the_wire(client):
+    """The normalizer omits the product attributes it does not know; so does
+    the server. A client must not see `brand: null` where there is no brand
+    field at all, or it will report a product with no brand."""
+    served = next(p for p in client.get("/v1/purchases").json()["purchases"]
+                  if not p["resolved"])
+    for field in ("product", "brand", "product_line", "variant", "category",
+                  "is_own_brand", "is_organic"):
+        assert field not in served
+    # A null the document does carry is still sent.
+    assert served["unit_price"] is None
+    assert served["product_id"] is None
+
+
+def test_a_resolved_line_keeps_its_attributes_on_the_wire(client):
+    served = next(p for p in client.get("/v1/purchases").json()["purchases"]
+                  if p["resolved"])
+    assert served["product"] == "Milch 1,5%"
+    assert served["brand"] == "Muster"
+    assert served["is_own_brand"] is True
+    assert served["variant"] is None, "a known-empty attribute is still sent"
 
 
 def test_insights_are_computed_from_the_served_history(client):
@@ -101,10 +128,30 @@ def test_json_repository_rereads_the_file(tmp_path):
 
 
 def test_default_app_reads_the_path_from_the_environment(tmp_path, monkeypatch):
+    """A 200 would prove nothing here: the default path answers too.
+
+    So the file at the configured path carries a receipt count no other file
+    has, and the response has to show it.
+    """
     path = tmp_path / "elsewhere.json"
+    save_json(dict(PURCHASES, meta=dict(PURCHASES["meta"], receipts=99)), path)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("GROCERY_PURCHASES", str(path))
+    assert TestClient(default_app()).get("/health").json()["receipts"] == 99
+
+
+def test_the_repository_is_chosen_by_the_environment(tmp_path, monkeypatch):
+    """Which store production reads from. Without a URL it is the file; with
+    one it is PostgreSQL, and no connection is made to decide that."""
+    from grocery_app.api.repository import JsonRepository as _Json
+    from grocery_app.api.repository import PostgresRepository, default_repository
+
+    path = tmp_path / "purchases.json"
     save_json(PURCHASES, path)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv("GROCERY_PURCHASES", str(path))
-    assert TestClient(default_app()).get("/health").status_code == 200
-    monkeypatch.delenv("GROCERY_PURCHASES")
-    assert DEFAULT_PURCHASES == "data/purchases.json"
+    chosen = default_repository()
+    assert isinstance(chosen, _Json) and chosen.purchases_path == path
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody@localhost:1/nothing")
+    assert isinstance(default_repository(), PostgresRepository)
