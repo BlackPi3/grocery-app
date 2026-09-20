@@ -228,14 +228,32 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
 
 ## Open questions
 
-- **Should a shopper's answer be able to resolve a line the catalog cannot place?**
-  Today it cannot: `normalize_line` only lets an answer narrow a family, on the
-  grounds that an answer naming a product outside the family is a stale note. That
-  reasoning holds when there *is* a family and does not hold when the name resolves
-  to nothing — which is the case for 109 of the real unresolved names, and exactly
-  the case the phone flow exists to fix. Changing it is a few lines in
-  `normalize_line`; it changes what `purchases.json` says, so it is a deliberate
-  decision, not a tidy-up.
+- **How does the shopper find the product to point at?** Settled for a family: the
+  candidates travel with the line (`candidate_ids`), so the phone shows two or three
+  rows. Unsettled for a line the catalog cannot place: there are no candidates by
+  definition, and a search box over a catalog of any size is the wrong thing to put
+  in front of someone holding a receipt. The intended answer is a ranked shortlist
+  computed server-side from signals that already exist — name similarity against the
+  catalog, the amount paid against `shelf_prices` (the same signal `priced_like`
+  uses), and what the shopper has bought before — offered as about five rows and a
+  "none of these". Unbuilt.
+- **And when the product is not in the catalog at all?** Then there is nothing to
+  point at, and the shopper needs to create one. Open Food Facts cannot help pick an
+  existing product (it does not know this catalog), but it is the right source for
+  minting a new one — and the receipt has no barcode while the item in the kitchen
+  does. Scan it, and OFF gives name, brand, size and category from an authoritative
+  source instead of a guess at a till abbreviation. `openfoodfacts.py` and
+  `products.eans` already exist; the flow does not.
+- **A shopper's answer is a judgement, not catalog fact, and people misclick.** It
+  is labelled `resolution: "user"` in every record, and carries `confirmed_by`,
+  `confirmed_at` and `basis`, so nothing is laundered into catalog fact. What is
+  missing is the review: (1) *contradictions* — the same store and printed name
+  answered as two different products, which means one is wrong by definition;
+  (2) *price outliers* — an answer pointing at a product whose shelf prices are
+  nowhere near what the line cost; (3) *promotion candidates* — the same answer
+  given three times is a missing `resolution.json` entry, and promoting it through
+  `confirm` on the laptop is the review. Per-line answers stay provisional for ever;
+  only that deliberate step turns one into a rule about what a word means.
 - **Where do products and resolutions get edited once the DB is live?** The current
   answer is: on the laptop, through `propose`/`confirm`, then `db import`. A phone
   flow for confirming a proposal is plausible and unspecified.
@@ -304,11 +322,13 @@ Phase 1 is complete. Phase 2, in order:
      re-extracting a photo cannot move it onto whatever now sits in that slot.
    - `is_duplicate` is not a label: the normalizer drops such a receipt, so the
      `PATCH` changes the money. `store` exists for the cropped-header photos.
-   - **Known limit, deliberate for now:** `normalize_line` applies an answer only
-     when it narrows a *family* (`pinpoint["product_id"] in ids`). An answer for a
-     name that resolves to nothing at all is stored and exported, and ignored by the
-     normalizer. That is the wrong half of the rule for the 109 unresolved names in
-     the real data, which resolve to nothing; see the open question below.
+   - An answer does two jobs (`normalize_line`): it narrows a family, and it places
+     a line the catalog cannot place at all. The second is how one product becomes
+     reachable from a *second store*, which is what `cross_store` in the insights
+     needs and what no amount of catalog work on one store can produce. An answer
+     *outside* a family the name does resolve to is still refused — a family is the
+     catalog's statement about what that name can mean — and an answer on a deposit
+     line is refused at both layers.
 
 Phase 2 is complete.
 

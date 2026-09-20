@@ -127,8 +127,21 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
                    shelf_prices: dict[str, set[float]] | None = None) -> dict[str, Any]:
     """Turn one parsed receipt line into an enriched purchase record.
 
-    `pinpoint` is the shopper's own answer for this line, when there is one:
-    it narrows a family to one product, and is labelled as coming from them.
+    `pinpoint` is the shopper's own answer for this line, when there is one.
+    It does two jobs, and is labelled `user` either way:
+
+    - it narrows a family to one product, when the till printed a name it
+      cannot tell apart;
+    - it places a line the catalog cannot place at all, which is how one
+      product becomes reachable from a second store. The till at Lidl prints
+      a different string for the bottle GLOBUS calls something else, and only
+      the shopper can say they are the same thing.
+
+    An answer *outside* a family the name does resolve to is still refused: a
+    family is the catalog's statement about what that name can mean, and an
+    answer contradicting it is a stale note, not new information. An answer on
+    a line that is not a product (a deposit) is refused for the same reason.
+
     `shelf_prices` (product_id -> prices ever seen on the shelf) lets the paid
     amount narrow a family when exactly one candidate has been sold at it.
     """
@@ -138,10 +151,13 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
     net_paid = line.get("net", 0.0)
     qty = line.get("qty", 1)
 
-    if pinpoint and pinpoint["product_id"] in ids and pinpoint["product_id"] in products:
-        # The receipt could not tell, the shopper could. It must stay inside the
-        # family the name resolves to; an answer outside it is a stale note.
-        ids = [pinpoint["product_id"]]
+    answered = pinpoint["product_id"] if pinpoint else None
+    # Inside the family when there is one; anything in the catalog when the
+    # name resolves to nothing, because then there is no statement to contradict.
+    usable = (answered in products and (answered in ids or not ids)
+              and line.get("type", "product") == "product")
+    if answered and usable:
+        ids = [answered]
         candidates = [products[ids[0]]]
         product_id, how = ids[0], "user"
     elif len(candidates) == 1:

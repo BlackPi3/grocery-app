@@ -269,7 +269,10 @@ def test_purchases_are_derived_on_every_call_not_stored(engine, session, data):
     from grocery_app.api.repository import PostgresRepository
     from grocery_app.db.io import import_data
 
-    import_data(session, *_paths(data))
+    # Without the line answers, so the only thing that resolves Geheimnis here
+    # is the catalog entry this test adds.
+    receipts, products, resolution, _, products_dir = _paths(data)
+    import_data(session, receipts, products, resolution, data / "absent.json", products_dir)
     session.commit()
     repository = PostgresRepository(make_session_factory(engine))
 

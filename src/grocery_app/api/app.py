@@ -30,6 +30,7 @@ from grocery_app.api.images import (
 from grocery_app.api.jobs import Extractor, anthropic_extractor, run_job
 from grocery_app.api.repository import (
     DEFAULT_PURCHASES,
+    NotAProductLine,
     NotFound,
     Repository,
     UnknownProduct,
@@ -206,7 +207,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                                                answer.confirmed_by, answer.basis)
         except NotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except UnknownProduct as exc:
+        except (UnknownProduct, NotAProductLine) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return ReceiptDocument.model_validate(updated)
 

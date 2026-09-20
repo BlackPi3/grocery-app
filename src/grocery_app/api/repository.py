@@ -39,6 +39,10 @@ class UnknownProduct(ValueError):
     """A resolution naming a product the catalog does not have."""
 
 
+class NotAProductLine(ValueError):
+    """An answer on a deposit line, which cannot be a product."""
+
+
 @runtime_checkable
 class WriteRepository(Protocol):
     """A repository that can accept a photo and the shopper's corrections.
@@ -175,6 +179,10 @@ class PostgresRepository:
         knows what it was. The answer is stored against the line's *text* as
         well as its position, so re-extracting the photo later cannot silently
         move it onto a different product.
+
+        Whether the normalizer can act on the answer is a separate question
+        answered in `normalize_line`; what is refused here is an answer that
+        could never be right — an unknown product, or a deposit line.
         """
         with self.session_factory() as session:
             row = self._get(session, receipt_id)
@@ -189,6 +197,9 @@ class PostgresRepository:
                 if existing is not None:
                     session.delete(existing)
             else:
+                if line.type != "product":
+                    raise NotAProductLine(
+                        f"line {position} is a {line.type} line, not a product")
                 if session.get(Product, product_id) is None:
                     raise UnknownProduct(f"no product {product_id}")
                 answer = existing or LineResolution(receipt_id=receipt_id, position=position)
