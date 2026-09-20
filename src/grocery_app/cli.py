@@ -293,6 +293,8 @@ def main() -> None:
         print(f"Confirmed into {args.products}, {args.resolution}, {args.listings}")
         print(f"  new products:  {summary['products']}")
         print(f"  new resolution entries: {summary['entries']}")
+        if summary["families"]:
+            print(f"  of those, families the shopper settles: {summary['families']}")
         print(f"  store listings written: {summary['listings']}")
         if summary.get("no_match"):
             print(f"  recorded as 'no match in catalog': {summary['no_match']}")
@@ -347,13 +349,23 @@ def main() -> None:
         from grocery_app import produce as produce_module
 
         if args.action == "propose":
-            rows = produce_module.propose(load_purchases(args.purchases))
+            # Decisions already made are carried over, so re-running after the
+            # vocabulary improves does not throw away a review.
+            before = produce_module.read_proposals(args.out)
+            rows = produce_module.propose(load_purchases(args.purchases), before)
             produce_module.write_proposals(rows, args.out)
             guessed = [r for r in rows if r["kind"]]
+            families = [r for r in guessed if "|" in r["kind"]]
             lines = sum(r["lines"] for r in guessed)
+            kept = sum(1 for r in rows if r["decision"])
             print(f"Wrote {len(rows)} rows to {args.out}")
             print(f"  the vocabulary has a guess for: {len(guessed)} names, {lines} lines")
+            print(f"  of those, ambiguous (pick one, or keep the family): {len(families)}")
             print(f"  no guess (mark them or leave them): {len(rows) - len(guessed)}")
+            if before:
+                dropped = sum(1 for r in before if r["decision"]) - kept
+                print(f"  decisions carried over: {kept}"
+                      + (f", cleared because the guess changed: {dropped}" if dropped else ""))
             print("  mark `decision` y / n, or type a kind name to override, then:")
             print(f"    grocery-app produce confirm --reviewed {args.out}")
             return
@@ -362,6 +374,8 @@ def main() -> None:
         print(f"Confirmed into {args.products}, {args.resolution}")
         print(f"  new produce kinds:      {summary['products']}")
         print(f"  new resolution entries: {summary['entries']}")
+        if summary["families"]:
+            print(f"  of those, families the shopper settles: {summary['families']}")
         if summary["rejected"]:
             print(f"  rejected:               {summary['rejected']}")
         if summary["skipped"]:

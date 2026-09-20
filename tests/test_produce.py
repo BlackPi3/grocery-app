@@ -25,12 +25,13 @@ from grocery_app.produce import (
 
 
 @pytest.mark.parametrize("printed, kind", [
-    ("Gurke Stk", "Gurken"),
-    ("Salatgurken St", "Gurken"),
-    ("Rispentomaten lose", "Tomaten"),
-    ("Datteltomaten 500g", "Tomaten"),
-    ("Paprika rot kg", "Paprika"),
-    ("Karotten", "Möhren"),
+    ("Gurke Stk", "Salatgurken"),
+    ("Salatgurken St", "Salatgurken"),
+    ("Mini Gurken 750g", "Mini-Gurken"),
+    ("Rispentomaten lose", "Rispentomaten"),
+    ("Datteltomaten 500g", "Datteltomaten"),
+    ("Paprika rot kg", "Paprika rot"),
+    ("Karotten", "Karotten"),
     ("Zwiebeln gelb1.5kg", "Zwiebeln"),
     ("Lauchzwiebeln Bund", "Lauchzwiebeln"),
 ])
@@ -44,6 +45,7 @@ def test_the_same_vegetable_at_two_stores_reaches_one_kind():
     shop, a vocabulary entry fixes the word everywhere."""
     assert match("Paprika rot lose").kind == match("Paprika rot kg").kind
     assert match("Gurke Stk").kind == match("Salatgurken St").kind
+    assert match("Snack Gurken").kind == match("Mini Gurken 750g").kind
 
 
 def test_quantity_and_packaging_are_not_identity():
@@ -74,6 +76,27 @@ def test_a_truncated_or_qualified_name_still_finds_its_kind():
     assert match("Minze, geschnit").kind == "Minze"
 
 
+def test_a_variety_is_its_own_kind_when_the_price_follows_it():
+    """Rispen at about a euro a kilo and Dattel at nearly four are not one
+    product: lumping them would read a change of variety as inflation, which
+    is a false number rather than a missing one."""
+    assert match("Rispentomaten lose").kind != match("Datteltomaten 500g").kind
+    assert match("Paprika rot kg").kind != match("Paprika grün lose").kind
+    assert match("Gurke Stk").kind != match("Snack Gurken").kind
+
+
+def test_a_generic_name_resolves_to_the_family_it_could_be():
+    """`Tomaten` on a till roll cannot say which tomato, and neither can this
+    module. The shopper can, so the name resolves to all of them — the same
+    shape the catalog already uses for a product line the till cannot split."""
+    found = match("Tomaten")
+    assert found.is_family and found.how == "family"
+    assert "Rispentomaten" in found.kinds and "Datteltomaten" in found.kinds
+    assert match("Gurken").kinds == ("Salatgurken", "Mini-Gurken")
+    with pytest.raises(ValueError, match="family"):
+        _ = found.kind
+
+
 def test_a_processed_fruit_is_not_the_fruit():
     """The failure mode prefix matching invites, and the reason for the veto:
     juice is not an orange, and jam is not a cherry."""
@@ -91,7 +114,7 @@ def test_a_name_the_vocabulary_has_never_seen_matches_nothing():
 def test_near_misses_are_offered_when_nothing_matched():
     """A misspelling or an unknown word still points the reviewer somewhere."""
     assert match("Tomatten") is None
-    assert "Tomaten" in near_misses("Tomatten")
+    assert "Rispentomaten" in near_misses("Tomatten")
     assert near_misses("Lenor WSP Basis 71") == []
 
 
@@ -129,7 +152,7 @@ def test_a_proposal_carries_the_weight_of_the_name_and_the_best_guess():
 
     assert rows["Gurke Stk"]["lines"] == 2
     assert rows["Gurke Stk"]["spend"] == "1.88"
-    assert rows["Gurke Stk"]["kind"] == "Gurken"
+    assert rows["Gurke Stk"]["kind"] == "Salatgurken"
     assert rows["Gurke Stk"]["confidence"] == "alias"
     assert rows["Choviva Kekstaler"]["kind"] == "", "no guess is an honest answer"
 
@@ -163,12 +186,12 @@ def test_one_kind_earns_one_id_and_every_store_resolves_to_it(catalog, tmp_path)
     rows = [dict(row, decision="y") for row in propose(PURCHASES) if row["kind"]]
     summary = confirm(reviewed(tmp_path, rows), products, resolution)
 
-    assert summary["products"] == 1, "Gurken, once"
+    assert summary["products"] == 1, "Salatgurken, once"
     assert summary["entries"] == 2, "one per store that prints a name for it"
 
     catalog_doc = json.loads(products.read_text(encoding="utf-8"))
     (product_id, product), = catalog_doc["products"].items()
-    assert product["name"] == "Gurken"
+    assert product["name"] == "Salatgurken"
     assert (product["brand"], product["eans"], product["category"]) == (None, [], "Produce")
 
     entries = json.loads(resolution.read_text(encoding="utf-8"))["entries"]
@@ -285,3 +308,53 @@ def test_the_cli_runs_the_whole_loop(tmp_path, monkeypatch, capsys):
     printed = capsys.readouterr().out
     assert "new produce kinds:      1" in printed
     assert "new resolution entries: 2" in printed
+
+
+def test_confirm_writes_a_family_the_shopper_can_settle(catalog, tmp_path):
+    """Two kinds on one row is not a merge: each earns its own id and the name
+    resolves to both, which is what makes the correction flow ask the question."""
+    products, resolution = catalog
+    doc = {"purchases": [{"type": "product", "store": "Musterladen", "resolved": False,
+                          "raw_name": "Gurken", "net_paid": 1.77}]}
+    rows = [dict(row, decision="y") for row in propose(doc)]
+    assert rows[0]["kind"] == "Salatgurken | Mini-Gurken"
+    summary = confirm(reviewed(tmp_path, rows), products, resolution)
+
+    assert (summary["products"], summary["entries"], summary["families"]) == (2, 1, 1)
+    (entry,) = json.loads(resolution.read_text(encoding="utf-8"))["entries"]
+    assert entry["product_id"] is None
+    assert len(entry["product_ids"]) == 2
+    assert entry["status"] == "ambiguous_on_receipt"
+
+
+def test_a_reviewer_can_narrow_a_family_to_one_kind(catalog, tmp_path):
+    products, resolution = catalog
+    doc = {"purchases": [{"type": "product", "store": "Musterladen", "resolved": False,
+                          "raw_name": "Gurken", "net_paid": 1.77}]}
+    rows = [dict(row, decision="Salatgurken") for row in propose(doc)]
+    summary = confirm(reviewed(tmp_path, rows), products, resolution)
+
+    assert (summary["products"], summary["families"]) == (1, 0)
+    (entry,) = json.loads(resolution.read_text(encoding="utf-8"))["entries"]
+    assert entry["product_id"] is not None and "product_ids" not in entry
+
+
+def test_a_review_survives_the_vocabulary_improving():
+    """Re-proposing must not throw away an afternoon of marking."""
+    before = propose(PURCHASES)
+    marked = [dict(row, decision="y") for row in before]
+    again = propose(PURCHASES, marked)
+    assert all(row["decision"] == "y" for row in again)
+
+
+def test_a_decision_is_cleared_when_the_guess_it_was_made_against_changes():
+    """The reviewer agreed to something that is no longer on offer, so they
+    have to look at it again."""
+    marked = [dict(row, decision="y",
+                   kind="Something Else" if row["raw_name"] == "Gurke Stk" else row["kind"])
+              for row in propose(PURCHASES)]
+    again = {row["raw_name"]: row for row in propose(PURCHASES, marked)}
+
+    assert again["Gurke Stk"]["decision"] == "", "the guess moved; look again"
+    assert again["Salatgurken St"]["decision"] == "y", "that guess did not move"
+    assert again["Choviva Kekstaler"]["decision"] == "y", "no guess either time, kept"

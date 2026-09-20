@@ -43,16 +43,31 @@ from grocery_app.resolver import fold, store_key
 # compares against; see `normalise`.
 VOCABULARY: dict[str, tuple[str, ...]] = {
     # --- vegetables ---
-    "Gurken": ("gurke", "gurken", "salatgurke", "salatgurken"),
-    "Mini-Gurken": ("mini gurken", "minigurken", "snack gurken", "snackgurken"),
-    "Tomaten": ("tomate", "tomaten", "rispentomaten", "datteltomaten", "romatomaten",
-                "cherrytomaten", "strauchtomaten", "kirschtomaten"),
-    "Paprika": ("paprika", "paprika rot", "paprika gelb", "paprika gruen", "paprika mix"),
+    # Split by size: a 750 g box of snack cucumbers is not big cucumbers in a
+    # bag, and costs about three times as much per kilo.
+    "Salatgurken": ("gurke", "salatgurke", "salatgurken", "schlangengurke"),
+    "Mini-Gurken": ("mini gurken", "minigurken", "minigurke", "snack gurken",
+                    "snackgurken"),
+    # Split by variety: across these, the paid price runs from under a euro a
+    # kilo to over four. One "Tomaten" product would read a change of variety
+    # as inflation, which is worse than having no number at all.
+    "Rispentomaten": ("rispentomaten", "strauchtomaten"),
+    "Datteltomaten": ("datteltomaten", "dattelcherrytomaten"),
+    "Romatomaten": ("romatomaten", "flaschentomaten"),
+    "Cherrytomaten": ("cherrytomaten", "kirschtomaten", "cocktailtomaten"),
+    "Fleischtomaten": ("fleischtomaten",),
+    # Split by colour, which the till prints and which the price follows.
+    "Paprika rot": ("paprika rot", "rote paprika"),
+    "Paprika grün": ("paprika gruen", "gruene paprika"),
+    "Paprika gelb": ("paprika gelb", "gelbe paprika"),
+    "Spitzpaprika": ("spitzpaprika",),
     "Zucchini": ("zucchini",),
-    "Zwiebeln": ("zwiebel", "zwiebeln", "speisezwiebeln", "zwiebeln rot", "zwiebeln gelb"),
+    "Zwiebeln": ("zwiebel", "zwiebeln", "speisezwiebeln", "zwiebeln gelb",
+                 "zwiebeln rot", "gemuesezwiebeln"),
     "Lauchzwiebeln": ("lauchzwiebel", "lauchzwiebeln", "fruehlingszwiebeln"),
     "Porree": ("porree", "lauch"),
-    "Möhren": ("moehren", "moehre", "karotten", "karotte", "mini moehren", "babymoehren"),
+    "Karotten": ("karotte", "karotten", "moehre", "moehren"),
+    "Mini-Karotten": ("mini karotten", "mini moehren", "minimoehren", "babymoehren"),
     "Radieschen": ("radieschen",),
     "Babyspinat": ("babyspinat", "baby spinat"),
     "Salatherzen": ("salatherzen", "salatherz"),
@@ -67,21 +82,33 @@ VOCABULARY: dict[str, tuple[str, ...]] = {
     "Johannisbeeren": ("johannisbeeren", "johannisbeer"),
     "Erdbeeren": ("erdbeeren",),
     "Himbeeren": ("himbeeren",),
-    "Kiwi": ("kiwi", "kiwi gruen", "kiwis"),
+    "Kiwis": ("kiwi", "kiwis", "kiwi gruen"),
     "Limetten": ("limette", "limetten"),
     "Zitronen": ("zitrone", "zitronen"),
     "Orangen": ("orange", "orangen"),
     "Nektarinen": ("nektarine", "nektarinen"),
     "Plattpfirsiche": ("plattpfirsiche", "plattpfirsich", "weinbergpfirsiche"),
-    "Wassermelone": ("wassermelone", "babywassermelone", "melone"),
+    "Wassermelonen": ("wassermelone", "wassermelonen", "babywassermelone", "melone"),
     "Physalis": ("physalis",),
-    "Avocado": ("avocado", "avocados"),
-    # --- fresh herbs, sold by the bunch ---
+    "Avocados": ("avocado", "avocados"),
+    # --- fresh herbs, sold by the bunch and never by variety ---
     "Schnittkräuter": ("schnittkraeuter",),
     "Dill": ("dill",),
     "Minze": ("minze",),
     "Petersilie": ("petersilie",),
     "Basilikum": ("basilikum",),
+}
+
+# The generic word, when the till prints only that. It cannot say which of the
+# varieties was in the basket, and neither can this module — but the shopper
+# can. A generic name resolves to the whole family, which is the same shape the
+# catalog already uses for `Dove Dusche`, so the existing correction flow asks
+# the question and records the answer with no new machinery.
+FAMILIES: dict[str, tuple[str, ...]] = {
+    "tomaten": ("Rispentomaten", "Datteltomaten", "Romatomaten", "Cherrytomaten",
+                "Fleischtomaten"),
+    "gurken": ("Salatgurken", "Mini-Gurken"),
+    "paprika": ("Paprika rot", "Paprika grün", "Paprika gelb"),
 }
 
 # A name that says the shopper chose the organic version. `bioft` is Bio
@@ -114,13 +141,30 @@ _MIN_PREFIX = 5
 
 @dataclass(frozen=True)
 class Match:
-    kind: str
+    """What a printed name could be: one kind, or a family of them."""
+
+    kinds: tuple[str, ...]
     is_organic: bool
-    how: str  # "alias" | "prefix"
+    how: str  # "alias" | "family" | "prefix"
+
+    @property
+    def kind(self) -> str:
+        if len(self.kinds) != 1:
+            raise ValueError(f"{self.kinds} is a family; use .kinds")
+        return self.kinds[0]
+
+    @property
+    def is_family(self) -> bool:
+        return len(self.kinds) > 1
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        """Product names, carrying Bio for a reader as `is_organic` does for code."""
+        return tuple(f"{kind} Bio" if self.is_organic else kind for kind in self.kinds)
 
     @property
     def product_name(self) -> str:
-        return f"{self.kind} Bio" if self.is_organic else self.kind
+        return self.names[0] if len(self.names) == 1 else " | ".join(self.names)
 
 
 def _tokens(raw_name: str) -> list[str]:
@@ -155,31 +199,35 @@ def normalise(raw_name: str) -> str:
     return " ".join(kept)
 
 
-_INDEX: dict[str, str] = {alias: kind for kind, aliases in VOCABULARY.items()
-                          for alias in aliases}
+_INDEX: dict[str, tuple[str, ...]] = {alias: (kind,) for kind, aliases in VOCABULARY.items()
+                                      for alias in aliases}
+_INDEX.update(FAMILIES)
 
 
 def match(raw_name: str) -> Match | None:
     """Propose a kind for a printed name, or nothing.
 
-    Two passes. An exact alias hit is the confident case. Failing that, a
-    two-way prefix: tills truncate (`Johannisbeer`, `BioBabyWasserme`) and
-    qualify (`mini moehren` for `Mini Möh.`), so either string may be the start
-    of the other. Both are only ever proposals — `produce propose` writes them
-    into a CSV a human decides on.
+    Two passes. An exact alias hit is the confident case — and when the alias
+    is a generic word, the hit is a whole family, because `Tomaten` on a till
+    roll genuinely does not say which tomato. Failing that, a two-way prefix:
+    tills truncate (`Johannisbeer`, `BioBabyWasserme`) and qualify
+    (`mini moehren` for `Mini Möh.`), so either string may be the start of the
+    other. All of it is only ever a proposal — `produce propose` writes it into
+    a CSV a human decides on.
     """
     key = normalise(raw_name)
     if not key:
         return None
     organic = is_organic(raw_name)
     if key in _INDEX:
-        return Match(_INDEX[key], organic, "alias")
+        kinds = _INDEX[key]
+        return Match(kinds, organic, "family" if len(kinds) > 1 else "alias")
     if any(word in key for word in PROCESSED):
         return None
-    for alias, kind in _INDEX.items():
+    for alias, kinds in _INDEX.items():
         if len(key) >= _MIN_PREFIX and len(alias) >= _MIN_PREFIX and \
                 (key.startswith(alias) or alias.startswith(key)):
-            return Match(kind, organic, "prefix")
+            return Match(kinds, organic, "prefix")
     return None
 
 
@@ -193,8 +241,9 @@ def near_misses(raw_name: str, limit: int = 3) -> list[str]:
     close = difflib.get_close_matches(key, list(_INDEX), n=limit, cutoff=0.6)
     seen: list[str] = []
     for alias in close:
-        if _INDEX[alias] not in seen:
-            seen.append(_INDEX[alias])
+        for kind in _INDEX[alias]:
+            if kind not in seen:
+                seen.append(kind)
     return seen
 
 
@@ -226,23 +275,42 @@ def unresolved_names(purchases_doc: dict[str, Any]) -> dict[tuple[str, str], dic
     return found
 
 
-def propose(purchases_doc: dict[str, Any]) -> list[dict[str, Any]]:
+def read_proposals(path: str | Path) -> list[dict[str, Any]]:
+    path = Path(path)
+    if not path.exists():
+        return []
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def propose(purchases_doc: dict[str, Any],
+            previous: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """A review row per unresolved name the vocabulary has an opinion about.
 
     Names it cannot place are included with an empty `kind` and whatever near
     misses there are, because "nothing matched" is information: it is how the
     vocabulary learns what it is missing.
+
+    `previous` carries decisions forward from an earlier round, so improving
+    the vocabulary does not throw away an afternoon of review. A decision is
+    only kept while the guess it was made against is unchanged: when the
+    proposal moves, the reviewer agreed to something that is no longer on
+    offer, so the row goes back to undecided and they see it again.
     """
+    decided = {(row["store"], row["raw_name"]): row for row in (previous or [])}
     rows = []
     for (store, raw_name), weight in unresolved_names(purchases_doc).items():
         found = match(raw_name)
+        kind = found.product_name if found else ""
+        before = decided.get((store, raw_name))
+        carried = (before or {}).get("decision", "") if (before or {}).get("kind") == kind else ""
         rows.append({
-            "decision": "",
+            "decision": carried,
             "store": store,
             "raw_name": raw_name,
             "lines": weight["lines"],
             "spend": f"{weight['spend']:.2f}",
-            "kind": found.product_name if found else "",
+            "kind": kind,
             "organic": "y" if found and found.is_organic else "",
             "confidence": found.how if found else "",
             "alternatives": ", ".join(near_misses(raw_name)) if not found else "",
@@ -272,7 +340,8 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
     """Write the rows a human marked into products and resolution.
 
     `decision` is `y` to accept the proposed kind, `n` to reject it, or the
-    name of a kind to use instead — typing `Kartoffeln` over a wrong guess is
+    name of a kind to use instead — several separated by `|` when the printed
+    name genuinely cannot say which of them it was — typing `Kartoffeln` over a wrong guess is
     the fastest correction there is, and a name the vocabulary has never heard
     of is allowed and reported, because that is a vocabulary gap the reviewer
     has just found.
@@ -287,8 +356,8 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
     by_name = {p["name"]: pid for pid, p in products_doc["products"].items()
                if p.get("category") == "Produce"}
     known = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]}
-    summary = {"products": 0, "entries": 0, "rejected": 0, "skipped": 0,
-               "new_kinds": [], "undecided": 0}
+    summary = {"products": 0, "entries": 0, "families": 0, "rejected": 0,
+               "skipped": 0, "new_kinds": [], "undecided": 0}
 
     with Path(reviewed_path).open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
@@ -302,50 +371,62 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
             summary["rejected"] += 1
             continue
 
-        name = row["kind"].strip() if decision.lower() == "y" else decision
-        if not name:
+        written = row["kind"] if decision.lower() == "y" else decision
+        names = [name.strip() for name in written.split("|") if name.strip()]
+        if not names:
             summary["undecided"] += 1
             continue
-        if decision.lower() != "y" and name not in VOCABULARY and \
-                name.removesuffix(" Bio") not in VOCABULARY:
-            summary["new_kinds"].append(name)
+        if decision.lower() != "y":
+            summary["new_kinds"] += [name for name in names if name not in VOCABULARY
+                                     and name.removesuffix(" Bio") not in VOCABULARY]
 
         if (store_key(row["store"]), row["raw_name"]) in known:
             summary["skipped"] += 1
             continue
 
-        product_id = by_name.get(name)
-        if product_id is None:
-            product_id = f"p-{products_doc['meta']['next_id']:04d}"
-            products_doc["meta"]["next_id"] += 1
-            products_doc["products"][product_id] = {
-                "label": _label(name),
-                # The name carries "Bio" because a person reads it; `is_organic`
-                # carries it because a machine does.
-                "name": name,
-                "brand": None,
-                "product_line": None,
-                "variant": None,
-                "size": None,
-                "category": "Produce",
-                "is_organic": name.endswith(" Bio") or (row.get("organic") or "") == "y",
-                "is_own_brand": None,
-                "eans": [],
-                "open_questions": [],
-                "provenance": {"attributes": "produce-vocabulary", "source": "hand"},
-            }
-            by_name[name] = product_id
-            summary["products"] += 1
+        ids = []
+        for name in names:
+            product_id = by_name.get(name)
+            if product_id is None:
+                product_id = f"p-{products_doc['meta']['next_id']:04d}"
+                products_doc["meta"]["next_id"] += 1
+                products_doc["products"][product_id] = {
+                    "label": _label(name),
+                    # The name carries "Bio" because a person reads it;
+                    # `is_organic` carries it because a machine does.
+                    "name": name,
+                    "brand": None,
+                    "product_line": None,
+                    "variant": None,
+                    "size": None,
+                    "category": "Produce",
+                    "is_organic": name.endswith(" Bio") or (row.get("organic") or "") == "y",
+                    "is_own_brand": None,
+                    "eans": [],
+                    "open_questions": [],
+                    "provenance": {"attributes": "produce-vocabulary", "source": "hand"},
+                }
+                by_name[name] = product_id
+                summary["products"] += 1
+            ids.append(product_id)
 
-        resolution_doc["entries"].append({
+        # Several kinds is not a merge and not a mistake: the till printed a
+        # word that cannot say which one, so the name resolves to all of them
+        # and the shopper settles it per line, exactly as for `Dove Dusche`.
+        entry = {
             "store": row["store"],
             "raw_name": row["raw_name"],
             "line_type": "product",
-            "product_id": product_id,
+            "product_id": ids[0] if len(ids) == 1 else None,
             "confirmed_by": "produce-vocabulary",
             "confirmed_at": date.today().isoformat(),
             "source": "produce-vocabulary",
-        })
+        }
+        if len(ids) > 1:
+            entry["product_ids"] = ids
+            entry["status"] = "ambiguous_on_receipt"
+            summary["families"] += 1
+        resolution_doc["entries"].append(entry)
         known.add((store_key(row["store"]), row["raw_name"]))
         summary["entries"] += 1
 
