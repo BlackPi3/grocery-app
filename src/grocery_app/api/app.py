@@ -7,7 +7,7 @@ is the latter, for uvicorn.
 
 The upload path needs three things the read path does not: somewhere to put
 the bytes (`image_store`), somewhere to track the work (a repository that
-satisfies `JobRepository`), and something that can read a photo
+satisfies `WriteRepository`), and something that can read a photo
 (`extractor`). Any of them missing is a 503 — an honest "this server cannot
 do that" — rather than a route that half works.
 
@@ -30,8 +30,10 @@ from grocery_app.api.images import (
 from grocery_app.api.jobs import Extractor, anthropic_extractor, run_job
 from grocery_app.api.repository import (
     DEFAULT_PURCHASES,
-    JobRepository,
+    NotFound,
     Repository,
+    UnknownProduct,
+    WriteRepository,
     default_repository,
 )
 from grocery_app.api.schemas import (
@@ -40,7 +42,10 @@ from grocery_app.api.schemas import (
     Health,
     InsightsDocument,
     JobDocument,
+    LineResolutionRequest,
     PurchasesDocument,
+    ReceiptDocument,
+    ReceiptPatch,
 )
 from grocery_app.insights import build_insights
 
@@ -60,7 +65,10 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         summary="Item-level grocery purchase history and the insights computed from it.",
     )
 
-    uploads_available = (isinstance(repository, JobRepository)
+    # Corrections need a database. A photo needs that and somewhere to put the
+    # bytes and something that can read them, so uploads are the stricter test.
+    writes_available = isinstance(repository, WriteRepository)
+    uploads_available = (writes_available
                          and image_store is not None and extractor is not None)
 
     @app.get("/health", response_model=Health)
@@ -72,6 +80,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
             insights_contract_version=INSIGHTS_CONTRACT_VERSION,
             receipts=doc.get("meta", {}).get("receipts", 0),
             uploads=uploads_available,
+            writes=writes_available,
         )
 
     # `exclude_unset` is what makes "exactly as the CLI writes it" true: the
@@ -101,7 +110,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         doc = build_insights(repository.purchases(), as_of=as_of_date)
         return InsightsDocument.model_validate(doc)
 
-    def require_uploads() -> JobRepository:
+    def require_uploads() -> WriteRepository:
         if not uploads_available:
             raise HTTPException(
                 status_code=503,
@@ -160,6 +169,60 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         if found is None:
             raise HTTPException(status_code=404, detail=f"no job {job_id}")
         return JobDocument.model_validate(found)
+
+    def require_writes() -> WriteRepository:
+        if not writes_available:
+            raise HTTPException(
+                status_code=503,
+                detail="this server cannot record corrections: it needs DATABASE_URL")
+        return repository  # type: ignore[return-value]
+
+    # The same `exclude_unset` rule as /v1/purchases: a line the normalizer
+    # left unresolved carries no product attributes, and the wire format must
+    # not invent them as nulls.
+    @app.get("/v1/receipts/{receipt_id}", response_model=ReceiptDocument,
+             response_model_exclude_unset=True)
+    def receipt(receipt_id: int) -> ReceiptDocument:
+        """One receipt as the paper has it, with the normalizer's reading of each line."""
+        found = require_writes().receipt(receipt_id)
+        if found is None:
+            raise HTTPException(status_code=404, detail=f"no receipt {receipt_id}")
+        return ReceiptDocument.model_validate(found)
+
+    @app.put("/v1/receipts/{receipt_id}/lines/{position}/resolution",
+             response_model=ReceiptDocument, response_model_exclude_unset=True)
+    def resolve_line(receipt_id: int, position: int,
+                     answer: LineResolutionRequest) -> ReceiptDocument:
+        """Say what one line actually was, or withdraw a previous answer.
+
+        The whole receipt comes back, because one answer can change more than
+        one line's reading: the same printed name on another line of the same
+        receipt is still resolved by the catalog, and the caller should see
+        the state it is now in rather than guess.
+        """
+        repo = require_writes()
+        try:
+            updated = repo.set_line_resolution(receipt_id, position, answer.product_id,
+                                               answer.confirmed_by, answer.basis)
+        except NotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except UnknownProduct as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return ReceiptDocument.model_validate(updated)
+
+    @app.patch("/v1/receipts/{receipt_id}", response_model=ReceiptDocument,
+               response_model_exclude_unset=True)
+    def correct_receipt(receipt_id: int, patch: ReceiptPatch) -> ReceiptDocument:
+        """Correct the store, or mark the receipt as a duplicate of another."""
+        repo = require_writes()
+        if patch.is_duplicate is None and patch.store is None:
+            raise HTTPException(status_code=422,
+                                detail="nothing to change: send is_duplicate or store")
+        try:
+            updated = repo.update_receipt(receipt_id, patch.is_duplicate, patch.store)
+        except NotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return ReceiptDocument.model_validate(updated)
 
     return app
 

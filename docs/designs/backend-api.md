@@ -1,8 +1,6 @@
 # Design: The Backend
 
-Status: phases 0 and 1 built (2026-09-18). Phase 2 is under way: a photo can be
-uploaded, extracted and served (2026-09-20); the correction routes are not built.
-Phase 3 is specified and not started.
+Status: phases 0, 1 and 2 built (2026-09-20). Phase 3 is specified and not started.
 This is the document a future session picks up from; the checklist at the end says where.
 
 ## Why a backend
@@ -159,9 +157,9 @@ the product is about; nothing else gets a write endpoint until they work.
 |---|---|
 | `POST /v1/receipts` (multipart photo) | Built. Stores the image, creates an extraction job, returns `202` with the job id — or `200` with the existing job when these exact bytes have been read before |
 | `GET /v1/jobs/{id}` | Built. `queued` / `running` / `done` / `failed`, with the receipt id when done and the cost when it is known |
-| `GET /v1/receipts/{id}` | The extracted receipt in the truth schema, plus which lines resolved and how |
-| `PUT /v1/receipts/{id}/lines/{position}/resolution` | The shopper's answer for one line: a `product_id` from the family, or `null` to withdraw it. Writes `line_resolutions`. |
-| `PATCH /v1/receipts/{id}` | `is_duplicate`, `store` correction, nothing else |
+| `GET /v1/receipts/{id}` | Built. The receipt in the truth schema, plus the normalizer's reading of every line, addressed by `position` |
+| `PUT /v1/receipts/{id}/lines/{position}/resolution` | Built. The shopper's answer for one line: a `product_id`, or `null` to withdraw it. Writes `line_resolutions`; returns the whole receipt, because one answer can change more than one line's reading |
+| `PATCH /v1/receipts/{id}` | Built. `is_duplicate`, `store` correction, nothing else |
 
 **Jobs** (built, `db/models.py`): a `jobs` table and a worker loop in the same process
 (FastAPI `BackgroundTasks` is enough for one user; a queue is a later problem).
@@ -230,6 +228,14 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
 
 ## Open questions
 
+- **Should a shopper's answer be able to resolve a line the catalog cannot place?**
+  Today it cannot: `normalize_line` only lets an answer narrow a family, on the
+  grounds that an answer naming a product outside the family is a stale note. That
+  reasoning holds when there *is* a family and does not hold when the name resolves
+  to nothing — which is the case for 109 of the real unresolved names, and exactly
+  the case the phone flow exists to fix. Changing it is a few lines in
+  `normalize_line`; it changes what `purchases.json` says, so it is a deliberate
+  decision, not a tidy-up.
 - **Where do products and resolutions get edited once the DB is live?** The current
   answer is: on the laptop, through `propose`/`confirm`, then `db import`. A phone
   flow for confirming a proposal is plausible and unspecified.
@@ -287,11 +293,41 @@ Phase 1 is complete. Phase 2, in order:
    - The extracted receipt enters `receipts` with `transcribed_by = "llm"`;
      `computed_total` and `reconciled` are dropped, being a reading of the lines
      rather than something the paper says.
-4. `GET /v1/receipts/{id}`, `PUT /v1/receipts/{id}/lines/{position}/resolution`,
-   `PATCH /v1/receipts/{id}`. Writes need a repository that can write: keep
-   `Repository` as the read protocol, add a write protocol, and register the write
-   routes only for a repository that satisfies it, so the file-backed server keeps
-   serving reads.
+4. Done: `GET /v1/receipts/{id}`, `PUT /v1/receipts/{id}/lines/{position}/resolution`,
+   `PATCH /v1/receipts/{id}`, and `pytest -m paid`. Notes:
+   - `Repository` is the read protocol and `WriteRepository` the write one; a
+     file-backed server keeps serving reads and answers 503 to a correction.
+     `/health` carries `writes` alongside `uploads`.
+   - A line is addressed by `position`, which is its index among the printed lines:
+     `normalize_receipt` emits exactly one record per line, in order.
+   - An answer is bound to the line's **text** as well as its position, so
+     re-extracting a photo cannot move it onto whatever now sits in that slot.
+   - `is_duplicate` is not a label: the normalizer drops such a receipt, so the
+     `PATCH` changes the money. `store` exists for the cropped-header photos.
+   - **Known limit, deliberate for now:** `normalize_line` applies an answer only
+     when it narrows a *family* (`pinpoint["product_id"] in ids`). An answer for a
+     name that resolves to nothing at all is stored and exported, and ignored by the
+     normalizer. That is the wrong half of the rule for the 109 unresolved names in
+     the real data, which resolve to nothing; see the open question below.
+
+Phase 2 is complete.
+
+### The paid seam check
+
+Nothing in the test suite calls a model: `create_app` takes the extractor as an
+argument with no default. That leaves one thing unproven — whether what the model
+returns *today* still fits the code that stores it — so there is exactly one test
+that makes a real call, marked `paid` and deselected by default:
+
+```
+DATABASE_URL=... GROCERY_TEST_PHOTO=data/receipts/photos/IMG_5384.jpeg pytest -m paid
+```
+
+**Run it before merging any change to `extract.py`, the receipt schema, or the
+upload route.** One photo is enough: "does it still fit?" is a yes-or-no question,
+and one answer is the same as twenty-seven. How *well* the model reads is a
+different question with a different tool — `grocery-app eval` over the whole set —
+and a different trigger: a new model, a new prompt, or new image settings.
 
 Each step is one PR with tests on made-up data (`CLAUDE.md` rules apply: every branch
 gets a PR, CI must be green).

@@ -70,6 +70,15 @@ Every change goes through a pull request with green CI (`ruff check src tests` a
 `pytest`). New behaviour comes with tests on made-up data; a change that touches a
 seam between stages extends `tests/test_pipeline.py`.
 
+No test may call a paid model: `create_app` takes the extractor as an argument with
+no default, so forgetting it is a 503 rather than a charge. The one test that does
+make a real call is marked `paid` and deselected by default. Run it before merging
+any change to `extract.py`, the receipt schema, or the upload route:
+
+```
+DATABASE_URL=... GROCERY_TEST_PHOTO=data/receipts/photos/IMG_5384.jpeg pytest -m paid
+```
+
 When making changes:
 - preserve the separation between parsing, normalization, and UI
 - keep artifacts like parsed.json and purchases.json well-structured and explicit

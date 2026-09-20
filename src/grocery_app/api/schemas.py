@@ -97,6 +97,52 @@ class InsightsDocument(BaseModel):
     cross_store: dict[str, Any]
 
 
+class ReceiptLineView(Purchase):
+    """A normalized line, with the position the correction routes address it by.
+
+    `position` is not part of the purchases contract — it is how a client
+    names one line of one receipt, and `normalize_receipt` emits exactly one
+    record per printed line, in order, so the index is the position.
+    """
+
+    position: int
+
+
+class ReceiptDocument(BaseModel):
+    """One receipt: what the paper says, and what the normalizer makes of it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    receipt_id: int
+    receipt: dict[str, Any] = Field(
+        description="The receipt in the truth schema, exactly as a truth file holds it")
+    lines: list[ReceiptLineView]
+
+
+class LineResolutionRequest(BaseModel):
+    """The shopper's answer for one line, or `product_id: null` to withdraw it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    product_id: str | None = Field(
+        description="A product id from the catalog, or null to withdraw the answer")
+    confirmed_by: str | None = Field(default=None,
+                                     description="Who answered; defaults to 'shopper'")
+    basis: str | None = Field(default=None, description="How they knew: memory, photo, ...")
+
+
+class ReceiptPatch(BaseModel):
+    """The two header facts a shopper can correct. Nothing else is writable."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    is_duplicate: bool | None = Field(
+        default=None,
+        description="The same paper photographed twice; a duplicate leaves the history")
+    store: str | None = Field(
+        default=None, description="The store, for a photo whose header was cropped off")
+
+
 class JobDocument(BaseModel):
     """One extraction job, as the phone polls it.
 
@@ -130,3 +176,6 @@ class Health(BaseModel):
     uploads: bool = Field(
         default=False,
         description="Whether this server can accept a photo at POST /v1/receipts")
+    writes: bool = Field(
+        default=False,
+        description="Whether this server can record corrections (needs a database)")
