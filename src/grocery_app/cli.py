@@ -166,7 +166,11 @@ def main() -> None:
         help="Write reviewed coarse rows (brand + product line, no invented variant "
              "and no invented EAN) into the catalog",
     )
-    co.add_argument("action", choices=["confirm"])
+    co.add_argument("action", choices=["propose", "confirm"])
+    co.add_argument("--purchases", default="data/purchases.json",
+                    help="propose: the history to read unresolved lines from")
+    co.add_argument("--out", default="data/products/proposals/coarse-resolution.csv",
+                    help="propose: where to write the review CSV")
     co.add_argument("--reviewed", default="data/products/proposals/coarse-resolution.csv",
                     help="the reviewed CSV: store, raw_name, route, brand, product, ean")
     co.add_argument("--products", default="data/products/products.json")
@@ -358,6 +362,21 @@ def main() -> None:
 
     if args.command == "coarse":
         from grocery_app import coarse as coarse_module
+
+        if args.action == "propose":
+            before = coarse_module.read_rows(args.out) if Path(args.out).exists() else []
+            rows = coarse_module.propose(load_purchases(args.purchases),
+                                         json.loads(Path(args.products).read_text("utf-8")),
+                                         before)
+            coarse_module.write_proposals(rows, args.out)
+            named = sum(1 for r in rows if r["brand"])
+            print(f"Wrote {len(rows)} rows to {args.out}")
+            print(f"  brand read off the printed line: {named}")
+            print(f"  no brand, name expanded only:    {len(rows) - named}")
+            print("  set `route` to ask / nonproduct / outofscope / dropped where it "
+                  "is not a product, then:")
+            print(f"    grocery-app coarse confirm --reviewed {args.out}")
+            return
 
         summary = coarse_module.confirm(args.reviewed, args.products, args.resolution)
         print(f"Confirmed into {args.products}, {args.resolution}")
