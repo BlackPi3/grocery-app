@@ -62,10 +62,13 @@ def type_of(products: dict[str, Any], name: str) -> str | None:
     catches the case where the two names are already the same words.
     """
     want = _flatten(name)
-    for product_id, product in products.items():
-        if not product.get("brand") and _flatten(product["name"]) == want:
-            return product_id
-    return None
+    hits = [pid for pid, product in products.items()
+            if not product.get("brand") and _flatten(product["name"]) == want]
+    # Two brandless products share the name `Potato chips` — different GLOBUS
+    # lines the earlier catalog work labelled the same. Picking one of them
+    # would attach a brand to whichever happened to be first, which is a
+    # coin toss written into the catalog. Ambiguity is reported instead.
+    return hits[0] if len(hits) == 1 else None
 
 
 def _label(name: str, brand: str | None) -> str:

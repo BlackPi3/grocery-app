@@ -290,3 +290,14 @@ def test_type_of_ignores_branded_products(typed):
     products_doc = read(products)
     assert type_of(products_doc["products"], "Knusperzeug gesalzen") is None, \
         "a branded product is never somebody's type"
+
+
+def test_a_name_two_types_share_links_to_neither(typed):
+    reviewed, products, resolution = typed
+    confirm(reviewed, products, resolution)
+
+    doc = read(products)
+    # A second brandless product labelled the same as the first.
+    doc["products"]["p-0099"] = dict(doc["products"][by_name(doc)["Kartoffelchips gesalzen"][0]])
+    assert type_of(doc["products"], "Kartoffelchips gesalzen") is None, \
+        "picking one would write a coin toss into the catalog"
