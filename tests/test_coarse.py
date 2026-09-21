@@ -193,3 +193,100 @@ def test_what_kind_of_line_it_is_survives_a_changed_proposal():
         "a bag is a bag however the name was expanded"
     assert rows_by_name(moved)["Rein WSP Basis 71"]["product"] == "Weichspüler Basis", \
         "the naming itself does not survive: that is what the reviewer agreed to"
+
+
+# --- types -------------------------------------------------------------------
+
+from grocery_app.coarse import type_of  # noqa: E402
+from grocery_app.product_store import problems  # noqa: E402
+
+TYPED = [
+    # the type: brandless
+    {"store": "Musterladen", "raw_name": "Kartoffelchips ges.", "route": "search",
+     "brand": "", "product": "Kartoffelchips gesalzen", "parent": "", "ean": "",
+     "options": "", "your_note": ""},
+    # a branded one whose own name says nothing about being a crisp
+    {"store": "Woanders", "raw_name": "Knusperzeug Salz", "route": "search",
+     "brand": "Knusperhaus", "product": "Knusperzeug gesalzen",
+     "parent": "Kartoffelchips gesalzen", "ean": "", "options": "", "your_note": ""},
+    # a branded one whose name already matches the type, said differently
+    {"store": "Woanders", "raw_name": "MH Kartoffelchips", "route": "search",
+     "brand": "Musterhof", "product": "Kartoffelchips, gesalzen", "parent": "",
+     "ean": "", "options": "", "your_note": ""},
+    # a type nobody has minted
+    {"store": "Musterladen", "raw_name": "Schaumzucker X", "route": "search",
+     "brand": "Schaumhaus", "product": "Schaumzucker", "parent": "Süßware",
+     "ean": "", "options": "", "your_note": ""},
+]
+
+
+@pytest.fixture
+def typed(tmp_path):
+    reviewed = tmp_path / "typed.csv"
+    with reviewed.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(TYPED[0]))
+        writer.writeheader()
+        writer.writerows(TYPED)
+    products = tmp_path / "products.json"
+    resolution = tmp_path / "resolution.json"
+    products.write_text(json.dumps({"meta": {"next_id": 1}, "products": {}}), encoding="utf-8")
+    resolution.write_text(json.dumps({"meta": {"schema": 1}, "entries": []}), encoding="utf-8")
+    return reviewed, products, resolution
+
+
+def by_name(products_doc):
+    return {p["name"]: (pid, p) for pid, p in products_doc["products"].items()}
+
+
+def test_a_brand_hangs_off_the_type_a_reviewer_named(typed):
+    reviewed, products, resolution = typed
+    summary = confirm(reviewed, products, resolution)
+
+    named = by_name(read(products))
+    type_id, _ = named["Kartoffelchips gesalzen"]
+    _, child = named["Knusperzeug gesalzen"]
+    assert child["parent_id"] == type_id, \
+        "only a person can know Knusperzeug is a crisp; they said so in `parent`"
+    assert summary["linked"] == 2
+
+
+def test_a_matching_name_finds_the_type_without_being_told(typed):
+    reviewed, products, resolution = typed
+    confirm(reviewed, products, resolution)
+
+    named = by_name(read(products))
+    type_id, _ = named["Kartoffelchips gesalzen"]
+    _, child = named["Kartoffelchips, gesalzen"]
+    assert child["parent_id"] == type_id, "same words, different punctuation"
+
+
+def test_the_type_itself_has_no_parent(typed):
+    reviewed, products, resolution = typed
+    confirm(reviewed, products, resolution)
+
+    _, node = by_name(read(products))["Kartoffelchips gesalzen"]
+    assert node.get("parent_id") is None, "a type is the top; chains make roll-up ambiguous"
+
+
+def test_a_type_that_does_not_exist_is_reported_not_invented(typed):
+    reviewed, products, resolution = typed
+    summary = confirm(reviewed, products, resolution)
+
+    assert summary["parent_not_found"] == ["Süßware"]
+    _, orphan = by_name(read(products))["Schaumzucker"]
+    assert orphan.get("parent_id") is None, "a typo must not silently mint a type"
+
+
+def test_the_linked_catalog_satisfies_the_store_invariants(typed):
+    reviewed, products, resolution = typed
+    confirm(reviewed, products, resolution)
+    assert problems(read(products), read(resolution)) == []
+
+
+def test_type_of_ignores_branded_products(typed):
+    reviewed, products, resolution = typed
+    confirm(reviewed, products, resolution)
+
+    products_doc = read(products)
+    assert type_of(products_doc["products"], "Knusperzeug gesalzen") is None, \
+        "a branded product is never somebody's type"

@@ -384,6 +384,9 @@ def main() -> None:
               f" ({summary['with_ean']} with a confirmed EAN)")
         print(f"  new resolution entries: {summary['entries']}")
         print(f"  already known, skipped: {summary['skipped_known']}")
+        print(f"  hung off a type:        {summary['linked']}")
+        for missing in dict.fromkeys(summary["parent_not_found"]):
+            print(f"  NO SUCH TYPE: {missing!r} — mint it as a brandless product first")
         for route, count in sorted(summary["by_route"].items()):
             if route not in coarse_module.WRITES:
                 why = coarse_module.SKIPS.get(route, "unknown route")

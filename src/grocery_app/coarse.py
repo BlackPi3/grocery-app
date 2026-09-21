@@ -48,7 +48,24 @@ SKIPS = {
     "outofscope": "not groceries",
 }
 
-FIELDS = ("store", "raw_name", "route", "brand", "product", "ean", "options", "your_note")
+FIELDS = ("store", "raw_name", "route", "brand", "product", "parent", "ean", "options",
+          "your_note")
+
+
+def type_of(products: dict[str, Any], name: str) -> str | None:
+    """The brandless product that `name` names, if the catalog holds one.
+
+    A type is matched on the flattened name so `Mozzarella gerieben` finds
+    `Mozzarella, gerieben`. It deliberately does not try to be clever: nothing
+    here can know that Chipsfrisch is a potato chip, so that link is made by a
+    reviewer writing the type's name in the `parent` column, and this only
+    catches the case where the two names are already the same words.
+    """
+    want = _flatten(name)
+    for product_id, product in products.items():
+        if not product.get("brand") and _flatten(product["name"]) == want:
+            return product_id
+    return None
 
 
 def _label(name: str, brand: str | None) -> str:
@@ -78,7 +95,8 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
     by_key = {(p.get("brand"), p["name"]): pid for pid, p in products_doc["products"].items()}
     known = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]}
     summary: dict[str, Any] = {"products": 0, "entries": 0, "skipped_known": 0,
-                               "with_ean": 0, "by_route": {}}
+                               "with_ean": 0, "linked": 0, "parent_not_found": [],
+                               "by_route": {}}
 
     for row in read_rows(reviewed_path):
         route = (row.get("route") or "").strip()
@@ -91,6 +109,7 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
             continue
         brand = (row.get("brand") or "").strip()
         ean = (row.get("ean") or "").strip()
+        wanted_parent = (row.get("parent") or "").strip()
 
         questions = []
         # A trailing `?` is the reviewer saying "this is my guess", which is a
@@ -126,6 +145,16 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
                 "provenance": {"attributes": "coarse-resolution",
                                "source": str(reviewed_path)},
             }
+            # A brand hangs off the type when the reviewer named one, or when
+            # the catalog already holds a brandless product by this name.
+            if brand:
+                parent_id = (type_of(products_doc["products"], wanted_parent)
+                             if wanted_parent else type_of(products_doc["products"], name))
+                if wanted_parent and parent_id is None:
+                    summary["parent_not_found"].append(wanted_parent)
+                elif parent_id:
+                    products_doc["products"][product_id]["parent_id"] = parent_id
+                    summary["linked"] += 1
             by_key[key] = product_id
             summary["products"] += 1
             if ean:
@@ -311,6 +340,9 @@ def propose(purchases_doc: dict[str, Any], products_doc: dict[str, Any],
             "route": carried.get("route") or "search",
             "brand": brand,
             "product": carried.get("product", name) if same else name,
+            # The type this belongs under, by name. Only a person can say that
+            # Chipsfrisch is a potato chip, so it is never proposed.
+            "parent": carried.get("parent", "") if same else "",
             # An EAN is the fine-grained identity and is never proposed; it is
             # filled in only by a scan or a reviewer who checked one.
             "ean": carried.get("ean", "") if same else "",

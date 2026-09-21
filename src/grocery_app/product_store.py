@@ -40,6 +40,23 @@ def problems(products_doc: dict[str, Any], resolution_doc: dict[str, Any]) -> li
         if not isinstance(product.get("eans"), list):
             found.append(f"{product_id}: eans is not a list")
 
+        # A type is the brandless node a branded product hangs off: `funny-frisch
+        # Chipsfrisch gesalzen` under `Kartoffelchips gesalzen`, so that spend and
+        # cadence have one thing to ask about instead of four unrelated ids. One
+        # level only — a chain would make "roll up" ambiguous and could cycle.
+        parent_id = product.get("parent_id")
+        if parent_id is None:
+            continue
+        parent = products.get(parent_id)
+        if parent is None:
+            found.append(f"{product_id}: parent {parent_id} does not exist")
+        elif parent_id == product_id:
+            found.append(f"{product_id}: is its own parent")
+        elif parent.get("brand"):
+            found.append(f"{product_id}: parent {parent_id} has a brand, so it is not a type")
+        elif parent.get("parent_id"):
+            found.append(f"{product_id}: parent {parent_id} has a parent of its own")
+
     seen: dict[tuple[str, str], Any] = {}
     for entry in resolution_doc["entries"]:
         name = f"{entry['store']} / {entry['raw_name']}"
