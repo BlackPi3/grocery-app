@@ -100,6 +100,14 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
             brand = ""
         if not ean:
             questions.append("variant unknown")
+        # A packaged good always has a brand on the box. Reaching here without
+        # one means nobody read it, not that there is none — and the difference
+        # matters, because the first is a gap worth closing and the second is a
+        # final answer. Produce mints its kinds elsewhere and says nothing here,
+        # which is right: no barcode exists, so nothing will ever supply one.
+        if not brand and not any(q.startswith("brand ") for q in questions):
+            # `brand uncertain: X` already says this and says more, so it wins.
+            questions.append("brand unknown")
 
         if (store_key(row["store"]), row["raw_name"]) in known:
             summary["skipped_known"] += 1
