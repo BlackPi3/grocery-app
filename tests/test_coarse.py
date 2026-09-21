@@ -103,3 +103,93 @@ def test_an_answer_already_given_is_never_overwritten(catalog):
     assert again["products"] == 0 and again["entries"] == 0
     assert again["skipped_known"] == 4
     assert len(read(resolution)["entries"]) == 4, "re-running writes no duplicates"
+
+
+# --- propose -----------------------------------------------------------------
+
+from grocery_app.coarse import brand_in, expand, propose, without  # noqa: E402
+
+PURCHASES = {
+    "purchases": [
+        {"type": "product", "store": "Musterladen", "raw_name": "Musterbrause 1,25l",
+         "resolved": False, "net_paid": 0.99},
+        {"type": "product", "store": "Woanders", "raw_name": "KBio Joghurt gr Art 1kg",
+         "resolved": False, "net_paid": 2.19},
+        {"type": "product", "store": "Musterladen", "raw_name": "Rein WSP Basis 71",
+         "resolved": False, "net_paid": 3.79},
+        {"type": "product", "store": "Musterladen", "raw_name": "Schon da",
+         "resolved": True, "net_paid": 1.00},
+    ],
+}
+CATALOG = {"products": {"p-0001": {"name": "Cola", "brand": "Muster-Brause"},
+                        "p-0002": {"name": "Weichspüler", "brand": "Rein"}}}
+
+
+def rows_by_name(previous=None):
+    return {r["raw_name"]: r for r in propose(PURCHASES, CATALOG, previous)}
+
+
+def test_a_brand_printed_on_the_line_is_read_not_guessed():
+    rows = rows_by_name()
+    assert rows["Rein WSP Basis 71"]["brand"] == "Rein"
+    assert rows["Rein WSP Basis 71"]["product"] == "Weichspüler Basis", \
+        "the brand is not repeated inside its own product name"
+
+
+def test_punctuation_does_not_hide_a_brand():
+    # The till prints "Musterbrause"; the catalog holds "Muster-Brause".
+    assert rows_by_name()["Musterbrause 1,25l"]["brand"] == "Muster-Brause"
+
+
+def test_an_own_brand_prefix_becomes_the_brand_and_leaves_the_name():
+    brand, name = expand("KBio Joghurt gr Art 1kg")
+    assert brand == "K-Bio"
+    assert name == "Joghurt griechischer Art", "multi-word abbreviation, quantity dropped"
+
+
+def test_expansion_keeps_the_case_the_till_printed():
+    _, name = expand("HP Skyr Drink 330")
+    assert name == "High Protein Skyr Drink", "not 'high protein skyr drink'"
+
+
+def test_an_unknown_token_is_kept_exactly_as_printed():
+    _, name = expand("Knurpsel Spezial 500g")
+    assert name == "Knurpsel Spezial", "nothing is invented for a word we do not know"
+
+
+def test_the_longest_matching_brand_wins():
+    # A line carrying both must not resolve to the shorter one.
+    assert brand_in("BIO BIO Heumilch 1L", ["BIO", "BIO BIO"]) == "BIO BIO"
+    assert brand_in("BB Heumil 1L", ["BIO", "BIO BIO"]) == "", \
+        "BB is an own-brand prefix, handled by expand, not a brand printed on the line"
+
+
+def test_without_leaves_the_name_alone_when_it_is_only_the_brand():
+    assert without("Rein", "Rein") == "Rein", "an empty product name helps nobody"
+
+
+def test_a_resolved_line_is_never_proposed():
+    assert "Schon da" not in rows_by_name()
+
+
+def test_an_ean_is_never_proposed():
+    assert all(r["ean"] == "" for r in propose(PURCHASES, CATALOG)), \
+        "a barcode is the fine-grained identity; it arrives by scan, not by guess"
+
+
+def test_a_naming_a_reviewer_edited_survives_while_the_proposal_does():
+    before = [dict(r, product="Weichspüler Aprilfrisch", your_note="checked the box")
+              for r in propose(PURCHASES, CATALOG)]
+    kept = rows_by_name(before)["Rein WSP Basis 71"]
+    assert kept["product"] == "Weichspüler Basis", \
+        "the edit was made against a proposal this row no longer carries"
+    assert kept["your_note"] == "", "and the note that went with it goes too"
+
+
+def test_what_kind_of_line_it_is_survives_a_changed_proposal():
+    before = [dict(r, route="nonproduct") for r in propose(PURCHASES, CATALOG)]
+    moved = [dict(r, product="Something else", brand="Someone else") for r in before]
+    assert rows_by_name(moved)["Rein WSP Basis 71"]["route"] == "nonproduct", \
+        "a bag is a bag however the name was expanded"
+    assert rows_by_name(moved)["Rein WSP Basis 71"]["product"] == "Weichspüler Basis", \
+        "the naming itself does not survive: that is what the reviewer agreed to"
