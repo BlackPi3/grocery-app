@@ -72,9 +72,28 @@ insight's `unknown` bucket rather than in `own_brand`.
 - **Deriving own-brand per line makes a new question askable.** Because the fact
   is about brand *and* chain, "am I buying ALDI's own labels when I shop at
   ALDI" is answerable, which it is not while the flag lives on the product.
-- **`brandless` means the till printed no brand and no listing supplied one.**
-  Nothing more. It does not mark a type, a category, or a placeholder. A
-  brandless product is an ordinary product that was ordinarily bought.
+- **`brandless` means no brand is recorded — never that this is a type.** It
+  does not mark a category or a placeholder. A brandless product is an ordinary
+  product that was ordinarily bought.
+- **A null brand is two different answers, and the record must say which.**
+  Either there is nothing to find — loose produce, counter goods, a carrier bag,
+  where no barcode exists so no lookup, no scan and no shopper will ever supply
+  one — or there is a label on the box that we have not read. The first is
+  final; the second is a gap, and it belongs in `open_questions` as
+  `brand unknown`, which is that field's job and not a second one.
+  The test is whether a barcode could ever answer it.
+  Today 22 coarse products silently give the first answer while meaning the
+  second: ALDI SÜD's `Chips gesalzen` has a brand printed on the bag.
+- **Produce is treated as brandless by decision, not by definition.** A banana
+  can be Chiquita. Nothing in this system's reach ever carries that — the
+  receipt does not print it, there is no barcode, and the price is per kilo —
+  so produce kinds are minted with no brand and no question. Saying this out
+  loud matters because the honest reason is "unreachable", not "does not exist".
+- **Absence of a question must not be how "nothing to find" is encoded, on its
+  own.** A missing question cannot be told from an oversight, which is exactly
+  how those 22 went wrong. An invariant enforces it instead: a brandless
+  product that did not come from the produce vocabulary must carry
+  `brand unknown`.
 
 ## What this replaces
 
