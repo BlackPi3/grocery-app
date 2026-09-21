@@ -193,11 +193,15 @@ ABBREVIATIONS: dict[str, str] = {
 
 # Own-brand prefixes a chain glues onto its own lines. They identify the brand
 # rather than the product, so they come off the name and go into `brand`.
+# Each of these is evidenced by a line in the receipts, not inferred from the
+# letters: `KLC Geh. Tomaten` and `KBio Babyspinat` at Kaufland, `BB Heumil
+# 3.8% 1L` at ALDI SÜD whose listing is `bio-bio-h-vollmilch`. A prefix with
+# no receipt behind it does not belong here — it would write a brand nobody
+# can check.
 OWN_BRAND_PREFIXES: dict[str, str] = {
-    "klc": "K-Classic",
-    "kbio": "K-Bio",
-    "bb": "BIO BIO",
-    "mu": "Milbona",
+    "klc": "K-Classic",   # Kaufland Classic
+    "kbio": "K-Bio",      # Kaufland's organic line
+    "bb": "BIO BIO",      # ALDI SÜD's organic line
 }
 
 _NOISE = {"lose", "stk", "st", "stueck", "kg", "g", "ml", "l", "je", "pro", "ca"}

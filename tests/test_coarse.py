@@ -113,7 +113,7 @@ PURCHASES = {
     "purchases": [
         {"type": "product", "store": "Musterladen", "raw_name": "Musterbrause 1,25l",
          "resolved": False, "net_paid": 0.99},
-        {"type": "product", "store": "Woanders", "raw_name": "MU Joghurt gr Art 1kg",
+        {"type": "product", "store": "Woanders", "raw_name": "KBio Joghurt gr Art 1kg",
          "resolved": False, "net_paid": 2.19},
         {"type": "product", "store": "Musterladen", "raw_name": "Rein WSP Basis 71",
          "resolved": False, "net_paid": 3.79},
@@ -142,8 +142,8 @@ def test_punctuation_does_not_hide_a_brand():
 
 
 def test_an_own_brand_prefix_becomes_the_brand_and_leaves_the_name():
-    brand, name = expand("MU Joghurt gr Art 1kg")
-    assert brand == "Milbona"
+    brand, name = expand("KBio Joghurt gr Art 1kg")
+    assert brand == "K-Bio"
     assert name == "Joghurt griechischer Art", "multi-word abbreviation, quantity dropped"
 
 
