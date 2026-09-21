@@ -72,6 +72,18 @@ def own_brand_status(store: str | None, brand: str | None) -> bool | None:
     return any(folded.startswith(o.casefold()) for o in own)
 
 
+def brand_questions(brand: str | None) -> list[str]:
+    """What a product still owes an answer on, brand-wise.
+
+    A catalog listing with no brand field does not mean the thing has no
+    brand — it means the listing did not say. Silence is reserved for loose
+    produce, where no barcode exists so nothing will ever supply one, and
+    claiming it for a packaged good is how twenty products ended up
+    pretending to be cucumbers.
+    """
+    return [] if brand else ["brand unknown"]
+
+
 _UMLAUTS = [("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")]
 
 # `?` is what a till prints when it cannot render an umlaut, so it must not be
@@ -509,7 +521,7 @@ def _add_product(products_doc: dict[str, Any], listings_doc: dict[str, Any],
         "is_own_brand": own_brand_status(store, first.get("brand")),
         "eans": [r["article_number"] for r in rows
                  if len(r.get("article_number") or "") in _BARCODE_LENGTHS],
-        "open_questions": [],
+        "open_questions": brand_questions(first.get("brand")),
         "provenance": {"attributes": "globus-catalog", "source": first.get("url")},
     }
 
@@ -760,7 +772,7 @@ def confirm_pairs(pairs: list[tuple[str, str]], products_path: str | Path,
             "is_organic": None,
             "is_own_brand": own_brand_status(store, found["brand"]),
             "eans": [article] if len(article) in _BARCODE_LENGTHS else [],
-            "open_questions": [],
+            "open_questions": brand_questions(found["brand"]),
             "provenance": {"attributes": "globus-product-page", "source": found["url"]},
         }
         resolution_doc["entries"].append({
