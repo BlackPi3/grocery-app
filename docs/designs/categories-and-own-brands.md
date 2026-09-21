@@ -34,12 +34,22 @@ could be:
 - `cut` is a category
 
 Separately, `is_own_brand` is a boolean on each product, but the fact it records
-is not about the product. It is *"the brand Milsani belongs to ALDI SÜD"*. Stored
-per product, that one fact about 66 brands is copied onto 181 rows, and it has
-already drifted: `Alnatura`, `funny-frisch`, `Dove`, `Dallmayr` and `OHO` each
-carry different values on different products. 28 brands have no value at all,
-including every own label the coarse pass minted, so their money lands in the
-insight's `unknown` bucket rather than in `own_brand`.
+is not about the product. It is *"the brand Milsani belongs to ALDI SÜD"*.
+
+The table that says so already exists — `OWN_BRANDS` in `resolver.py`, with
+`own_brand_status(store, brand)` beside it — and only GLOBUS is filled in. The
+problem is not that it is missing. It is that the answer is **computed once at
+mint time and frozen onto the product**, by two of the four writers that mint
+products; the other two leave the field null. So the same fact about 66 brands
+is copied onto 181 rows, and extending the table does not reach the rows already
+written.
+
+It has already drifted. `p-0095` carries the brand `OHO`, which is on the GLOBUS
+list, and `is_own_brand: None`, because it was minted by a writer that never
+asks. `Alnatura`, `funny-frisch`, `Dove` and `Dallmayr` each carry different
+values on different products. 28 brands have no value at all, including every own
+label the coarse pass minted, so their money lands in the insight's `unknown`
+bucket rather than in `own_brand`.
 
 ## Decisions
 
@@ -59,16 +69,19 @@ insight's `unknown` bucket rather than in `own_brand`.
   written through. Products with no EAN — every produce kind and every coarse
   product — get a category the same way they get everything else: proposed, then
   confirmed.
-- **Own-brand is a relationship between a chain and a brand, not a property of a
-  product.** One table, chain to the brands it owns, and `is_own_brand`
-  disappears from the product record and is derived when purchases are built.
-  Fixing an entry then fixes every product at once and it cannot drift. Closing
-  the 28 unknowns becomes 28 lines of data, not 99 product edits.
-- **A brand may belong to more than one chain, and some belong to none.**
-  `Jeden Tag` is a buying-group label sold across many independent shops; it is
-  an own brand of no single chain, and calling it GLOBUS's — as the data
-  currently does — is wrong. The table is chain to brands, which allows a brand
-  under several chains, and a brand absent everywhere is simply a brand.
+- **Own-brand is derived, never stored.** The table exists; what has to go is
+  the frozen copy. `is_own_brand` leaves the product record, and the normalizer
+  computes it from the line's store and the product's brand as purchases are
+  built — it already copies the field across at exactly that point. Extending
+  `OWN_BRANDS` then reaches every row ever written, and the field cannot drift
+  because there is nothing to drift from. Closing the 28 unrecorded brands
+  becomes a few lines in one table, not 99 product edits.
+- **The table is chain to brands, so a brand may sit under several chains, or
+  none.** One open question for Parham rather than a decision made here:
+  `Jeden Tag` is recorded as GLOBUS's own brand on his own authority — he works
+  there — but it is a buying-group label that also appears in independent shops.
+  Whether "own brand" means *the chain's own label* or *not a national brand*
+  changes that answer, and the answer is his.
 - **Deriving own-brand per line makes a new question askable.** Because the fact
   is about brand *and* chain, "am I buying ALDI's own labels when I shop at
   ALDI" is answerable, which it is not while the flag lives on the product.
