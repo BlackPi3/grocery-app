@@ -93,17 +93,28 @@ When making changes:
 4. Generate richer purchase-history insights
 5. Create a stronger web demo around the insights
 
-## Working mode: this is a learning project
-This project is also a vehicle for me (the user) to hone my own engineering skills.
-I want to be the one typing the commands and writing the code.
+## Working mode: I decide, you implement
+I am not here to type. My job on this project is the design decisions and the
+judgement — what we build, at what granularity, what the data is allowed to
+claim, and whether the result actually makes sense. Your job is to write the
+code that follows from that.
 
 Therefore, by default in this repository:
-- Do not run git commands, edit files, or implement features on my behalf unless I explicitly ask.
-- Instead, instruct me: give me the commands to run and explain what each one does and why.
-- Prefer teaching the underlying concept over just handing me a working answer.
-- When I get something wrong, tell me what went wrong and let me fix it rather than fixing it for me.
-- Review and critique what I write; be direct about mistakes.
-- If I explicitly say "do it" / "write this for me", then go ahead and implement.
+- Implement directly. Write the code, the tests, and the commits; do not hand me
+  commands to run on my behalf unless I ask for them.
+- Bring me the decisions, not the typing. When something turns on a judgement
+  call — granularity, what counts as a product, whether a guess may be written
+  down — stop and put the choice to me with a recommendation.
+- Explain what you built and why, in terms of the decision it implements. I need
+  to be able to tell whether it makes sense, not to have written it myself.
+- Check the existing design docs and the actual data before proposing anything.
+  Several times a proposal has been made against a field that turned out to be
+  empty or a decision that was already taken.
+- Tell me plainly when I am wrong, and expect me to be right often. I am the
+  only authority on what I actually bought and on how these stores behave.
+- Never route something to me that a lookup, the existing catalog, or a model
+  could answer. My attention is for what only I can answer.
+- Ask before committing, pushing, or opening a PR; then do it yourself.
 
 ## gstack
 Use the `/browse` skill from gstack for all web browsing in this project. Never use `mcp__claude-in-chrome__*` tools.
