@@ -113,3 +113,36 @@ def test_the_real_store_if_present_is_consistent():
     products = json.loads((REAL / "products.json").read_text(encoding="utf-8"))
     resolution = json.loads((REAL / "resolution.json").read_text(encoding="utf-8"))
     assert problems(products, resolution) == []
+
+
+# --- a null brand has to say which of two things it means --------------------
+
+
+def test_loose_produce_may_be_brandless_and_say_nothing():
+    # No barcode exists behind a cucumber, so nothing will ever supply a brand.
+    def produce(p):
+        p["products"]["p-0003"] = {"label": "Salatgurken", "name": "Salatgurken",
+                                   "brand": None, "category": "Produce",
+                                   "size": PRODUCTS["products"]["p-0001"]["size"], "eans": []}
+        p["meta"]["next_id"] = 4
+    assert broken(products=produce) == []
+
+
+def test_a_packaged_product_may_not_be_silently_brandless():
+    # There is a brand printed on the bag; a null means nobody read it.
+    def chips(p):
+        p["products"]["p-0003"] = {"label": "chips", "name": "Kartoffelchips gesalzen",
+                                   "brand": None, "category": "Snacks",
+                                   "size": PRODUCTS["products"]["p-0001"]["size"], "eans": []}
+        p["meta"]["next_id"] = 4
+    assert any("no 'brand unknown' question" in m for m in broken(products=chips))
+
+
+def test_saying_the_brand_is_unknown_is_enough():
+    def chips(p):
+        p["products"]["p-0003"] = {"label": "chips", "name": "Kartoffelchips gesalzen",
+                                   "brand": None, "category": "Snacks",
+                                   "open_questions": ["brand unknown"],
+                                   "size": PRODUCTS["products"]["p-0001"]["size"], "eans": []}
+        p["meta"]["next_id"] = 4
+    assert broken(products=chips) == []
