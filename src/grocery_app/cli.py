@@ -161,6 +161,17 @@ def main() -> None:
     pr.add_argument("--products", default="data/products/products.json")
     pr.add_argument("--resolution", default="data/products/resolution.json")
 
+    co = subparsers.add_parser(
+        "coarse",
+        help="Write reviewed coarse rows (brand + product line, no invented variant "
+             "and no invented EAN) into the catalog",
+    )
+    co.add_argument("action", choices=["confirm"])
+    co.add_argument("--reviewed", default="data/products/proposals/coarse-resolution.csv",
+                    help="the reviewed CSV: store, raw_name, route, brand, product, ean")
+    co.add_argument("--products", default="data/products/products.json")
+    co.add_argument("--resolution", default="data/products/resolution.json")
+
     s = subparsers.add_parser(
         "serve",
         help="Serve purchases.json and the insights over HTTP (needs the 'api' extra)",
@@ -344,6 +355,21 @@ def main() -> None:
         print(f"\n{summary['with_ean']} products with a barcode, {summary['found']} found "
               f"({summary['cached']} answered from cache), "
               f"{summary['filled']} attributes filled")
+
+    if args.command == "coarse":
+        from grocery_app import coarse as coarse_module
+
+        summary = coarse_module.confirm(args.reviewed, args.products, args.resolution)
+        print(f"Confirmed into {args.products}, {args.resolution}")
+        print(f"  new coarse products:    {summary['products']}"
+              f" ({summary['with_ean']} with a confirmed EAN)")
+        print(f"  new resolution entries: {summary['entries']}")
+        print(f"  already known, skipped: {summary['skipped_known']}")
+        for route, count in sorted(summary["by_route"].items()):
+            if route not in coarse_module.WRITES:
+                why = coarse_module.SKIPS.get(route, "unknown route")
+                print(f"  not written ({route}): {count} — {why}")
+        return
 
     if args.command == "produce":
         from grocery_app import produce as produce_module
