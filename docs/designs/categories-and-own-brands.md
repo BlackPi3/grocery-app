@@ -91,9 +91,14 @@ insight's `unknown` bucket rather than in `own_brand`.
   loud matters because the honest reason is "unreachable", not "does not exist".
 - **Absence of a question must not be how "nothing to find" is encoded, on its
   own.** A missing question cannot be told from an oversight, which is exactly
-  how those 22 went wrong. An invariant enforces it instead: a brandless
-  product that did not come from the produce vocabulary must carry
-  `brand unknown`.
+  how those 22 went wrong. An invariant enforces it instead, and it needs no new
+  field, because the set of genuinely unbranded things is small and the catalog
+  already marks it: you pick up loose fruit and vegetables by weight, and you do
+  not pick up a kilo and a half of crisps. 32 of the 33 brandless products are
+  already categorised as produce. So: a null brand is allowed only where the
+  category says produce, or where `open_questions` says the brand is unknown.
+  This leans on `category` only at its coarsest level, which is the part of that
+  field that is currently trustworthy.
 
 ## What this replaces
 
