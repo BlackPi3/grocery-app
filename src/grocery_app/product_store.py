@@ -40,6 +40,16 @@ def problems(products_doc: dict[str, Any], resolution_doc: dict[str, Any]) -> li
         if not isinstance(product.get("eans"), list):
             found.append(f"{product_id}: eans is not a list")
 
+        # A null brand is two different answers and the record has to say which.
+        # Loose produce has no barcode, so no lookup, no scan and no shopper
+        # will ever supply a brand: silence there is the final answer. Anything
+        # else in a packet has a brand printed on it, and a null means nobody
+        # read it — a gap, which belongs in open_questions. Left to a writer to
+        # remember, twenty packaged products ended up claiming to be cucumbers.
+        if not product.get("brand") and not (product.get("category") or "").startswith("Produce") \
+                and not any(q.startswith("brand ") for q in product.get("open_questions") or []):
+            found.append(f"{product_id}: no brand, not produce, and no 'brand unknown' question")
+
     seen: dict[tuple[str, str], Any] = {}
     for entry in resolution_doc["entries"]:
         name = f"{entry['store']} / {entry['raw_name']}"

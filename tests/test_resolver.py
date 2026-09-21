@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from grocery_app.resolver import (
+    brand_questions,
     expand_abbreviations,
     own_brand_status,
     parse_size,
@@ -301,6 +302,14 @@ def test_generic_tokens_do_not_carry_a_match():
     juice = {"article_number": "9", "name": "Bio-Apfelschorle 330 ml", "brand": "BIO",
              "pack_size": "0,33 l", "price": 0.75}
     assert rank("Bananen Bio", 0.97, [juice]) == []
+
+
+def test_a_listing_with_no_brand_says_so_rather_than_claiming_none():
+    # Both catalog mint sites go through this, so a GLOBUS row with an empty
+    # brand field cannot silently look like loose produce.
+    assert brand_questions(None) == ["brand unknown"]
+    assert brand_questions("") == ["brand unknown"]
+    assert brand_questions("Jeden Tag") == [], "a brand is an answer, not a question"
 
 
 def test_own_brand_is_decided_per_store_from_the_brand():

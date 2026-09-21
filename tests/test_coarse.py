@@ -20,6 +20,10 @@ ROWS = [
     # the reviewer flagged their own brand guess
     {"store": "Musterladen", "raw_name": "Unklar Riegel", "route": "search",
      "brand": "Vielleicht?", "product": "Schokoriegel", "ean": "", "options": "", "your_note": ""},
+    # a packaged good whose brand nobody read
+    {"store": "Musterladen", "raw_name": "Knusperzeug Salz", "route": "search",
+     "brand": "", "product": "Kartoffelchips gesalzen", "ean": "",
+     "options": "", "your_note": ""},
     # routes that must not become products
     {"store": "Tante Emma", "raw_name": "Diverse Waren", "route": "ask",
      "brand": "", "product": "category line", "ean": "", "options": "", "your_note": ""},
@@ -53,7 +57,7 @@ def test_one_product_serves_every_store_that_prints_a_name_for_it(catalog):
     entries = read(resolution)["entries"]
     cola = [e["product_id"] for e in entries if "Cola" in e["raw_name"]]
     assert len(cola) == 2 and cola[0] == cola[1], "two tills, two spellings, one product"
-    assert summary["products"] == 3, "cola, keks, riegel — the other routes write nothing"
+    assert summary["products"] == 4, "cola, keks, riegel, chips — other routes write nothing"
 
 
 def test_an_unknown_variant_is_null_and_asked_about_never_guessed(catalog):
@@ -101,8 +105,8 @@ def test_an_answer_already_given_is_never_overwritten(catalog):
     again = confirm(reviewed, products, resolution)
 
     assert again["products"] == 0 and again["entries"] == 0
-    assert again["skipped_known"] == 4
-    assert len(read(resolution)["entries"]) == 4, "re-running writes no duplicates"
+    assert again["skipped_known"] == 5
+    assert len(read(resolution)["entries"]) == 5, "re-running writes no duplicates"
 
 
 # --- propose -----------------------------------------------------------------
@@ -193,3 +197,23 @@ def test_what_kind_of_line_it_is_survives_a_changed_proposal():
         "a bag is a bag however the name was expanded"
     assert rows_by_name(moved)["Rein WSP Basis 71"]["product"] == "Weichspüler Basis", \
         "the naming itself does not survive: that is what the reviewer agreed to"
+
+
+def test_a_packaged_good_with_no_brand_says_the_brand_is_unknown(catalog):
+    reviewed, products, resolution = catalog
+    confirm(reviewed, products, resolution)
+
+    chips = next(p for p in read(products)["products"].values()
+                 if p["name"] == "Kartoffelchips gesalzen")
+    assert chips["brand"] is None
+    assert "brand unknown" in chips["open_questions"], \
+        "a box has a brand printed on it; a null means nobody read it, not that none exists"
+
+
+def test_a_flagged_guess_is_not_also_reported_as_simply_unknown(catalog):
+    reviewed, products, resolution = catalog
+    confirm(reviewed, products, resolution)
+
+    riegel = next(p for p in read(products)["products"].values() if p["name"] == "Schokoriegel")
+    assert riegel["open_questions"] == ["brand uncertain: Vielleicht", "variant unknown"], \
+        "naming the guess says more than `brand unknown`, so it should not say both"
