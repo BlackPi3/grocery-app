@@ -249,9 +249,9 @@
     </div>
 
     <div class="card">
-      <h2>Own brand vs brand</h2>
-      <div class="hint">share of spend on store brands · resolved items only</div>
-      <div class="bars" id="ownbrand"></div>
+      <h2>Budget vs name brand</h2>
+      <div class="hint">share of spend on the shop's cheaper line · resolved items only</div>
+      <div class="bars" id="budgetbrand"></div>
     </div>
 
     <div class="card">
@@ -356,7 +356,7 @@ function render() {
   renderSpend(prods);
   renderWatch(prods);
   renderBasket();
-  renderOwnBrand();
+  renderBudgetBrand();
   renderCats(prods);
   renderHistory();
   renderList();
@@ -473,11 +473,15 @@ function renderBasket() {
   el.appendChild(note);
 }
 
-function renderOwnBrand() {
-  const el = document.getElementById('ownbrand'); el.innerHTML = '';
+function renderBudgetBrand() {
+  const el = document.getElementById('budgetbrand'); el.innerHTML = '';
   if (!INS) { el.innerHTML = '<div class="empty">insights.json not found.</div>'; return; }
-  const o = INS.own_brand.overall;
-  const rows = [['own brand', o.own_brand], ['brand', o.brand], ['status unknown', o.unknown]];
+  const o = INS.budget_brand.overall;
+  // `no brand` is loose produce, where no barcode exists and so no answer ever
+  // will. Kept apart from `not yet known`, which is a label nobody has read and
+  // so a gap that can be closed. The label column is 92px, so both stay short.
+  const rows = [['budget', o.budget], ['name brand', o.name_brand],
+                ['no brand', o.unbranded || 0], ['not yet known', o.unknown]];
   const max = Math.max(...rows.map(r => r[1]), 1);
   rows.forEach(([k, v]) => {
     const row = document.createElement('div'); row.className = 'bar-row';
@@ -487,9 +491,9 @@ function renderOwnBrand() {
     el.appendChild(row);
   });
   const note = document.createElement('div'); note.className = 'hint'; note.style.marginTop = '8px';
-  const share = o.own_brand_share_of_known;
-  note.textContent = (share == null ? 'no product has a recorded own-brand status yet'
-      : `${Math.round(share * 100)}% of the ${money(o.own_brand + o.brand)} with a known status`) +
+  const share = o.budget_share_of_known;
+  note.textContent = (share == null ? 'no line has a known budget-brand status yet'
+      : `${Math.round(share * 100)}% of the ${money(o.budget + o.name_brand)} with a known status`) +
     ` · ${money(o.unresolved)} not yet resolved to a product`;
   el.appendChild(note);
 }
@@ -532,7 +536,7 @@ function renderHistory() {
       const ex = excluded.has(i);
       const dep = p.type !== 'product';
       const tags = [];
-      if (p.is_own_brand) tags.push('<span class="tag">own-brand</span>');
+      if (p.is_budget_brand) tags.push('<span class="tag">budget</span>');
       if (p.is_organic) tags.push('<span class="tag bio">🌿 bio</span>');
       if (dep) tags.push('<span class="badge">Pfand</span>');
       const meta = dep ? 'deposit refund' :

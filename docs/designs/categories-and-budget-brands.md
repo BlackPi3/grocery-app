@@ -1,6 +1,28 @@
-# Design: Categories and Own Brands
+# Design: Categories and Budget Brands
 
-Written 2026-09-21 · Status: proposed, nothing built
+Written 2026-09-21 · Status: the brand half is built (2026-09-22); the category
+half is still proposed.
+
+**The name changed, and so did the question.** This document was written about
+"own brands" and tested them by ownership. Parham corrected that on 2026-09-22:
+the question a shopper asks is *"is this the cheaper one?"*, not *"who owns this
+label?"*. In his words: "the word `own_brand` is wrong. there are some brands
+that are cheaper. that's it. and it's not that their quality is better or
+anything." Read every "own brand" below as "budget brand", and see "What the
+build changed" at the end for what that cost.
+
+What shipped: `is_own_brand` no longer exists on a product record. The
+normalizer derives `is_budget_brand` per purchase line from the line's store and
+the product's brand; `BUDGET_BRANDS` covers ALDI SÜD, Lidl, Kaufland and Rewe
+alongside GLOBUS; Jeden Tag is modelled as a cooperative brand rather than any
+shop's property; and the insight separates produce (no brand to find) from a
+brand nobody has read yet. `purchases.json` is contract 3 and `insights.json`
+contract 2.
+
+What has not: everything about `category`. The vocabulary is still open, still
+free text, still unused by `insights.py`, and 79 of 181 products still have no
+category at all. The demo makes this visible — `Uncategorised` is the largest
+bar in "Where the money goes".
 
 Two fields already in `products.json` are doing their jobs badly, and a third
 meaning has been quietly read into a fourth. This is what each should mean.
@@ -76,15 +98,29 @@ bucket rather than in `own_brand`.
   `OWN_BRANDS` then reaches every row ever written, and the field cannot drift
   because there is nothing to drift from. Closing the 28 unrecorded brands
   becomes a few lines in one table, not 99 product edits.
-- **The table is chain to brands, so a brand may sit under several chains, or
-  none.** One open question for Parham rather than a decision made here:
-  `Jeden Tag` is recorded as GLOBUS's own brand on his own authority — he works
-  there — but it is a buying-group label that also appears in independent shops.
-  Whether "own brand" means *the chain's own label* or *not a national brand*
-  changes that answer, and the answer is his.
-- **Deriving own-brand per line makes a new question askable.** Because the fact
-  is about brand *and* chain, "am I buying ALDI's own labels when I shop at
-  ALDI" is answerable, which it is not while the flag lives on the product.
+- **The table is chain to brands, and a brand may sit under several chains, or
+  none.** This doc raised `Jeden Tag` as an open question: it is recorded as
+  GLOBUS's on Parham's authority — he works there — but it also turns up in other
+  shops. **Resolved 2026-09-22, and the doc had the wrong test.** Jeden Tag
+  belongs to **Markant**, a buying cooperative whose subsidiary trades goods "im
+  Preiseinstiegsbereich" — the entry-price segment — and whose retail partners
+  include Globus, Kaufland, tegut, real and Bartels-Langness (famila, Combi,
+  K+K). So nobody at GLOBUS owns it, and an ownership or exclusivity test throws
+  it out. Under the budget test it passes easily: it is the cheap line. Parham's
+  answer stands, for a better reason than the one he gave it. It is modelled as
+  a cooperative brand reaching member chains, not copied into each shop's tuple.
+  In the current data it is bought only at GLOBUS, so nothing moves either way.
+- **Deriving the answer per line makes a new question askable.** Because the
+  fact is about brand *and* shop, "am I reaching for the cheap line when I shop
+  at ALDI" is answerable, which it is not while a flag lives on the product.
+- **A shop's own label is not automatically its cheap one.** German chains run
+  their labels in price tiers. Kaufland's `K-Classic` is the entry line but
+  `K-Favourites` is premium; ALDI SÜD's `Moser Roth` and `Gourmet Finest
+  Cuisine` are premium too, as is Lidl's `Deluxe`. Reaching for Moser Roth
+  instead of Milka is not the saving this insight measures, so premium store
+  lines answer False beside the manufacturers. This is the one part of the
+  reframing that is a judgement rather than a fact, and it is Parham's: he
+  approved it on 2026-09-22.
 - **`brandless` means no brand is recorded — never that this is a type.** It
   does not mark a category or a placeholder. A brandless product is an ordinary
   product that was ordinarily bought.
@@ -141,3 +177,76 @@ grouping mechanisms where one was already specified.
 - **It does not make coarse products fine.** A coarse product with `variant:
   null` stays coarse; a category tells you what kind of thing it is, not which
   one it was.
+
+## What the build changed
+
+Two things the design did not anticipate, found while building it on 2026-09-22.
+
+**A store's own-brand list is usually a selection, and absence from a selection
+means nothing.** The design assumed the table could simply be extended, and that
+`own_brand_status` would go on reading "brand recorded, not on the store's list"
+as *not the store's*. That reading is safe at GLOBUS, where Parham named the
+whole set on his own authority, and wrong at ALDI SÜD, which publishes its
+labels as explicitly "eine Auswahl" and sells mostly own label. Shipping a
+partial ALDI list under the old rule would have filed the chain's own chocolate,
+kitchen roll and cheese under national brands — a wrong answer written down,
+which is the failure the whole change exists to remove.
+
+So the table gained two companions. `NATIONAL_BRANDS` records brands a
+manufacturer owns, which is a fact about the brand alone and so needs no store.
+`COMPLETE_OWN_BRAND_LISTS` names the stores whose own list is known exhaustive,
+and only there does absence still settle the question. Everywhere else an
+unsourced brand returns `None`: a gap, and one that now lands in the insight's
+`unknown` bucket where it can be seen and closed.
+
+**The question was the wrong one, and the name said so.** Everything above was
+built around ownership: a table of each chain's own labels, and a test asking
+whether the shop owned the name. Parham stopped it there. The shopper's question
+is whether a brand is the shop's *cheaper* option, and three arrangements answer
+it the same way — the chain owns the trademark (Milsani at ALDI SÜD), a supplier
+sells to that chain alone, or the chain buys through a cooperative (Jeden Tag).
+Ownership separates those three; price does not. So `is_own_brand` became
+`is_budget_brand`, `OWN_BRANDS` became `BUDGET_BRANDS`, the insight section
+`own_brand` became `budget_brand`, and both contracts took a version bump.
+
+The cost of getting it wrong first was small, because the plumbing did not care:
+the field still leaves the product, is still derived per line, and the tables are
+still keyed by store. What changed was the name, the membership of the tables,
+and the test in the middle.
+
+**A receipt's silence about a brand is evidence, not a rule.** Parham noticed
+that ALDI SÜD prints `Persil`, `Lenor`, `Coca-Cola` and `true fruits` on the
+line but prints `HP Skyr Drink 330` for Milsani and `Basmati Reis` for BON-RI —
+the chain names a manufacturer and stays quiet about itself. The pattern is
+real and holds across most of the 81 ALDI lines. It was deliberately not turned
+into an inference, for two reasons: his own data breaks it (`BB Heumil 3.8% 1L`
+is BIO BIO, an own label, printed in abbreviation), and the chain's catalog
+answers the same question exactly, for free, with no guess. It is worth keeping
+as a **cross-check** — a line where the till printed no brand but the catalog
+matched a manufacturer is odd, and odd is worth flagging — in the same spirit as
+the VAT-class alarm in `ROADMAP.md`.
+
+### What the numbers did
+
+Against the 27 receipts as of 2026-08-29, on €455.95 of resolved spend:
+
+| | before | after |
+|---|---|---|
+| budget | €66.64 | €106.42 |
+| name brand | €168.02 | €205.65 |
+| no brand to find (produce) | — | €86.02 |
+| brand not yet known | €221.29 | €57.86 |
+| budget share of known | 28.4% | 34.1% |
+
+The reframing from ownership to price moved **no number in this data**: no
+premium store line has been bought yet, and Jeden Tag appears only at GLOBUS.
+The concept is now right and the figures happen to agree with the wrong one.
+That is worth writing down, because the first receipt carrying Moser Roth or
+Jeden Tag at Kaufland is where the two definitions part company.
+
+The last row is the honest one: `unknown` is now €57.86 and consists entirely
+of `(no brand recorded)` — packaged goods whose label exists and has not been
+read. Every brand the catalog does record is now answered. That remainder is
+the gap worth working on, and it is a catalog-matching problem rather than a
+question for the shopper: ALDI's own crawl already holds `Chips gesalzen` as
+SUNSNACKS and `Mozzarella, ger.` as HOFBURGER.
