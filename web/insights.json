@@ -1,5 +1,5 @@
 {
-  "contract_version": 1,
+  "contract_version": 2,
   "as_of": "2026-08-29",
   "coverage": {
     "receipts": 27,
@@ -8,18 +8,18 @@
       "2026-08-29"
     ],
     "product_lines": 237,
-    "resolved_lines": 106,
+    "resolved_lines": 218,
     "spend": 515.88,
-    "resolved_spend": 251.73,
-    "resolved_share_of_spend": 0.488,
+    "resolved_spend": 455.95,
+    "resolved_share_of_spend": 0.884,
     "by_store": {
       "ALDI SÜD": {
         "lines": 81,
-        "resolved": 0
+        "resolved": 75
       },
       "Eifel West": {
         "lines": 2,
-        "resolved": 0
+        "resolved": 2
       },
       "FK Frisch Kauf GmbH": {
         "lines": 7,
@@ -31,20 +31,76 @@
       },
       "Kaufland": {
         "lines": 18,
-        "resolved": 0
+        "resolved": 17
       },
       "Lidl": {
         "lines": 18,
-        "resolved": 0
+        "resolved": 17
       },
       "SVG Autohof": {
         "lines": 1,
-        "resolved": 0
+        "resolved": 1
       }
     },
     "note": "product-level insights use resolved lines only; spend figures use every line"
   },
   "repurchase": [
+    {
+      "product_id": "p-0102",
+      "product": "Mini-Gurken",
+      "brand": null,
+      "store": "Kaufland",
+      "trips": 3,
+      "units": 4,
+      "typical_interval_days": 6,
+      "gaps_observed": 2,
+      "last_bought": "2026-07-09",
+      "expected_next": "2026-07-15",
+      "status": "due",
+      "days_overdue": 45
+    },
+    {
+      "product_id": "p-0121",
+      "product": "Paprika rot",
+      "brand": null,
+      "store": "Kaufland",
+      "trips": 2,
+      "units": 2,
+      "typical_interval_days": 10,
+      "gaps_observed": 1,
+      "last_bought": "2026-07-09",
+      "expected_next": "2026-07-19",
+      "status": "due",
+      "days_overdue": 41
+    },
+    {
+      "product_id": "p-0127",
+      "product": "Mini-Karotten Bio",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "trips": 2,
+      "units": 2,
+      "typical_interval_days": 10,
+      "gaps_observed": 1,
+      "last_bought": "2026-07-09",
+      "expected_next": "2026-07-19",
+      "status": "due",
+      "days_overdue": 41
+    },
+    {
+      "product_id": "p-0105",
+      "product": "Plattpfirsiche",
+      "brand": null,
+      "store": "Kaufland",
+      "trips": 2,
+      "units": 2,
+      "typical_interval_days": 13,
+      "gaps_observed": 1,
+      "last_bought": "2026-07-09",
+      "expected_next": "2026-07-22",
+      "status": "due",
+      "days_overdue": 38
+    },
     {
       "product_id": "p-0028",
       "product": "Magerquark (low-fat quark)",
@@ -58,6 +114,20 @@
       "expected_next": "2026-07-24",
       "status": "due",
       "days_overdue": 36
+    },
+    {
+      "product_id": "p-0120",
+      "product": "Radieschen",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "trips": 2,
+      "units": 2,
+      "typical_interval_days": 22,
+      "gaps_observed": 1,
+      "last_bought": "2026-07-18",
+      "expected_next": "2026-08-09",
+      "status": "due",
+      "days_overdue": 20
     },
     {
       "product_id": "p-0070",
@@ -184,9 +254,259 @@
       "expected_next": "2026-09-05",
       "status": "upcoming",
       "days_overdue": 0
+    },
+    {
+      "product_id": "p-0116",
+      "product": "Lauchzwiebeln",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "trips": 3,
+      "units": 3,
+      "typical_interval_days": 22,
+      "gaps_observed": 2,
+      "last_bought": "2026-08-22",
+      "expected_next": "2026-09-13",
+      "status": "upcoming",
+      "days_overdue": 0
+    },
+    {
+      "product_id": "p-0104",
+      "product": "Salatgurken",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "trips": 3,
+      "units": 4,
+      "typical_interval_days": 22,
+      "gaps_observed": 2,
+      "last_bought": "2026-08-22",
+      "expected_next": "2026-09-13",
+      "status": "upcoming",
+      "days_overdue": 0
+    },
+    {
+      "product_id": "p-0113",
+      "product": "Rispentomaten",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "trips": 3,
+      "units": 3,
+      "typical_interval_days": 27,
+      "gaps_observed": 2,
+      "last_bought": "2026-08-22",
+      "expected_next": "2026-09-18",
+      "status": "upcoming",
+      "days_overdue": 0
+    },
+    {
+      "product_id": "p-0107",
+      "product": "Zwiebeln",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "trips": 3,
+      "units": 4,
+      "typical_interval_days": 28,
+      "gaps_observed": 2,
+      "last_bought": "2026-08-22",
+      "expected_next": "2026-09-19",
+      "status": "upcoming",
+      "days_overdue": 0
+    },
+    {
+      "product_id": "p-0112",
+      "product": "Nektarinen",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "trips": 2,
+      "units": 2,
+      "typical_interval_days": 44,
+      "gaps_observed": 1,
+      "last_bought": "2026-08-22",
+      "expected_next": "2026-10-05",
+      "status": "upcoming",
+      "days_overdue": 0
+    },
+    {
+      "product_id": "p-0109",
+      "product": "Datteltomaten",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "trips": 2,
+      "units": 2,
+      "typical_interval_days": 44,
+      "gaps_observed": 1,
+      "last_bought": "2026-08-22",
+      "expected_next": "2026-10-05",
+      "status": "upcoming",
+      "days_overdue": 0
+    },
+    {
+      "product_id": "p-0103",
+      "product": "Johannisbeeren",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "trips": 2,
+      "units": 2,
+      "typical_interval_days": 57,
+      "gaps_observed": 1,
+      "last_bought": "2026-08-22",
+      "expected_next": "2026-10-18",
+      "status": "upcoming",
+      "days_overdue": 0
+    },
+    {
+      "product_id": "p-0157",
+      "product": "Coca-Cola Classic",
+      "brand": "Coca-Cola",
+      "store": "ALDI SÜD",
+      "trips": 2,
+      "units": 3,
+      "typical_interval_days": 57,
+      "gaps_observed": 1,
+      "last_bought": "2026-08-22",
+      "expected_next": "2026-10-18",
+      "status": "upcoming",
+      "days_overdue": 0
     }
   ],
   "price_changes": [
+    {
+      "product_id": "p-0102",
+      "product": "Mini-Gurken",
+      "brand": null,
+      "store": "Kaufland",
+      "per": "item",
+      "first": {
+        "date": "2026-06-26",
+        "price": 0.99
+      },
+      "last": {
+        "date": "2026-07-09",
+        "price": 2.99
+      },
+      "change_pct": 202.0,
+      "observations": [
+        {
+          "date": "2026-06-26",
+          "price": 0.99
+        },
+        {
+          "date": "2026-06-29",
+          "price": 1.11
+        },
+        {
+          "date": "2026-07-09",
+          "price": 2.99
+        }
+      ]
+    },
+    {
+      "product_id": "p-0121",
+      "product": "Paprika rot",
+      "brand": null,
+      "store": "Kaufland",
+      "per": "kg",
+      "first": {
+        "date": "2026-06-29",
+        "price": 2.21
+      },
+      "last": {
+        "date": "2026-07-09",
+        "price": 3.99
+      },
+      "change_pct": 80.5,
+      "observations": [
+        {
+          "date": "2026-06-29",
+          "price": 2.21
+        },
+        {
+          "date": "2026-07-09",
+          "price": 3.99
+        }
+      ]
+    },
+    {
+      "product_id": "p-0116",
+      "product": "Lauchzwiebeln",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "per": "item",
+      "first": {
+        "date": "2026-07-09",
+        "price": 0.49
+      },
+      "last": {
+        "date": "2026-08-22",
+        "price": 0.69
+      },
+      "change_pct": 40.8,
+      "observations": [
+        {
+          "date": "2026-07-09",
+          "price": 0.49
+        },
+        {
+          "date": "2026-07-18",
+          "price": 0.59
+        },
+        {
+          "date": "2026-08-22",
+          "price": 0.69
+        }
+      ]
+    },
+    {
+      "product_id": "p-0120",
+      "product": "Radieschen",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "per": "item",
+      "first": {
+        "date": "2026-06-26",
+        "price": 0.89
+      },
+      "last": {
+        "date": "2026-07-18",
+        "price": 0.59
+      },
+      "change_pct": -33.7,
+      "observations": [
+        {
+          "date": "2026-06-26",
+          "price": 0.89
+        },
+        {
+          "date": "2026-07-18",
+          "price": 0.59
+        }
+      ]
+    },
+    {
+      "product_id": "p-0109",
+      "product": "Datteltomaten",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "per": "item",
+      "first": {
+        "date": "2026-07-09",
+        "price": 1.49
+      },
+      "last": {
+        "date": "2026-08-22",
+        "price": 1.99
+      },
+      "change_pct": 33.6,
+      "observations": [
+        {
+          "date": "2026-07-09",
+          "price": 1.49
+        },
+        {
+          "date": "2026-08-22",
+          "price": 1.99
+        }
+      ]
+    },
     {
       "product_id": "p-0028",
       "product": "Magerquark (low-fat quark)",
@@ -218,6 +538,32 @@
       ]
     },
     {
+      "product_id": "p-0112",
+      "product": "Nektarinen",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "per": "item",
+      "first": {
+        "date": "2026-07-09",
+        "price": 1.49
+      },
+      "last": {
+        "date": "2026-08-22",
+        "price": 1.89
+      },
+      "change_pct": 26.8,
+      "observations": [
+        {
+          "date": "2026-07-09",
+          "price": 1.49
+        },
+        {
+          "date": "2026-08-22",
+          "price": 1.89
+        }
+      ]
+    },
+    {
       "product_id": "p-0016",
       "product": "Avocado",
       "brand": "GLOBUS",
@@ -239,6 +585,92 @@
         },
         {
           "date": "2026-08-06",
+          "price": 1.34
+        }
+      ]
+    },
+    {
+      "product_id": "p-0104",
+      "product": "Salatgurken",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "per": "item",
+      "first": {
+        "date": "2026-07-09",
+        "price": 1.09
+      },
+      "last": {
+        "date": "2026-08-22",
+        "price": 0.89
+      },
+      "change_pct": -18.3,
+      "observations": [
+        {
+          "date": "2026-07-09",
+          "price": 1.09
+        },
+        {
+          "date": "2026-07-18",
+          "price": 1.19
+        },
+        {
+          "date": "2026-08-22",
+          "price": 0.89
+        }
+      ]
+    },
+    {
+      "product_id": "p-0105",
+      "product": "Plattpfirsiche",
+      "brand": null,
+      "store": "Kaufland",
+      "per": "item",
+      "first": {
+        "date": "2026-06-26",
+        "price": 2.89
+      },
+      "last": {
+        "date": "2026-07-09",
+        "price": 2.49
+      },
+      "change_pct": -13.8,
+      "observations": [
+        {
+          "date": "2026-06-26",
+          "price": 2.89
+        },
+        {
+          "date": "2026-07-09",
+          "price": 2.49
+        }
+      ]
+    },
+    {
+      "product_id": "p-0107",
+      "product": "Zwiebeln",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "per": "item",
+      "first": {
+        "date": "2026-06-26",
+        "price": 1.49
+      },
+      "last": {
+        "date": "2026-08-22",
+        "price": 1.34
+      },
+      "change_pct": -10.1,
+      "observations": [
+        {
+          "date": "2026-06-26",
+          "price": 1.49
+        },
+        {
+          "date": "2026-07-09",
+          "price": 2.49
+        },
+        {
+          "date": "2026-08-22",
           "price": 1.34
         }
       ]
@@ -274,6 +706,58 @@
         {
           "date": "2026-08-08",
           "price": 0.49
+        }
+      ]
+    },
+    {
+      "product_id": "p-0157",
+      "product": "Coca-Cola Classic",
+      "brand": "Coca-Cola",
+      "store": "ALDI SÜD",
+      "per": "item",
+      "first": {
+        "date": "2026-06-26",
+        "price": 0.99
+      },
+      "last": {
+        "date": "2026-08-22",
+        "price": 0.99
+      },
+      "change_pct": 0.0,
+      "observations": [
+        {
+          "date": "2026-06-26",
+          "price": 0.99
+        },
+        {
+          "date": "2026-08-22",
+          "price": 0.99
+        }
+      ]
+    },
+    {
+      "product_id": "p-0127",
+      "product": "Mini-Karotten Bio",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "per": "item",
+      "first": {
+        "date": "2026-06-29",
+        "price": 0.99
+      },
+      "last": {
+        "date": "2026-07-09",
+        "price": 0.99
+      },
+      "change_pct": 0.0,
+      "observations": [
+        {
+          "date": "2026-06-29",
+          "price": 0.99
+        },
+        {
+          "date": "2026-07-09",
+          "price": 0.99
         }
       ]
     },
@@ -461,108 +945,315 @@
     }
   ],
   "basket_index": {
-    "base_month": "2026-07",
+    "base_month": "2026-06",
     "base": 100.0,
     "series": [
       {
+        "month": "2026-07",
+        "versus": "2026-06",
+        "products": 7,
+        "index": 163.0,
+        "month_over_month_pct": 63.0,
+        "basket_cost_at_previous_prices": 10.37,
+        "basket_cost_at_current_prices": 16.9,
+        "product_ids": [
+          "p-0102",
+          "p-0105",
+          "p-0107",
+          "p-0113",
+          "p-0120",
+          "p-0121",
+          "p-0127"
+        ]
+      },
+      {
         "month": "2026-08",
         "versus": "2026-07",
-        "products": 5,
-        "index": 94.0,
-        "month_over_month_pct": -6.0,
-        "basket_cost_at_previous_prices": 14.02,
-        "basket_cost_at_current_prices": 13.18,
+        "products": 11,
+        "index": 155.2,
+        "month_over_month_pct": -4.8,
+        "basket_cost_at_previous_prices": 23.19,
+        "basket_cost_at_current_prices": 22.08,
         "product_ids": [
           "p-0001",
           "p-0016",
           "p-0039",
           "p-0054",
-          "p-0077"
+          "p-0077",
+          "p-0104",
+          "p-0107",
+          "p-0109",
+          "p-0112",
+          "p-0113",
+          "p-0116"
         ]
       }
     ],
     "method": "Laspeyres, month over month, chained; quantities from the earlier month; prices are paid unit prices after discounts"
   },
-  "own_brand": {
+  "budget_brand": {
     "overall": {
-      "own_brand": 66.64,
-      "brand": 168.02,
-      "unknown": 17.07,
-      "unresolved": 264.15,
-      "own_brand_share_of_known": 0.284
+      "budget": 106.42,
+      "name_brand": 205.65,
+      "unbranded": 86.02,
+      "unknown": 57.86,
+      "unresolved": 59.93,
+      "budget_share_of_known": 0.341
     },
     "by_store": {
       "ALDI SÜD": {
-        "own_brand": 0.0,
-        "brand": 0.0,
-        "unknown": 0.0,
-        "unresolved": 129.73,
-        "own_brand_share_of_known": null
+        "budget": 36.57,
+        "name_brand": 17.1,
+        "unbranded": 39.92,
+        "unknown": 29.38,
+        "unresolved": 6.76,
+        "budget_share_of_known": 0.681
       },
       "Eifel West": {
-        "own_brand": 0.0,
-        "brand": 0.0,
+        "budget": 0.0,
+        "name_brand": 8.58,
+        "unbranded": 0.0,
         "unknown": 0.0,
-        "unresolved": 8.58,
-        "own_brand_share_of_known": null
+        "unresolved": 0.0,
+        "budget_share_of_known": 0.0
       },
       "FK Frisch Kauf GmbH": {
-        "own_brand": 0.0,
-        "brand": 0.0,
+        "budget": 0.0,
+        "name_brand": 0.0,
+        "unbranded": 0.0,
         "unknown": 0.0,
         "unresolved": 41.85,
-        "own_brand_share_of_known": null
+        "budget_share_of_known": null
       },
       "GLOBUS": {
-        "own_brand": 66.64,
-        "brand": 168.02,
-        "unknown": 17.07,
+        "budget": 66.64,
+        "name_brand": 170.34,
+        "unbranded": 4.17,
+        "unknown": 10.58,
         "unresolved": 8.96,
-        "own_brand_share_of_known": 0.284
+        "budget_share_of_known": 0.281
       },
       "Kaufland": {
-        "own_brand": 0.0,
-        "brand": 0.0,
-        "unknown": 0.0,
-        "unresolved": 29.45,
-        "own_brand_share_of_known": null
+        "budget": 3.21,
+        "name_brand": 5.74,
+        "unbranded": 17.04,
+        "unknown": 2.87,
+        "unresolved": 0.59,
+        "budget_share_of_known": 0.359
       },
       "Lidl": {
-        "own_brand": 0.0,
-        "brand": 0.0,
-        "unknown": 0.0,
-        "unresolved": 42.68,
-        "own_brand_share_of_known": null
+        "budget": 0.0,
+        "name_brand": 0.99,
+        "unbranded": 24.89,
+        "unknown": 15.03,
+        "unresolved": 1.77,
+        "budget_share_of_known": 0.0
       },
       "SVG Autohof": {
-        "own_brand": 0.0,
-        "brand": 0.0,
+        "budget": 0.0,
+        "name_brand": 2.9,
+        "unbranded": 0.0,
         "unknown": 0.0,
-        "unresolved": 2.9,
-        "own_brand_share_of_known": null
+        "unresolved": 0.0,
+        "budget_share_of_known": 0.0
       }
     },
     "unknown_brands": [
       {
         "brand": "(no brand recorded)",
-        "spend": 11.09
-      },
-      {
-        "brand": "Alnatura",
-        "spend": 3.59
-      },
-      {
-        "brand": "Ponnath",
-        "spend": 1.52
-      },
-      {
-        "brand": "Toppits",
-        "spend": 0.87
+        "spend": 57.86
       }
     ]
   },
   "cross_store": {
-    "products": [],
-    "note": "no product has resolved at two stores yet; resolved products come from 1 store(s)"
+    "products": [
+      {
+        "product_id": "p-0103",
+        "product": "Johannisbeeren",
+        "stores": {
+          "Lidl": {
+            "date": "2026-06-26",
+            "price": 5.98,
+            "per": "kg"
+          },
+          "ALDI SÜD": {
+            "date": "2026-08-22",
+            "price": 1.99,
+            "per": "item"
+          }
+        }
+      },
+      {
+        "product_id": "p-0102",
+        "product": "Mini-Gurken",
+        "stores": {
+          "Lidl": {
+            "date": "2026-06-26",
+            "price": 0.99,
+            "per": "item"
+          },
+          "ALDI SÜD": {
+            "date": "2026-06-29",
+            "price": 1.11,
+            "per": "item"
+          },
+          "Kaufland": {
+            "date": "2026-07-09",
+            "price": 2.99,
+            "per": "item"
+          }
+        }
+      },
+      {
+        "product_id": "p-0120",
+        "product": "Radieschen",
+        "stores": {
+          "Lidl": {
+            "date": "2026-06-26",
+            "price": 0.89,
+            "per": "item"
+          },
+          "ALDI SÜD": {
+            "date": "2026-07-18",
+            "price": 0.59,
+            "per": "item"
+          }
+        }
+      },
+      {
+        "product_id": "p-0107",
+        "product": "Zwiebeln",
+        "stores": {
+          "Lidl": {
+            "date": "2026-06-26",
+            "price": 1.49,
+            "per": "item"
+          },
+          "Kaufland": {
+            "date": "2026-07-09",
+            "price": 2.49,
+            "per": "item"
+          },
+          "ALDI SÜD": {
+            "date": "2026-08-22",
+            "price": 1.49,
+            "per": "item"
+          }
+        }
+      },
+      {
+        "product_id": "p-0105",
+        "product": "Plattpfirsiche",
+        "stores": {
+          "Lidl": {
+            "date": "2026-06-26",
+            "price": 2.89,
+            "per": "item"
+          },
+          "Kaufland": {
+            "date": "2026-07-09",
+            "price": 2.49,
+            "per": "item"
+          }
+        }
+      },
+      {
+        "product_id": "p-0157",
+        "product": "Coca-Cola Classic",
+        "stores": {
+          "Lidl": {
+            "date": "2026-06-26",
+            "price": 0.99,
+            "per": "item"
+          },
+          "ALDI SÜD": {
+            "date": "2026-08-22",
+            "price": 0.99,
+            "per": "item"
+          }
+        }
+      },
+      {
+        "product_id": "p-0121",
+        "product": "Paprika rot",
+        "stores": {
+          "ALDI SÜD": {
+            "date": "2026-06-29",
+            "price": 2.21,
+            "per": "kg"
+          },
+          "Kaufland": {
+            "date": "2026-07-09",
+            "price": 3.99,
+            "per": "kg"
+          }
+        }
+      },
+      {
+        "product_id": "p-0112",
+        "product": "Nektarinen",
+        "stores": {
+          "Kaufland": {
+            "date": "2026-07-09",
+            "price": 1.49,
+            "per": "item"
+          },
+          "ALDI SÜD": {
+            "date": "2026-08-22",
+            "price": 1.89,
+            "per": "item"
+          }
+        }
+      },
+      {
+        "product_id": "p-0117",
+        "product": "Babyspinat Bio",
+        "stores": {
+          "Kaufland": {
+            "date": "2026-07-09",
+            "price": 1.19,
+            "per": "item"
+          },
+          "ALDI SÜD": {
+            "date": "2026-07-09",
+            "price": 1.19,
+            "per": "item"
+          }
+        }
+      },
+      {
+        "product_id": "p-0116",
+        "product": "Lauchzwiebeln",
+        "stores": {
+          "Kaufland": {
+            "date": "2026-07-09",
+            "price": 0.49,
+            "per": "item"
+          },
+          "ALDI SÜD": {
+            "date": "2026-08-22",
+            "price": 0.69,
+            "per": "item"
+          }
+        }
+      },
+      {
+        "product_id": "p-0104",
+        "product": "Salatgurken",
+        "stores": {
+          "Kaufland": {
+            "date": "2026-07-09",
+            "price": 1.09,
+            "per": "item"
+          },
+          "ALDI SÜD": {
+            "date": "2026-08-22",
+            "price": 0.89,
+            "per": "item"
+          }
+        }
+      }
+    ],
+    "note": null
   }
 }

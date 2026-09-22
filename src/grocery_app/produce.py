@@ -9,7 +9,7 @@ two strings for you.
 The flip side is what this module is built on: **produce is generic**. A
 cucumber is the same cucumber in every shop, which makes cross-store
 comparison easier for produce than for anything else — comparing two shops'
-own-brand chocolate is meaningless, comparing their cucumbers is not. So one
+budget chocolate is meaningless, comparing their cucumbers is not. So one
 vocabulary entry resolves a name at every store at once, where catalogue work
 resolves one name at one store.
 
@@ -401,7 +401,6 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
                     "size": {"count": 1, "value": None, "unit": None},
                     "category": "Produce",
                     "is_organic": name.endswith(" Bio") or (row.get("organic") or "") == "y",
-                    "is_own_brand": None,
                     "eans": [],
                     "open_questions": [],
                     "provenance": {"attributes": "produce-vocabulary", "source": "hand"},

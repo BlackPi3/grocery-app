@@ -15,7 +15,7 @@ The four insights promised in CLAUDE.md, in the order they are computed:
 1. repurchase cadence and predicted needs,
 2. price over time per product (a price watch),
 3. a personal basket index (Laspeyres: last month's basket at this month's prices),
-4. own-brand vs brand share of spend,
+4. budget-brand vs name-brand share of spend,
 
 plus the same-item comparison across stores, which is honest about having no
 data until a product resolves at two stores.
@@ -32,7 +32,7 @@ from typing import Any
 
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 1
+CONTRACT_VERSION = 2
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -250,31 +250,51 @@ def basket_index(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-# --- 4. own-brand vs brand ---------------------------------------------------
+# --- 4. budget brand vs name brand -------------------------------------------
+
+def _unbranded(p: dict[str, Any]) -> bool:
+    """Whether this line is a thing that has no brand to find, ever.
+
+    Loose produce carries no barcode, no packet and no label, so no lookup, no
+    scan and no shopper will ever name a brand for it. Asking whether a cucumber
+    is a shop's own label is not an open question but a malformed one, and money
+    spent on it does not belong in the same bucket as a label nobody has read
+    yet. This reads `category` only at its coarsest level, which is the part of
+    that field currently worth trusting.
+    """
+    return not p.get("brand") and (p.get("category") or "").startswith("Produce")
+
 
 def _split(rows: list[dict[str, Any]]) -> dict[str, float]:
-    s = {"own_brand": 0.0, "brand": 0.0, "unknown": 0.0, "unresolved": 0.0}
+    s = {"budget": 0.0, "name_brand": 0.0, "unbranded": 0.0, "unknown": 0.0, "unresolved": 0.0}
     for p in rows:
         paid = p.get("net_paid") or 0.0
         if not p.get("product_id"):
             s["unresolved"] += paid
-        elif p.get("is_own_brand") is True:
-            s["own_brand"] += paid
-        elif p.get("is_own_brand") is False:
-            s["brand"] += paid
+        elif p.get("is_budget_brand") is True:
+            s["budget"] += paid
+        elif p.get("is_budget_brand") is False:
+            s["name_brand"] += paid
+        elif _unbranded(p):
+            s["unbranded"] += paid
         else:
             s["unknown"] += paid
-    known = s["own_brand"] + s["brand"]
+    known = s["budget"] + s["name_brand"]
     out = {k: round(v, 2) for k, v in s.items()}
-    out["own_brand_share_of_known"] = round(s["own_brand"] / known, 3) if known else None
+    out["budget_share_of_known"] = round(s["budget"] / known, 3) if known else None
     return out
 
 
-def own_brand(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """Spend split into own-brand, brand, unknown (resolved, status not recorded) and unresolved.
+def budget_brand(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Spend split five ways: budget, name_brand, unbranded, unknown, unresolved.
+
+    `unbranded` is money on things with no brand to find (loose produce), which
+    is a final answer. `unknown` is a line whose brand exists but is not yet
+    sourced — a gap that can be closed. Keeping them apart is what stops the
+    insight reporting homework that can never be done.
 
     `unknown_brands` lists the brands behind the unknown money, largest first,
-    so the gap can be closed by marking products rather than by guessing here.
+    so the gap is closed by sourcing a brand rather than by guessing here.
     """
     labels = _store_labels(rows)
     by_store: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -282,7 +302,7 @@ def own_brand(rows: list[dict[str, Any]]) -> dict[str, Any]:
         by_store[_store(p, labels)].append(p)
     unknown: dict[str, float] = defaultdict(float)
     for p in rows:
-        if p.get("product_id") and p.get("is_own_brand") is None:
+        if p.get("product_id") and p.get("is_budget_brand") is None and not _unbranded(p):
             unknown[p.get("brand") or "(no brand recorded)"] += p.get("net_paid") or 0.0
     return {
         "overall": _split(rows),
@@ -359,7 +379,7 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None) -> dict
         "repurchase": repurchase(rows, as_of),
         "price_changes": price_changes(rows),
         "basket_index": basket_index(rows),
-        "own_brand": own_brand(rows),
+        "budget_brand": budget_brand(rows),
         "cross_store": cross_store(rows),
     }
 

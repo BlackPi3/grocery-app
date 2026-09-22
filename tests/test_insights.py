@@ -5,19 +5,19 @@ from datetime import date
 from grocery_app.insights import (
     MIN_BASKET_PRODUCTS,
     basket_index,
+    budget_brand,
     build_insights,
     cross_store,
-    own_brand,
     price_changes,
     repurchase,
 )
 
 
 def row(pid, day, net, qty=1, unit=None, per=None, store="Musterladen",
-        own=None, brand="Marke", product="Ding", type_="product"):
+        budget=None, brand="Marke", product="Ding", type_="product", category=None):
     r = {"type": type_, "date": day, "store": store, "product_id": pid, "product": product,
-         "brand": brand, "is_own_brand": own, "qty": qty, "net_paid": net,
-         "unit_price": {"amount": unit, "per": per} if unit else None}
+         "brand": brand, "is_budget_brand": budget, "category": category, "qty": qty,
+         "net_paid": net, "unit_price": {"amount": unit, "per": per} if unit else None}
     return r
 
 
@@ -111,16 +111,41 @@ def test_basket_index_refuses_a_thin_overlap():
     assert str(MIN_BASKET_PRODUCTS) in entry["reason"]
 
 
-# --- own brand ---------------------------------------------------------------
+# --- budget brand ------------------------------------------------------------
 
-def test_own_brand_split_keeps_unknown_and_unresolved_apart():
-    rows = [row("p-1", "2026-01-01", 2.0, own=True), row("p-2", "2026-01-01", 6.0, own=False),
-            row("p-3", "2026-01-01", 1.0, own=None, brand="Rätsel"),
+def test_budget_split_keeps_unknown_and_unresolved_apart():
+    rows = [row("p-1", "2026-01-01", 2.0, budget=True), row("p-2", "2026-01-01", 6.0, budget=False),
+            row("p-3", "2026-01-01", 1.0, budget=None, brand="Rätsel"),
             row(None, "2026-01-01", 5.0)]
-    out = own_brand(rows)
-    assert out["overall"] == {"own_brand": 2.0, "brand": 6.0, "unknown": 1.0, "unresolved": 5.0,
-                              "own_brand_share_of_known": 0.25}
+    out = budget_brand(rows)
+    assert out["overall"] == {"budget": 2.0, "name_brand": 6.0, "unbranded": 0.0,
+                              "unknown": 1.0, "unresolved": 5.0,
+                              "budget_share_of_known": 0.25}
     assert out["unknown_brands"] == [{"brand": "Rätsel", "spend": 1.0}]
+
+
+def test_produce_with_no_brand_is_unbranded_not_unknown():
+    """A cucumber has no brand to find, so it is not a gap anyone can close.
+
+    Counting it as unknown would report work that cannot be done, and would
+    leave `(no brand recorded)` permanently at the top of `unknown_brands`.
+    """
+    rows = [row("p-1", "2026-01-01", 2.0, budget=True),
+            row("p-2", "2026-01-01", 4.0, budget=None, brand=None, category="Produce"),
+            row("p-3", "2026-01-01", 1.0, budget=None, brand=None, category="Snacks")]
+    out = budget_brand(rows)
+    assert out["overall"]["unbranded"] == 4.0
+    assert out["overall"]["unknown"] == 1.0
+    # Only the packaged line is offered as something to go and find out.
+    assert out["unknown_brands"] == [{"brand": "(no brand recorded)", "spend": 1.0}]
+
+
+def test_unbranded_money_stays_out_of_the_known_share():
+    """Produce is neither a budget line nor a name brand, so it cannot move the ratio."""
+    rows = [row("p-1", "2026-01-01", 1.0, budget=True), row("p-2", "2026-01-01", 1.0, budget=False)]
+    without = budget_brand(rows)["overall"]["budget_share_of_known"]
+    rows.append(row("p-3", "2026-01-01", 98.0, budget=None, brand=None, category="Produce"))
+    assert budget_brand(rows)["overall"]["budget_share_of_known"] == without == 0.5
 
 
 # --- cross store -------------------------------------------------------------
@@ -137,7 +162,7 @@ def test_one_store_spelled_two_ways_is_one_store():
             row("p-1", "2026-01-09", 1.0, store="Globus"),
             row("p-2", "2026-01-09", 1.0, store="GLOBUS")]
     assert cross_store(rows)["products"] == []
-    assert list(own_brand(rows)["by_store"]) == ["GLOBUS"], "the common spelling is the label"
+    assert list(budget_brand(rows)["by_store"]) == ["GLOBUS"], "the common spelling is the label"
     assert repurchase(rows, as_of=date(2026, 1, 10))[0]["store"] == "GLOBUS"
 
 

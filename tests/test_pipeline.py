@@ -18,7 +18,7 @@ def test_receipts_become_purchases_become_insights(data):
                                 data / "products" / "products.json",
                                 data / "products" / "resolution.json",
                                 None, data / "products")
-    assert purchases["contract_version"] == 2
+    assert purchases["contract_version"] == 3
     assert purchases["meta"]["receipts"] == 2
     assert purchases["meta"]["product_lines"] == 5
     assert purchases["meta"]["unresolved_items"] == ["Geheimnis"]
@@ -28,7 +28,7 @@ def test_receipts_become_purchases_become_insights(data):
     assert milk[0]["unit_price"] == {"amount": 1.09, "per": "l"}
 
     insights = build_insights(purchases)
-    assert insights["contract_version"] == 1
+    assert insights["contract_version"] == 2
     assert insights["as_of"] == "2026-02-05"
     assert insights["coverage"]["resolved_lines"] == 4
     (change,) = [c for c in insights["price_changes"] if c["product_id"] == "p-0001"]
@@ -36,9 +36,9 @@ def test_receipts_become_purchases_become_insights(data):
     assert [r["product_id"] for r in insights["repurchase"]] == ["p-0001", "p-0002"]
     assert insights["basket_index"]["series"][0]["index"] is None, \
         "two overlapping products is too thin for an index, and it says so"
-    (label,) = insights["own_brand"]["by_store"]
+    (label,) = insights["budget_brand"]["by_store"]
     assert label.casefold() == "musterladen", "two spellings, one store"
-    assert insights["own_brand"]["by_store"][label] == insights["own_brand"]["overall"]
+    assert insights["budget_brand"]["by_store"][label] == insights["budget_brand"]["overall"]
     assert insights["cross_store"]["products"] == []
 
 
@@ -66,7 +66,7 @@ def test_the_cli_runs_the_same_path(data, monkeypatch, capsys):
     assert "repurchase:     2 products bought more than once" in printed
     written = json.loads(out_insights.read_text(encoding="utf-8"))
     assert set(written) == {"contract_version", "as_of", "coverage", "repurchase",
-                            "price_changes", "basket_index", "own_brand", "cross_store"}
+                            "price_changes", "basket_index", "budget_brand", "cross_store"}
 
 
 def test_the_server_serves_what_the_normalizer_built(data):
@@ -92,3 +92,31 @@ def test_the_server_serves_what_the_normalizer_built(data):
     # names let the server add null attributes to unresolved lines unnoticed.
     assert client.get("/v1/purchases").json() == purchases
     assert client.get("/v1/insights").json() == build_insights(purchases)
+
+
+def test_budget_brand_is_derived_at_the_seam_and_not_stored_in_the_catalog(data):
+    """The catalog holds no own-brand answer; purchases.json holds one per line.
+
+    This is the seam the change is about. Products are permanent and shared
+    across shops, so a value frozen onto one could only ever be right in the
+    shop it was minted in. Deriving it as purchases are built means a correction
+    to the brand tables reaches every line ever written, with no migration.
+    """
+    catalog = json.loads((data / "products" / "products.json").read_text())["products"]
+    assert catalog, "fixture has products"
+    for product_id, product in catalog.items():
+        assert "is_budget_brand" not in product, \
+            f"{product_id}: the catalog must not freeze a per-shop fact onto a product"
+
+    purchases = build_purchases(data / "receipts" / "truth",
+                                data / "products" / "products.json",
+                                data / "products" / "resolution.json",
+                                None, data / "products")
+    resolved = [p for p in purchases["purchases"] if p.get("product_id")]
+    assert resolved, "fixture resolves something"
+    assert all("is_budget_brand" in p for p in resolved), \
+        "every resolved line answers the question the catalog no longer stores"
+    # A line nothing could place invents nothing, this field included.
+    for line in purchases["purchases"]:
+        if line["type"] == "product" and not line.get("product_id"):
+            assert "is_budget_brand" not in line

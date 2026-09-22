@@ -9,7 +9,7 @@ The temptation is to guess the missing half, and that is the one thing this
 module refuses to do. A guessed flavour is indistinguishable from a confirmed
 one the moment it is written, so it can never be cleaned up; a null says
 "unknown" honestly and costs nothing. Three of the four insights this project
-is built on — cadence, own-brand share, personal inflation — work perfectly
+is built on — cadence, budget-brand share, personal inflation — work perfectly
 well at brand-and-product-line, provided the coarse product does not straddle
 a price gap. Only same-item-across-stores needs the barcode, and that arrives
 when someone scans one.
@@ -128,7 +128,6 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
                 "size": {"count": 1, "value": None, "unit": None},
                 "category": None,
                 "is_organic": None,
-                "is_own_brand": None,
                 "eans": [ean] if ean else [],
                 "open_questions": questions,
                 "provenance": {"attributes": "coarse-resolution",
@@ -253,10 +252,10 @@ def brand_in(raw_name: str, brands: list[str]) -> str:
 
 
 def expand(raw_name: str) -> tuple[str, str]:
-    """A till line as a searchable product name, plus any own-brand prefix.
+    """A till line as a searchable product name, plus any store-brand prefix.
 
     Returns `(brand, name)`. Quantities and packaging words are dropped, an
-    own-brand prefix becomes the brand, and known abbreviations are written
+    store-brand prefix becomes the brand, and known abbreviations are written
     out. Nothing is invented: a token this does not recognise is kept as it
     was printed.
     """
