@@ -129,7 +129,7 @@ def main() -> None:
     i = subparsers.add_parser(
         "insights",
         help="Compute the insights (repurchase cadence, price watch, basket index, "
-             "own-brand share, cross-store) from purchases.json",
+             "budget-brand share, cross-store) from purchases.json",
     )
     i.add_argument("--purchases", default="data/purchases.json")
     i.add_argument("--output", default="data/insights.json")
@@ -341,13 +341,13 @@ def main() -> None:
             else:
                 print(f"  basket index:   {entry['month']}: {entry['index']} "
                       f"({entry['month_over_month_pct']:+.1f}% on {entry['products']} products)")
-        ob = data["own_brand"]["overall"]
-        share = ob["own_brand_share_of_known"]
+        bb = data["budget_brand"]["overall"]
+        share = bb["budget_share_of_known"]
         if share is None:
-            print("  own brand:      no product with a known status")
+            print("  budget brand:   no product with a known status")
         else:
-            print(f"  own brand:      {share*100:.0f}% of the €{ob['own_brand']+ob['brand']:.2f} "
-                  f"with a known status")
+            print(f"  budget brand:   {share*100:.0f}% of the "
+                  f"€{bb['budget']+bb['name_brand']:.2f} with a known status")
         print(f"  cross-store:    {len(data['cross_store']['products'])} products "
               f"at more than one store")
 

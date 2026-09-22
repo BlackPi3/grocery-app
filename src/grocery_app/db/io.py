@@ -149,10 +149,14 @@ def receipt_to_dict(receipt: Receipt) -> dict[str, Any]:
 
 # --- products, resolutions, listings, line answers ----------------------------
 
-PRODUCT_FIELDS = ("label", "name", "brand", "product_line", "variant", "size", "category",
-                  "is_organic", "is_own_brand", "eans", "open_questions", "provenance",
-                  "nutrition", "enrichment", "extra")
-PRODUCT_ALWAYS = PRODUCT_FIELDS[:12]
+# Written on every product. `is_budget_brand` is deliberately not here: it is a
+# fact about a brand and a shop, not about a product, so it is derived per
+# purchase line by the normalizer and never stored on the catalog row.
+PRODUCT_ALWAYS = ("label", "name", "brand", "product_line", "variant", "size", "category",
+                  "is_organic", "eans", "open_questions", "provenance")
+# Written only when filled, by `enrich`.
+PRODUCT_OPTIONAL = ("nutrition", "enrichment", "extra")
+PRODUCT_FIELDS = PRODUCT_ALWAYS + PRODUCT_OPTIONAL
 
 
 def product_from_dict(product_id: str, d: dict[str, Any]) -> Product:
@@ -165,7 +169,7 @@ def product_from_dict(product_id: str, d: dict[str, Any]) -> Product:
 
 def product_to_dict(product: Product) -> dict[str, Any]:
     d = {field: getattr(product, field) for field in PRODUCT_ALWAYS}
-    for field in PRODUCT_FIELDS[12:]:
+    for field in PRODUCT_OPTIONAL:
         if getattr(product, field) is not None:
             d[field] = getattr(product, field)
     return d

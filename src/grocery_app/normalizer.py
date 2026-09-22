@@ -27,7 +27,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from grocery_app.resolver import store_key
+from grocery_app.resolver import budget_brand_status, store_key
 
 # --- loading -----------------------------------------------------------------
 
@@ -197,6 +197,13 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
 
     if candidates:
         record.update(shared_attributes(candidates))
+        # Asked of this receipt's store rather than read off the product: the
+        # same yogurt is ALDI SÜD's own label in an ALDI SÜD basket and a
+        # stranger's brand anywhere else. Deriving it here means extending the
+        # brand tables reaches every row ever written, including this one.
+        # It stays inside this branch because a line nothing could place gets
+        # no invented attributes, the same as brand and category.
+        record["is_budget_brand"] = budget_brand_status(receipt.get("store"), record.get("brand"))
         # Unit price needs a pack size, and only an exact match has one we can
         # trust: a family may span 0,5 kg and 0,2 kg of the same seeds.
         record["unit_price"] = compute_unit_price(
@@ -224,7 +231,10 @@ def priced_like(line: dict[str, Any], ids: list[str],
     return matches[0] if len(matches) == 1 else None
 
 
-_SHARED = ("brand", "product_line", "variant", "category", "is_own_brand", "is_organic")
+# `is_budget_brand` is deliberately absent: it is not an attribute of the product
+# but of this line's store and the product's brand together, so it is derived
+# in `normalize_line` rather than copied across from the catalog.
+_SHARED = ("brand", "product_line", "variant", "category", "is_organic")
 
 
 def shared_attributes(candidates: list[dict[str, Any]]) -> dict[str, Any]:
@@ -354,7 +364,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     dates = sorted({r["date"] for r in receipts if not r.get("is_duplicate")})
 
     return {
-        "contract_version": 2,
+        "contract_version": 3,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],

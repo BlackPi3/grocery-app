@@ -233,7 +233,7 @@ def test_a_server_with_no_extractor_refuses_to_upload(engine, tmp_path):
 
 def test_a_file_backed_server_cannot_take_photos(tmp_path):
     """`JsonRepository` has no place to put a job, and says so plainly."""
-    client = TestClient(create_app(InMemoryRepository({"contract_version": 2, "meta": {},
+    client = TestClient(create_app(InMemoryRepository({"contract_version": 3, "meta": {},
                                                        "purchases": []}),
                                    DiskImageStore(tmp_path), FakeExtractor()))
     response = client.post("/v1/receipts",

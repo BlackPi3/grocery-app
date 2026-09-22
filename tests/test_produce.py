@@ -119,7 +119,7 @@ def test_near_misses_are_offered_when_nothing_matched():
 
 
 PURCHASES = {
-    "contract_version": 2,
+    "contract_version": 3,
     "meta": {"receipts": 2},
     "purchases": [
         {"type": "product", "store": "Musterladen", "raw_name": "Gurke Stk",

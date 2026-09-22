@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from grocery_app.resolver import (
     brand_questions,
+    budget_brand_status,
     expand_abbreviations,
-    own_brand_status,
     parse_size,
     rank,
     score,
@@ -312,10 +312,44 @@ def test_a_listing_with_no_brand_says_so_rather_than_claiming_none():
     assert brand_questions("Jeden Tag") == [], "a brand is an answer, not a question"
 
 
-def test_own_brand_is_decided_per_store_from_the_brand():
-    assert own_brand_status("GLOBUS", "Jeden Tag") is True
-    assert own_brand_status("Globus", "GLOBUS Meisterbäckerei") is True, "a store line counts"
-    assert own_brand_status("GLOBUS", "OHO") is True
-    assert own_brand_status("GLOBUS", "Manner") is False
-    assert own_brand_status("GLOBUS", None) is None, "no brand, no answer"
-    assert own_brand_status("Musterladen", "Jeden Tag") is None, "no list for this store yet"
+def test_budget_brand_is_decided_per_store_from_the_brand():
+    assert budget_brand_status("GLOBUS", "Jeden Tag") is True
+    assert budget_brand_status("Globus", "GLOBUS Meisterbäckerei") is True, "a store line counts"
+    assert budget_brand_status("GLOBUS", "OHO") is True
+    assert budget_brand_status("GLOBUS", "Manner") is False
+    assert budget_brand_status("GLOBUS", None) is None, "no brand, no answer"
+    assert budget_brand_status("Musterladen", "Jeden Tag") is None, "no list for this store yet"
+
+
+def test_a_selection_of_budget_brands_never_answers_for_a_brand_it_omits():
+    """ALDI SÜD publishes "eine Auswahl" of its labels, not all of them.
+
+    Reading absence from a partial list as "a manufacturer owns it" is how the
+    chain's own chocolate gets filed under national brands, which is a wrong
+    answer rather than a missing one. GLOBUS is the opposite case: Parham named
+    that list exhaustively, so absence there really does settle it.
+    """
+    assert budget_brand_status("ALDI SÜD", "Milsani") is True, "on the published list"
+    assert budget_brand_status("Aldi Süd", "Choceur") is True, "an own label not on that page"
+    assert budget_brand_status("ALDI SÜD", "Coca-Cola") is False, "a manufacturer's"
+    assert budget_brand_status("ALDI SÜD", "Wurstmacher Nonesuch") is None, \
+        "unsourced at a store whose list is a selection: a gap, not a verdict"
+    assert budget_brand_status("GLOBUS", "Wurstmacher Nonesuch") is False, \
+        "unsourced at a store whose list is complete: not theirs"
+
+
+def test_one_chain_spelled_two_ways_gets_one_answer():
+    """Receipts print ALDI SÜD and Aldi Süd; the umlaut must not split the chain."""
+    assert (budget_brand_status("ALDI SÜD", "Kokett")
+            is budget_brand_status("Aldi Süd", "Kokett") is True)
+
+
+def test_the_same_brand_answers_differently_in_different_shops():
+    """The whole reason the fact cannot live on the product record.
+
+    K-Classic is Kaufland's own label; carried into any other shop's basket it
+    is somebody else's brand. A value frozen onto the product could only ever
+    be right in one of these two places.
+    """
+    assert budget_brand_status("Kaufland", "K-Classic") is True
+    assert budget_brand_status("GLOBUS", "K-Classic") is False

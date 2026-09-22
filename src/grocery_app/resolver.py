@@ -50,26 +50,143 @@ BRAND_ABBREVIATIONS = {
     "ins": "instant",
 }
 
-# A store's own brands, by store key. A brand that starts with one of these
-# is the store's; any other recorded brand is not; no brand recorded is not
-# known either way. Parham, who works at GLOBUS: "the main ones are Globus
-# and Jeden Tag. Manner and Alnatura definitely aren't its own brand." OHO
-# (household goods) is GLOBUS's as well.
-OWN_BRANDS: dict[str, tuple[str, ...]] = {
-    "globus": ("GLOBUS", "Jeden Tag", "OHO"),
+# The shop's cheaper alternative to the famous brand, by store key. A brand
+# that starts with one of these is the budget choice in that shop.
+#
+# The test is price, never ownership. Three arrangements look identical to a
+# shopper in the aisle and all count here: the chain owns the trademark
+# (Milsani at ALDI SÜD), a supplier sells to that chain alone, or the chain
+# buys through a cooperative (Jeden Tag, below). Parham, who works at GLOBUS:
+# "it's not like they own the brand. sometimes they are in an agreement that
+# the brand only sells to them."
+#
+# ALDI SÜD's entries are the list the chain publishes at aldi-sued.de/marken,
+# which says in as many words that it is "eine Auswahl" — a selection — plus
+# labels read off its own product pages. Lidl's and Kaufland's were written
+# from general knowledge, not from a source, which is why neither is trusted
+# as complete below.
+BUDGET_BRANDS: dict[str, tuple[str, ...]] = {
+    # Parham: "the main ones are Globus and Jeden Tag. Manner and Alnatura
+    # definitely aren't its own brand." OHO is GLOBUS's household line.
+    "globus": ("GLOBUS", "OHO"),
+    "aldi sued": (
+        "ALMARE", "BACK FAMILY", "BARISSIMO", "BBQ", "BIO", "BISCOTTO", "CUCINA",
+        "GOLDÄHREN", "GOLDEN SEAFOOD", "GUT DREI EICHEN", "GÜLDENHOF", "KARLSKRONE",
+        "KLEINE SCHÄTZE", "LACURA", "LANDFREUDE", "LE GUSTO", "MAMIA",
+        "MEINE BACKWELT", "MEINE KÄSETHEKE", "MEINE KUCHEN WELT", "MEINE METZGEREI",
+        "MILSANI", "MY VAY", "NATUR LIEBLINGE", "NUR NUR NATUR", "RIO D'ORO",
+        "RIO D' ORO", "ROI DE TREFLE", "TANDIL", "WINTERTRAUM", "WONNEMEYER",
+        "ALDI", "ALL SEASONS", "BON-RI", "CHOCEUR", "CROFTON", "FAIR & GUT",
+        "FARMER", "GARDENLINE", "GOLDEN BRIDGE", "HOFBURGER", "HOME CREATION",
+        "JACK´S FARM", "JACK'S FARM", "KING'S CROWN", "KOKETT", "LANDBECK",
+        "LYTTOS", "MUCCI", "PIZZ‘AH", "PIZZ'AH", "POWER FORCE", "SPEISEZEIT",
+        "SUNSNACKS", "TEVION", "UP2FASHION", "WESTMINSTER",
+    ),
+    "lidl": (
+        "ALESTO", "BELBAKE", "BELLAROM", "CIEN", "COMBINO", "CRIVIT", "DENTALUX",
+        "DULANO", "FAVORINA", "FIN CARRÉ", "FLORABEST", "FREEWAY", "GRANDESSA",
+        "KANIA", "LIVARNO", "LORD NELSON", "LUPILU", "MARIBEL", "MELODY", "MILBONA",
+        "NIXE", "PARKSIDE", "PILOS", "SAGUARO", "SILVERCREST", "SOLEVITA", "SONDEY",
+        "VEMONDO", "VITASIA", "W5",
+    ),
+    "kaufland": ("K-CLASSIC", "K-BIO", "K-TAKE IT VEGGIE"),
+    # Not in the receipts yet. Parham named "Ja" as the shape of the idea, so it
+    # is written down where the next Rewe receipt will find it.
+    "rewe": ("JA!", "JA "),
 }
 
+# Jeden Tag is not any shop's property. It belongs to Markant, a buying
+# cooperative whose subsidiary trades goods "im Preiseinstiegsbereich" — the
+# entry-price segment — and it reaches the shelf through member chains. Parham
+# found it sold at Globus, tegut, famila, Combi and K+K, and Markant lists
+# Globus, Kaufland, tegut, real and Bartels-Langness among its retail partners.
+#
+# Modelled as a cooperative rather than copied into each shop's tuple, because
+# that is what it is: a shopper meets the same cheap line in whichever member
+# shop they happen to be standing in.
+COOPERATIVE_BUDGET_BRANDS: dict[str, tuple[str, ...]] = {
+    "markant": ("Jeden Tag",),
+}
+COOPERATIVE_MEMBERS: dict[str, frozenset[str]] = {
+    "markant": frozenset({"globus", "kaufland", "tegut", "real", "famila", "combi", "k+k"}),
+}
 
-def own_brand_status(store: str | None, brand: str | None) -> bool | None:
-    """True if `brand` is one of the store's own brands, False if it is another
-    brand, None when no brand is recorded or the store has no list yet."""
+# Stores whose tuple above is every budget line they sell, so a brand missing
+# from it is not the cheap choice. This is the difference between "not on the
+# list" and "not budget", and only a source can tell them apart.
+#
+# GLOBUS qualifies on Parham's authority — he works there and named the whole
+# set. ALDI SÜD does not: its published list is explicitly a selection and most
+# of its range is own label, so absence would read as a name brand far more
+# often than it is true. Lidl and Kaufland do not either; see above.
+COMPLETE_BUDGET_LISTS: frozenset[str] = frozenset({"globus"})
+
+# Brands a manufacturer owns, which no shop sells cheap as a matter of course.
+# Sourced from the products ALDI SÜD itself files under "Markenprodukte" in its
+# product API, plus the manufacturers seen on Parham's receipts.
+NAME_BRANDS: tuple[str, ...] = (
+    "ABSOLUT VODKA", "ACTIMEL", "ALNATURA", "ALPENHAIN", "ALPRO", "APERINI", "ARLA",
+    "ASBACH", "BABYBEL", "BARILLA", "BAUER", "BÄRENMARKE", "BENEDIKTINER HELL",
+    "BERGADER", "BONDUELLE", "BRESSO", "BRUNCH", "BUBBLE CHILL", "CHOVIVA",
+    "COCA-COLA", "CONDITOREI COPPENRATH & WIESE", "CORNY", "DALLMAYR", "DANONE",
+    "DOVE", "DR. OETKER", "EHRMANN", "EMMI", "ERASCO", "ESTRELLA DAMM", "FEBREZE",
+    "FERRERO", "FOL EPI", "FUNNY-FRISCH", "FUNNY FRISCH", "FUZETEA", "GALBANI",
+    "GAZI", "GOLDEN TOAST", "GRÜNLÄNDER", "GÉRAMONT", "HARIBO", "HAVANA CLUB",
+    "HOCHWALD", "JACOBS", "KAHLUA", "KARLSBERG", "KELLOGG'S", "KILBEGGAN", "KITKAT",
+    "KNORR", "LANDLIEBE", "LAVAZZA", "LEERDAMMER", "LEIBNIZ", "LENOR", "LILLET",
+    "LORENZ", "LOTUS BISCOFF", "MANNER", "MARS", "MEGGLE", "MEISTER PROPER",
+    "MESSMER", "MILKA", "MILRAM", "MINI BABYBEL", "MUMM", "MÖVENPICK", "MÜLLER",
+    "OREO", "PATROS", "PEPSI", "PERSIL", "PHILADELPHIA", "PONNATH", "POWERADE",
+    "PRESIDENT", "PURINA ONE", "RAMAZZOTTI", "RAVINI", "RED BULL", "ROUGETTE",
+    "SALAKIS", "SAUPIQUET", "SCHWIP SCHWAP", "SCHÖFFERHOFER", "SENSEO", "STARBUCKS",
+    "STORCK", "TEEKANNE", "TOPPITS", "TRUE FRUITS", "VALENSINA", "VELTINS", "VOLVIC",
+    "WEIHENSTEPHAN", "WIESBAUER", "ZARANOFF", "ZOTT",
+)
+
+# A shop's dearer line. German chains run their labels in price tiers, and only
+# the bottom tier is the saving. Reaching for Moser Roth instead of Milka is not
+# the behaviour this insight measures, so these answer False with the
+# manufacturers rather than True with the budget lines.
+PREMIUM_STORE_LINES: tuple[str, ...] = (
+    "DELUXE",                   # Lidl
+    "EXQUISIT", "K-FAVOURITES",  # Kaufland
+    "GOURMET FINEST CUISINE", "MOSER ROTH",  # ALDI SÜD
+)
+
+_NOT_BUDGET: frozenset[str] = frozenset(
+    x.casefold() for x in NAME_BRANDS + PREMIUM_STORE_LINES)
+
+
+def budget_brand_status(store: str | None, brand: str | None) -> bool | None:
+    """Whether `brand` is the cheaper choice in this store.
+
+    True when it is the shop's budget line, False when it is a manufacturer's
+    brand or a shop's premium line, and None when we cannot say. None is a gap
+    to be closed by sourcing the brand, never a quiet vote for either answer.
+
+    Absence from a store's list only means "not the cheap one" where that list
+    is known complete; where it is a selection, absence means nothing at all.
+    Reading absence as "a manufacturer owns it" is how ALDI SÜD's own chocolate
+    would end up filed beside Milka.
+    """
     if not brand:
         return None
-    own = OWN_BRANDS.get(store_key(store))
-    if own is None:
-        return None
     folded = brand.strip().casefold()
-    return any(folded.startswith(o.casefold()) for o in own)
+    # `fold` and not `store_key` here: ALDI SÜD and Aldi Sued are one chain, and
+    # only this lookup needs them unified. store_key joins (store, raw_name)
+    # pairs across the resolution file, where changing the key would move rows.
+    key = fold(store_key(store))
+
+    budget = list(BUDGET_BRANDS.get(key) or ())
+    for group, members in COOPERATIVE_MEMBERS.items():
+        if key in members:
+            budget += COOPERATIVE_BUDGET_BRANDS.get(group) or ()
+    if any(folded.startswith(b.casefold()) for b in budget):
+        return True
+
+    if any(folded.startswith(n) for n in _NOT_BUDGET):
+        return False
+    return False if key in COMPLETE_BUDGET_LISTS else None
 
 
 def brand_questions(brand: str | None) -> list[str]:
@@ -518,7 +635,6 @@ def _add_product(products_doc: dict[str, Any], listings_doc: dict[str, Any],
         "size": _size_from_row(first),
         "category": None,
         "is_organic": None,
-        "is_own_brand": own_brand_status(store, first.get("brand")),
         "eans": [r["article_number"] for r in rows
                  if len(r.get("article_number") or "") in _BARCODE_LENGTHS],
         "open_questions": brand_questions(first.get("brand")),
@@ -623,7 +739,7 @@ def queries_for(raw_name: str) -> list[str]:
     """The raw line, a brand-expanded form, and umlaut fill-ins for `?`.
 
     All are worth asking: searching `JT Magerquark 250g` finds the Hansano one,
-    while `Jeden Tag Magerquark` finds the own-brand the receipt actually means.
+    while `Jeden Tag Magerquark` finds the budget brand the receipt actually means.
     Their engine ignores the `JT` token entirely.
     """
     queries = [raw_name]
@@ -770,7 +886,6 @@ def confirm_pairs(pairs: list[tuple[str, str]], products_path: str | Path,
                                     "catalog_name": found.get("name")}),
             "category": None,
             "is_organic": None,
-            "is_own_brand": own_brand_status(store, found["brand"]),
             "eans": [article] if len(article) in _BARCODE_LENGTHS else [],
             "open_questions": brand_questions(found["brand"]),
             "provenance": {"attributes": "globus-product-page", "source": found["url"]},

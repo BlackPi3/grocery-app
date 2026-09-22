@@ -70,7 +70,7 @@ def test_an_unresolved_line_carries_no_invented_product_fields(corrections):
     unknown = client.get(f"/v1/receipts/{receipt_id}").json()["lines"][2]
 
     assert unknown["resolved"] is False
-    for invented in ("product", "brand", "category", "is_own_brand"):
+    for invented in ("product", "brand", "category", "is_budget_brand"):
         assert invented not in unknown
 
 
@@ -226,7 +226,7 @@ def test_a_patch_may_not_rewrite_the_receipt(corrections):
 
 def test_a_file_backed_server_cannot_record_corrections():
     client = TestClient(create_app(InMemoryRepository(
-        {"contract_version": 2, "meta": {}, "purchases": []})))
+        {"contract_version": 3, "meta": {}, "purchases": []})))
 
     assert client.get("/health").json()["writes"] is False
     assert client.get("/v1/receipts/1").status_code == 503

@@ -18,8 +18,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-PURCHASES_CONTRACT_VERSION = 2
-INSIGHTS_CONTRACT_VERSION = 1
+# Bumped to 3 and 2 on 2026-09-22, when `is_own_brand` became `is_budget_brand`
+# and the insight section `own_brand` became `budget_brand`. Renaming a field is
+# a shape change, and the shape is what the version is for.
+PURCHASES_CONTRACT_VERSION = 3
+INSIGHTS_CONTRACT_VERSION = 2
 
 
 class UnitPrice(BaseModel):
@@ -57,7 +60,7 @@ class Purchase(BaseModel):
     product_line: str | None = None
     variant: str | None = None
     category: str | None = None
-    is_own_brand: bool | None = None
+    is_budget_brand: bool | None = None
     is_organic: bool | None = None
 
 
@@ -77,7 +80,7 @@ class PurchasesDocument(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    contract_version: Literal[2]
+    contract_version: Literal[PURCHASES_CONTRACT_VERSION]
     meta: PurchasesMeta
     purchases: list[Purchase]
 
@@ -87,13 +90,13 @@ class InsightsDocument(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    contract_version: Literal[1]
+    contract_version: Literal[INSIGHTS_CONTRACT_VERSION]
     as_of: str
     coverage: dict[str, Any]
     repurchase: list[dict[str, Any]]
     price_changes: list[dict[str, Any]]
     basket_index: dict[str, Any]
-    own_brand: dict[str, Any]
+    budget_brand: dict[str, Any]
     cross_store: dict[str, Any]
 
 
