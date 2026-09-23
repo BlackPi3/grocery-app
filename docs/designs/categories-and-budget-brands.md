@@ -1,7 +1,7 @@
 # Design: Categories and Budget Brands
 
 Written 2026-09-21 · Status: the brand half is built (2026-09-22); the category
-half is still proposed.
+half is built (2026-09-23).
 
 **The name changed, and so did the question.** This document was written about
 "own brands" and tested them by ownership. Parham corrected that on 2026-09-22:
@@ -19,10 +19,19 @@ shop's property; and the insight separates produce (no brand to find) from a
 brand nobody has read yet. `purchases.json` is contract 3 and `insights.json`
 contract 2.
 
-What has not: everything about `category`. The vocabulary is still open, still
-free text, still unused by `insights.py`, and 79 of 181 products still have no
-category at all. The demo makes this visible — `Uncategorised` is the largest
-bar in "Where the money goes".
+What shipped since: the category half. `categories.py` holds the closed
+vocabulary — 13 branches, 32 sections, 112 categories — and `categorize.py`
+proposes a key per product from three sources of evidence. 179 of 181 products
+were reviewed and migrated off the old 46 free-text values; the remaining two
+are recorded as `category unknown` because the shopper looked and could not
+say. A value outside the vocabulary is now
+a reported problem in `product_store.problems()`, so free text cannot walk back
+in the way `cut` and `chia` did. `purchases.json` is contract 4:
+`category` is now a vocabulary key and `category_path` carries the three labels
+beside it. The brandless invariant no longer reads `category.startswith
+("Produce")` — it asks `categories.is_produce()`, which is a question about
+which section of the shop a thing comes from rather than about a string. See
+"What the category build changed" at the end.
 
 Two fields already in `products.json` are doing their jobs badly, and a third
 meaning has been quietly read into a fourth. This is what each should mean.
@@ -41,9 +50,9 @@ Nothing in the contract answers those, because nothing says which products are
 the same kind of thing. Six products in the catalog are potato chips across
 three shops, and the only thing that knows is a person reading the names.
 
-`category` exists on every product and is supposed to be that answer. It is not
-used by `insights.py` — zero references — and it is not in a state where it
-could be:
+`category` exists on every product and is supposed to be that answer. As of
+2026-09-21 it was not used by `insights.py` — zero references — and it was not
+in a state where it could be:
 
 - 27 of the 99 older products have no category at all, and all 53 products the
   coarse pass minted have none, because `enrich` needs an EAN to ask
@@ -250,3 +259,97 @@ read. Every brand the catalog does record is now answered. That remainder is
 the gap worth working on, and it is a catalog-matching problem rather than a
 question for the shopper: ALDI's own crawl already holds `Chips gesalzen` as
 SUNSNACKS and `Mozzarella, ger.` as HOFBURGER.
+
+## What the category build changed
+
+Five things the design did not anticipate, found while building it on 2026-09-23.
+
+**The strongest evidence was already on disk and nobody had read it.** The design
+listed Open Food Facts and the printed name as the two sources. There is a third
+and it is better than both: 47 of the 181 products were matched to a GLOBUS
+listing, and every listing URL carries the shop's own three-level path —
+`milchprodukte-eier/kaese/reibekaese/4306188407508/mozzarella-gerieben`. That is
+not a guess about what the thing is; it is where the shop put it. Across the
+whole catalog those 47 products sit on 28 distinct shelves, so mapping their
+tree onto ours is a 28-line table, and it answered three of the four failures
+the name matcher was known to make — `Mozzarella, gerieben` is grated cheese,
+`Eis, Schokolade` is ice cream, `Linsen Chips Paprika` is crisps.
+
+**A shop's shelf is sometimes wider than a category, and that is still useful.**
+GLOBUS files Kühne's Salz-Dill-Gurken under `gemuesekonserven`, but a jar of
+pickles and a tin of chopped tomatoes are different lines on a shopping list, so
+our vocabulary separates them. The mapping table therefore has two kinds of
+value: a category key, or `@section` — the shop narrows it to a section and the
+name picks the entry inside it. That combination is strictly better than either
+alone, because the section throws out every alias that matched the wrong aisle.
+
+**The flavour is not what the thing is.** `variant` was in the matched text at
+first, which is how `Lay's Potato chips` in `Kräuterbutter` proposed butter,
+`Potato chips Peperoni` proposed chilli peppers and `Somat 5in1 Deo Perls`
+proposed deodorant. One field, one job: `name` says what it is, `variant` says
+which one it was, and only the first is read.
+
+**The rule that makes the migration honest: a name alone is a question, two
+independent sources agreeing is an answer.** 42 of the 181 rows came back
+settled — the shop's shelf and the product's own words saying the same thing, or
+the name and the Open Food Facts chain agreeing. Nothing else was settled by
+machine, including the 110 rows where a single alias matched cleanly, because
+that source is wrong about one product in twenty-five. Three rows went to the
+shopper and nobody else could have answered them: two Kaufland products nobody
+can identify from the receipt (`Bubble Chill Wild.`, `Blitzstart Mix`) and an
+ALDI `Blätterteiggebäcke` that is sweet or savoury depending on which one he
+picked up. He answered one of the three. That is the expected hit rate two
+months after the trip and it is the reason `n` had to mean something.
+
+**"I do not remember" is an answer and the catalog has to hold it.** `n` in the
+review file does not mean "reject and move on" — it writes `category unknown`
+into the product's `open_questions`, and a re-run brings the row back already
+marked `n` rather than asking a dead question twice. Without that, a product
+nobody can place is indistinguishable from a product nobody has looked at, which
+is the same failure as the twenty-two coarse products that silently claimed to
+have no brand. Two products are in this state: a €2.99 Kaufland drink and a
+€1.39 ALDI pastry, €4.38 of spend between them. They are closable — a catalog
+match or a second receipt would settle either — just not by memory.
+
+**One row was a missing word rather than a hard question.** GLOBUS files
+Ponnath's `Hähnchenbrustfilet, Natur` under `kochschinken-braten`, and the
+vocabulary had `Schinken` and nothing else in that section — so the shop was
+right about the shelf and our only word for it was wrong about the meat. Calling
+sliced chicken breast `Schinken` is the `cut` mistake from the other direction:
+true of where it sits, unrecognisable on a list. The fix was a vocabulary entry,
+`Geflügelaufschnitt`, not a compromise on those two products.
+
+**Who reviewed a category is not recorded, and should be.** `resolution.json`
+carries `confirmed_by` per entry; a product's `category` carries nothing, so the
+catalog cannot tell a row a person read from a row a model read. That is a real
+gap and it is left open deliberately rather than papered over: per-field
+provenance on a product record is its own decision, and this change did not
+need it.
+
+**A produce kind with no category is refused rather than minted.** This reverses
+a decision from the produce loop, where a kind the vocabulary had never heard of
+was accepted and reported: "take the answer, and say what is missing". It cannot
+stay. A produce product is brandless on purpose, and after this change the only
+thing distinguishing that from a brand nobody read is its category — so minting
+`Pastinaken` with no category would write a record the store's own invariant
+rejects. The row is reported and left in the CSV instead, where re-running
+`confirm` after two lines in `produce.py` banks it unchanged. Nothing is lost
+except the illusion that it was already banked.
+
+### What the numbers did
+
+Against the same 27 receipts, on €515.88 of spend:
+
+| | before | after |
+|---|---|---|
+| distinct category values | 46 free text | 80 of a closed 112 |
+| products with no category | 79 | 2, both recorded as a question |
+| resolved spend with no category | €455.95 | €4.38 |
+| largest bar in "Where the money goes" | `Uncategorised` | Obst & Gemüse, €92.71 |
+
+The €4.38 is the two products above. The rest of what the demo still shows as
+uncategorised — €49.20 — is lines that never resolved to a product at all, which
+is a different problem and already counted as one.
+
+`insights.py` still does not group by category. The field is now trustworthy
+enough that it could; doing it is the next piece, not this one.
