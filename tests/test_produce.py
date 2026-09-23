@@ -12,7 +12,9 @@ import json
 
 import pytest
 
+from grocery_app import categories
 from grocery_app.produce import (
+    KIND_CATEGORIES,
     VOCABULARY,
     confirm,
     is_organic,
@@ -192,7 +194,7 @@ def test_one_kind_earns_one_id_and_every_store_resolves_to_it(catalog, tmp_path)
     catalog_doc = json.loads(products.read_text(encoding="utf-8"))
     (product_id, product), = catalog_doc["products"].items()
     assert product["name"] == "Salatgurken"
-    assert (product["brand"], product["eans"], product["category"]) == (None, [], "Produce")
+    assert (product["brand"], product["eans"], product["category"]) == (None, [], "gurken")
 
     entries = json.loads(resolution.read_text(encoding="utf-8"))["entries"]
     assert {e["store"] for e in entries} == {"Musterladen", "Woanders"}
@@ -227,16 +229,24 @@ def test_typing_a_kind_overrides_a_wrong_guess(catalog, tmp_path):
     assert product["name"] == "Kartoffeln"
 
 
-def test_a_kind_the_vocabulary_lacks_is_accepted_and_reported(catalog, tmp_path):
+def test_a_kind_the_vocabulary_lacks_is_reported_and_not_written(catalog, tmp_path):
     """A reviewer typing an unknown kind has found a vocabulary gap, not made a
-    mistake: take the answer, and say what is missing."""
+    mistake — but the answer cannot be banked until the gap is closed.
+
+    A produce product is brandless on purpose, and the only thing that tells
+    that apart from a brand nobody read is its category. Minting `Pastinaken`
+    with no category would write a record the store's own invariant rejects.
+    So the row is reported and left in the CSV, where re-running `confirm`
+    after two lines in `produce.py` banks it unchanged.
+    """
     products, resolution = catalog
     rows = [dict(row, decision="Pastinaken") for row in propose(PURCHASES)
             if row["raw_name"] == "Choviva Kekstaler"]
     summary = confirm(reviewed(tmp_path, rows), products, resolution)
 
     assert summary["new_kinds"] == ["Pastinaken"]
-    assert summary["products"] == 1
+    assert summary["uncategorised"] == ["Pastinaken"]
+    assert (summary["products"], summary["entries"]) == (0, 0)
     assert "Pastinaken" not in VOCABULARY
 
 
@@ -358,3 +368,12 @@ def test_a_decision_is_cleared_when_the_guess_it_was_made_against_changes():
     assert again["Gurke Stk"]["decision"] == "", "the guess moved; look again"
     assert again["Salatgurken St"]["decision"] == "y", "that guess did not move"
     assert again["Choviva Kekstaler"]["decision"] == "y", "no guess either time, kept"
+
+
+def test_every_kind_knows_what_kind_of_thing_it_is():
+    """`VOCABULARY` says what a produce kind is called and `KIND_CATEGORIES`
+    says what it is. A kind in one and not the other cannot be minted, so the
+    two are kept level here rather than discovered by a reviewer."""
+    assert set(KIND_CATEGORIES) == set(VOCABULARY)
+    for kind, key in KIND_CATEGORIES.items():
+        assert categories.is_produce(key), kind

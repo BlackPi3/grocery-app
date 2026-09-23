@@ -115,6 +115,24 @@ def test_the_real_store_if_present_is_consistent():
     assert problems(products, resolution) == []
 
 
+# --- the category vocabulary is closed ---------------------------------------
+
+
+def test_a_category_outside_the_vocabulary_is_reported():
+    """`cut`, `chia` and `stuffed wafers` all arrived as free text in this
+    field. Absent is allowed — nobody has said yet — but a value has to be a
+    key from `categories.py`."""
+    def invented(p):
+        p["products"]["p-0001"]["category"] = "Dairy"
+    assert any("not in the vocabulary" in m for m in broken(products=invented))
+
+
+def test_no_category_at_all_is_not_a_problem():
+    def unsaid(p):
+        p["products"]["p-0001"]["category"] = None
+    assert broken(products=unsaid) == []
+
+
 # --- a null brand has to say which of two things it means --------------------
 
 
@@ -122,7 +140,7 @@ def test_loose_produce_may_be_brandless_and_say_nothing():
     # No barcode exists behind a cucumber, so nothing will ever supply a brand.
     def produce(p):
         p["products"]["p-0003"] = {"label": "Salatgurken", "name": "Salatgurken",
-                                   "brand": None, "category": "Produce",
+                                   "brand": None, "category": "gurken",
                                    "size": PRODUCTS["products"]["p-0001"]["size"], "eans": []}
         p["meta"]["next_id"] = 4
     assert broken(products=produce) == []
@@ -132,7 +150,7 @@ def test_a_packaged_product_may_not_be_silently_brandless():
     # There is a brand printed on the bag; a null means nobody read it.
     def chips(p):
         p["products"]["p-0003"] = {"label": "chips", "name": "Kartoffelchips gesalzen",
-                                   "brand": None, "category": "Snacks",
+                                   "brand": None, "category": "chips",
                                    "size": PRODUCTS["products"]["p-0001"]["size"], "eans": []}
         p["meta"]["next_id"] = 4
     assert any("no 'brand unknown' question" in m for m in broken(products=chips))
@@ -141,7 +159,7 @@ def test_a_packaged_product_may_not_be_silently_brandless():
 def test_saying_the_brand_is_unknown_is_enough():
     def chips(p):
         p["products"]["p-0003"] = {"label": "chips", "name": "Kartoffelchips gesalzen",
-                                   "brand": None, "category": "Snacks",
+                                   "brand": None, "category": "chips",
                                    "open_questions": ["brand unknown"],
                                    "size": PRODUCTS["products"]["p-0001"]["size"], "eans": []}
         p["meta"]["next_id"] = 4
