@@ -256,7 +256,7 @@
 
     <div class="card">
       <h2>Where the money goes</h2>
-      <div class="hint">by category · net of discounts</div>
+      <div class="hint">by part of the shop · net of discounts</div>
       <div class="bars" id="cats"></div>
     </div>
 
@@ -307,7 +307,19 @@ let list = JSON.parse(localStorage.getItem('basket.list') || '[]');
 const saveList = () => localStorage.setItem('basket.list', JSON.stringify(list));
 let catOverrides = JSON.parse(localStorage.getItem('basket.categories') || '{}');
 const saveCat = () => localStorage.setItem('basket.categories', JSON.stringify(catOverrides));
-const effCategory = p => (p.product_id && catOverrides[p.product_id]) || p.category || (p.product_id ? 'Uncategorised' : 'Not yet resolved');
+// purchases.json carries `category` as a vocabulary key and `category_path` as
+// the three labels it stands for, coarsest first. The page only ever shows the
+// labels: `Reibekäse`, never `reibekaese`. A local override is one label and
+// stands for the whole path.
+const catPath = p => (p.product_id && catOverrides[p.product_id])
+  ? [catOverrides[p.product_id]] : (p.category_path || null);
+const catLevel = (p, i) => {
+  const path = catPath(p);
+  if (!path) return p.product_id ? 'Uncategorised' : 'Not yet resolved';
+  return path[Math.min(i, path.length - 1)];
+};
+const effCategory = p => catLevel(p, 2);   // the shopping-list line
+const effBranch = p => catLevel(p, 0);     // the part of the shop you walk to
 
 function displayName(p, i) {
   if (renames[i]) return renames[i];
@@ -500,7 +512,7 @@ function renderBudgetBrand() {
 
 function renderCats(prods) {
   const c = {};
-  prods.forEach(p => { const k = effCategory(p).split(' / ')[0]; c[k] = (c[k] || 0) + p.net_paid; });
+  prods.forEach(p => { const k = effBranch(p); c[k] = (c[k] || 0) + p.net_paid; });
   let rows = Object.entries(c).sort((a, b) => b[1] - a[1]);
   const TOP = 8;
   if (rows.length > TOP + 1) {
