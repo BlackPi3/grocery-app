@@ -18,7 +18,7 @@ def test_receipts_become_purchases_become_insights(data):
                                 data / "products" / "products.json",
                                 data / "products" / "resolution.json",
                                 None, data / "products")
-    assert purchases["contract_version"] == 3
+    assert purchases["contract_version"] == 4
     assert purchases["meta"]["receipts"] == 2
     assert purchases["meta"]["product_lines"] == 5
     assert purchases["meta"]["unresolved_items"] == ["Geheimnis"]
@@ -26,6 +26,14 @@ def test_receipts_become_purchases_become_insights(data):
     assert [p["resolution"] for p in milk] == ["exact", "exact"], \
         "store spelled two ways still resolves"
     assert milk[0]["unit_price"] == {"amount": 1.09, "per": "l"}
+    # The catalog stores the vocabulary key and nothing else; the three labels
+    # a reader sees are derived here, once, on the way into the contract.
+    assert milk[0]["category"] == "milch"
+    assert milk[0]["category_path"] == ["Molkereiprodukte & Eier",
+                                        "Milch & Joghurt", "Milch"]
+    unresolved = next(p for p in purchases["purchases"] if not p["product_id"])
+    assert "category_path" not in unresolved, \
+        "a line with no product gains no attributes, this one included"
 
     insights = build_insights(purchases)
     assert insights["contract_version"] == 2

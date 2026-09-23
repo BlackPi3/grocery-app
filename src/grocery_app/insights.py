@@ -30,6 +30,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+from grocery_app import categories
 from grocery_app.resolver import store_key
 
 CONTRACT_VERSION = 2
@@ -259,10 +260,10 @@ def _unbranded(p: dict[str, Any]) -> bool:
     scan and no shopper will ever name a brand for it. Asking whether a cucumber
     is a shop's own label is not an open question but a malformed one, and money
     spent on it does not belong in the same bucket as a label nobody has read
-    yet. This reads `category` only at its coarsest level, which is the part of
-    that field currently worth trusting.
+    yet. This reads `category` only at its coarsest level — which section of
+    the shop the thing comes from — and never at the leaf.
     """
-    return not p.get("brand") and (p.get("category") or "").startswith("Produce")
+    return not p.get("brand") and categories.is_produce(p.get("category"))
 
 
 def _split(rows: list[dict[str, Any]]) -> dict[str, float]:

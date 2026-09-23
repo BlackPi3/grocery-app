@@ -19,7 +19,7 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 - **Normalization**: a Python layer that resolves raw receipt lines to products, split across `data/products/`: `products.json` (what a product is), `resolution.json` (which receipt text means which product — or which *family* of products, when the till prints one name for several — store-scoped and with provenance), `<store>/listings.json` (what one store sells it as, with price history), and `data/receipts/line_resolutions.json` (the shopper's own answer for a line the receipt could not pin down). The full tree is in `docs/data-layout.md`.
 - **Enrichment**: `grocery-app enrich` fills what a store listing never says (category, organic label, Nutri-Score, NOVA group) from [Open Food Facts](https://openfoodfacts.org) by barcode, only where the product has no confirmed value. Open Food Facts data is licensed under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/).
 - **Purchase history**: `purchases.json`, built from the extracted receipts by the normalization layer.
-- **Insights**: `grocery-app insights` reads purchases.json and writes `insights.json`: repurchase cadence with an expected next date, price over time per product, a personal basket index (last month's repeat basket priced at this month's prices), own-brand vs brand share, and the same item across stores. Every figure carries the coverage it rests on.
+- **Insights**: `grocery-app insights` reads purchases.json and writes `insights.json`: repurchase cadence with an expected next date, price over time per product, a personal basket index (last month's repeat basket priced at this month's prices), budget vs name brand share, and the same item across stores. Every figure carries the coverage it rests on.
 - **API**: `grocery-app serve` exposes the same two documents over HTTP (`/v1/purchases`, `/v1/insights`, OpenAPI at `/docs`), from the JSON files or from PostgreSQL (`grocery-app db upgrade`, `db import`, `db export`); the same normalizer runs either way, and a test proves the two agree. With PostgreSQL it also takes photos: `POST /v1/receipts` stores the image, returns a job id, and extracts in the background; `GET /v1/jobs/{id}` reports `queued` / `running` / `done` / `failed` with the model's cost. One photo is never extracted twice. A shopper can read a receipt back (`GET /v1/receipts/{id}`), say what a line actually was (`PUT .../lines/{position}/resolution`), and mark a receipt as a duplicate (`PATCH /v1/receipts/{id}`) — the corrections land in `line_resolutions` and `db export` writes them back out for the catalog loop. The plan, and what is deliberately not done yet, is in `docs/designs/backend-api.md`.
 - **Demo**: a self-contained static web page (`web/index.html`) presenting the history and the insights in a mobile-style layout, live at **https://blackpi3.github.io/grocery-app/**. The two JSON files it reads are my real shopping history, published deliberately.
 
@@ -32,15 +32,34 @@ propose` matches printed names against a store-independent vocabulary of *kinds*
 `produce confirm` mints the kinds and resolves them at every store at once. The design,
 including what it deliberately does not model, is in `docs/designs/produce-vocabulary.md`.
 
+## Categories
+
+A product id answers "what did this cost last time"; it cannot answer "how much do I spend
+on chips", because nothing says that six bags across three shops are the same kind of thing.
+`categories.py` is that answer: a closed, three-level German vocabulary — branch, section,
+category — lifted from what ALDI SÜD and GLOBUS publish rather than invented, at the
+granularity of a shopping list (*Chips*, *Milch*, *Reibekäse*, never *Snacks* and never
+*funny-frisch Chipsfrisch Salt & Vinegar 175 g*).
+
+`grocery-app category propose` reads three sources of evidence per product — the shop's own
+shelf for anything matched to its catalogue, the Open Food Facts chain, and the printed name
+— and writes a CSV to review; `category confirm` writes back only what came back marked. The
+rule it runs on is that **a name alone is a question and two independent sources agreeing is
+an answer**: the printed name is wrong about one product in twenty-five, always the same way
+(`Linsen Chips Paprika` is not paprika), so a row where the shop and the name disagree is
+routed to a person rather than settled by a cleverer matcher. The design is in
+`docs/designs/categories-and-budget-brands.md`.
+
 ## What it says today
 
-From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insights use the 106 of 237 lines (49% of spend) that resolve to a catalog product; the rest counts as money only, and the demo says so in its footer.
+From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insights use the 218 of 237 lines (88% of spend) that resolve to a catalog product; the rest counts as money only, and the demo says so in its footer.
 
-- **Price watch**: 10 products bought on more than one date; 3 changed price. The quark went up 30% per kg, avocados came down 25%, the bread rolls up 2%.
-- **Personal basket index**: August vs July, over the 5 products bought in both months: 94.0, so last month's repeat basket cost 6% less at August prices. Five products is a thin basket; the index refuses to report on fewer than three.
-- **Repurchase cadence**: 10 products with a typical interval; most rest on a single gap between two trips, and the demo labels those "bought twice, N days apart" rather than "every N days".
-- **Own brand**: 28% of the resolved spend goes to GLOBUS's own brands (GLOBUS, Jeden Tag and OHO). The status comes from a per-store own-brand list applied when a product enters the catalog; the insight lists the brands still unknown instead of guessing.
-- **Same item across stores**: nothing yet. Only GLOBUS lines resolve so far, and the insight says exactly that.
+- **Price watch**: 21 products bought on more than one date; 12 of them at a different price. Snack cucumbers tripled between June and July; radishes came down a third.
+- **Personal basket index**: August vs July, over the 11 products bought in both months: 155.2. The series starts in a June of cheap summer produce, so it reads high; eleven products is still a thin basket, and the index refuses to report on fewer than three.
+- **Repurchase cadence**: 23 products bought more than once, 13 of them due. Most rest on a single gap between two trips, and the demo labels those "bought twice, N days apart" rather than "every N days".
+- **Budget vs name brand**: 34% of the €312 with a known status goes to a shop's cheaper line — 68% at ALDI SÜD. The status is derived per line from the store and the brand, never stored on the product, and €57.86 sits in "brand not yet read" rather than being guessed at.
+- **Where the money goes**: every resolved line now carries a category, so the demo breaks spend down by part of the shop — €92.71 fruit and veg, €84.12 sweet and salty snacks, €68.81 dairy. Two products are still uncategorised, worth €4.38 — the shopper looked and could not remember, which the catalog records as a question rather than a blank.
+- **Same item across stores**: 11 products bought at more than one shop. Snack cucumbers run €0.99 at Lidl against €1.11 at ALDI SÜD; redcurrants are not comparable at all, sold by the kilo at one and by the punnet at the other, and the insight says so rather than dividing.
 
 ## Next
 
@@ -58,7 +77,7 @@ From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insig
   line corrections, auth and deployment) are specified in `docs/designs/backend-api.md`.
 - Test suite around the normalization layer, then CI on every push.
 - **Done:** the first insights, computed from purchases.json alone (see "What it says today").
-- Next on the insights: mark own-brand status on the catalog products, resolve the other stores so the cross-store comparison has data.
+- Next on the insights: roll spend and cadence up by category now that every resolved line carries one, and resolve the last stores so the cross-store comparison has more than eleven products.
 
 ## Run locally
 

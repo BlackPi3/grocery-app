@@ -131,8 +131,8 @@ def test_produce_with_no_brand_is_unbranded_not_unknown():
     leave `(no brand recorded)` permanently at the top of `unknown_brands`.
     """
     rows = [row("p-1", "2026-01-01", 2.0, budget=True),
-            row("p-2", "2026-01-01", 4.0, budget=None, brand=None, category="Produce"),
-            row("p-3", "2026-01-01", 1.0, budget=None, brand=None, category="Snacks")]
+            row("p-2", "2026-01-01", 4.0, budget=None, brand=None, category="gurken"),
+            row("p-3", "2026-01-01", 1.0, budget=None, brand=None, category="chips")]
     out = budget_brand(rows)
     assert out["overall"]["unbranded"] == 4.0
     assert out["overall"]["unknown"] == 1.0
@@ -144,7 +144,7 @@ def test_unbranded_money_stays_out_of_the_known_share():
     """Produce is neither a budget line nor a name brand, so it cannot move the ratio."""
     rows = [row("p-1", "2026-01-01", 1.0, budget=True), row("p-2", "2026-01-01", 1.0, budget=False)]
     without = budget_brand(rows)["overall"]["budget_share_of_known"]
-    rows.append(row("p-3", "2026-01-01", 98.0, budget=None, brand=None, category="Produce"))
+    rows.append(row("p-3", "2026-01-01", 98.0, budget=None, brand=None, category="gurken"))
     assert budget_brand(rows)["overall"]["budget_share_of_known"] == without == 0.5
 
 

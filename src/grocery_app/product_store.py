@@ -12,6 +12,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from grocery_app import categories
+
 PRODUCT_ID = re.compile(r"p-\d{4}")
 SIZE_SHAPE = {"count", "value", "unit"}
 
@@ -40,13 +42,22 @@ def problems(products_doc: dict[str, Any], resolution_doc: dict[str, Any]) -> li
         if not isinstance(product.get("eans"), list):
             found.append(f"{product_id}: eans is not a list")
 
+        # The vocabulary is closed, so a value outside it is not a category —
+        # it is free text that walked in, which is how `cut`, `chia` and
+        # `stuffed wafers` came to sit beside hand-written `Dairy`. Absent is
+        # allowed and means nobody has said yet; anything else has to be a key
+        # from `categories.py`.
+        category = product.get("category")
+        if category and category not in categories.CATEGORIES:
+            found.append(f"{product_id}: category {category!r} is not in the vocabulary")
+
         # A null brand is two different answers and the record has to say which.
         # Loose produce has no barcode, so no lookup, no scan and no shopper
         # will ever supply a brand: silence there is the final answer. Anything
         # else in a packet has a brand printed on it, and a null means nobody
         # read it — a gap, which belongs in open_questions. Left to a writer to
         # remember, twenty packaged products ended up claiming to be cucumbers.
-        if not product.get("brand") and not (product.get("category") or "").startswith("Produce") \
+        if not product.get("brand") and not categories.is_produce(product.get("category")) \
                 and not any(q.startswith("brand ") for q in product.get("open_questions") or []):
             found.append(f"{product_id}: no brand, not produce, and no 'brand unknown' question")
 

@@ -18,7 +18,7 @@ from grocery_app.insights import build_insights
 from grocery_app.normalizer import save_json
 
 PURCHASES = {
-    "contract_version": 3,
+    "contract_version": 4,
     "meta": {
         "receipts": 2, "date_range": ["2026-01-05", "2026-02-05"], "product_lines": 3,
         "total_net_paid": 4.03, "unresolved_items": ["Geheimnis"], "ambiguous_items": [],
@@ -29,14 +29,18 @@ PURCHASES = {
          "resolved": True, "resolution": "exact", "candidate_ids": [], "qty": 1,
          "gross": 1.09, "discount": 0.0, "net_paid": 1.09, "tax_class": "A", "tax_rate": 0.07,
          "product": "Milch 1,5%", "brand": "Muster", "product_line": None, "variant": None,
-         "category": "Dairy", "is_budget_brand": True, "is_organic": False,
+         "category": "milch",
+         "category_path": ["Molkereiprodukte & Eier", "Milch & Joghurt", "Milch"],
+         "is_budget_brand": True, "is_organic": False,
          "unit_price": {"amount": 1.09, "per": "l"}},
         {"date": "2026-02-05", "store": "Musterladen", "source_image": "IMG_2.jpeg",
          "type": "product", "raw_name": "MU Milch 1,5%", "product_id": "p-0001",
          "resolved": True, "resolution": "exact", "candidate_ids": [], "qty": 1,
          "gross": 1.19, "discount": 0.0, "net_paid": 1.19, "tax_class": "A", "tax_rate": 0.07,
          "product": "Milch 1,5%", "brand": "Muster", "product_line": None, "variant": None,
-         "category": "Dairy", "is_budget_brand": True, "is_organic": False,
+         "category": "milch",
+         "category_path": ["Molkereiprodukte & Eier", "Milch & Joghurt", "Milch"],
+         "is_budget_brand": True, "is_organic": False,
          "unit_price": {"amount": 1.19, "per": "l"}},
         {"date": "2026-02-05", "store": "Musterladen", "source_image": "IMG_2.jpeg",
          "type": "product", "raw_name": "Geheimnis", "product_id": None,
@@ -54,7 +58,7 @@ def client():
 
 def test_health_reports_contract_versions_and_receipts(client):
     body = client.get("/health").json()
-    assert body == {"status": "ok", "purchases_contract_version": 3,
+    assert body == {"status": "ok", "purchases_contract_version": 4,
                     "insights_contract_version": 2, "receipts": 2,
                     "uploads": False, "writes": False}
     assert (body["uploads"], body["writes"]) == (False, False), \
@@ -80,7 +84,7 @@ def test_an_unresolved_line_gains_no_attributes_on_the_wire(client):
     served = next(p for p in client.get("/v1/purchases").json()["purchases"]
                   if not p["resolved"])
     for field in ("product", "brand", "product_line", "variant", "category",
-                  "is_budget_brand", "is_organic"):
+                  "category_path", "is_budget_brand", "is_organic"):
         assert field not in served
     # A null the document does carry is still sent.
     assert served["unit_price"] is None
@@ -93,6 +97,9 @@ def test_a_resolved_line_keeps_its_attributes_on_the_wire(client):
     assert served["product"] == "Milch 1,5%"
     assert served["brand"] == "Muster"
     assert served["is_budget_brand"] is True
+    # The key is the identity; the path is what a reader is shown.
+    assert served["category"] == "milch"
+    assert served["category_path"][-1] == "Milch"
     assert served["variant"] is None, "a known-empty attribute is still sent"
 
 

@@ -46,11 +46,11 @@ PRODUCTS = {
     "products": {
         "p-0001": {"label": "mu-milch", "name": "Milch 1,5%", "brand": "Muster",
                    "product_line": None, "variant": None,
-                   "size": {"count": 1, "value": 1.0, "unit": "l"}, "category": "Dairy",
+                   "size": {"count": 1, "value": 1.0, "unit": "l"}, "category": "milch",
                    "is_organic": False, "eans": [],
                    "open_questions": [], "provenance": {"attributes": "test", "source": "test"}},
         "p-0002": {"label": "bananen", "name": "Bananen", "brand": None,
-                   "product_line": None, "variant": None, "size": None, "category": "Produce",
+                   "product_line": None, "variant": None, "size": None, "category": "gurken",
                    "is_organic": False, "eans": [],
                    "open_questions": [], "provenance": {"attributes": "test", "source": "test"}},
     },

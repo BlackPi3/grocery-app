@@ -14,7 +14,7 @@ vocabulary entry resolves a name at every store at once, where catalogue work
 resolves one name at one store.
 
 A `kind` is therefore not a SKU. It is what the thing *is*. Kinds become
-ordinary catalog products (`brand: null`, `eans: []`, `category: "Produce"`),
+ordinary catalog products (`brand: null`, `eans: []`, a produce category),
 so nothing downstream needs a second notion of a product.
 
 The vocabulary starts coarse on purpose — `Tomaten`, not `Rispentomaten` —
@@ -36,6 +36,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from grocery_app import categories
 from grocery_app.resolver import fold, store_key
 
 # Canonical kind -> the folded surface forms tills print for it. Aliases are
@@ -110,6 +111,43 @@ FAMILIES: dict[str, tuple[str, ...]] = {
     "gurken": ("Salatgurken", "Mini-Gurken"),
     "paprika": ("Paprika rot", "Paprika grün", "Paprika gelb"),
 }
+
+# What kind of thing each kind is, in the words `categories.py` uses. A kind is
+# a product — `Rispentomaten`, because the price of vine tomatoes is its own
+# series — and a category is what you would write on a list, which is
+# `Tomaten`. Two levels, two jobs, and the table between them is written out
+# rather than matched, because a produce kind is minted straight into the
+# catalog and a mistake there is a wrong answer in the contract.
+KIND_CATEGORIES: dict[str, str] = {
+    "Salatgurken": "gurken", "Mini-Gurken": "gurken",
+    "Rispentomaten": "tomaten", "Datteltomaten": "tomaten",
+    "Romatomaten": "tomaten", "Cherrytomaten": "tomaten",
+    "Fleischtomaten": "tomaten",
+    "Paprika rot": "paprika-chili", "Paprika grün": "paprika-chili",
+    "Paprika gelb": "paprika-chili", "Spitzpaprika": "paprika-chili",
+    "Zucchini": "zucchini-auberginen",
+    "Zwiebeln": "zwiebeln-knoblauch", "Lauchzwiebeln": "zwiebeln-knoblauch",
+    "Porree": "zwiebeln-knoblauch",
+    "Karotten": "wurzelgemuese", "Mini-Karotten": "wurzelgemuese",
+    "Radieschen": "wurzelgemuese",
+    "Babyspinat": "salat", "Salatherzen": "salat",
+    "Kartoffeln": "kartoffeln",
+    "Champignons": "pilze",
+    "Bananen": "bananen", "Äpfel": "aepfel", "Birnen": "birnen",
+    "Trauben": "trauben",
+    "Heidelbeeren": "beeren", "Johannisbeeren": "beeren",
+    "Erdbeeren": "beeren", "Himbeeren": "beeren",
+    "Kiwis": "kiwis",
+    "Limetten": "zitrusfruechte", "Zitronen": "zitrusfruechte",
+    "Orangen": "zitrusfruechte",
+    "Nektarinen": "steinobst", "Plattpfirsiche": "steinobst",
+    "Wassermelonen": "melonen",
+    "Physalis": "exotisches-obst", "Avocados": "exotisches-obst",
+    "Schnittkräuter": "frische-kraeuter", "Dill": "frische-kraeuter",
+    "Minze": "frische-kraeuter", "Petersilie": "frische-kraeuter",
+    "Basilikum": "frische-kraeuter",
+}
+
 
 # A name that says the shopper chose the organic version. `bioft` is Bio
 # Fairtrade and `kbio` is a chain's own organic line: both are markers, not
@@ -354,10 +392,10 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
     resolution_doc = json.loads(Path(resolution_path).read_text(encoding="utf-8"))
 
     by_name = {p["name"]: pid for pid, p in products_doc["products"].items()
-               if p.get("category") == "Produce"}
+               if categories.is_produce(p.get("category"))}
     known = {(store_key(e["store"]), e["raw_name"]) for e in resolution_doc["entries"]}
     summary = {"products": 0, "entries": 0, "families": 0, "rejected": 0,
-               "skipped": 0, "new_kinds": [], "undecided": 0}
+               "skipped": 0, "new_kinds": [], "uncategorised": [], "undecided": 0}
 
     with Path(reviewed_path).open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
@@ -384,6 +422,17 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
             summary["skipped"] += 1
             continue
 
+        # A kind nobody has said what to call is not minted. A produce product
+        # is brandless on purpose, and the only thing that distinguishes that
+        # from a brand nobody read is its category, so a product minted without
+        # one would be a broken record written to the contract. The row is
+        # reported instead, and the fix is two lines in this file.
+        unknown = [name for name in names
+                   if name.removesuffix(" Bio") not in KIND_CATEGORIES]
+        if unknown:
+            summary["uncategorised"] += unknown
+            continue
+
         ids = []
         for name in names:
             product_id = by_name.get(name)
@@ -399,7 +448,7 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
                     "product_line": None,
                     "variant": None,
                     "size": {"count": 1, "value": None, "unit": None},
-                    "category": "Produce",
+                    "category": KIND_CATEGORIES.get(name.removesuffix(" Bio")),
                     "is_organic": name.endswith(" Bio") or (row.get("organic") or "") == "y",
                     "eans": [],
                     "open_questions": [],

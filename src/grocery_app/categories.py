@@ -173,7 +173,7 @@ CATEGORIES: dict[str, tuple[str, str, tuple[str, ...]]] = {
     # -- Milch & Joghurt -------------------------------------------------------
     "milch": ("Milch", "milch-joghurt", ("milch", "vollmilch", "h-milch", "h-vollmilch",
                                          "alpenmilch", "frischmilch", "whole milk",
-                                         "lactofree", "laktosefrei")),
+                                         "milk", "lactofree", "laktosefrei")),
     "joghurt": ("Joghurt", "milch-joghurt", ("joghurt", "sahnejoghurt", "naturjoghurt",
                                              "fruchtjoghurt", "yogurt")),
     "skyr": ("Skyr", "milch-joghurt", ("skyr",)),
@@ -238,6 +238,13 @@ CATEGORIES: dict[str, tuple[str, str, tuple[str, ...]]] = {
     # -- Wurst -----------------------------------------------------------------
     "salami": ("Salami", "aufschnitt", ("salami",)),
     "schinken": ("Schinken", "aufschnitt", ("schinken",)),
+    # Sliced cooked chicken and turkey sit in the same case as the ham and are
+    # shelved with it — GLOBUS files Ponnath's `Hähnchenbrustfilet, Natur`
+    # under `kochschinken-braten`. Filing it as `Schinken` would be true of the
+    # shelf and unrecognisable on a list, which is the `cut` mistake again.
+    "gefluegelaufschnitt": ("Geflügelaufschnitt", "aufschnitt",
+                            ("gefluegelaufschnitt", "haehnchenbrust aufschnitt",
+                             "putenbrust aufschnitt", "gefluegelwurst")),
     "fleischwurst": ("Fleisch- & Streichwurst", "aufschnitt",
                      ("fleischwurst", "streichwurst", "leberwurst", "bratwurst",
                       "wuerstchen")),

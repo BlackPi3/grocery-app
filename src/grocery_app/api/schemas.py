@@ -21,7 +21,12 @@ from pydantic import BaseModel, ConfigDict, Field
 # Bumped to 3 and 2 on 2026-09-22, when `is_own_brand` became `is_budget_brand`
 # and the insight section `own_brand` became `budget_brand`. Renaming a field is
 # a shape change, and the shape is what the version is for.
-PURCHASES_CONTRACT_VERSION = 3
+#
+# Purchases bumped again to 4 on 2026-09-23: `category` stopped being free text
+# and became a key from the closed vocabulary, and `category_path` arrived
+# beside it with the three labels a reader sees. Same field name, different
+# language in it, which is exactly the change a consumer must be told about.
+PURCHASES_CONTRACT_VERSION = 4
 INSIGHTS_CONTRACT_VERSION = 2
 
 
@@ -59,7 +64,10 @@ class Purchase(BaseModel):
     brand: str | None = None
     product_line: str | None = None
     variant: str | None = None
+    # The vocabulary key (`reibekaese`), and the three labels it stands for
+    # (`["Molkereiprodukte & Eier", "Käse", "Reibekäse"]`), coarsest first.
     category: str | None = None
+    category_path: list[str] | None = None
     is_budget_brand: bool | None = None
     is_organic: bool | None = None
 

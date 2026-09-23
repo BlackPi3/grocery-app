@@ -27,6 +27,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from grocery_app import categories
 from grocery_app.resolver import budget_brand_status, store_key
 
 # --- loading -----------------------------------------------------------------
@@ -248,6 +249,14 @@ def shared_attributes(candidates: list[dict[str, Any]]) -> dict[str, Any]:
     for key in _SHARED:
         values = {json.dumps(c.get(key), sort_keys=True) for c in candidates}
         shared[key] = candidates[0].get(key) if len(values) == 1 else None
+    # `category` is the vocabulary key, which is an identity and not a word
+    # anyone says. The three labels that go with it travel beside it, derived
+    # here from the one table, so a reader of purchases.json — or the demo —
+    # does not need the vocabulary in hand to show `Käse` instead of `kaese`.
+    # Nothing downstream may write these back: the key is the field with the
+    # job, and this is a rendering of it.
+    shared["category_path"] = list(categories.path(shared["category"])) \
+        if shared["category"] in categories.CATEGORIES else None
     # The readable name travels with the opaque id, so purchases.json stays
     # legible to a human reading it.
     names = {c.get("name") for c in candidates}
@@ -364,7 +373,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     dates = sorted({r["date"] for r in receipts if not r.get("is_duplicate")})
 
     return {
-        "contract_version": 3,
+        "contract_version": 4,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],

@@ -1,5 +1,5 @@
 {
-  "contract_version": 3,
+  "contract_version": 4,
   "meta": {
     "receipts": 27,
     "date_range": [
@@ -47,8 +47,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "melonen",
       "is_organic": true,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Melonen"
+      ],
       "product": "Wassermelonen Bio",
       "is_budget_brand": null,
       "unit_price": {
@@ -75,8 +80,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "melonen",
       "is_organic": true,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Melonen"
+      ],
       "product": "Wassermelonen Bio",
       "is_budget_brand": null,
       "unit_price": {
@@ -103,8 +113,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "beeren",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Beeren"
+      ],
       "product": "Johannisbeeren",
       "is_budget_brand": null,
       "unit_price": {
@@ -131,8 +146,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "frische-kraeuter",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Frische Kräuter",
+        "Frische Kräuter"
+      ],
       "product": "Minze",
       "is_budget_brand": null,
       "unit_price": null
@@ -156,8 +176,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "gurken",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Gurken"
+      ],
       "product": "Mini-Gurken",
       "is_budget_brand": null,
       "unit_price": null
@@ -181,8 +206,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "wurzelgemuese",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Wurzelgemüse"
+      ],
       "product": "Radieschen",
       "is_budget_brand": null,
       "unit_price": null
@@ -209,8 +239,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "gurken",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Gurken"
+      ],
       "product": "2 candidates",
       "is_budget_brand": null,
       "unit_price": null
@@ -234,8 +269,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "tomaten",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Tomaten"
+      ],
       "product": "Romatomaten",
       "is_budget_brand": null,
       "unit_price": null
@@ -259,8 +299,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "zwiebeln-knoblauch",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Zwiebeln & Knoblauch"
+      ],
       "product": "Porree",
       "is_budget_brand": null,
       "unit_price": null
@@ -284,8 +329,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "zwiebeln-knoblauch",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Zwiebeln & Knoblauch"
+      ],
       "product": "Zwiebeln",
       "is_budget_brand": null,
       "unit_price": null
@@ -309,8 +359,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "steinobst",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Steinobst"
+      ],
       "product": "Plattpfirsiche",
       "is_budget_brand": null,
       "unit_price": null
@@ -334,8 +389,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "speiseeis",
       "is_organic": null,
+      "category_path": [
+        "Tiefkühlung",
+        "Eis & TK-Desserts",
+        "Speiseeis"
+      ],
       "product": "Eisschale Chocolate Chip",
       "is_budget_brand": null,
       "unit_price": null
@@ -359,8 +419,13 @@
       "brand": "Coca-Cola",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "limonade",
       "is_organic": null,
+      "category_path": [
+        "Getränke",
+        "Kalte Getränke",
+        "Limonade & Cola"
+      ],
       "product": "Coca-Cola Classic",
       "is_budget_brand": false,
       "unit_price": null
@@ -402,8 +467,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "schokolade",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Schokolade"
+      ],
       "product": "Alpenvollmilch Schokolinsen",
       "is_budget_brand": null,
       "unit_price": null
@@ -427,8 +497,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "suessgebaeck",
       "is_organic": null,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Brot & Backwaren",
+        "Süßgebäck & Kuchen"
+      ],
       "product": "Schokokränze Gebäck",
       "is_budget_brand": null,
       "unit_price": null
@@ -452,8 +527,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "schokolade",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Schokolade"
+      ],
       "product": "Confetteria Kokos",
       "is_budget_brand": null,
       "unit_price": null
@@ -477,8 +557,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "nuesse",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Nüsse & Trockenobst",
+        "Nüsse & Kerne"
+      ],
       "product": "Pistazien ungesalzen",
       "is_budget_brand": null,
       "unit_price": null
@@ -502,8 +587,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "trockenobst",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Nüsse & Trockenobst",
+        "Trockenobst"
+      ],
       "product": "Sultaninen",
       "is_budget_brand": null,
       "unit_price": null
@@ -527,8 +617,13 @@
       "brand": "Milsani",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "skyr",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Skyr"
+      ],
       "product": "High Protein Skyr Drink",
       "is_budget_brand": true,
       "unit_price": null
@@ -570,8 +665,13 @@
       "brand": "Milsani",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "skyr",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Skyr"
+      ],
       "product": "Skyr Frucht",
       "is_budget_brand": true,
       "unit_price": null
@@ -595,8 +695,13 @@
       "brand": "Nur Nur Natur",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "essiggemuese",
       "is_organic": null,
+      "category_path": [
+        "Konserven & Fertiggerichte",
+        "Konserven & Glas",
+        "Essiggemüse"
+      ],
       "product": "Bio Gewürzgurken",
       "is_budget_brand": true,
       "unit_price": null
@@ -620,8 +725,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "paprika-chili",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Paprika & Chili"
+      ],
       "product": "Paprika rot",
       "is_budget_brand": null,
       "unit_price": {
@@ -648,8 +758,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "marmelade",
       "is_organic": null,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Aufstriche",
+        "Marmelade & Fruchtaufstrich"
+      ],
       "product": "Sauerkirsch Konfitüre",
       "is_budget_brand": null,
       "unit_price": null
@@ -673,8 +788,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "bananen",
       "is_organic": true,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Bananen"
+      ],
       "product": "Bananen Bio",
       "is_budget_brand": null,
       "unit_price": {
@@ -701,8 +821,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "kekse",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Kekse"
+      ],
       "product": "Oaties Haferkekse",
       "is_budget_brand": null,
       "unit_price": null
@@ -726,8 +851,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "kekse",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Kekse"
+      ],
       "product": "Oaties Haferkekse",
       "is_budget_brand": null,
       "unit_price": null
@@ -751,8 +881,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "zitrusfruechte",
       "is_organic": true,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Zitrusfrüchte"
+      ],
       "product": "Limetten Bio",
       "is_budget_brand": null,
       "unit_price": null
@@ -776,8 +911,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "kiwis",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Kiwis"
+      ],
       "product": "Kiwis",
       "is_budget_brand": null,
       "unit_price": null
@@ -801,8 +941,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "kiwis",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Kiwis"
+      ],
       "product": "Kiwis",
       "is_budget_brand": null,
       "unit_price": null
@@ -826,8 +971,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "kiwis",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Kiwis"
+      ],
       "product": "Kiwis",
       "is_budget_brand": null,
       "unit_price": null
@@ -851,8 +1001,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "kiwis",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Kiwis"
+      ],
       "product": "Kiwis",
       "is_budget_brand": null,
       "unit_price": null
@@ -894,8 +1049,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "tomaten",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Tomaten"
+      ],
       "product": "Rispentomaten",
       "is_budget_brand": null,
       "unit_price": {
@@ -940,8 +1100,13 @@
       "brand": "BIO BIO",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "milch",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Milch"
+      ],
       "product": "H-Vollmilch 3,8%",
       "is_budget_brand": true,
       "unit_price": null
@@ -965,8 +1130,13 @@
       "brand": "true fruits",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "saft",
       "is_organic": null,
+      "category_path": [
+        "Getränke",
+        "Kalte Getränke",
+        "Saft & Smoothies"
+      ],
       "product": "Smoothie",
       "is_budget_brand": false,
       "unit_price": null
@@ -990,8 +1160,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "wurzelgemuese",
       "is_organic": true,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Wurzelgemüse"
+      ],
       "product": "Mini-Karotten Bio",
       "is_budget_brand": null,
       "unit_price": null
@@ -1015,8 +1190,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "gurken",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Gurken"
+      ],
       "product": "Mini-Gurken",
       "is_budget_brand": null,
       "unit_price": null
@@ -1040,8 +1220,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "zucchini-auberginen",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Zucchini & Auberginen"
+      ],
       "product": "Zucchini",
       "is_budget_brand": null,
       "unit_price": {
@@ -1086,8 +1271,13 @@
       "brand": "Persil",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "waschmittel",
       "is_organic": null,
+      "category_path": [
+        "Haushaltsartikel",
+        "Wasch- & Putzmittel",
+        "Waschmittel"
+      ],
       "product": "Waschmittel",
       "is_budget_brand": false,
       "unit_price": null
@@ -1111,8 +1301,13 @@
       "brand": "Lenor",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "waschmittel",
       "is_organic": null,
+      "category_path": [
+        "Haushaltsartikel",
+        "Wasch- & Putzmittel",
+        "Waschmittel"
+      ],
       "product": "Weichspüler Aprilfrisch",
       "is_budget_brand": false,
       "unit_price": null
@@ -1136,8 +1331,13 @@
       "brand": "Kokett",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "kuechenrolle",
       "is_organic": null,
+      "category_path": [
+        "Haushaltsartikel",
+        "Papier, Tücher & Folien",
+        "Küchenrolle"
+      ],
       "product": "Küchenrollen 3-lagig",
       "is_budget_brand": true,
       "unit_price": null
@@ -1161,8 +1361,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "herzhafte-aufstriche",
       "is_organic": null,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Aufstriche",
+        "Herzhafte Aufstriche"
+      ],
       "product": "Zaziki",
       "is_budget_brand": null,
       "unit_price": null
@@ -1186,8 +1391,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "tk-gemuese",
       "is_organic": null,
+      "category_path": [
+        "Tiefkühlung",
+        "Tiefkühlkost",
+        "TK-Gemüse"
+      ],
       "product": "Gemüsesortiment tiefgekühlt",
       "is_budget_brand": null,
       "unit_price": null
@@ -1211,8 +1421,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "beeren",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Beeren"
+      ],
       "product": "Heidelbeeren",
       "is_budget_brand": null,
       "unit_price": null
@@ -1236,8 +1451,13 @@
       "brand": "Hofburger",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "schnittkaese",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Käse",
+        "Schnittkäse"
+      ],
       "product": "Gouda jung",
       "is_budget_brand": true,
       "unit_price": null
@@ -1261,8 +1481,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "eier-kat",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Eier",
+        "Eier"
+      ],
       "product": "Eier Bodenhaltung 10er",
       "is_budget_brand": null,
       "unit_price": null
@@ -1286,8 +1511,13 @@
       "brand": "Volvic",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "wasser",
       "is_organic": null,
+      "category_path": [
+        "Getränke",
+        "Kalte Getränke",
+        "Wasser"
+      ],
       "product": "Naturelle Mineralwasser",
       "is_budget_brand": false,
       "unit_price": null
@@ -1329,8 +1559,13 @@
       "brand": "Dallmayr",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "tee",
       "is_organic": null,
+      "category_path": [
+        "Getränke",
+        "Kaffee & Tee",
+        "Tee"
+      ],
       "product": "Tee",
       "is_budget_brand": false,
       "unit_price": null
@@ -1354,8 +1589,13 @@
       "brand": "KitKat",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "schokolade",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Schokolade"
+      ],
       "product": "Tablet Hazelnut",
       "is_budget_brand": false,
       "unit_price": null
@@ -1397,8 +1637,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "steinobst",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Steinobst"
+      ],
       "product": "Plattpfirsiche",
       "is_budget_brand": null,
       "unit_price": null
@@ -1422,8 +1667,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "steinobst",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Steinobst"
+      ],
       "product": "Nektarinen",
       "is_budget_brand": null,
       "unit_price": null
@@ -1447,8 +1697,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "zwiebeln-knoblauch",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Zwiebeln & Knoblauch"
+      ],
       "product": "Zwiebeln",
       "is_budget_brand": null,
       "unit_price": null
@@ -1472,8 +1727,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "gurken",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Gurken"
+      ],
       "product": "Mini-Gurken",
       "is_budget_brand": null,
       "unit_price": null
@@ -1497,8 +1757,13 @@
       "brand": "K-Classic",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "chips",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Salzige Snacks",
+        "Chips"
+      ],
       "product": "Pufuleti gesalzen",
       "is_budget_brand": true,
       "unit_price": null
@@ -1522,8 +1787,13 @@
       "brand": "funny-frisch",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "chips",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Salzige Snacks",
+        "Chips"
+      ],
       "product": "Chipsfrisch gesalzen",
       "is_budget_brand": false,
       "unit_price": null
@@ -1547,8 +1817,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "salat",
       "is_organic": true,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Salat"
+      ],
       "product": "Babyspinat Bio",
       "is_budget_brand": null,
       "unit_price": null
@@ -1572,8 +1847,13 @@
       "brand": "Haribo",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "fruchtgummi",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Fruchtgummi & Lakritz"
+      ],
       "product": "Goldbären",
       "is_budget_brand": false,
       "unit_price": null
@@ -1597,8 +1877,13 @@
       "brand": "K-Classic",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "gemuesekonserven",
       "is_organic": null,
+      "category_path": [
+        "Konserven & Fertiggerichte",
+        "Konserven & Glas",
+        "Gemüsekonserven"
+      ],
       "product": "Gehackte Tomaten",
       "is_budget_brand": true,
       "unit_price": null
@@ -1622,8 +1907,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "zwiebeln-knoblauch",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Zwiebeln & Knoblauch"
+      ],
       "product": "Lauchzwiebeln",
       "is_budget_brand": null,
       "unit_price": null
@@ -1647,8 +1937,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "gurken",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Gurken"
+      ],
       "product": "Salatgurken",
       "is_budget_brand": null,
       "unit_price": null
@@ -1672,8 +1967,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "exotisches-obst",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Exotisches Obst"
+      ],
       "product": "Physalis",
       "is_budget_brand": null,
       "unit_price": null
@@ -1697,8 +1997,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "nuesse",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Nüsse & Trockenobst",
+        "Nüsse & Kerne"
+      ],
       "product": "Blitzstart Mix",
       "is_budget_brand": null,
       "unit_price": null
@@ -1722,8 +2027,13 @@
       "brand": "K-Classic",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "nuesse",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Nüsse & Trockenobst",
+        "Nüsse & Kerne"
+      ],
       "product": "Studentenfutter Exotic",
       "is_budget_brand": true,
       "unit_price": null
@@ -1749,6 +2059,7 @@
       "variant": null,
       "category": null,
       "is_organic": null,
+      "category_path": null,
       "product": "Bubble Chill Wildberry",
       "is_budget_brand": false,
       "unit_price": null
@@ -1790,8 +2101,13 @@
       "brand": "funny-frisch",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "chips",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Salzige Snacks",
+        "Chips"
+      ],
       "product": "Chipsfrisch Salt & Vinegar",
       "is_budget_brand": false,
       "unit_price": null
@@ -1815,8 +2131,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "paprika-chili",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Paprika & Chili"
+      ],
       "product": "Paprika rot",
       "is_budget_brand": null,
       "unit_price": {
@@ -1861,8 +2182,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "salat",
       "is_organic": true,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Salat"
+      ],
       "product": "Babyspinat Bio",
       "is_budget_brand": null,
       "unit_price": null
@@ -1886,8 +2212,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "tomaten",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Tomaten"
+      ],
       "product": "Datteltomaten",
       "is_budget_brand": null,
       "unit_price": null
@@ -1911,8 +2242,13 @@
       "brand": "Cucina",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "nudeln",
       "is_organic": null,
+      "category_path": [
+        "Vorräte",
+        "Nudeln, Reis & Hülsenfrüchte",
+        "Nudeln & Pasta"
+      ],
       "product": "Lasagneblätter",
       "is_budget_brand": true,
       "unit_price": null
@@ -1936,8 +2272,13 @@
       "brand": "Milsani",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "sahne",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Sahne & Schmand"
+      ],
       "product": "Creme a la Cuisine Kochsahne",
       "is_budget_brand": true,
       "unit_price": null
@@ -1961,8 +2302,13 @@
       "brand": "BIO BIO",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "reibekaese",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Käse",
+        "Reibekäse"
+      ],
       "product": "Reibekäse Mozzarella",
       "is_budget_brand": true,
       "unit_price": null
@@ -1986,8 +2332,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "reibekaese",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Käse",
+        "Reibekäse"
+      ],
       "product": "Mozzarella gerieben",
       "is_budget_brand": null,
       "unit_price": null
@@ -2011,8 +2362,13 @@
       "brand": "Choviva",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "kekse",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Kekse"
+      ],
       "product": "Kekstaler",
       "is_budget_brand": false,
       "unit_price": null
@@ -2036,8 +2392,13 @@
       "brand": "Milsani",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "frischkaese",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Käse",
+        "Frischkäse"
+      ],
       "product": "Frischkäse Natur",
       "is_budget_brand": true,
       "unit_price": null
@@ -2063,6 +2424,7 @@
       "variant": null,
       "category": null,
       "is_organic": null,
+      "category_path": null,
       "product": "Blätterteiggebäck",
       "is_budget_brand": null,
       "unit_price": null
@@ -2086,8 +2448,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "wurzelgemuese",
       "is_organic": true,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Wurzelgemüse"
+      ],
       "product": "Mini-Karotten Bio",
       "is_budget_brand": null,
       "unit_price": null
@@ -2111,8 +2478,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "salat",
       "is_organic": true,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Salat"
+      ],
       "product": "Salatherzen Bio",
       "is_budget_brand": null,
       "unit_price": null
@@ -2136,8 +2508,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "saucen",
       "is_organic": null,
+      "category_path": [
+        "Vorräte",
+        "Saucen, Öle & Gewürze",
+        "Saucen & Dressings"
+      ],
       "product": "Fix für Salatsauce",
       "is_budget_brand": null,
       "unit_price": null
@@ -2161,8 +2538,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "herzhaftes-gebaeck",
       "is_organic": null,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Brot & Backwaren",
+        "Herzhaftes Gebäck"
+      ],
       "product": "Börek Stange Spinat",
       "is_budget_brand": null,
       "unit_price": null
@@ -2186,8 +2568,13 @@
       "brand": "Kerrygold",
       "product_line": null,
       "variant": null,
-      "category": "Dairy",
+      "category": "butter",
       "is_organic": false,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Butter & Margarine"
+      ],
       "product": "Butter (Irish)",
       "is_budget_brand": false,
       "unit_price": {
@@ -2214,8 +2601,13 @@
       "brand": "Alnatura",
       "product_line": null,
       "variant": null,
-      "category": "Salt & Seasoning",
+      "category": "gewuerze",
       "is_organic": false,
+      "category_path": [
+        "Vorräte",
+        "Saucen, Öle & Gewürze",
+        "Gewürze & Salz"
+      ],
       "product": "Meersalz (sea salt)",
       "is_budget_brand": false,
       "unit_price": {
@@ -2242,8 +2634,13 @@
       "brand": "Bialetti",
       "product_line": "Perfetto Moka",
       "variant": "Classico",
-      "category": "Coffee",
+      "category": "kaffee",
       "is_organic": false,
+      "category_path": [
+        "Getränke",
+        "Kaffee & Tee",
+        "Kaffee"
+      ],
       "product": "Ground coffee (moka)",
       "is_budget_brand": false,
       "unit_price": {
@@ -2270,8 +2667,13 @@
       "brand": "Pril",
       "product_line": "Original",
       "variant": null,
-      "category": "Cleaning / Dishwashing",
+      "category": "spuelmittel",
       "is_organic": false,
+      "category_path": [
+        "Haushaltsartikel",
+        "Wasch- & Putzmittel",
+        "Spülmittel"
+      ],
       "product": "Dishwashing liquid",
       "is_budget_brand": false,
       "unit_price": {
@@ -2298,8 +2700,13 @@
       "brand": "Finish",
       "product_line": null,
       "variant": null,
-      "category": "Cleaning / Dishwashing",
+      "category": "spuelmittel",
       "is_organic": false,
+      "category_path": [
+        "Haushaltsartikel",
+        "Wasch- & Putzmittel",
+        "Spülmittel"
+      ],
       "product": "Dishwasher salt",
       "is_budget_brand": false,
       "unit_price": {
@@ -2326,8 +2733,13 @@
       "brand": "GLOBUS Meisterbäckerei",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "broetchen",
       "is_organic": null,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Brot & Backwaren",
+        "Brötchen & Baguette"
+      ],
       "product": "Saatenbrötchen 3er (3x 1,000 Stück)",
       "is_budget_brand": true,
       "unit_price": {
@@ -2354,8 +2766,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": "Pantry / Legumes",
+      "category": "huelsenfruechte",
       "is_organic": false,
+      "category_path": [
+        "Vorräte",
+        "Nudeln, Reis & Hülsenfrüchte",
+        "Hülsenfrüchte"
+      ],
       "product": "Kidney beans (canned)",
       "is_budget_brand": true,
       "unit_price": {
@@ -2382,8 +2799,13 @@
       "brand": "Dallmayr",
       "product_line": "Pad",
       "variant": "Classic",
-      "category": "Coffee",
+      "category": "kaffee",
       "is_organic": false,
+      "category_path": [
+        "Getränke",
+        "Kaffee & Tee",
+        "Kaffee"
+      ],
       "product": "Coffee pods",
       "is_budget_brand": false,
       "unit_price": {
@@ -2410,8 +2832,13 @@
       "brand": "Palatina",
       "product_line": null,
       "variant": null,
-      "category": "Pantry / Legumes",
+      "category": "huelsenfruechte",
       "is_organic": false,
+      "category_path": [
+        "Vorräte",
+        "Nudeln, Reis & Hülsenfrüchte",
+        "Hülsenfrüchte"
+      ],
       "product": "Wachtelbohnen (dried borlotti/cranberry beans)",
       "is_budget_brand": false,
       "unit_price": {
@@ -2474,8 +2901,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": "1,5% ESL",
-      "category": "Dairy",
+      "category": "milch",
       "is_organic": false,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Milch"
+      ],
       "product": "Milk (1.5% fat, ESL)",
       "is_budget_brand": true,
       "unit_price": {
@@ -2502,8 +2934,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": "Dairy",
+      "category": "quark",
       "is_organic": false,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Quark"
+      ],
       "product": "Magerquark (low-fat quark)",
       "is_budget_brand": true,
       "unit_price": {
@@ -2530,8 +2967,13 @@
       "brand": "Insula",
       "product_line": null,
       "variant": "schwarz, gemahlen",
-      "category": "Spices & Seasoning",
+      "category": "gewuerze",
       "is_organic": false,
+      "category_path": [
+        "Vorräte",
+        "Saucen, Öle & Gewürze",
+        "Gewürze & Salz"
+      ],
       "product": "Pfeffer (black pepper, ground)",
       "is_budget_brand": false,
       "unit_price": {
@@ -2558,8 +3000,13 @@
       "brand": "Insula",
       "product_line": null,
       "variant": "gemahlen",
-      "category": "Spices & Seasoning",
+      "category": "gewuerze",
       "is_organic": false,
+      "category_path": [
+        "Vorräte",
+        "Saucen, Öle & Gewürze",
+        "Gewürze & Salz"
+      ],
       "product": "Zimt (cinnamon, ground)",
       "is_budget_brand": false,
       "unit_price": {
@@ -2586,8 +3033,13 @@
       "brand": null,
       "product_line": null,
       "variant": "nativ (cold-pressed)",
-      "category": "Cooking Oils",
+      "category": "oel-essig",
       "is_organic": false,
+      "category_path": [
+        "Vorräte",
+        "Saucen, Öle & Gewürze",
+        "Öl & Essig"
+      ],
       "product": "Sunflower oil",
       "is_budget_brand": null,
       "unit_price": null
@@ -2611,8 +3063,13 @@
       "brand": "Alnatura",
       "product_line": null,
       "variant": null,
-      "category": "Sweets & Chocolate",
+      "category": "schokolade",
       "is_organic": true,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Schokolade"
+      ],
       "product": "Chocolate",
       "is_budget_brand": false,
       "unit_price": null
@@ -2636,8 +3093,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Honey & Spreads",
+      "category": "honig",
       "is_organic": true,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Aufstriche",
+        "Honig & Sirup"
+      ],
       "product": "Blossom honey (Blütenhonig)",
       "is_budget_brand": null,
       "unit_price": null
@@ -2661,8 +3123,13 @@
       "brand": "natuvell",
       "product_line": null,
       "variant": null,
-      "category": "Personal Care",
+      "category": "hygiene",
       "is_organic": false,
+      "category_path": [
+        "Drogerie & Kosmetik",
+        "Körperpflege",
+        "Hygieneartikel"
+      ],
       "product": "Cotton pads (Wattepads)",
       "is_budget_brand": false,
       "unit_price": {
@@ -2689,8 +3156,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Personal Care",
+      "category": "koerperpflege-kat",
       "is_organic": false,
+      "category_path": [
+        "Drogerie & Kosmetik",
+        "Körperpflege",
+        "Körper- & Gesichtspflege"
+      ],
       "product": "Make-up remover",
       "is_budget_brand": null,
       "unit_price": null
@@ -2714,8 +3186,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce / Vegetables",
+      "category": "tomaten",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Tomaten"
+      ],
       "product": "Beef tomatoes (loose)",
       "is_budget_brand": null,
       "unit_price": {
@@ -2742,8 +3219,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce / Vegetables",
+      "category": "paprika-chili",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Paprika & Chili"
+      ],
       "product": "Green bell pepper (loose)",
       "is_budget_brand": null,
       "unit_price": {
@@ -2770,8 +3252,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce / Vegetables",
+      "category": "wurzelgemuese",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Wurzelgemüse"
+      ],
       "product": "Sweet potatoes (loose)",
       "is_budget_brand": null,
       "unit_price": {
@@ -2798,8 +3285,13 @@
       "brand": "GLOBUS",
       "product_line": null,
       "variant": "Gold",
-      "category": "Produce / Fruit",
+      "category": "exotisches-obst",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Exotisches Obst"
+      ],
       "product": "Avocado",
       "is_budget_brand": true,
       "unit_price": {
@@ -2826,8 +3318,13 @@
       "brand": "Doppelherz",
       "product_line": null,
       "variant": "Magnesium-Bisglycinat",
-      "category": "Health / Supplements",
+      "category": "nahrungsergaenzung",
       "is_organic": false,
+      "category_path": [
+        "Drogerie & Kosmetik",
+        "Gesundheit",
+        "Nahrungsergänzung"
+      ],
       "product": "Magnesium bisglycinate (supplement)",
       "is_budget_brand": false,
       "unit_price": null
@@ -2851,8 +3348,13 @@
       "brand": "Alpro",
       "product_line": "Barista",
       "variant": null,
-      "category": "Plant-based Drinks",
+      "category": "pflanzendrink",
       "is_organic": false,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milchalternativen",
+        "Pflanzendrinks"
+      ],
       "product": "Plant-based drink",
       "is_budget_brand": false,
       "unit_price": {
@@ -2879,8 +3381,13 @@
       "brand": "Weihenstephan",
       "product_line": null,
       "variant": null,
-      "category": "Dairy Drinks",
+      "category": "milchgetraenke",
       "is_organic": false,
+      "category_path": [
+        "Getränke",
+        "Kalte Getränke",
+        "Milch- & Kaffeegetränke"
+      ],
       "product": "Chocolate milk drink",
       "is_budget_brand": false,
       "unit_price": {
@@ -2907,8 +3414,13 @@
       "brand": "LAC",
       "product_line": null,
       "variant": "3,5%",
-      "category": "Dairy",
+      "category": "milch",
       "is_organic": false,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Milch"
+      ],
       "product": "Whole milk",
       "is_budget_brand": false,
       "unit_price": null
@@ -2932,8 +3444,13 @@
       "brand": "Lay's",
       "product_line": null,
       "variant": "Kräuterbutter",
-      "category": "Snacks",
+      "category": "chips",
       "is_organic": false,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Salzige Snacks",
+        "Chips"
+      ],
       "product": "Potato chips",
       "is_budget_brand": false,
       "unit_price": null
@@ -2957,8 +3474,13 @@
       "brand": null,
       "product_line": null,
       "variant": "Peperoni",
-      "category": "Snacks",
+      "category": "chips",
       "is_organic": false,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Salzige Snacks",
+        "Chips"
+      ],
       "product": "Potato chips",
       "is_budget_brand": null,
       "unit_price": {
@@ -2985,8 +3507,13 @@
       "brand": null,
       "product_line": null,
       "variant": "Salt & Vinegar",
-      "category": "Snacks",
+      "category": "chips",
       "is_organic": false,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Salzige Snacks",
+        "Chips"
+      ],
       "product": "Potato chips",
       "is_budget_brand": null,
       "unit_price": null
@@ -3010,8 +3537,13 @@
       "brand": "MinusL",
       "product_line": null,
       "variant": "lactose-free",
-      "category": "Dairy",
+      "category": "skyr",
       "is_organic": false,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Skyr"
+      ],
       "product": "Skyr",
       "is_budget_brand": false,
       "unit_price": null
@@ -3035,8 +3567,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": "Dairy",
+      "category": "quark",
       "is_organic": false,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Quark"
+      ],
       "product": "Magerquark (low-fat quark)",
       "is_budget_brand": true,
       "unit_price": {
@@ -3063,8 +3600,13 @@
       "brand": "Insula",
       "product_line": null,
       "variant": null,
-      "category": "Spices & Seasoning",
+      "category": "gewuerze",
       "is_organic": false,
+      "category_path": [
+        "Vorräte",
+        "Saucen, Öle & Gewürze",
+        "Gewürze & Salz"
+      ],
       "product": "Paprika (ground)",
       "is_budget_brand": false,
       "unit_price": {
@@ -3091,8 +3633,13 @@
       "brand": "GLOBUS Meisterbäckerei",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "broetchen",
       "is_organic": null,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Brot & Backwaren",
+        "Brötchen & Baguette"
+      ],
       "product": "Saatenbrötchen 3er (3x 1,000 Stück)",
       "is_budget_brand": true,
       "unit_price": {
@@ -3119,8 +3666,13 @@
       "brand": "Somat",
       "product_line": "5in1",
       "variant": "Deo Perls",
-      "category": "Cleaning / Dishwashing",
+      "category": "spuelmittel",
       "is_organic": false,
+      "category_path": [
+        "Haushaltsartikel",
+        "Wasch- & Putzmittel",
+        "Spülmittel"
+      ],
       "product": "Dishwasher tablets",
       "is_budget_brand": false,
       "unit_price": null
@@ -3144,8 +3696,13 @@
       "brand": "Dr. Beckmann",
       "product_line": null,
       "variant": null,
-      "category": "Cleaning / Laundry",
+      "category": "waschmittel",
       "is_organic": false,
+      "category_path": [
+        "Haushaltsartikel",
+        "Wasch- & Putzmittel",
+        "Waschmittel"
+      ],
       "product": "Farb- und Schmutzfänger (colour & dirt collector sheets)",
       "is_budget_brand": false,
       "unit_price": null
@@ -3169,8 +3726,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Cleaning",
+      "category": "schwaemme",
       "is_organic": false,
+      "category_path": [
+        "Haushaltsartikel",
+        "Haushaltshelfer",
+        "Schwämme & Bürsten"
+      ],
       "product": "Pot scourers (Topfreiniger)",
       "is_budget_brand": null,
       "unit_price": {
@@ -3197,8 +3759,13 @@
       "brand": "Harry",
       "product_line": "Körner Balance",
       "variant": null,
-      "category": "Bakery",
+      "category": "toastbrot",
       "is_organic": false,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Brot & Backwaren",
+        "Toastbrot"
+      ],
       "product": "Multigrain toast bread",
       "is_budget_brand": false,
       "unit_price": null
@@ -3222,8 +3789,13 @@
       "brand": "Knabberlieblinge",
       "product_line": null,
       "variant": null,
-      "category": "Nuts & Dried Fruit",
+      "category": "nuesse",
       "is_organic": false,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Nüsse & Trockenobst",
+        "Nüsse & Kerne"
+      ],
       "product": "Walnuts (natural)",
       "is_budget_brand": false,
       "unit_price": null
@@ -3247,8 +3819,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": "Freilandhaltung",
-      "category": "Eggs",
+      "category": "eier-kat",
       "is_organic": false,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Eier",
+        "Eier"
+      ],
       "product": "Eggs (free-range)",
       "is_budget_brand": true,
       "unit_price": {
@@ -3275,8 +3852,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": "Baking",
+      "category": "backzutaten-kat",
       "is_organic": false,
+      "category_path": [
+        "Vorräte",
+        "Backzutaten",
+        "Backzutaten"
+      ],
       "product": "Desiccated coconut",
       "is_budget_brand": true,
       "unit_price": {
@@ -3303,8 +3885,13 @@
       "brand": "GLOBUS",
       "product_line": null,
       "variant": null,
-      "category": "Dips & Spreads",
+      "category": "herzhafte-aufstriche",
       "is_organic": false,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Aufstriche",
+        "Herzhafte Aufstriche"
+      ],
       "product": "Guacamole",
       "is_budget_brand": true,
       "unit_price": null
@@ -3328,8 +3915,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "gurken",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Gurken"
+      ],
       "product": "Salatgurken",
       "is_budget_brand": null,
       "unit_price": null
@@ -3353,8 +3945,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "frische-kraeuter",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Frische Kräuter",
+        "Frische Kräuter"
+      ],
       "product": "Schnittkräuter",
       "is_budget_brand": null,
       "unit_price": null
@@ -3378,8 +3975,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "frische-kraeuter",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Frische Kräuter",
+        "Frische Kräuter"
+      ],
       "product": "Schnittkräuter",
       "is_budget_brand": null,
       "unit_price": null
@@ -3403,8 +4005,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "frische-kraeuter",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Frische Kräuter",
+        "Frische Kräuter"
+      ],
       "product": "Schnittkräuter",
       "is_budget_brand": null,
       "unit_price": null
@@ -3446,8 +4053,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "tomaten",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Tomaten"
+      ],
       "product": "Rispentomaten",
       "is_budget_brand": null,
       "unit_price": {
@@ -3474,8 +4086,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "zwiebeln-knoblauch",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Zwiebeln & Knoblauch"
+      ],
       "product": "Lauchzwiebeln",
       "is_budget_brand": null,
       "unit_price": null
@@ -3499,8 +4116,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "wurzelgemuese",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Wurzelgemüse"
+      ],
       "product": "Radieschen",
       "is_budget_brand": null,
       "unit_price": null
@@ -3524,8 +4146,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "kaffee",
       "is_organic": null,
+      "category_path": [
+        "Getränke",
+        "Kaffee & Tee",
+        "Kaffee"
+      ],
       "product": "Kaffeepads Café Crema",
       "is_budget_brand": null,
       "unit_price": null
@@ -3549,8 +4176,13 @@
       "brand": "Weihenstephan",
       "product_line": null,
       "variant": null,
-      "category": "Dairy Drinks",
+      "category": "milchgetraenke",
       "is_organic": false,
+      "category_path": [
+        "Getränke",
+        "Kalte Getränke",
+        "Milch- & Kaffeegetränke"
+      ],
       "product": "Cocoa drink",
       "is_budget_brand": false,
       "unit_price": null
@@ -3574,8 +4206,13 @@
       "brand": "Apostels",
       "product_line": null,
       "variant": null,
-      "category": "Dairy",
+      "category": "joghurt",
       "is_organic": false,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Joghurt"
+      ],
       "product": "Yogurt",
       "is_budget_brand": false,
       "unit_price": null
@@ -3599,8 +4236,13 @@
       "brand": "MinusL",
       "product_line": null,
       "variant": "lactose-free",
-      "category": "Dairy",
+      "category": "quark",
       "is_organic": false,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Quark"
+      ],
       "product": "Speisequark (quark)",
       "is_budget_brand": false,
       "unit_price": null
@@ -3624,8 +4266,13 @@
       "brand": "GLOBUS",
       "product_line": null,
       "variant": null,
-      "category": "Bakery",
+      "category": "broetchen",
       "is_organic": false,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Brot & Backwaren",
+        "Brötchen & Baguette"
+      ],
       "product": "Vollkornbrötchen (wholegrain rolls)",
       "is_budget_brand": true,
       "unit_price": {
@@ -3652,8 +4299,13 @@
       "brand": "Sagrotan",
       "product_line": null,
       "variant": "Schimmelfrei",
-      "category": "Cleaning",
+      "category": "putzmittel",
       "is_organic": false,
+      "category_path": [
+        "Haushaltsartikel",
+        "Wasch- & Putzmittel",
+        "Putzmittel"
+      ],
       "product": "Mould remover spray",
       "is_budget_brand": false,
       "unit_price": null
@@ -3677,8 +4329,13 @@
       "brand": "OHO",
       "product_line": null,
       "variant": null,
-      "category": "Cleaning",
+      "category": "schwaemme",
       "is_organic": false,
+      "category_path": [
+        "Haushaltsartikel",
+        "Haushaltshelfer",
+        "Schwämme & Bürsten"
+      ],
       "product": "Replacement cleaning cloths",
       "is_budget_brand": true,
       "unit_price": null
@@ -3702,8 +4359,13 @@
       "brand": "OHO",
       "product_line": null,
       "variant": null,
-      "category": "Household",
+      "category": "haushaltswaren",
       "is_organic": false,
+      "category_path": [
+        "Haushaltsartikel",
+        "Haushaltshelfer",
+        "Haushaltswaren"
+      ],
       "product": "Distilled water",
       "is_budget_brand": true,
       "unit_price": null
@@ -3727,8 +4389,13 @@
       "brand": "OHO",
       "product_line": null,
       "variant": "35 L",
-      "category": "Household",
+      "category": "folien-beutel",
       "is_organic": false,
+      "category_path": [
+        "Haushaltsartikel",
+        "Papier, Tücher & Folien",
+        "Folien & Beutel"
+      ],
       "product": "Garbage bags",
       "is_budget_brand": true,
       "unit_price": null
@@ -3752,8 +4419,13 @@
       "brand": "Ritter Sport",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "schokolade",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Schokolade"
+      ],
       "product": "Tafelschokolade Amicelli",
       "is_budget_brand": false,
       "unit_price": {
@@ -3780,8 +4452,13 @@
       "brand": "Arla",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "milch",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Milch"
+      ],
       "product": "Lactofree Milch 1,5%",
       "is_budget_brand": false,
       "unit_price": {
@@ -3808,8 +4485,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": "Dairy",
+      "category": "quark",
       "is_organic": false,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Quark"
+      ],
       "product": "Magerquark (low-fat quark)",
       "is_budget_brand": true,
       "unit_price": {
@@ -3836,8 +4518,13 @@
       "brand": "Kühne",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "essiggemuese",
       "is_organic": null,
+      "category_path": [
+        "Konserven & Fertiggerichte",
+        "Konserven & Glas",
+        "Essiggemüse"
+      ],
       "product": "Salz-Dill-Gurken",
       "is_budget_brand": false,
       "unit_price": {
@@ -3864,8 +4551,13 @@
       "brand": "Alnatura",
       "product_line": null,
       "variant": null,
-      "category": "blend of rolled cereal flakes",
+      "category": "muesli",
       "is_organic": true,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Müsli & Cerealien",
+        "Müsli & Flocken"
+      ],
       "product": "Bio 3 Korn Flocken",
       "is_budget_brand": false,
       "unit_price": {
@@ -3892,8 +4584,13 @@
       "brand": "Dove",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "deo",
       "is_organic": null,
+      "category_path": [
+        "Drogerie & Kosmetik",
+        "Körperpflege",
+        "Deodorant"
+      ],
       "product": "Deo-Stick Whole Body, Lavendel & Kamillenduft",
       "is_budget_brand": false,
       "unit_price": {
@@ -3920,8 +4617,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": "Triple Choco",
-      "category": "Sweets & Biscuits",
+      "category": "kekse",
       "is_organic": false,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Kekse"
+      ],
       "product": "Soft cookies",
       "is_budget_brand": true,
       "unit_price": null
@@ -3945,8 +4647,13 @@
       "brand": "TUC",
       "product_line": "Bake Rolls",
       "variant": "Sour Cream",
-      "category": "Snacks",
+      "category": "cracker",
       "is_organic": false,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Salzige Snacks",
+        "Cracker & Salzgebäck"
+      ],
       "product": "Bread snack rolls",
       "is_budget_brand": false,
       "unit_price": null
@@ -3970,8 +4677,13 @@
       "brand": "Tensimed",
       "product_line": null,
       "variant": "Nachfüllpack (refill)",
-      "category": "Personal Care / Skin",
+      "category": "koerperpflege-kat",
       "is_organic": false,
+      "category_path": [
+        "Drogerie & Kosmetik",
+        "Körperpflege",
+        "Körper- & Gesichtspflege"
+      ],
       "product": "Waschemulsion (skin cleansing wash)",
       "is_budget_brand": false,
       "unit_price": null
@@ -3995,8 +4707,13 @@
       "brand": "Sleepy",
       "product_line": null,
       "variant": null,
-      "category": "Cleaning",
+      "category": "putzmittel",
       "is_organic": false,
+      "category_path": [
+        "Haushaltsartikel",
+        "Wasch- & Putzmittel",
+        "Putzmittel"
+      ],
       "product": "Reinigungstücher für Oberflächen (surface cleaning wipes)",
       "is_budget_brand": false,
       "unit_price": null
@@ -4020,8 +4737,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": "Syrups & Sweeteners",
+      "category": "honig",
       "is_organic": true,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Aufstriche",
+        "Honig & Sirup"
+      ],
       "product": "Maple syrup",
       "is_budget_brand": true,
       "unit_price": null
@@ -4045,8 +4767,13 @@
       "brand": "GLOBUS",
       "product_line": null,
       "variant": null,
-      "category": "Eggs",
+      "category": "eier-kat",
       "is_organic": true,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Eier",
+        "Eier"
+      ],
       "product": "Eggs (organic)",
       "is_budget_brand": true,
       "unit_price": {
@@ -4073,8 +4800,13 @@
       "brand": "Passo Lungo",
       "product_line": null,
       "variant": null,
-      "category": "wines",
+      "category": "rotwein",
       "is_organic": null,
+      "category_path": [
+        "Alkoholische Getränke",
+        "Wein",
+        "Rotwein"
+      ],
       "product": "Primitivo Tardivo Puglia IGP, Rotwein",
       "is_budget_brand": false,
       "unit_price": null
@@ -4098,8 +4830,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "schokolade",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Schokolade"
+      ],
       "product": "Schoko Rosinen, Vollmilchschokoladee",
       "is_budget_brand": true,
       "unit_price": {
@@ -4126,8 +4863,13 @@
       "brand": "funny-frisch",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "chips",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Salzige Snacks",
+        "Chips"
+      ],
       "product": "Linsen Chips Paprika ",
       "is_budget_brand": false,
       "unit_price": {
@@ -4154,8 +4896,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "sahne",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Sahne & Schmand"
+      ],
       "product": "Kaffeesahne 10%",
       "is_budget_brand": true,
       "unit_price": {
@@ -4182,8 +4929,13 @@
       "brand": "Oswald",
       "product_line": null,
       "variant": null,
-      "category": "chocolate covered fruits",
+      "category": "speiseeis",
       "is_organic": null,
+      "category_path": [
+        "Tiefkühlung",
+        "Eis & TK-Desserts",
+        "Speiseeis"
+      ],
       "product": "Schofrulade Erdbeere, tielfgekühlt",
       "is_budget_brand": false,
       "unit_price": {
@@ -4210,8 +4962,13 @@
       "brand": "hitschies",
       "product_line": null,
       "variant": null,
-      "category": "frozen desserts",
+      "category": "speiseeis",
       "is_organic": null,
+      "category_path": [
+        "Tiefkühlung",
+        "Eis & TK-Desserts",
+        "Speiseeis"
+      ],
       "product": "Eis Saure Drachenzungen, bunt",
       "is_budget_brand": false,
       "unit_price": {
@@ -4238,8 +4995,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "speiseeis",
       "is_organic": null,
+      "category_path": [
+        "Tiefkühlung",
+        "Eis & TK-Desserts",
+        "Speiseeis"
+      ],
       "product": "Eis, Schokolade",
       "is_budget_brand": true,
       "unit_price": {
@@ -4266,8 +5028,13 @@
       "brand": "Mister Freed",
       "product_line": null,
       "variant": null,
-      "category": "corn chips",
+      "category": "chips",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Salzige Snacks",
+        "Chips"
+      ],
       "product": "Tortilla Chips Avocado",
       "is_budget_brand": false,
       "unit_price": {
@@ -4294,8 +5061,13 @@
       "brand": "funny-frisch",
       "product_line": null,
       "variant": null,
-      "category": "flavoured potato crisps",
+      "category": "cracker",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Salzige Snacks",
+        "Cracker & Salzgebäck"
+      ],
       "product": "Cheese Cracker Chili Cheese Style",
       "is_budget_brand": false,
       "unit_price": {
@@ -4322,8 +5094,13 @@
       "brand": "Manner",
       "product_line": null,
       "variant": null,
-      "category": "stuffed wafers",
+      "category": "waffeln",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Waffeln"
+      ],
       "product": "Kokos Waffeln",
       "is_budget_brand": false,
       "unit_price": {
@@ -4350,8 +5127,13 @@
       "brand": "Manner",
       "product_line": null,
       "variant": null,
-      "category": "stuffed wafers",
+      "category": "waffeln",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Waffeln"
+      ],
       "product": "Waffeltaler mit Kakao-Haselnuss-Creme-Füllung",
       "is_budget_brand": false,
       "unit_price": {
@@ -4378,8 +5160,13 @@
       "brand": "Manner",
       "product_line": null,
       "variant": null,
-      "category": "waffles",
+      "category": "waffeln",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Waffeln"
+      ],
       "product": "Schoko-Waffeln Törtchen, Schoko Brownie",
       "is_budget_brand": false,
       "unit_price": {
@@ -4406,8 +5193,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": "lean quark",
+      "category": "quark",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Quark"
+      ],
       "product": "Speisequark Magerstufe",
       "is_budget_brand": true,
       "unit_price": {
@@ -4434,8 +5226,13 @@
       "brand": "Berchtesgadener Land",
       "product_line": null,
       "variant": null,
-      "category": "lactose free milk",
+      "category": "milch",
       "is_organic": true,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Milch"
+      ],
       "product": "Bio H-Alpenmilch 1,5% Fett, Laktosefrei",
       "is_budget_brand": false,
       "unit_price": {
@@ -4462,8 +5259,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "schokolade",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Schokolade"
+      ],
       "product": "Schoko Rosinen, Vollmilchschokoladee",
       "is_budget_brand": true,
       "unit_price": {
@@ -4490,8 +5292,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "reibekaese",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Käse",
+        "Reibekäse"
+      ],
       "product": "Cheddar, gerieben",
       "is_budget_brand": true,
       "unit_price": {
@@ -4518,8 +5325,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": "mozzarella",
+      "category": "reibekaese",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Käse",
+        "Reibekäse"
+      ],
       "product": "Mozzarella, gerieben",
       "is_budget_brand": true,
       "unit_price": {
@@ -4546,8 +5358,13 @@
       "brand": "Fräulein Heidemarie",
       "product_line": null,
       "variant": null,
-      "category": "chicken and its products",
+      "category": "gefluegel",
       "is_organic": null,
+      "category_path": [
+        "Fleisch & Fisch",
+        "Fleisch",
+        "Geflügel"
+      ],
       "product": "Hähnchen Innenbrustfilet",
       "is_budget_brand": false,
       "unit_price": {
@@ -4574,8 +5391,13 @@
       "brand": "Alnatura",
       "product_line": null,
       "variant": null,
-      "category": "chia",
+      "category": "nuesse",
       "is_organic": true,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Nüsse & Trockenobst",
+        "Nüsse & Kerne"
+      ],
       "product": "Bio Chia Samen",
       "is_budget_brand": false,
       "unit_price": {
@@ -4602,8 +5424,13 @@
       "brand": "Alnatura",
       "product_line": null,
       "variant": null,
-      "category": "blend of rolled cereal flakes",
+      "category": "muesli",
       "is_organic": true,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Müsli & Cerealien",
+        "Müsli & Flocken"
+      ],
       "product": "Bio 3 Korn Flocken",
       "is_budget_brand": false,
       "unit_price": {
@@ -4630,8 +5457,13 @@
       "brand": "GLOBUS Meisterbäckerei",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "broetchen",
       "is_organic": null,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Brot & Backwaren",
+        "Brötchen & Baguette"
+      ],
       "product": "Saatenbrötchen 3er (3x 1,000 Stück)",
       "is_budget_brand": true,
       "unit_price": {
@@ -4658,8 +5490,13 @@
       "brand": "Toppits",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "folien-beutel",
       "is_organic": null,
+      "category_path": [
+        "Haushaltsartikel",
+        "Papier, Tücher & Folien",
+        "Folien & Beutel"
+      ],
       "product": "Gefrierbeutel mit Standboden, 3l",
       "is_budget_brand": false,
       "unit_price": {
@@ -4686,8 +5523,13 @@
       "brand": "GLOBUS",
       "product_line": null,
       "variant": "Gold",
-      "category": "Produce / Fruit",
+      "category": "exotisches-obst",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Exotisches Obst"
+      ],
       "product": "Avocado",
       "is_budget_brand": true,
       "unit_price": {
@@ -4714,8 +5556,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "tomaten",
       "is_organic": null,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Tomaten"
+      ],
       "product": "Flaschentomaten San Marzano, lose",
       "is_budget_brand": null,
       "unit_price": {
@@ -4742,8 +5589,13 @@
       "brand": "Manner",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "waffeln",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Waffeln"
+      ],
       "product": "Waffeln Snack minis, Milch-Haselnuss",
       "is_budget_brand": false,
       "unit_price": {
@@ -4770,8 +5622,13 @@
       "brand": "Manner",
       "product_line": null,
       "variant": null,
-      "category": "stuffed wafers",
+      "category": "waffeln",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Waffeln"
+      ],
       "product": "Haselnuss-Schnitten, Waffeln",
       "is_budget_brand": false,
       "unit_price": {
@@ -4798,8 +5655,13 @@
       "brand": "Manner",
       "product_line": null,
       "variant": null,
-      "category": "wafers",
+      "category": "waffeln",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Waffeln"
+      ],
       "product": "Waffeln Snack minis, Milch-Schoko",
       "is_budget_brand": false,
       "unit_price": {
@@ -4826,8 +5688,13 @@
       "brand": "Kleenex",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "taschentuecher",
       "is_organic": null,
+      "category_path": [
+        "Haushaltsartikel",
+        "Papier, Tücher & Folien",
+        "Taschen- & Kosmetiktücher"
+      ],
       "product": "Kosmetiktücher Box Ultra Soft, verschiedene Designs",
       "is_budget_brand": false,
       "unit_price": {
@@ -4854,8 +5721,13 @@
       "brand": "Tempo",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "taschentuecher",
       "is_organic": null,
+      "category_path": [
+        "Haushaltsartikel",
+        "Papier, Tücher & Folien",
+        "Taschen- & Kosmetiktücher"
+      ],
       "product": "Taschentücher-Box Duo, Original",
       "is_budget_brand": false,
       "unit_price": {
@@ -4885,8 +5757,13 @@
       "brand": "Dove",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "duschgel",
       "is_organic": null,
+      "category_path": [
+        "Drogerie & Kosmetik",
+        "Körperpflege",
+        "Duschgel & Seife"
+      ],
       "product": "2 candidates",
       "is_budget_brand": false,
       "unit_price": null
@@ -4910,8 +5787,13 @@
       "brand": "GLOBUS Meisterbäckerei",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "broetchen",
       "is_organic": null,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Brot & Backwaren",
+        "Brötchen & Baguette"
+      ],
       "product": "Saatenbrötchen 3er (3x 1,000 Stück)",
       "is_budget_brand": true,
       "unit_price": {
@@ -4941,8 +5823,13 @@
       "brand": "Dove",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "duschgel",
       "is_organic": null,
+      "category_path": [
+        "Drogerie & Kosmetik",
+        "Körperpflege",
+        "Duschgel & Seife"
+      ],
       "product": "2 candidates",
       "is_budget_brand": false,
       "unit_price": null
@@ -4969,8 +5856,13 @@
       "brand": "Dove",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "duschgel",
       "is_organic": null,
+      "category_path": [
+        "Drogerie & Kosmetik",
+        "Körperpflege",
+        "Duschgel & Seife"
+      ],
       "product": "2 candidates",
       "is_budget_brand": false,
       "unit_price": null
@@ -4998,8 +5890,13 @@
       "brand": "Dove",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "duschgel",
       "is_organic": null,
+      "category_path": [
+        "Drogerie & Kosmetik",
+        "Körperpflege",
+        "Duschgel & Seife"
+      ],
       "product": "3 candidates",
       "is_budget_brand": false,
       "unit_price": null
@@ -5023,8 +5920,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": "lean quark",
+      "category": "quark",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Quark"
+      ],
       "product": "Speisequark Magerstufe",
       "is_budget_brand": true,
       "unit_price": {
@@ -5051,8 +5953,13 @@
       "brand": "Berchtesgadener Land",
       "product_line": null,
       "variant": null,
-      "category": "lactose free milk",
+      "category": "milch",
       "is_organic": true,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Milch"
+      ],
       "product": "Bio H-Alpenmilch 1,5% Fett, Laktosefrei",
       "is_budget_brand": false,
       "unit_price": {
@@ -5079,8 +5986,13 @@
       "brand": "GLOBUS Meisterbäckerei",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "broetchen",
       "is_organic": null,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Brot & Backwaren",
+        "Brötchen & Baguette"
+      ],
       "product": "Baguette mit Pfefferkruste",
       "is_budget_brand": true,
       "unit_price": {
@@ -5107,8 +6019,13 @@
       "brand": "GLOBUS Meisterbäckerei",
       "product_line": null,
       "variant": null,
-      "category": "bread rolls",
+      "category": "broetchen",
       "is_organic": null,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Brot & Backwaren",
+        "Brötchen & Baguette"
+      ],
       "product": "Weizenbrötchen ,10er (10x 1,000 Stück)",
       "is_budget_brand": true,
       "unit_price": {
@@ -5135,8 +6052,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "salami",
       "is_organic": null,
+      "category_path": [
+        "Wurst & Aufschnitt",
+        "Wurst & Aufschnitt",
+        "Salami"
+      ],
       "product": "Salami Edelschimmel ",
       "is_budget_brand": true,
       "unit_price": {
@@ -5163,8 +6085,13 @@
       "brand": "Ponnath",
       "product_line": null,
       "variant": null,
-      "category": "cut",
+      "category": "gefluegelaufschnitt",
       "is_organic": null,
+      "category_path": [
+        "Wurst & Aufschnitt",
+        "Wurst & Aufschnitt",
+        "Geflügelaufschnitt"
+      ],
       "product": "Hähnchenbrustfilet mit Kräutern der Provence",
       "is_budget_brand": false,
       "unit_price": {
@@ -5191,8 +6118,13 @@
       "brand": "Alnatura",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "eier-kat",
       "is_organic": true,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Eier",
+        "Eier"
+      ],
       "product": "Bio Eier Bruderküken, Gr. M-L",
       "is_budget_brand": false,
       "unit_price": {
@@ -5219,8 +6151,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": "lean quark",
+      "category": "quark",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Quark"
+      ],
       "product": "Speisequark Magerstufe",
       "is_budget_brand": true,
       "unit_price": {
@@ -5247,8 +6184,13 @@
       "brand": "GLOBUS",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "marmelade",
       "is_organic": null,
+      "category_path": [
+        "Brot, Aufstriche & Cerealien",
+        "Aufstriche",
+        "Marmelade & Fruchtaufstrich"
+      ],
       "product": "Konfitüre extra, Erdbeere",
       "is_budget_brand": true,
       "unit_price": {
@@ -5275,8 +6217,13 @@
       "brand": "Manner",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "waffeln",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Waffeln"
+      ],
       "product": "Waffeln Snack minis, Milch-Haselnuss",
       "is_budget_brand": false,
       "unit_price": {
@@ -5303,8 +6250,13 @@
       "brand": "Valle Secreto",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "rotwein",
       "is_organic": null,
+      "category_path": [
+        "Alkoholische Getränke",
+        "Wein",
+        "Rotwein"
+      ],
       "product": "Rotwein First Edition ",
       "is_budget_brand": false,
       "unit_price": null
@@ -5346,8 +6298,13 @@
       "brand": "OHO",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "haushaltswaren",
       "is_organic": null,
+      "category_path": [
+        "Haushaltsartikel",
+        "Haushaltshelfer",
+        "Haushaltswaren"
+      ],
       "product": "Haushaltshandschuhe S, 1 Paar",
       "is_budget_brand": true,
       "unit_price": null
@@ -5371,8 +6328,13 @@
       "brand": "Jeden Tag",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "kuechenrolle",
       "is_organic": null,
+      "category_path": [
+        "Haushaltsartikel",
+        "Papier, Tücher & Folien",
+        "Küchenrolle"
+      ],
       "product": "Küchentücher 4 x 64 Blatt",
       "is_budget_brand": true,
       "unit_price": null
@@ -5396,8 +6358,13 @@
       "brand": "Alnatura",
       "product_line": null,
       "variant": null,
-      "category": "Sweets & Chocolate",
+      "category": "schokolade",
       "is_organic": true,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Schokolade"
+      ],
       "product": "Chocolate",
       "is_budget_brand": false,
       "unit_price": null
@@ -5421,8 +6388,13 @@
       "brand": "OHO",
       "product_line": null,
       "variant": null,
-      "category": "Household",
+      "category": "haushaltswaren",
       "is_organic": false,
+      "category_path": [
+        "Haushaltsartikel",
+        "Haushaltshelfer",
+        "Haushaltswaren"
+      ],
       "product": "Distilled water",
       "is_budget_brand": true,
       "unit_price": null
@@ -5518,8 +6490,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "zwiebeln-knoblauch",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Zwiebeln & Knoblauch"
+      ],
       "product": "Zwiebeln",
       "is_budget_brand": null,
       "unit_price": null
@@ -5543,8 +6520,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "zwiebeln-knoblauch",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Zwiebeln & Knoblauch"
+      ],
       "product": "Zwiebeln",
       "is_budget_brand": null,
       "unit_price": null
@@ -5568,8 +6550,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "rotwein",
       "is_organic": null,
+      "category_path": [
+        "Alkoholische Getränke",
+        "Wein",
+        "Rotwein"
+      ],
       "product": "Primitivo Puglia Rotwein",
       "is_budget_brand": null,
       "unit_price": null
@@ -5593,8 +6580,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "rotwein",
       "is_organic": null,
+      "category_path": [
+        "Alkoholische Getränke",
+        "Wein",
+        "Rotwein"
+      ],
       "product": "Primitivo Rotwein Bio",
       "is_budget_brand": null,
       "unit_price": null
@@ -5618,8 +6610,13 @@
       "brand": "Coca-Cola",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "limonade",
       "is_organic": null,
+      "category_path": [
+        "Getränke",
+        "Kalte Getränke",
+        "Limonade & Cola"
+      ],
       "product": "Coca-Cola Classic",
       "is_budget_brand": false,
       "unit_price": null
@@ -5661,8 +6658,13 @@
       "brand": "Coca-Cola",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "limonade",
       "is_organic": null,
+      "category_path": [
+        "Getränke",
+        "Kalte Getränke",
+        "Limonade & Cola"
+      ],
       "product": "Coca-Cola Classic",
       "is_budget_brand": false,
       "unit_price": null
@@ -5704,8 +6706,13 @@
       "brand": "Lyttos",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "joghurt",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Milch & Joghurt",
+        "Joghurt"
+      ],
       "product": "Sahnejoghurt Griechischer Art",
       "is_budget_brand": true,
       "unit_price": null
@@ -5729,8 +6736,13 @@
       "brand": "Rio D'Oro",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "saft",
       "is_organic": null,
+      "category_path": [
+        "Getränke",
+        "Kalte Getränke",
+        "Saft & Smoothies"
+      ],
       "product": "Orangendirektsaft",
       "is_budget_brand": true,
       "unit_price": null
@@ -5772,8 +6784,13 @@
       "brand": "BON-RI",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "reis",
       "is_organic": null,
+      "category_path": [
+        "Vorräte",
+        "Nudeln, Reis & Hülsenfrüchte",
+        "Reis"
+      ],
       "product": "Basmati Reis",
       "is_budget_brand": true,
       "unit_price": null
@@ -5797,8 +6814,13 @@
       "brand": "BON-RI",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "reis",
       "is_organic": null,
+      "category_path": [
+        "Vorräte",
+        "Nudeln, Reis & Hülsenfrüchte",
+        "Reis"
+      ],
       "product": "Basmati Reis",
       "is_budget_brand": true,
       "unit_price": null
@@ -5822,8 +6844,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "gurken",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Gurken"
+      ],
       "product": "Salatgurken",
       "is_budget_brand": null,
       "unit_price": null
@@ -5847,8 +6874,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "gurken",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Gurken"
+      ],
       "product": "Salatgurken",
       "is_budget_brand": null,
       "unit_price": null
@@ -5872,8 +6904,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "zwiebeln-knoblauch",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Zwiebeln & Knoblauch"
+      ],
       "product": "Lauchzwiebeln",
       "is_budget_brand": null,
       "unit_price": null
@@ -5897,8 +6934,13 @@
       "brand": "Milsani",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "kaese-snacks",
       "is_organic": null,
+      "category_path": [
+        "Molkereiprodukte & Eier",
+        "Käse",
+        "Käsewürfel & Snacks"
+      ],
       "product": "Käsewürfel Gouda Maasdamer",
       "is_budget_brand": true,
       "unit_price": null
@@ -5922,8 +6964,13 @@
       "brand": "Pizz'ah",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "pizza",
       "is_organic": null,
+      "category_path": [
+        "Konserven & Fertiggerichte",
+        "Fertiggerichte",
+        "Pizza"
+      ],
       "product": "Picco Belli Salami",
       "is_budget_brand": true,
       "unit_price": null
@@ -5947,8 +6994,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "trockenobst",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Nüsse & Trockenobst",
+        "Trockenobst"
+      ],
       "product": "Trockenfrüchte Mischung",
       "is_budget_brand": null,
       "unit_price": null
@@ -5972,8 +7024,13 @@
       "brand": "Choceur",
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "schokolade",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Schokolade"
+      ],
       "product": "Schoko Rosinen",
       "is_budget_brand": true,
       "unit_price": null
@@ -5997,8 +7054,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "steinobst",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Steinobst"
+      ],
       "product": "Nektarinen",
       "is_budget_brand": null,
       "unit_price": null
@@ -6022,8 +7084,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "kekse",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Süßigkeiten",
+        "Kekse"
+      ],
       "product": "American Cookies",
       "is_budget_brand": null,
       "unit_price": null
@@ -6047,8 +7114,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "tomaten",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Tomaten"
+      ],
       "product": "Datteltomaten",
       "is_budget_brand": null,
       "unit_price": null
@@ -6072,8 +7144,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "trauben",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Trauben"
+      ],
       "product": "Trauben",
       "is_budget_brand": null,
       "unit_price": null
@@ -6097,8 +7174,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "tomaten",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Tomaten"
+      ],
       "product": "Rispentomaten",
       "is_budget_brand": null,
       "unit_price": null
@@ -6122,8 +7204,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": null,
+      "category": "chips",
       "is_organic": null,
+      "category_path": [
+        "Süßigkeiten & salzige Snacks",
+        "Salzige Snacks",
+        "Chips"
+      ],
       "product": "Kartoffelchips gesalzen",
       "is_budget_brand": null,
       "unit_price": null
@@ -6147,8 +7234,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "birnen",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Birnen"
+      ],
       "product": "Birnen",
       "is_budget_brand": null,
       "unit_price": null
@@ -6172,8 +7264,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "beeren",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Obst",
+        "Beeren"
+      ],
       "product": "Johannisbeeren",
       "is_budget_brand": null,
       "unit_price": null
@@ -6197,8 +7294,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "frische-kraeuter",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Frische Kräuter",
+        "Frische Kräuter"
+      ],
       "product": "Dill",
       "is_budget_brand": null,
       "unit_price": null
@@ -6222,8 +7324,13 @@
       "brand": null,
       "product_line": null,
       "variant": null,
-      "category": "Produce",
+      "category": "wurzelgemuese",
       "is_organic": false,
+      "category_path": [
+        "Obst & Gemüse",
+        "Gemüse",
+        "Wurzelgemüse"
+      ],
       "product": "Karotten",
       "is_budget_brand": null,
       "unit_price": {

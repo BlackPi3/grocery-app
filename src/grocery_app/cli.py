@@ -161,6 +161,23 @@ def main() -> None:
     pr.add_argument("--products", default="data/products/products.json")
     pr.add_argument("--resolution", default="data/products/resolution.json")
 
+    ca = subparsers.add_parser(
+        "category",
+        help="Attach products to the closed category vocabulary: what kind of "
+             "thing each one is, on the shopping-list granularity",
+    )
+    ca.add_argument("action", choices=["propose", "confirm"],
+                    help="propose: write a review CSV for every product with no "
+                         "category from the vocabulary; confirm: write it back")
+    ca.add_argument("--products", default="data/products/products.json")
+    ca.add_argument("--listings", default="data/products/globus/listings.json",
+                    help="propose: the shop's own shelf for products matched to "
+                         "its catalogue — the strongest evidence there is")
+    ca.add_argument("--out", default="data/products/proposals/categories.csv",
+                    help="propose: where to write the review CSV")
+    ca.add_argument("--reviewed", default="data/products/proposals/categories.csv",
+                    help="confirm: the CSV you marked up")
+
     co = subparsers.add_parser(
         "coarse",
         help="Write reviewed coarse rows (brand + product line, no invented variant "
@@ -429,6 +446,47 @@ def main() -> None:
             print(f"  left undecided:         {summary['undecided']}")
         for name in sorted(set(summary["new_kinds"])):
             print(f"  NOT IN THE VOCABULARY yet: {name!r} — add it to produce.py")
+        for name in sorted(set(summary["uncategorised"])):
+            print(f"  NOT WRITTEN, no category for {name!r}: add it to KIND_CATEGORIES "
+                  "in produce.py and run this again — your decision is still in the CSV")
+
+    if args.command == "category":
+        from grocery_app import categorize
+
+        products_doc = json.loads(Path(args.products).read_text(encoding="utf-8"))
+        if args.action == "propose":
+            listings_path = Path(args.listings)
+            listings = (json.loads(listings_path.read_text(encoding="utf-8"))["listings"]
+                        if listings_path.exists() else {})
+            before = (categorize.read_reviewed(args.out)
+                      if Path(args.out).exists() else [])
+            rows = categorize.proposals(products_doc, listings, before)
+            categorize.write_proposals(rows, args.out)
+            settled = sum(1 for r in rows if r["decision"])
+            print(f"Wrote {len(rows)} rows to {args.out}")
+            print(f"  answered by two sources agreeing (already marked y): {settled}")
+            for how, what in (("conflict", "the shop's shelf and the name disagree"),
+                              ("name?", "the name points at more than one"),
+                              ("", "nothing matched at all")):
+                count = sum(1 for r in rows if r["how"] == how)
+                if count:
+                    print(f"  {what}: {count}")
+            print("  mark `decision` y / n, or type a category key to override, then:")
+            print(f"    grocery-app category confirm --reviewed {args.out}")
+            return
+
+        summary = categorize.confirm(args.reviewed, args.products)
+        print(f"Confirmed into {args.products}")
+        print(f"  categories written: {summary['written']}")
+        if summary["rejected"]:
+            print(f"  rejected:           {summary['rejected']}")
+        if summary["undecided"]:
+            print(f"  left undecided:     {summary['undecided']}")
+        for gap in summary["unknown_categories"]:
+            print(f"  NOT IN THE VOCABULARY: {gap} — add it to categories.py")
+        for product_id in summary["unknown_products"]:
+            print(f"  no such product: {product_id}")
+        return
 
     if args.command == "serve":
         try:
