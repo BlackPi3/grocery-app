@@ -65,8 +65,11 @@ Each entry gains what it needs to be trusted:
 
 Lookup is spelling-tolerant. The GLOBUS till used to print `SAATENBR?TCHEN` and
 now prints `SAATENBRÖTCHEN` (checked on the photo of 8 September); the product
-did not change. `?` matches any umlaut, and trailing codes the till sometimes
-adds (`JT Eier 10er FH` / `JT Eier 10er`) do not break a match.
+did not change. `?` matches any umlaut. Spelling tolerance stops there: a
+trailing code can be the whole difference between two products. `JT Eier 10er FH`
+is free-range eggs (*Freilandhaltung*), while `JT Eier 10er`, at €2.49, is the
+shop's barn eggs. Anything looser than an umlaut is a candidate for the
+matcher, not a memory hit.
 
 ## A new line: three ways a product comes to exist
 
