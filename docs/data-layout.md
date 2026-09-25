@@ -40,6 +40,7 @@ data/
       listings.json             written by `confirm` as ALDI matches are banked
     off/<ean>.json              Open Food Facts records, one per barcode, misses included
   purchases.json                the output contract (copied to web/purchases.json for the demo)
+  backups/                      pg_dump copies taken before a database is changed by hand
 ```
 
 ## What each receipt file contains

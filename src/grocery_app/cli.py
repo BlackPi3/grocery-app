@@ -22,6 +22,7 @@ from grocery_app.extract import DEFAULT_MODEL, PROMPT_VERSION, extract_directory
 from grocery_app.insights import build_insights, load_purchases
 from grocery_app.normalizer import (
     build_purchases,
+    load_json,
     load_products,
     load_resolution,
     load_shelf_prices,
@@ -234,11 +235,14 @@ def main() -> None:
         "db",
         help="The PostgreSQL store behind `serve` (needs the 'api' extra and DATABASE_URL)",
     )
-    d.add_argument("action", choices=["upgrade", "import", "export", "match"],
+    d.add_argument("action", choices=["upgrade", "import", "export", "match", "add-readings",
+                                      "answer"],
                    help="upgrade: apply the migrations; import: load the data/ files into "
                         "the tables (idempotent); export: write the tables out as files; "
                         "match: run the matcher over stored receipts (claude -p, on the "
-                        "subscription), saving its answers and questions")
+                        "subscription), saving its answers and questions; add-readings: add "
+                        "model-read receipts (--readings) for the photos in --photos; answer: "
+                        "give the shopper's answers in --truth to the open questions")
     d.add_argument("--url", default=None,
                    help="Database URL; defaults to the DATABASE_URL environment variable")
     d.add_argument("--receipts-dir", default="data/receipts/truth")
@@ -246,6 +250,10 @@ def main() -> None:
     d.add_argument("--resolution", default="data/products/resolution.json")
     d.add_argument("--line-resolutions", default="data/receipts/line_resolutions.json")
     d.add_argument("--products-dir", default="data/products")
+    d.add_argument("--readings", default=f"data/extracted/{DEFAULT_MODEL}/{PROMPT_VERSION}")
+    d.add_argument("--photos", default="data/receipts/fresh",
+                   help="add-readings: only the readings of the photos in this directory")
+    d.add_argument("--truth", default="data/receipts/product_truth.json")
     d.add_argument("--out", default=None,
                    help="export: directory to write the data/ layout into (required)")
 
@@ -570,6 +578,34 @@ def main() -> None:
                       f"{summary[kind]['updated']} updated")
             for image in summary["line_resolutions_skipped"]:
                 print(f"  SKIPPED line answer for {image}: no such receipt")
+        if args.action == "add-readings":
+            from grocery_app.db.io import import_receipts
+
+            photos = {p.name for p in Path(args.photos).iterdir()}
+            paths = [Path(args.readings) / f"{Path(name).stem}.json" for name in sorted(photos)]
+            missing = [p.name for p in paths if not p.exists()]
+            if missing:
+                raise SystemExit(f"no reading for: {', '.join(missing)}")
+            for path in paths:
+                if load_json(path).get("transcribed_by") != "llm":
+                    raise SystemExit(f"{path.name} is not marked as a model's reading")
+            with factory() as session:
+                summary = import_receipts(session, paths)
+                session.commit()
+            print(f"  receipts: {summary['receipts']['added']} added, "
+                  f"{summary['receipts']['updated']} updated")
+        if args.action == "answer":
+            from grocery_app.api.answers import apply_answers
+            from grocery_app.api.repository import PostgresRepository
+
+            truth = load_json(args.truth)
+            done = apply_answers(PostgresRepository(factory), truth,
+                                 truth.get("meta", {}).get("answered_by") or "shopper",
+                                 f"answer sheet {Path(args.truth).name}")
+            for kind, labels in done.items():
+                print(f"  {kind + ':':<16}{len(labels)}")
+            for label in done["words_only"] + done["not_offered"]:
+                print(f"    still a question: {label}")
         if args.action == "match":
             from sqlalchemy import select
 
