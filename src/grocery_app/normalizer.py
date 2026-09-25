@@ -15,6 +15,9 @@ Design notes:
   - Resolution is done from (store, raw_name) via resolution.json, exactly as it
     would be for real parser output. Receipt files carry no product_id: a
     receipt says what was printed, never which catalog entry it means.
+  - The name is compared by spelling, not byte for byte (see `spelling_key`):
+    one till prints `SAATENBR?TCHEN` and a newer one `SAATENBRÖTCHEN`, and
+    that is the same name. Nothing looser than that is a memory hit.
   - Unknown items are flagged (resolution="none"), never silently dropped or
     guessed. A name the receipt prints for several products it cannot tell
     apart resolves to all of them (resolution="family") and to nothing narrower.
@@ -24,6 +27,7 @@ Design notes:
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -121,6 +125,46 @@ def tax_rate(store: str | None, tax_class: str | None) -> float | None:
 
 # --- core join ---------------------------------------------------------------
 
+# Tills that cannot print an umlaut print `?` in its place, and a newer till at
+# the same shop prints the umlaut itself. ß goes with them: it is the other
+# letter such a printer lacks.
+_UMLAUT_TO_PLACEHOLDER = str.maketrans({letter: "?" for letter in "äöüß"})
+# A full stop the parser misreads (`MinusL` read as `Minusl.`), but not one
+# inside a number, where it is part of the size (`1.5kg`).
+_STOP_OUTSIDE_NUMBERS = re.compile(r"(?<!\d)\.(?!\d)")
+
+
+def spelling_key(raw_name: str) -> str:
+    """The printed name with spelling differences that change nothing removed.
+
+    Three differences only: letter case, an umlaut against the `?` a printer
+    puts in its place, and a full stop outside a number. Everything else is
+    part of the name. `JT Eier 10er FH` (free-range) and `JT Eier 10er` (barn
+    eggs) differ by two letters and are different products.
+    """
+    text = raw_name.lower().translate(_UMLAUT_TO_PLACEHOLDER)
+    return " ".join(_STOP_OUTSIDE_NUMBERS.sub("", text).split())
+
+
+def lookup(resolution: dict[tuple[str, str], list[str]], store: str | None,
+           raw_name: str) -> list[str]:
+    """The product ids the memory holds for this printed name at this store.
+
+    The exact name wins. Failing that, a name spelled the same (`spelling_key`)
+    at the same store is the same name. If two remembered names at the store
+    spell the same but point at different products, neither is used: the
+    memory cannot say which one this line is, and picking one would be a guess.
+    """
+    key = store_key(store)
+    exact = resolution.get((key, raw_name))
+    if exact is not None:
+        return exact
+    wanted = spelling_key(raw_name)
+    found = {tuple(ids) for (entry_store, name), ids in resolution.items()
+             if entry_store == key and spelling_key(name) == wanted}
+    return list(next(iter(found))) if len(found) == 1 else []
+
+
 def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
                    resolution: dict[tuple[str, str], list[str]],
                    products: dict[str, dict[str, Any]],
@@ -147,7 +191,7 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
     amount narrow a family when exactly one candidate has been sold at it.
     """
     raw_name = line["raw_name"]
-    ids = resolution.get((store_key(receipt.get("store")), raw_name), [])
+    ids = lookup(resolution, receipt.get("store"), raw_name)
     candidates = [products[i] for i in ids if i in products]
     net_paid = line.get("net", 0.0)
     qty = line.get("qty", 1)

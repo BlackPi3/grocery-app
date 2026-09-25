@@ -1,6 +1,6 @@
 # Design: The Catalog Grows Itself
 
-Written 2026-09-24 · Status: agreed, not built.
+Written 2026-09-24 · Status: steps 1–3 built (2026-09-25); 4–6 not started.
 
 ## Why
 
@@ -164,10 +164,20 @@ on.
 1. This document.
 2. The test set: pre-filled answers for the 22 fresh receipts, confirmed by
    Parham; a `grocery-app eval` mode that scores matching.
-3. Spelling-tolerant memory and the list of meaningless names.
+3. Spelling-tolerant memory (built 2026-09-25). `normalizer.spelling_key`
+   ignores case, an umlaut against its `?`, and a full stop outside a number;
+   nothing else. It moved the score from 30 to 36 right, still with none
+   wrong. It could not reach the other eight misses, and was not meant to:
+   seven are fruit and vegetables remembered at a different shop
+   (`Rispentomaten lose` is known at ALDI, bought at GLOBUS), which the produce
+   vocabulary answers in step 4, and one is a different name for a known
+   product (`Kleenex Ultra Soft W`).
 4. The matcher: candidates, the model's decision, accept or ask, creating
    products.
-5. Questions and corrections through the server: `PUT .../resolution` learns to
+5. The list of meaningless names, moved here from step 3: it exists to stop
+   an answer being remembered for `Diverse Lebensmittel`, and nothing
+   remembers answers until this step. Questions and corrections through the
+   server: `PUT .../resolution` learns to
    create a product from an answer and to replace a machine answer, and a
    `questions` endpoint lists what is waiting. Until there is a phone screen,
    questions are put to Parham in the chat, through that endpoint.
