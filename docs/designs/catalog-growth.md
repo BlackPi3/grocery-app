@@ -1,6 +1,6 @@
 # Design: The Catalog Grows Itself
 
-Written 2026-09-24 · Status: steps 1–3 built (2026-09-25); 4–6 not started.
+Written 2026-09-24 · Status: steps 1–3 built, step 4a built (2026-09-25); the rest not started.
 
 ## Why
 
@@ -172,8 +172,14 @@ on.
    (`Rispentomaten lose` is known at ALDI, bought at GLOBUS), which the produce
    vocabulary answers in step 4, and one is a different name for a known
    product (`Kleenex Ultra Soft W`).
-4. The matcher: candidates, the model's decision, accept or ask, creating
-   products.
+4. The matcher, in three pull requests:
+   - **4a, the produce vocabulary** (built 2026-09-25). When the memory has
+     nothing for a name at this store, the vocabulary's sure matches answer it
+     (`resolution: "produce"`); see `produce-vocabulary.md`. Score: 36 to 43
+     right, none wrong, 1 missed (`Kleenex Ultra Soft W`, left for 4b).
+   - **4b, the model decides.** Candidates, the model's pick with how sure
+     it is and why, accept when two sources agree, otherwise a question.
+   - **4c, creating products** from accepted shop listings.
 5. The list of meaningless names, moved here from step 3: it exists to stop
    an answer being remembered for `Diverse Lebensmittel`, and nothing
    remembers answers until this step. Questions and corrections through the

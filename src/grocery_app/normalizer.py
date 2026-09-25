@@ -21,6 +21,9 @@ Design notes:
   - Unknown items are flagged (resolution="none"), never silently dropped or
     guessed. A name the receipt prints for several products it cannot tell
     apart resolves to all of them (resolution="family") and to nothing narrower.
+  - Fruit and vegetables the memory has not seen at this store are looked up
+    in the produce vocabulary (resolution="produce"), which knows them at
+    every store. It answers only with a product the catalog already holds.
   - Duplicate receipt photos (same transaction) are excluded to avoid double-counting.
 """
 
@@ -31,7 +34,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from grocery_app import categories
+from grocery_app import categories, produce
 from grocery_app.resolver import budget_brand_status, store_key
 
 # --- loading -----------------------------------------------------------------
@@ -215,6 +218,14 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
         product_id, how = by_price, "price"
     elif candidates:
         product_id, how = None, "family"
+    elif line.get("type", "product") == "product" and \
+            (by_produce := produce.resolve(raw_name, products)) is not None:
+        # Nothing remembered at this store, but a vegetable is the same
+        # vegetable in every shop: `Rispentomaten lose` at GLOBUS is the
+        # product first seen at ALDI. Only the vocabulary's sure matches count.
+        ids = [by_produce]
+        candidates = [products[by_produce]]
+        product_id, how = by_produce, "produce"
     else:
         product_id, how = None, "none"
 

@@ -23,7 +23,9 @@ minting two products and editing resolution entries re-resolves the whole
 history with no migration. The finer split, when it comes, is the `variant`
 field and the family mechanism that already handles `Dove Dusche`.
 
-Nothing here decides anything. `match` proposes, a human confirms.
+`match` proposes, and a human confirms in the review CSV. The one exception is
+`resolve`: a sure match to a kind the catalog already holds is used without
+asking, when the normalizer's memory has nothing for the name at that store.
 """
 
 from __future__ import annotations
@@ -183,7 +185,12 @@ class Match:
 
     kinds: tuple[str, ...]
     is_organic: bool
-    how: str  # "alias" | "family" | "prefix"
+    # "alias" | "family": the name, cleaned, is one the vocabulary lists.
+    # "word": it starts with one, as whole words (`Trauben dunk.`).
+    # "truncated": it is the start of one (`BioBabyWasserme`).
+    # "glued": one is glued to the front of a longer word (`Kartoffelsalat`),
+    # which is as often a dish as a vegetable. See `SURE`.
+    how: str
 
     @property
     def kind(self) -> str:
@@ -250,8 +257,9 @@ def match(raw_name: str) -> Match | None:
     roll genuinely does not say which tomato. Failing that, a two-way prefix:
     tills truncate (`Johannisbeer`, `BioBabyWasserme`) and qualify
     (`mini moehren` for `Mini Möh.`), so either string may be the start of the
-    other. All of it is only ever a proposal — `produce propose` writes it into
-    a CSV a human decides on.
+    other. The prefix pass tries whole words first, then truncation, then a
+    word glued to the front of a longer one, and says which it used, because
+    they are not equally safe (`SURE`).
     """
     key = normalise(raw_name)
     if not key:
@@ -262,11 +270,29 @@ def match(raw_name: str) -> Match | None:
         return Match(kinds, organic, "family" if len(kinds) > 1 else "alias")
     if any(word in key for word in PROCESSED):
         return None
-    for alias, kinds in _INDEX.items():
-        if len(key) >= _MIN_PREFIX and len(alias) >= _MIN_PREFIX and \
-                (key.startswith(alias) or alias.startswith(key)):
-            return Match(kinds, organic, "prefix")
+    for how, fits in _PREFIX_PASSES:
+        for alias, kinds in _INDEX.items():
+            if fits(key, alias):
+                return Match(kinds, organic, how)
     return None
+
+
+# Strongest first. A whole word needs no minimum length: `dill` followed by
+# more words is still dill. The other two compare parts of words, so both
+# strings must be long enough for a match to mean something.
+_PREFIX_PASSES = (
+    ("word", lambda key, alias: key.startswith(alias + " ")),
+    ("truncated", lambda key, alias: len(key) >= _MIN_PREFIX and alias.startswith(key)),
+    ("glued", lambda key, alias: len(key) >= _MIN_PREFIX and len(alias) >= _MIN_PREFIX
+     and key.startswith(alias)),
+)
+
+# The matches sure enough to use without asking anyone. A glued match is not
+# one of them: `Kartoffelsalat Ei` is potato salad and `Kartoffelr.,Dolphy`
+# is a snack, both on real receipts. Measured on 2026-09-25 against every name
+# the memory and the shopper's answers settle, about 250: the other passes
+# claimed nothing that was not the right produce.
+SURE = ("alias", "word", "truncated")
 
 
 def near_misses(raw_name: str, limit: int = 3) -> list[str]:
@@ -283,6 +309,29 @@ def near_misses(raw_name: str, limit: int = 3) -> list[str]:
             if kind not in seen:
                 seen.append(kind)
     return seen
+
+
+def resolve(raw_name: str, products: dict[str, dict[str, Any]]) -> str | None:
+    """The catalog product a printed name is, when the vocabulary alone may say so.
+
+    This is what the normalizer asks when its memory has nothing for the name
+    at this store: `Rispentomaten lose` bought at GLOBUS is the Rispentomaten
+    product already known from ALDI. It answers only when all three hold:
+
+    - the match is one of the sure kinds (`SURE`);
+    - it names one kind, not a family, because a family is a question;
+    - the catalog already holds that kind, found by name the way `confirm`
+      writes it. Making a new product is not this function's job.
+
+    Anything else is None, and the line stays open.
+    """
+    found = match(raw_name)
+    if found is None or found.how not in SURE or found.is_family:
+        return None
+    wanted = found.names[0]
+    ids = [product_id for product_id, product in products.items()
+           if product.get("name") == wanted and categories.is_produce(product.get("category"))]
+    return ids[0] if len(ids) == 1 else None
 
 
 # --- propose / confirm -------------------------------------------------------
@@ -354,7 +403,8 @@ def propose(purchases_doc: dict[str, Any],
             "alternatives": ", ".join(near_misses(raw_name)) if not found else "",
         })
     # Best guesses first, then by how much of the basket rides on the name.
-    rows.sort(key=lambda r: (r["confidence"] != "alias", r["confidence"] != "prefix",
+    rank = {how: i for i, how in enumerate(("alias", "word", "truncated", "glued"))}
+    rows.sort(key=lambda r: (rank.get(r["confidence"], len(rank)),
                              -float(r["spend"]), r["raw_name"]))
     return rows
 

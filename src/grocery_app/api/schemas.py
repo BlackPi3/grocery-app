@@ -49,7 +49,7 @@ class Purchase(BaseModel):
     raw_name: str
     product_id: str | None
     resolved: bool
-    resolution: Literal["exact", "user", "price", "family", "none"]
+    resolution: Literal["exact", "user", "price", "family", "produce", "none"]
     candidate_ids: list[str]
     qty: float
     gross: float | None

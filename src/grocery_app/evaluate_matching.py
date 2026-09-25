@@ -44,7 +44,7 @@ from typing import Any
 from grocery_app.normalizer import load_json, normalize_receipt
 
 OUTCOMES = ("right", "wrong", "unchecked", "missed", "new")
-ANSWERED = {"exact", "price", "user", "family"}
+ANSWERED = {"exact", "price", "user", "family", "produce"}
 
 
 def article_index(products: dict[str, dict[str, Any]],
@@ -178,6 +178,12 @@ def format_matching_report(report: dict[str, Any]) -> str:
         lines.append(row(store[:22], tally))
     lines += ["", "  by money: " + "  ".join(
         f"{o} €{totals['euros'][o]:.2f}" for o in OUTCOMES)]
+    # Which step gave each answer: the memory (`exact`, `family`, `price`) or
+    # the produce vocabulary. A score that rose says nothing about which part
+    # of the matcher earned it.
+    how = Counter(line["resolution"] for line in report["lines"] if line["answered"])
+    if how:
+        lines.append("  answered by: " + "  ".join(f"{h} {n}" for h, n in how.most_common()))
 
     for outcome in ("wrong", "missed"):
         bad = [line for line in report["lines"] if line["outcome"] == outcome]
