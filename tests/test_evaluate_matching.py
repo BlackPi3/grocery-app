@@ -94,6 +94,12 @@ def test_an_answer_the_key_can_only_describe_in_words_is_unchecked_not_wrong():
     assert judge(record, truth(4, "Geheimnis", product="Kashk"), {}) == "unchecked"
 
 
+def test_a_produce_answer_is_scored_like_any_other_answer():
+    record = {"resolution": "produce", "product_id": "p-0001", "candidate_ids": []}
+    assert judge(record, truth(0, "Bananen lose", ["p-0001"]), {}) == "right"
+    assert judge(record, truth(0, "Bananen lose", ["p-0002"]), {}) == "wrong"
+
+
 def test_a_line_left_open_is_missed_only_when_the_catalog_had_it():
     open_line = {"resolution": "none", "product_id": None}
     assert judge(open_line, truth(0, "x", ["p-0001"]), {}) == "missed"
@@ -134,6 +140,7 @@ def test_the_report_names_what_went_wrong():
     assert "right   2" in text
     assert "MU Kakao" in text.split("Wrong:")[1]
     assert "MU Kekse" in text.split("Missed:")[1]
+    assert "answered by: exact 2  family 1" in text
 
 
 def test_the_cli_scores_the_files_on_disk(tmp_path, monkeypatch, capsys):

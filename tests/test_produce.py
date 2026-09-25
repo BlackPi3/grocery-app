@@ -22,6 +22,7 @@ from grocery_app.produce import (
     near_misses,
     normalise,
     propose,
+    resolve,
     write_proposals,
 )
 
@@ -111,6 +112,53 @@ def test_a_name_the_vocabulary_has_never_seen_matches_nothing():
     assert match("Choviva Kekstaler") is None
     assert match("Lenor WSP Basis 71") is None
     assert match("") is None
+
+
+def test_each_prefix_match_says_what_shape_it_had():
+    """Three shapes, not equally safe, so the match reports which it was."""
+    assert match("Trauben dunk. 500g").how == "word"
+    assert match("BioBabyWasserme").how == "truncated"
+    assert match("Kartoffelpuffer 6er").how == "glued"
+
+
+def test_a_vegetable_glued_to_a_longer_word_is_not_sure():
+    """`Kartoffel` glued to the front of a word is as often a dish as the
+    vegetable. It can still be proposed for review; it is never used unasked."""
+    assert match("Kartoffelpuffer 6er").kind == "Kartoffeln"
+    assert resolve("Kartoffelpuffer 6er", KINDS) is None
+
+
+KINDS = {
+    "p-0001": {"name": "Rispentomaten", "category": "tomaten"},
+    "p-0002": {"name": "Trauben", "category": "trauben"},
+    "p-0003": {"name": "Kartoffeln", "category": "kartoffeln"},
+    "p-0004": {"name": "Bananen Bio", "category": "bananen"},
+    "p-0005": {"name": "Salatgurken", "category": "gurken"},
+    "p-0006": {"name": "Mini-Gurken", "category": "gurken"},
+    # Same word, not produce: a name alone must not reach it.
+    "p-0007": {"name": "Zitronen", "category": "backzutaten"},
+}
+
+
+@pytest.mark.parametrize("printed, product_id", [
+    ("Rispentomaten lose", "p-0001"),   # alias
+    ("Trauben dunk. 500g", "p-0002"),   # word
+    ("Kartoffeln f.k. lose", "p-0003"),  # word
+    ("Bio Bananen", "p-0004"),          # organic finds the organic product
+])
+def test_a_sure_match_resolves_to_the_kind_the_catalog_holds(printed, product_id):
+    assert resolve(printed, KINDS) == product_id
+
+
+@pytest.mark.parametrize("printed, why", [
+    ("Gurken", "a family is a question, not an answer"),
+    ("Bananen", "the catalog holds only the organic ones"),
+    ("Datteltomaten 500g", "the catalog has no such kind yet"),
+    ("Zitronen Stück", "the only product with that name is not produce"),
+    ("Choviva Kekstaler", "not produce at all"),
+])
+def test_anything_less_than_sure_resolves_to_nothing(printed, why):
+    assert resolve(printed, KINDS) is None, why
 
 
 def test_near_misses_are_offered_when_nothing_matched():

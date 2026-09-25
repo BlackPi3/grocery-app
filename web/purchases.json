@@ -3193,7 +3193,7 @@
         "Gemüse",
         "Tomaten"
       ],
-      "product": "Beef tomatoes (loose)",
+      "product": "Fleischtomaten",
       "is_budget_brand": null,
       "unit_price": {
         "amount": 2.69,
@@ -3226,7 +3226,7 @@
         "Gemüse",
         "Paprika & Chili"
       ],
-      "product": "Green bell pepper (loose)",
+      "product": "Paprika grün",
       "is_budget_brand": null,
       "unit_price": {
         "amount": 3.61,

@@ -201,13 +201,16 @@ def test_marking_a_receipt_duplicate_takes_it_out_of_the_history(corrections):
 
 def test_correcting_the_store_changes_what_resolves(corrections):
     """Resolution is store-scoped, which is why a photo with its header cropped
-    off leaves every line unplaceable until someone says where they were."""
+    off leaves its lines unplaceable until someone says where they were. The
+    exception is produce: bananas are bananas at any shop, so the vocabulary
+    still places them."""
     client, _, receipt_id = corrections
     response = client.patch(f"/v1/receipts/{receipt_id}", json={"store": "Woanders"})
 
     assert response.status_code == 200
     assert response.json()["receipt"]["store"] == "Woanders"
-    assert [line["resolution"] for line in response.json()["lines"]] == ["none", "none", "none"]
+    assert [line["resolution"] for line in response.json()["lines"]] == \
+        ["none", "produce", "none"]
 
 
 def test_a_patch_that_changes_nothing_is_refused(corrections):

@@ -155,3 +155,28 @@ def test_the_matching_score_reads_what_the_normalizer_reads_but_not_the_answers(
         index=article_index(products, data / "products"))
     assert [line["outcome"] for line in report["lines"]] == ["right", "missed"], \
         "the listing links the shop's number to p-0001; the answer file is not read"
+
+
+def test_produce_known_at_one_store_resolves_at_another_through_the_seam(data):
+    """A second shop prints its own name for the same bananas. The memory has
+    nothing there; the vocabulary answers, and the answer survives the trip
+    through purchases.json and the server's strict schema, labelled as the
+    vocabulary's so a reader can tell it from a remembered one."""
+    from grocery_app.api.schemas import PurchasesDocument
+
+    elsewhere = {
+        "source_image": "IMG_3.jpeg", "transcribed_by": "hand", "store": "Woanders",
+        "date": "2026-02-10", "time": "10:00", "currency": "EUR", "printed_total": 1.49,
+        "lines": [{"type": "product", "raw_name": "Bananen lose", "qty": 1,
+                   "gross": 1.49, "discount": 0.0, "net": 1.49, "tax_class": "A"}],
+    }
+    (data / "receipts" / "truth" / "IMG_3.json").write_text(json.dumps(elsewhere),
+                                                            encoding="utf-8")
+    purchases = build_purchases(data / "receipts" / "truth",
+                                data / "products" / "products.json",
+                                data / "products" / "resolution.json",
+                                None, data / "products")
+    PurchasesDocument.model_validate(purchases)
+    (banana,) = [p for p in purchases["purchases"] if p["store"] == "Woanders"]
+    assert (banana["resolution"], banana["product_id"]) == ("produce", "p-0002")
+    assert "Bananen lose" not in purchases["meta"]["unresolved_items"]

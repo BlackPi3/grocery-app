@@ -1,7 +1,7 @@
 # Design: Produce
 
 Status: built (2026-09-20). `grocery-app produce propose` / `confirm`, vocabulary in
-`src/grocery_app/produce.py`.
+`src/grocery_app/produce.py`. Sure matches used without asking since 2026-09-25.
 
 ## The problem
 
@@ -73,19 +73,48 @@ index all work unchanged.
 
 ## How a name reaches a kind
 
-`match(raw_name)` in two passes, both of them only ever a *proposal*:
+`match(raw_name)` in two passes:
 
 1. **alias** — the printed name, once quantity, packaging and Bio markers are stripped,
    is one the vocabulary lists. `Paprika rot lose` -> `paprika rot`.
-2. **prefix** — either string is the start of the other, because tills truncate
-   (`Johannisbeer`, `BioBabyWasserme`) and qualify (`Bio-Mini Möh. 200g`).
+2. **prefix** — one string is the start of the other, in one of three shapes, tried in
+   this order and reported as such:
+   - **word**: the name starts with a listed name as whole words (`Trauben dunk.`);
+   - **truncated**: the name is the start of a listed one, because tills cut names off
+     (`Johannisbeer`, `BioBabyWasserme`);
+   - **glued**: a listed name is glued to the front of a longer word (`Kartoffelsalat`).
 
 The prefix pass is what makes the thing useful and also what makes it wrong sometimes:
 it cannot tell `Birne Conference` (a pear) from `Orangendirektsaft` (juice). A short
-veto list of processed-food words blocks the obvious cases; the rest is why every guess
-goes through a human. The veto is checked as a substring and is deliberately short — a
-word that can hide inside a vegetable is worse than a miss, and `eis` was on the list
-until it vetoed `Speisezwiebeln`.
+veto list of processed-food words blocks the obvious cases. The veto is checked as a
+substring and is deliberately short — a word that can hide inside a vegetable is worse
+than a miss, and `eis` was on the list until it vetoed `Speisezwiebeln`.
+
+## Used without asking (2026-09-25)
+
+When the normalizer's memory has nothing for a name at this store, it asks the
+vocabulary (`produce.resolve`), and the line is labelled `resolution: "produce"`. This
+is how `Rispentomaten lose` bought at GLOBUS reaches the product first seen at ALDI.
+The vocabulary answers only when all of these hold:
+
+- the match is an alias, word or truncated match. A **glued** match is never used
+  unasked: on real receipts `Kartoffelsalat Ei` is potato salad and `Kartoffelr.,Dolphy`
+  a snack. It is still proposed in the review CSV.
+- it names one kind. A family (`Gurken`) is a question for the shopper.
+- the catalog already holds that kind as a produce product of that exact name. Making
+  a new one is the catalog-growth matcher's job, not this one's.
+
+The memory at this store and the shopper's own answer both beat it.
+
+Measured before switching it on: across about 250 names the memory or the shopper's
+answers already settle, these rules claimed nothing that was not the right produce. On
+the matching test set it moved the score from 36 to 43 right, still with none wrong.
+
+Known limits: a packaged product whose name starts with a produce word as a whole word
+(`Apfel Zimt Müsli`) would be claimed. None has appeared yet; `eval-matching` counts it
+as `wrong` the day one does. And a product is found by its name, so a produce product
+must carry the kind's name: two early ones had English names written by a model and
+were renamed to `Fleischtomaten` and `Paprika grün` on 2026-09-25.
 
 ## The loop
 

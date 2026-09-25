@@ -241,3 +241,43 @@ def test_a_spelling_match_is_still_an_exact_resolution():
     line = {"type": "product", "raw_name": "Dove dusche.", "qty": 1, "gross": 2.49, "net": 2.24}
     record = normalize_line(line, RECEIPT, {("globus", "Dove Dusche"): ["p-1"]}, PRODUCTS)
     assert record["resolution"] == "exact" and record["product_id"] == "p-1"
+
+
+# --- produce: known at one store, bought at another ---------------------------
+
+TOMATOES = {**PRODUCTS,
+            "p-4": {"name": "Rispentomaten", "brand": None, "product_line": None,
+                    "variant": None, "category": "tomaten", "is_organic": False,
+                    "size": None}}
+TOMATO_LINE = {"type": "product", "raw_name": "Rispentomaten lose", "qty": 1,
+               "gross": 1.99, "net": 1.99}
+
+
+def test_a_vegetable_the_memory_has_not_seen_here_is_found_by_the_vocabulary():
+    """Remembered at another shop only; the vocabulary knows it everywhere."""
+    record = normalize_line(TOMATO_LINE, RECEIPT, {("aldi", "Rispentomaten 650g"): ["p-4"]},
+                            TOMATOES)
+    assert (record["resolution"], record["product_id"]) == ("produce", "p-4")
+    assert record["resolved"] is True and record["candidate_ids"] == []
+    assert record["category"] == "tomaten" and record["product"] == "Rispentomaten"
+
+
+def test_the_memory_at_this_store_beats_the_vocabulary():
+    """What was confirmed at this till is the stronger answer, even when the
+    vocabulary would say something else."""
+    record = normalize_line(TOMATO_LINE, RECEIPT,
+                            {("globus", "Rispentomaten lose"): ["p-3"]}, TOMATOES)
+    assert (record["resolution"], record["product_id"]) == ("exact", "p-3")
+
+
+def test_the_shoppers_answer_beats_the_vocabulary():
+    """A vocabulary answer is not a family: it must not stop a correction."""
+    record = normalize_line(TOMATO_LINE, RECEIPT, {}, TOMATOES,
+                            {"raw_name": "Rispentomaten lose", "product_id": "p-3"})
+    assert (record["resolution"], record["product_id"]) == ("user", "p-3")
+
+
+def test_the_vocabulary_never_turns_a_deposit_into_produce():
+    deposit = dict(TOMATO_LINE, type="deposit")
+    record = normalize_line(deposit, RECEIPT, {}, TOMATOES)
+    assert (record["resolution"], record["product_id"]) == ("none", None)
