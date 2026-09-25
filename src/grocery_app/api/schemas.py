@@ -130,16 +130,75 @@ class ReceiptDocument(BaseModel):
     lines: list[ReceiptLineView]
 
 
+class NewProductAnswer(BaseModel):
+    """"None of these, it's …": a product nobody lists, in the shopper's words."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, description="What it was, e.g. 'Kashk'")
+    brand: str | None = Field(default=None, description="The brand, when the shopper knows it")
+
+
 class LineResolutionRequest(BaseModel):
-    """The shopper's answer for one line, or `product_id: null` to withdraw it."""
+    """The shopper's answer for one line, in exactly one of three ways, or
+    `product_id: null` to withdraw it."""
 
     model_config = ConfigDict(extra="forbid")
 
     product_id: str | None = Field(
+        default=None,
         description="A product id from the catalog, or null to withdraw the answer")
+    candidate: int | None = Field(
+        default=None, ge=1,
+        description="The number of a candidate in this line's question (GET /v1/questions); "
+                    "a shop listing the catalog lacks becomes a product")
+    new_product: NewProductAnswer | None = Field(
+        default=None, description="None of the candidates: a new product in the shopper's words")
     confirmed_by: str | None = Field(default=None,
                                      description="Who answered; defaults to 'shopper'")
     basis: str | None = Field(default=None, description="How they knew: memory, photo, ...")
+
+
+class QuestionCandidate(BaseModel):
+    """One product a question offers. `number` is what an answer quotes back."""
+
+    number: int
+    name: str
+    brand: str | None
+    pack_size: str | None
+    product_id: str | None = Field(description="Set when the catalog already holds it")
+    article: str | None = Field(description="The shop's article number, when a shop lists it")
+    url: str | None
+
+
+class Question(BaseModel):
+    """A line nothing could place, waiting for the shopper."""
+
+    receipt_id: int
+    position: int
+    store: str | None
+    date: str | None
+    raw_name: str
+    paid: float | None = Field(description="Shelf price paid, before discount (per kg if weighed)")
+    per_line: bool = Field(description="The till prints this name for anything, so the answer "
+                                       "is about this line only and is never remembered")
+    candidates: list[QuestionCandidate] = Field(
+        description="What the matcher found; empty when it was not run or found nothing")
+    model_pick: int | None = Field(description="The candidate the model would pick, if any")
+    reason: str | None = Field(description="The model's reason, in one sentence")
+
+
+class QuestionsMeta(BaseModel):
+    open: int
+    matcher_answers: int = Field(description="Names the memory holds on the matcher's word")
+    overruled: int = Field(description="Machine answers the shopper corrected (`corrections`)")
+
+
+class QuestionsDocument(BaseModel):
+    """Every open question, oldest receipt first, and how the machine is doing."""
+
+    meta: QuestionsMeta
+    questions: list[Question]
 
 
 class ReceiptPatch(BaseModel):

@@ -1,6 +1,6 @@
 # Design: The Catalog Grows Itself
 
-Written 2026-09-24 · Status: steps 1–4 built, steps 5a and 5b built (2026-09-25); 5c and 6 not started.
+Written 2026-09-24 · Status: steps 1–5 built (2026-09-25); step 6 not started.
 
 ## Why
 
@@ -264,7 +264,22 @@ on.
    version, so accepting everything would create 42 products, about 30 of
    them versions never known to have been bought (8 flavours of Mövenpick).
 
-   Still to come in step 5: **5c**, a questions list.
+   **5c, the questions list** (built 2026-09-25). `GET /v1/questions` lists
+   every line nothing could place, oldest receipt first, with the matcher's
+   candidates where it ran, its pick and its reason, and `per_line` for the
+   names that are never remembered. It is derived on each call, so a line
+   stops being a question the moment anything places it. Families are never
+   questions. `meta` carries the machine's record: how many names the memory
+   holds on the matcher's word, and how many machine answers were overruled.
+
+   An answer goes through the one existing route, `PUT
+   .../lines/{position}/resolution`, in exactly one of three ways: a
+   `product_id` from the catalog; a `candidate` number from the question (a
+   shop listing the catalog lacks becomes a product, decided by the shopper);
+   or `new_product` with a name, for "none of these, it's Kashk", which
+   makes a product holding only what was said, with `brand unknown` and
+   `category unknown` as open questions. Either way the answer is then
+   remembered by 5a's rules.
 
    The original plan for this step read:
    The list of meaningless names, moved here from step 3: it exists to stop

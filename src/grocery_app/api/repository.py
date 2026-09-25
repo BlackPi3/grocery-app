@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app import memory
 from grocery_app.api.jobs import job_to_dict
+from grocery_app.api.matching import article_index
 from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict
 from grocery_app.db.models import (
     Correction,
@@ -58,6 +59,10 @@ class NotAProductLine(ValueError):
     """An answer on a deposit line, which cannot be a product."""
 
 
+class NoSuchCandidate(ValueError):
+    """An answer quoting a candidate number the line's question does not offer."""
+
+
 @runtime_checkable
 class WriteRepository(Protocol):
     """A repository that can accept a photo and the shopper's corrections.
@@ -86,6 +91,13 @@ class WriteRepository(Protocol):
 
     def set_line_resolution(self, receipt_id: int, position: int, product_id: str | None,
                             confirmed_by: str | None, basis: str | None) -> dict[str, Any]:
+        ...
+
+    def product_for_answer(self, receipt_id: int, position: int, candidate: int | None,
+                           new_product: dict[str, Any] | None) -> str:
+        ...
+
+    def questions(self) -> dict[str, Any]:
         ...
 
     def update_receipt(self, receipt_id: int, is_duplicate: bool | None,
@@ -282,6 +294,83 @@ class PostgresRepository:
             return exact[0]
         alike = [r for r in rows if spelling_key(r.raw_name) == spelling_key(raw_name)]
         return alike[0] if len(alike) == 1 else None
+
+    def product_for_answer(self, receipt_id: int, position: int, candidate: int | None,
+                           new_product: dict[str, Any] | None) -> str:
+        """The product an answer names by candidate number or in words, made if new.
+
+        A candidate is quoted by its number in the line's question; a shop
+        listing the catalog lacks becomes a product, decided by the shopper.
+        A product in words is made as far as the words go. Either way the
+        product is committed before the answer is recorded, so a refused
+        answer can leave a product behind, never an answer without one.
+        """
+        from grocery_app.api.matching import product_for, shopper_product
+
+        with self.session_factory() as session:
+            row = self._get(session, receipt_id)
+            if new_product is not None:
+                product_id = shopper_product(session, new_product["name"],
+                                             new_product.get("brand"))
+            else:
+                question = session.scalars(select(Question).where(
+                    Question.receipt_id == receipt_id, Question.position == position)).first()
+                offered = (question.proposal.get("candidates") or []) if question else []
+                if candidate is None or not 1 <= candidate <= len(offered):
+                    raise NoSuchCandidate(
+                        f"line {position} of receipt {receipt_id} offers no candidate "
+                        f"{candidate}; it has {len(offered)}")
+                inputs = {"index": article_index(session),
+                          "products": {p.id: {} for p in session.scalars(select(Product))}}
+                product_id = product_for(session, offered[candidate - 1], row.store or "",
+                                         inputs, decided_by="shopper")
+            session.commit()
+            return product_id
+
+    def questions(self) -> dict[str, Any]:
+        """Every line nothing could place, oldest receipt first.
+
+        Derived, not stored: a line is a question while the normalizer leaves
+        it open and the shopper has not answered it, whether or not the matcher
+        saw it. The matcher's candidates come along where it did. A family is
+        never a question: the version changes no number the app shows.
+        """
+        from grocery_app import matcher as matching
+
+        with self.session_factory() as session:
+            inputs = load_normalizer_inputs(session)
+            proposals = {(q.receipt_id, q.position): q.proposal
+                         for q in session.scalars(select(Question))}
+            receipts = session.scalars(select(Receipt).where(
+                Receipt.is_duplicate.is_(False)).order_by(Receipt.date, Receipt.id)).all()
+            questions = []
+            for receipt in receipts:
+                doc = receipt_to_dict(receipt)
+                records = normalize_receipt(doc, inputs["resolution"], inputs["products"],
+                                            inputs["line_resolutions"], inputs["shelf_prices"])
+                for position, (line, record) in enumerate(zip(doc["lines"], records, strict=True)):
+                    if record["resolution"] != "none" or record["type"] != "product":
+                        continue
+                    proposal = proposals.get((receipt.id, position)) or {}
+                    offered = proposal.get("candidates") or []
+                    pick = proposal.get("pick")
+                    questions.append({
+                        "receipt_id": receipt.id, "position": position, "store": receipt.store,
+                        "date": doc.get("date"), "raw_name": line["raw_name"],
+                        "paid": matching.paid_price(line),
+                        "per_line": never_remembered(receipt.store, line["raw_name"]),
+                        "candidates": [{"number": n, **{k: c.get(k) for k in (
+                            "name", "brand", "pack_size", "product_id", "article", "url")}}
+                            for n, c in enumerate(offered, 1)],
+                        "model_pick": offered.index(pick) + 1 if pick in offered else None,
+                        "reason": proposal.get("reason"),
+                    })
+            matcher_answers = sum(1 for r in session.scalars(select(Resolution))
+                                  if r.confirmed_by == "matcher")
+            overruled = len(session.scalars(select(Correction)).all())
+        return {"meta": {"open": len(questions), "matcher_answers": matcher_answers,
+                         "overruled": overruled},
+                "questions": questions}
 
     def update_receipt(self, receipt_id: int, is_duplicate: bool | None = None,
                        store: str | None = None) -> dict[str, Any]:
