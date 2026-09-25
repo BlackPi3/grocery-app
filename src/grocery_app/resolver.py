@@ -658,10 +658,10 @@ def _add_product(products_doc: dict[str, Any], listings_doc: dict[str, Any],
     return product_id
 
 
-def shelf_price(url: str) -> float | None:
+def shelf_price(url: str, cache_dir: str | Path | None = None) -> float | None:
     """The price on a product page, for a listing the search page left blank."""
     try:
-        price = product_from_url(url).get("price")
+        price = product_from_url(url, cache_dir or SEARCH_CACHE).get("price")
     except (OSError, ValueError):
         return None
     return float(price) if price else None
@@ -680,10 +680,21 @@ SEARCH_URL = "https://produkte.globus.de/search?query="
 SEARCH_CACHE = "data/products/globus/cache/_search"
 SEARCH_DELAY_S = 1.0
 
+# The GLOBUS every receipt so far comes from (the header prints Markthalle
+# Dudweiler). Prices differ by store: the site's default prices disagreed with
+# what was paid for 16 of 20 products checked on 2026-09-25, and this store's
+# agreed for 11. A store's pages live under its own path, and are cached apart
+# from the default ones.
+MARKET = "dudweiler"
+MARKET_CACHE = f"data/products/globus/cache/{MARKET}/_search"
+
 
 def search(query: str, cache_dir: str | Path = SEARCH_CACHE,
-           force: bool = False) -> list[dict[str, Any]]:
-    """Products GLOBUS's own search returns for a query, in their order."""
+           force: bool = False, market: str | None = None) -> list[dict[str, Any]]:
+    """Products GLOBUS's own search returns for a query, in their order.
+
+    With `market`, the search is that store's, so its prices are that store's.
+    """
     from grocery_app.catalog_globus import USER_AGENT, parse_listing
 
     slug = re.sub(r"[^a-z0-9]+", "_", fold(query)).strip("_") or "_"
@@ -692,8 +703,9 @@ def search(query: str, cache_dir: str | Path = SEARCH_CACHE,
     if path.exists() and not force:
         html = path.read_text(encoding="utf-8")
     else:
+        url = SEARCH_URL.replace("/search", f"/{market}/search") if market else SEARCH_URL
         request = urllib.request.Request(
-            SEARCH_URL + urllib.parse.quote(query),
+            url + urllib.parse.quote(query),
             headers={"User-Agent": USER_AGENT},
         )
         with urllib.request.urlopen(request, timeout=45) as response:
@@ -752,11 +764,11 @@ def queries_for(raw_name: str) -> list[str]:
 
 def search_candidates(raw_name: str, receipt_price: float | None,
                       cache_dir: str | Path = SEARCH_CACHE,
-                      top_n: int = TOP_N) -> list[dict[str, Any]]:
+                      top_n: int = TOP_N, market: str | None = None) -> list[dict[str, Any]]:
     """Rank what search returns. Their relevance leads; ours breaks ties."""
     seen: dict[str, dict[str, Any]] = {}
     for query in queries_for(raw_name):
-        for position, product in enumerate(search(query, cache_dir)):
+        for position, product in enumerate(search(query, cache_dir, market=market)):
             article = product.get("article_number")
             if not article or article in seen:
                 continue

@@ -16,6 +16,7 @@ from grocery_app.evaluate_matching import (
     evaluate_matching,
     format_matching_report,
     judge,
+    judge_pick,
 )
 
 
@@ -109,7 +110,8 @@ def test_a_line_left_open_is_missed_only_when_the_catalog_had_it():
 def test_totals_count_lines_and_money_and_skip_deposits():
     totals = score()["totals"]
     assert totals["lines"] == 6, "the Pfand line is not a product and is not in the key"
-    assert totals["count"] == {"right": 2, "wrong": 1, "unchecked": 0, "missed": 1, "new": 2}
+    assert totals["count"] == {"right": 2, "wrong": 1, "unchecked": 0, "asked": 0,
+                               "missed": 1, "new": 2}
     assert totals["euros"]["new"] == 7.0
     assert totals["total_euros"] == 12.78
 
@@ -133,6 +135,52 @@ def test_a_key_line_that_no_longer_matches_the_reading_is_stale_not_scored():
 
     missing = evaluate_matching(TRUTH, {}, RESOLUTION, PRODUCTS)
     assert missing["totals"]["lines"] == 0 and len(missing["stale"]) == 6
+
+
+def fake_matcher(verdicts: dict[str, tuple[str, dict | None]]):
+    """A matcher that answers from a table: printed name -> (verdict, pick)."""
+    seen = []
+
+    def matcher(line, receipt):
+        seen.append(line["raw_name"])
+        verdict, pick = verdicts.get(line["raw_name"], ("ask", None))
+        return {"verdict": verdict, "pick": pick,
+                "candidates": [pick] if pick else []}
+
+    matcher.seen = seen
+    return matcher
+
+
+def test_the_matcher_sees_only_the_lines_the_memory_left_open():
+    matcher = fake_matcher({})
+    evaluate_matching(TRUTH, {"IMG_1.jpeg": READING}, RESOLUTION, PRODUCTS,
+                      index=article_index(PRODUCTS, None), matcher=matcher)
+    assert matcher.seen == ["MU Kekse", "Geheimnis", "Etwas Neues"], \
+        "remembered lines and the deposit never reach it"
+
+
+def test_an_accepted_pick_is_judged_and_a_question_is_asked():
+    matcher = fake_matcher({
+        "MU Kekse": ("accept", {"product_id": "p-0003", "article": None}),   # right
+        "Etwas Neues": ("accept", {"product_id": None, "article": "998"}),   # wrong
+        "Geheimnis": ("ask", {"product_id": None, "article": "5"}),          # asked
+    })
+    report = evaluate_matching(TRUTH, {"IMG_1.jpeg": READING}, RESOLUTION, PRODUCTS,
+                               index=article_index(PRODUCTS, None), matcher=matcher)
+    outcomes = {line["raw_name"]: line["outcome"] for line in report["lines"]}
+    assert outcomes["MU Kekse"] == "right"
+    assert outcomes["Etwas Neues"] == "wrong", "the shop's article is not the shopper's"
+    assert outcomes["Geheimnis"] == "asked"
+    asked = next(line for line in report["lines"] if line["raw_name"] == "Geheimnis")
+    assert asked["model_alone"] == "unchecked", "the key has only words for Kashk"
+    assert "asked 1: the model's own pick was right 0  wrong 0  unchecked 1" in \
+        format_matching_report(report)
+
+
+def test_a_shop_listing_is_right_when_its_article_is_the_shoppers():
+    pick = {"product_id": None, "article": "999"}
+    assert judge_pick(pick, truth(5, "Etwas Neues", article="999"), {}) == "right"
+    assert judge_pick(None, truth(5, "Etwas Neues", article="999"), {}) == "none"
 
 
 def test_the_report_names_what_went_wrong():

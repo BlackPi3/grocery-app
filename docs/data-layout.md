@@ -25,6 +25,7 @@ data/
     product_truth.json          which product each line of fresh/ was, answered by the shopper
     product_truth_review.csv    the pre-filled sheet those answers were given on
   extracted/<model>/<prompt>/   parser output per photo, with a .meta.json (tokens, cost)
+  matched/<decider>/<prompt>/   the matcher's model answers, one per exact prompt, so a re-run asks nothing
   products/                     what is sold, and what receipt text means
     products.json               one entry per product, opaque `p-0001` ids
     resolution.json             (store, receipt text) -> product, or -> a family of products

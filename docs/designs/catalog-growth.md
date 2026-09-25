@@ -1,6 +1,6 @@
 # Design: The Catalog Grows Itself
 
-Written 2026-09-24 · Status: steps 1–3 built, step 4a built (2026-09-25); the rest not started.
+Written 2026-09-24 · Status: steps 1–3 built, steps 4a and 4b built (2026-09-25); the rest not started.
 
 ## Why
 
@@ -177,8 +177,36 @@ on.
      nothing for a name at this store, the vocabulary's sure matches answer it
      (`resolution: "produce"`); see `produce-vocabulary.md`. Score: 36 to 43
      right, none wrong, 1 missed (`Kleenex Ultra Soft W`, left for 4b).
-   - **4b, the model decides.** Candidates, the model's pick with how sure
-     it is and why, accept when two sources agree, otherwise a question.
+   - **4b, the model decides** (built 2026-09-25, `matcher.py`). Candidates
+     from our catalog, GLOBUS's search at the shopper's own store
+     (Dudweiler) and the ALDI SÜD crawl; the model (through `claude -p`, on
+     the subscription, answers cached in `data/matched/`) picks one or none,
+     seeing names and sizes but never prices. A pick is accepted only when
+     the model calls it `high` **and** the price paid equals the pick's
+     listed price **and** no variant of it (`Bio Mangostreifen`) costs the
+     same. Everything else is a question. It proposes; it writes nothing.
+     `grocery-app eval-matching --matcher claude-code` scores it.
+
+     What the numbers said while building it:
+     - GLOBUS's default prices disagreed with the receipts for 16 of 20
+       products; the Dudweiler store's pages agreed for 11. Prices are
+       per store.
+     - Of the model's picks, `high` ones were 27 right, 0 wrong; `medium`
+       ones 1 right, 3 wrong, so only `high` is accepted. That was tuned on
+       this set, so the next receipts are the real test.
+     - Score: **63 right, 0 wrong, 72 asked** (from 43 right with 91 lines
+       open). 20 lines answered by the matcher, all right.
+     - Why 72 are asked: dm and FK Frisch Kauf have no source but our
+       catalog (11 lines); for 49 the right product was not among the
+       candidates at all (fresh fruit is not in the ALDI crawl, Kashk is
+       nowhere); for 23 it was, and the model either said none — the till
+       printed no flavour (`JT Tortilla Wraps`, `Bitter-Getränk`) — or was
+       right but not sure, or the price disagreed.
+     - **Decided 2026-09-25: a name the till prints for several versions
+       (`JT Tortilla Wraps`: Classic or Mehrkorn, same price) is asked
+       once, then remembered.** Parham knew both answers from memory, so
+       a family would throw away what he knows. The answer applies to the
+       next receipt through the memory (step 5); a switch is one correction.
    - **4c, creating products** from accepted shop listings.
 5. The list of meaningless names, moved here from step 3: it exists to stop
    an answer being remembered for `Diverse Lebensmittel`, and nothing
