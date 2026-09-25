@@ -254,6 +254,9 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
   given three times is a missing `resolution.json` entry, and promoting it through
   `confirm` on the laptop is the review. Per-line answers stay provisional for ever;
   only that deliberate step turns one into a rule about what a word means.
+  *Superseded 2026-09-24 by `catalog-growth.md`: a shopper's answer is remembered
+  and applies to the next receipt at once, with no laptop step; the price check
+  and the list of meaningless names take over the job of catching misclicks.*
 - **Where do products and resolutions get edited once the DB is live?** The current
   answer is: on the laptop, through `propose`/`confirm`, then `db import`. A phone
   flow for confirming a proposal is plausible and unspecified.
