@@ -234,9 +234,11 @@ def main() -> None:
         "db",
         help="The PostgreSQL store behind `serve` (needs the 'api' extra and DATABASE_URL)",
     )
-    d.add_argument("action", choices=["upgrade", "import", "export"],
+    d.add_argument("action", choices=["upgrade", "import", "export", "match"],
                    help="upgrade: apply the migrations; import: load the data/ files into "
-                        "the tables (idempotent); export: write the tables out as files")
+                        "the tables (idempotent); export: write the tables out as files; "
+                        "match: run the matcher over stored receipts (claude -p, on the "
+                        "subscription), saving its answers and questions")
     d.add_argument("--url", default=None,
                    help="Database URL; defaults to the DATABASE_URL environment variable")
     d.add_argument("--receipts-dir", default="data/receipts/truth")
@@ -568,6 +570,26 @@ def main() -> None:
                       f"{summary[kind]['updated']} updated")
             for image in summary["line_resolutions_skipped"]:
                 print(f"  SKIPPED line answer for {image}: no such receipt")
+        if args.action == "match":
+            from sqlalchemy import select
+
+            from grocery_app import matcher as matching
+            from grocery_app.api.matching import line_matcher, match_receipt
+            from grocery_app.db.models import Receipt
+
+            match = line_matcher(matching.ClaudeCodeDecider(),
+                                 matching.default_shops(args.products_dir))
+            totals: dict[str, int] = {}
+            with factory() as session:
+                for receipt in session.scalars(select(Receipt).order_by(Receipt.date,
+                                                                        Receipt.id)).all():
+                    counts = match_receipt(session, receipt.id, match)
+                    session.commit()  # each receipt's answers stand on their own
+                    for kind, n in counts.items():
+                        totals[kind] = totals.get(kind, 0) + n
+                    if any(counts.values()):
+                        print(f"  {receipt.source_image}: {counts}", flush=True)
+            print("Matched:", totals)
         if args.action == "export":
             if not args.out:
                 raise SystemExit("export needs --out DIR (it will not write into data/ unasked)")

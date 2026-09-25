@@ -1,6 +1,6 @@
 # Design: The Catalog Grows Itself
 
-Written 2026-09-24 · Status: steps 1–4 built, step 5a built (2026-09-25); 5b, 5c and 6 not started.
+Written 2026-09-24 · Status: steps 1–4 built, steps 5a and 5b built (2026-09-25); 5c and 6 not started.
 
 ## Why
 
@@ -246,8 +246,25 @@ on.
    `Exportware /Haushaltsware` (decided 2026-09-25). Withdrawing an answer
    takes back the line's answer, not what the name was learned to mean.
 
-   Still to come in step 5: **5b**, the matcher runs on the server and its
-   accepted answers and new products are saved; **5c**, a questions list.
+   **5b, the matcher on the server** (built 2026-09-25, `api/matching.py`).
+   After a photo is read, and before its job says `done`, every product line
+   the memory cannot place goes to the matcher. An accepted answer is saved to
+   the memory as the matcher's (`confirmed_by = "matcher"`), with any new
+   product copied from its shop listing, listing and price included. A line
+   it cannot settle becomes a row in `questions`, holding everything the
+   matcher saw. `grocery-app db match` does the same for receipts already
+   stored. A matcher that fails leaves the receipt stored and says why.
+
+   The model can now also answer "one of these versions" (`versions`,
+   prompt v2), and a line is recorded as that family, unasked, when the
+   model is sure and the price paid is one of theirs. On the test set:
+   **68 right, 0 wrong, 4 unchecked, 63 asked** (from 63 right, 72 asked);
+   9 lines became families (`JT Tortilla Wraps`, `Bitter-Getränk`,
+   `Mövenpick Eis`, …). To watch: a family creates a product for every
+   version, so accepting everything would create 42 products, about 30 of
+   them versions never known to have been bought (8 flavours of Mövenpick).
+
+   Still to come in step 5: **5c**, a questions list.
 
    The original plan for this step read:
    The list of meaningless names, moved here from step 3: it exists to stop

@@ -20,6 +20,7 @@ from PIL import Image
 from grocery_app.api.app import MAX_UPLOAD_BYTES, create_app
 from grocery_app.api.images import DiskImageStore, sha256_of
 from grocery_app.api.repository import InMemoryRepository, PostgresRepository
+from grocery_app.db.models import Product
 from grocery_app.db.session import make_session_factory
 from grocery_app.extract import Extraction
 from tests.conftest import DATABASE_URL as URL
@@ -240,3 +241,36 @@ def test_a_file_backed_server_cannot_take_photos(tmp_path):
                            files={"file": ("image.jpg", a_photo(), "image/jpeg")})
     assert response.status_code == 503
     assert "DATABASE_URL" in response.json()["detail"]
+
+
+def test_a_photo_is_matched_before_its_job_is_done(engine, session, tmp_path):
+    """With a matcher, a line the memory cannot place is settled (or asked
+    about) before the phone's poll says `done`."""
+    repository = PostgresRepository(make_session_factory(engine))
+    session.add(Product(id="p-0001", name="Butter", brand="Muster"))
+    session.commit()
+
+    def matcher(line, store, inputs):
+        return {"verdict": "accept", "pick": {"product_id": "p-0001"}, "versions": [],
+                "candidates": [], "creates": []}
+
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path), FakeExtractor(),
+                                   matcher))
+    job = client.post("/v1/receipts", files={"file": ("image.jpg", a_photo(), "image/jpeg")})
+    done = client.get(f"/v1/jobs/{job.json()['job_id']}").json()
+    assert (done["status"], done["error"]) == ("done", None)
+    (line,) = client.get(f"/v1/receipts/{done['receipt_id']}").json()["lines"]
+    assert (line["resolution"], line["product_id"]) == ("exact", "p-0001")
+
+
+def test_a_matcher_that_fails_leaves_the_receipt_stored(engine, tmp_path):
+    def broken(line, store, inputs):
+        raise RuntimeError("usage limit")
+
+    repository = PostgresRepository(make_session_factory(engine))
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path), FakeExtractor(),
+                                   broken))
+    job = client.post("/v1/receipts", files={"file": ("image.jpg", a_photo(), "image/jpeg")})
+    done = client.get(f"/v1/jobs/{job.json()['job_id']}").json()
+    assert done["status"] == "done" and done["receipt_id"] is not None
+    assert done["error"] == "matching failed: RuntimeError: usage limit"

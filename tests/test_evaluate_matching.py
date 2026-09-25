@@ -144,8 +144,8 @@ def fake_matcher(verdicts: dict[str, tuple[str, dict | None]]):
     def matcher(line, receipt):
         seen.append(line["raw_name"])
         verdict, pick = verdicts.get(line["raw_name"], ("ask", None))
-        return {"verdict": verdict, "pick": pick,
-                "candidates": [pick] if pick else []}
+        return {"verdict": verdict, "pick": pick, "versions": [],
+                "candidates": [pick] if pick else [], "creates": []}
 
     matcher.seen = seen
     return matcher
@@ -184,13 +184,27 @@ def test_a_listing_accepted_on_two_lines_is_created_once():
 
     def matcher(line, receipt):
         return {"verdict": "accept", "pick": {"product_id": None, "article": "7"},
-                "candidates": [], "creates": made}
+                "candidates": [], "creates": [made]}
 
     report = evaluate_matching(TRUTH, {"IMG_1.jpeg": READING}, RESOLUTION, PRODUCTS,
                                index=article_index(PRODUCTS, None), matcher=matcher)
     assert len(report["creates"]) == 1, "three open lines, one listing, one product"
     assert "would create 1 products (1 from musterladen); 0 with a category" in \
         format_matching_report(report)
+
+
+def test_a_family_is_right_when_the_shoppers_product_is_among_its_versions():
+    def matcher(line, receipt):
+        versions = [{"product_id": None, "article": "999"},
+                    {"product_id": None, "article": "998"}]
+        return {"verdict": "family", "pick": None, "versions": versions,
+                "candidates": versions, "creates": []}
+
+    report = evaluate_matching(TRUTH, {"IMG_1.jpeg": READING}, RESOLUTION, PRODUCTS,
+                               index=article_index(PRODUCTS, None), matcher=matcher)
+    outcomes = {line["raw_name"]: line["outcome"] for line in report["lines"]}
+    assert outcomes["Etwas Neues"] == "right", "999 is the shopper's article"
+    assert outcomes["MU Kekse"] == "wrong", "neither version is the Kekse barcode"
 
 
 def test_a_shop_listing_is_right_when_its_article_is_the_shoppers():

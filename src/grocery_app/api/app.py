@@ -28,6 +28,7 @@ from grocery_app.api.images import (
     sha256_of,
 )
 from grocery_app.api.jobs import Extractor, anthropic_extractor, run_job
+from grocery_app.api.matching import LineMatcher, line_matcher
 from grocery_app.api.repository import (
     DEFAULT_PURCHASES,
     NotAProductLine,
@@ -59,7 +60,8 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 
 def create_app(repository: Repository, image_store: ImageStore | None = None,
-               extractor: Extractor | None = None) -> FastAPI:
+               extractor: Extractor | None = None,
+               matcher: LineMatcher | None = None) -> FastAPI:
     app = FastAPI(
         title="Grocery App API",
         version="0.1.0",
@@ -160,7 +162,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         # Only now, with the row committed, is there something to poll and
         # something to recover.
         background.add_task(run_job, repo.session_factory, image_store, extractor,
-                            job["job_id"])
+                            job["job_id"], matcher)
         return JobDocument.model_validate(job)
 
     @app.get("/v1/jobs/{job_id}", response_model=JobDocument)
@@ -233,6 +235,11 @@ def default_app() -> FastAPI:
 
     `DATABASE_URL` selects PostgreSQL; otherwise `GROCERY_PURCHASES` names the
     purchases.json to serve. This is the one place the real, paid extractor is
-    wired in, and `GROCERY_IMAGES` says where uploaded photos are kept.
+    wired in, and `GROCERY_IMAGES` says where uploaded photos are kept. The
+    matcher asks the model through `claude -p`, on the subscription.
     """
-    return create_app(default_repository(), default_image_store(), anthropic_extractor())
+    from grocery_app import matcher as matching
+
+    matcher = line_matcher(matching.ClaudeCodeDecider(), matching.default_shops())
+    return create_app(default_repository(), default_image_store(), anthropic_extractor(),
+                      matcher)
