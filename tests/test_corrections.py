@@ -147,8 +147,8 @@ def test_answering_a_line_the_catalog_cannot_place_at_all(corrections, tmp_path)
     served = client.get("/v1/purchases").json()
     assert served["meta"]["unresolved_items"] == [], "it counts in the history now"
 
-    # And it is still the shopper's note, not catalog fact: `db export` hands
-    # it back to the propose/confirm loop on the laptop.
+    # The line's own answer is kept as well as what the name was learned to
+    # mean, and `db export` hands both back to the laptop.
     export_data(session, tmp_path / "out")
     answers = load_json(tmp_path / "out" / "receipts" / "line_resolutions.json")["entries"]
     assert {"source_image": "IMG_2.jpeg", "line_index": 2, "product_id": "p-0001"}.items() <= \
@@ -236,3 +236,93 @@ def test_a_file_backed_server_cannot_record_corrections():
     assert client.put("/v1/receipts/1/lines/0/resolution",
                       json={"product_id": "p-0001"}).status_code == 503
     assert client.patch("/v1/receipts/1", json={"is_duplicate": True}).status_code == 503
+
+
+# --- the memory learns from answers (catalog growth, step 5) -------------------
+
+
+def add_receipt(session, source_image, store, raw_names):
+    """Another paper receipt, with one product line per name."""
+    from grocery_app.db.io import receipt_from_dict
+
+    receipt = receipt_from_dict({
+        "source_image": source_image, "transcribed_by": "hand", "store": store,
+        "date": "2026-03-01", "currency": "EUR", "printed_total": 1.0 * len(raw_names),
+        "lines": [{"type": "product", "raw_name": name, "qty": 1, "gross": 1.0,
+                   "discount": 0.0, "net": 1.0, "tax_class": "A"} for name in raw_names]})
+    session.add(receipt)
+    session.commit()
+    return receipt.id
+
+
+def test_an_answer_is_remembered_for_the_next_receipt(corrections):
+    """The point of step 5: a name answered once needs no question again."""
+    client, session, receipt_id = corrections
+    later = add_receipt(session, "IMG_3.jpeg", "Musterladen", ["Geheimnis"])
+    assert client.get(f"/v1/receipts/{later}").json()["lines"][0]["resolution"] == "none"
+
+    client.put(f"/v1/receipts/{receipt_id}/lines/2/resolution", json={"product_id": "p-0001"})
+
+    line = client.get(f"/v1/receipts/{later}").json()["lines"][0]
+    assert (line["resolution"], line["product_id"]) == ("exact", "p-0001")
+    entry = session.scalars(select(Resolution).where(Resolution.raw_name == "Geheimnis")).one()
+    session.refresh(entry)
+    assert (entry.confirmed_by, entry.source) == ("shopper", "shopper-answer")
+
+
+def test_a_second_different_answer_makes_the_name_a_family(corrections):
+    """Bananen was remembered as one product by a person. Answering another
+    product for it means the till prints one name for both: every unanswered
+    Bananen line becomes the family, and the answered one is that product."""
+    client, session, receipt_id = corrections
+    session.add(Product(id="p-0003", name="Bananen Bio", brand=None))
+    session.commit()
+
+    client.put(f"/v1/receipts/{receipt_id}/lines/1/resolution", json={"product_id": "p-0003"})
+
+    bananas = {p["source_image"]: (p["resolution"], p["product_id"])
+               for p in client.get("/v1/purchases").json()["purchases"]
+               if p["raw_name"] == "Bananen"}
+    assert bananas == {"IMG_2.jpeg": ("user", "p-0003"), "IMG_1.jpeg": ("family", None)}
+
+
+def test_a_machine_answer_the_shopper_overrules_is_replaced_and_counted(corrections):
+    from grocery_app.db.models import Correction
+
+    client, session, receipt_id = corrections
+    session.add(Product(id="p-0003", name="Bananen Bio", brand=None))
+    row = session.scalars(select(Resolution).where(Resolution.raw_name == "Bananen")).one()
+    row.confirmed_by = "matcher"
+    session.commit()
+
+    client.put(f"/v1/receipts/{receipt_id}/lines/1/resolution", json={"product_id": "p-0003"})
+
+    other = next(p for p in client.get("/v1/purchases").json()["purchases"]
+                 if p["raw_name"] == "Bananen" and p["source_image"] == "IMG_1.jpeg")
+    assert (other["resolution"], other["product_id"]) == ("exact", "p-0003"), \
+        "the machine was wrong about the name, so the other receipt changes too"
+    (mistake,) = session.scalars(select(Correction)).all()
+    assert (mistake.machine_how, mistake.machine_product_id, mistake.shopper_product_id) == \
+        ("exact", "p-0002", "p-0003")
+
+
+def test_a_name_a_till_prints_for_anything_is_answered_per_line(corrections):
+    client, session, _ = corrections
+    first = add_receipt(session, "IMG_4.jpeg", "FK Frisch Kauf GmbH", ["Diverse Lebensmittel"])
+    second = add_receipt(session, "IMG_5.jpeg", "FK Frisch Kauf GmbH", ["Diverse Lebensmittel"])
+
+    answered = client.put(f"/v1/receipts/{first}/lines/0/resolution",
+                          json={"product_id": "p-0001"}).json()["lines"][0]
+    assert answered["resolution"] == "user"
+    assert client.get(f"/v1/receipts/{second}").json()["lines"][0]["resolution"] == "none"
+    assert session.scalars(select(Resolution).where(
+        Resolution.raw_name == "Diverse Lebensmittel")).all() == []
+
+
+def test_withdrawing_an_answer_keeps_what_the_name_was_learned_to_mean(corrections):
+    client, session, receipt_id = corrections
+    later = add_receipt(session, "IMG_3.jpeg", "Musterladen", ["Geheimnis"])
+    client.put(f"/v1/receipts/{receipt_id}/lines/2/resolution", json={"product_id": "p-0001"})
+    client.put(f"/v1/receipts/{receipt_id}/lines/2/resolution", json={"product_id": None})
+
+    assert client.get(f"/v1/receipts/{later}").json()["lines"][0]["resolution"] == "exact"

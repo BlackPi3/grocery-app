@@ -245,7 +245,7 @@ def test_export_reproduces_the_files(session, data, tmp_path):
     out = tmp_path / "export"
     counts = export_data(session, out)
     assert counts == {"receipts": 2, "products": 2, "resolutions": 2, "listings": 1,
-                      "line_resolutions": 1}
+                      "line_resolutions": 1, "corrections": 0}
 
     def load(path):
         return json.loads(path.read_text(encoding="utf-8"))

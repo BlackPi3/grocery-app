@@ -149,6 +149,23 @@ def spelling_key(raw_name: str) -> str:
     return " ".join(_STOP_OUTSIDE_NUMBERS.sub("", text).split())
 
 
+# Names a till prints for whatever was bought, so an answer about one line says
+# nothing about the next. FK Frisch Kauf prints `Diverse Lebensmittel` for an
+# item it never entered into its till: on 10 September both such lines were
+# Kashk, and the next one could be anything. Such a name is never remembered
+# and never looked up; each occurrence is its own question (decided
+# 2026-09-25). Written by the spelling the till uses, compared by `spelling_key`.
+NEVER_REMEMBERED: dict[str, tuple[str, ...]] = {
+    "fk frisch kauf gmbh": ("Diverse Lebensmittel", "Brot und Backwaren",
+                            "Exportware /Haushaltsware"),
+}
+
+
+def never_remembered(store: str | None, raw_name: str) -> bool:
+    names = NEVER_REMEMBERED.get(store_key(store), ())
+    return spelling_key(raw_name) in {spelling_key(name) for name in names}
+
+
 def lookup(resolution: dict[tuple[str, str], list[str]], store: str | None,
            raw_name: str) -> list[str]:
     """The product ids the memory holds for this printed name at this store.
@@ -157,7 +174,10 @@ def lookup(resolution: dict[tuple[str, str], list[str]], store: str | None,
     at the same store is the same name. If two remembered names at the store
     spell the same but point at different products, neither is used: the
     memory cannot say which one this line is, and picking one would be a guess.
+    A name on `NEVER_REMEMBERED` finds nothing, whatever the memory holds.
     """
+    if never_remembered(store, raw_name):
+        return []
     key = store_key(store)
     exact = resolution.get((key, raw_name))
     if exact is not None:
