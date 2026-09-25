@@ -128,3 +128,30 @@ def test_budget_brand_is_derived_at_the_seam_and_not_stored_in_the_catalog(data)
     for line in purchases["purchases"]:
         if line["type"] == "product" and not line.get("product_id"):
             assert "is_budget_brand" not in line
+
+
+def test_the_matching_score_reads_what_the_normalizer_reads_but_not_the_answers(data):
+    """The score runs the normalizer on the same files, minus the shopper's answers.
+
+    `Geheimnis` on IMG_2 has an answer in `line_resolutions.json`, so
+    purchases.json places it. The score must not: a line the shopper answered
+    is exactly the line the matcher is being tested on.
+    """
+    from grocery_app.evaluate_matching import article_index, evaluate_matching, load_readings
+    from grocery_app.normalizer import load_products, load_resolution
+
+    products = load_products(data / "products" / "products.json")
+    key = {"meta": {}, "lines": [
+        {"source_image": "IMG_2.jpeg", "position": 0, "store": "musterladen",
+         "raw_name": "MU Milch 1,5%", "product": "Muster Milch", "article": "4000000000001",
+         "catalog_ids": [], "known": "exact"},
+        {"source_image": "IMG_2.jpeg", "position": 2, "store": "musterladen",
+         "raw_name": "Geheimnis", "product": "Muster Milch", "article": None,
+         "catalog_ids": ["p-0001"], "known": "exact"},
+    ]}
+    report = evaluate_matching(
+        key, load_readings(data / "receipts" / "truth", {"IMG_2.jpeg"}),
+        load_resolution(data / "products" / "resolution.json"), products,
+        index=article_index(products, data / "products"))
+    assert [line["outcome"] for line in report["lines"]] == ["right", "missed"], \
+        "the listing links the shop's number to p-0001; the answer file is not read"

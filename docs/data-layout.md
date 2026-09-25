@@ -21,6 +21,9 @@ data/
     truth/                      27 verified transcriptions, one schema, `transcribed_by` says how
     transcripts/                the 17 hand-typed sources; scripts/convert_transcripts.py -> truth/
     line_resolutions.json       the shopper's answer for a line the receipt could not pin down
+    fresh/                      22 photos from 31 Aug-24 Sep 2026, never used to build the catalog
+    product_truth.json          which product each line of fresh/ was, answered by the shopper
+    product_truth_review.csv    the pre-filled sheet those answers were given on
   extracted/<model>/<prompt>/   parser output per photo, with a .meta.json (tokens, cost)
   products/                     what is sold, and what receipt text means
     products.json               one entry per product, opaque `p-0001` ids
@@ -52,6 +55,29 @@ data/
 
 No `product_id`: a receipt says what was printed, never which catalog entry it
 means. Resolution is the normalizer's job, from `products/resolution.json`.
+
+## The second answer key
+
+`truth/` answers "did the parser read what is printed". It cannot answer "did
+the line land on the right product": no photo says that `Diverse Lebensmittel`
+was Kashk. `product_truth.json` is that second key, and its provenance is the
+shopper, never a model. `grocery-app eval-matching` scores against it.
+
+Each line is addressed by `source_image` and `position` (the index in the
+parser's reading under `extracted/`), repeats `raw_name` so a re-read that
+moves lines is caught rather than mis-scored, and names its product in up to
+three ways:
+
+- `product`: in words, always;
+- `article`: the shop's article number, when the shop lists it;
+- `catalog_ids`: our product(s), when the catalog already holds it. Two ids
+  mean the shopper knows the family, not the variant.
+
+`known` is `exact` or `partly` (the kind or brand is known, the flavour is
+not); `how` says whether the shopper `confirmed` a pre-filled guess,
+`corrected` it, or `told` it outright. The fresh receipts were read through
+`claude -p` on a subscription, with the same model, prompt and schema as the
+API reader; their `.meta.json` says `reader: claude-code`.
 
 ## History
 

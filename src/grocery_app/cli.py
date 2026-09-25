@@ -12,9 +12,21 @@ from grocery_app.catalog_globus import (
     crawl,
 )
 from grocery_app.evaluate import evaluate, format_report
+from grocery_app.evaluate_matching import (
+    article_index,
+    evaluate_matching,
+    format_matching_report,
+    load_readings,
+)
 from grocery_app.extract import DEFAULT_MODEL, PROMPT_VERSION, extract_directory
 from grocery_app.insights import build_insights, load_purchases
-from grocery_app.normalizer import build_purchases, save_json
+from grocery_app.normalizer import (
+    build_purchases,
+    load_products,
+    load_resolution,
+    load_shelf_prices,
+    save_json,
+)
 from grocery_app.resolver import (
     DEFAULT_CATALOG,
     build_proposals,
@@ -63,6 +75,18 @@ def main() -> None:
              "receipts kept in the set for format variety.",
     )
     e.add_argument("--json", action="store_true", help="Emit the raw report as JSON")
+
+    em = subparsers.add_parser(
+        "eval-matching",
+        help="Score how receipt lines are matched to products, against the shopper's answers",
+    )
+    em.add_argument("--truth", default="data/receipts/product_truth.json")
+    em.add_argument("--readings", default=f"data/extracted/{DEFAULT_MODEL}/{PROMPT_VERSION}",
+                    help="Directory of the parser's readings, one <photo stem>.json each")
+    em.add_argument("--products", default="data/products/products.json")
+    em.add_argument("--resolution", default="data/products/resolution.json")
+    em.add_argument("--products-dir", default="data/products")
+    em.add_argument("--json", action="store_true", help="Emit the raw report as JSON")
 
     x = subparsers.add_parser(
         "extract",
@@ -554,6 +578,22 @@ def main() -> None:
             print(json.dumps(report, indent=2, ensure_ascii=False))
         else:
             print(format_report(report))
+
+    if args.command == "eval-matching":
+        truth = json.loads(Path(args.truth).read_text(encoding="utf-8"))
+        products = load_products(args.products)
+        report = evaluate_matching(
+            truth,
+            load_readings(args.readings, {line["source_image"] for line in truth["lines"]}),
+            load_resolution(args.resolution),
+            products,
+            load_shelf_prices(args.products_dir),
+            article_index(products, args.products_dir),
+        )
+        if args.json:
+            print(json.dumps(report, indent=2, ensure_ascii=False))
+        else:
+            print(format_matching_report(report))
 
 
 if __name__ == "__main__":
