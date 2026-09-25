@@ -19,6 +19,7 @@ from grocery_app.matcher import (
     DeciderError,
     decide,
     gather,
+    new_product,
     paid_price,
     propose,
     similarity,
@@ -219,3 +220,55 @@ def test_a_price_shared_with_a_variant_of_the_pick_proves_nothing():
     unrelated = propose(line("Reinex Kühlschr. Deo", 3.29), "Musterladen", PRODUCTS,
                         RESOLUTION, SHELF, INDEX, shop, answering(3))
     assert unrelated["verdict"] == "accept", "an unrelated product at the same price is no rival"
+
+
+# --- a new product from a shop listing (step 4c) ------------------------------------
+
+PASTA = {"source": "globus", "name": "Penne", "brand": "Jeden Tag",
+         "pack_size": "0,5 kg (1,38 € / 1 kg)", "article": "4000000000044",
+         "url": "https://produkte.globus.de/dudweiler/nudeln-reis-konserven/"
+                "nudeln-reis-getreide/nudeln-pasta/4000000000044/penne",
+         "product_id": None, "prices": [0.69]}
+
+
+def test_a_new_product_is_the_shops_listing_copied_not_guessed():
+    product = new_product(PASTA, "matcher")
+    assert (product["name"], product["brand"]) == ("Penne", "Jeden Tag")
+    assert product["size"] == {"count": 1, "value": 500.0, "unit": "g"}
+    assert product["eans"] == ["4000000000044"], "a barcode-shaped article is the barcode"
+    assert product["provenance"] == {"attributes": "globus-listing", "source": PASTA["url"],
+                                     "decided_by": "matcher"}
+    assert "id" not in product, "minting an id is step 5's job"
+
+
+def test_its_category_is_set_only_when_shelf_and_name_agree():
+    assert new_product(PASTA, "matcher")["category"] == "nudeln"
+    # Filed on the pasta shelf, but the name says something else: a question.
+    odd = new_product(dict(PASTA, name="Kühlschrank Deo"), "matcher")
+    assert odd["category"] is None and "category unknown" in odd["open_questions"]
+
+
+def test_a_listing_without_a_brand_says_so():
+    product = new_product(dict(PASTA, brand=None), "shopper")
+    assert product["brand"] is None and "brand unknown" in product["open_questions"]
+    assert product["provenance"]["decided_by"] == "shopper"
+
+
+def test_a_new_product_passes_the_catalogs_own_checks():
+    from grocery_app import product_store
+
+    products = {"meta": {"next_id": 2},
+                "products": {"p-0001": new_product(PASTA, "matcher")}}
+    assert product_store.problems(products, {"entries": []}) == []
+
+
+def test_accepting_a_new_listing_creates_a_product_and_a_known_one_does_not():
+    new = propose(line("Reinex Kühlschr. Deo", 1.95), "Musterladen", PRODUCTS,
+                  RESOLUTION, SHELF, INDEX, SHOPS, answering(1))
+    assert new["creates"]["name"] == "Kühlschrank Deo"
+    known = propose(line("Kleenex Ultra Soft W", 2.49), "Musterladen", PRODUCTS,
+                    RESOLUTION, SHELF, INDEX, SHOPS, answering(3))
+    assert known["verdict"] == "accept" and known["creates"] is None, "already ours"
+    asked = propose(line("Reinex Kühlschr. Deo", 1.65), "Musterladen", PRODUCTS,
+                    RESOLUTION, SHELF, INDEX, SHOPS, answering(1))
+    assert asked["creates"] is None, "a question creates nothing until it is answered"

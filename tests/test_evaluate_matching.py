@@ -177,6 +177,22 @@ def test_an_accepted_pick_is_judged_and_a_question_is_asked():
         format_matching_report(report)
 
 
+def test_a_listing_accepted_on_two_lines_is_created_once():
+    made = {"name": "Kekse", "category": None,
+            "provenance": {"attributes": "musterladen-listing",
+                           "source": "https://musterladen.example/kekse"}}
+
+    def matcher(line, receipt):
+        return {"verdict": "accept", "pick": {"product_id": None, "article": "7"},
+                "candidates": [], "creates": made}
+
+    report = evaluate_matching(TRUTH, {"IMG_1.jpeg": READING}, RESOLUTION, PRODUCTS,
+                               index=article_index(PRODUCTS, None), matcher=matcher)
+    assert len(report["creates"]) == 1, "three open lines, one listing, one product"
+    assert "would create 1 products (1 from musterladen); 0 with a category" in \
+        format_matching_report(report)
+
+
 def test_a_shop_listing_is_right_when_its_article_is_the_shoppers():
     pick = {"product_id": None, "article": "999"}
     assert judge_pick(pick, truth(5, "Etwas Neues", article="999"), {}) == "right"
