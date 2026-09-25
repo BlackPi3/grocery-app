@@ -261,3 +261,65 @@ def test_an_answer_must_name_one_real_thing(server, body, detail):
     response = client.put(f"/v1/receipts/{receipt}/lines/0/resolution", json=body)
     assert response.status_code == 422
     assert detail in response.json()["detail"]
+
+
+# --- answers from a sheet, and receipts read elsewhere (step 6) --------------------------
+
+
+def test_answers_from_a_sheet_are_given_only_where_they_name_a_real_product(server):
+    from grocery_app.api.answers import apply_answers
+
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["Rätsel", "Kashk-ish", "MU Milch 1,5%"])
+    match_receipt(session, receipt, TableMatcher(
+        {"Rätsel": ("ask", [listing("21", "Rätselheft")]), "Kashk-ish": ("ask", [])}))
+    session.commit()
+
+    def truth(image, position, name, catalog_ids=(), article=None):
+        return {"source_image": image, "position": position, "raw_name": name,
+                "catalog_ids": list(catalog_ids), "article": article, "product": "x"}
+
+    sheet = {"lines": [
+        truth("IMG_7.jpeg", 0, "Rätsel", article="21"),         # a shop listing offered
+        truth("IMG_7.jpeg", 1, "Kashk-ish"),                     # words only
+        truth("IMG_7.jpeg", 2, "MU Milch 1,5%", ["p-0002"]),     # placed already
+        truth("IMG_2.jpeg", 2, "Geheimnis", ["p-0001"]),         # a catalog id
+        truth("IMG_9.jpeg", 0, "Nirgends", ["p-0001"]),          # no such receipt
+    ]}
+    done = apply_answers(PostgresRepository(make_session_factory(session.get_bind())),
+                         sheet, "parham", "answer sheet")
+
+    assert {kind: len(labels) for kind, labels in done.items()} == {
+        "answered": 2, "placed_already": 1, "words_only": 1, "not_offered": 0,
+        "family": 0, "no_receipt": 1}
+    open_names = [q["raw_name"] for q in client.get("/v1/questions").json()["questions"]]
+    assert open_names == ["Kashk-ish"], "only the words-only line is still a question"
+    milk = client.get(f"/v1/receipts/{receipt}").json()["lines"][2]
+    assert milk["product_id"] == "p-0001", "a placed line is not overruled by the sheet"
+
+
+def test_readings_are_added_only_for_the_named_photos(server, tmp_path, monkeypatch):
+    import json
+    import sys
+
+    from grocery_app.cli import main
+    from grocery_app.db.models import Receipt
+
+    _, session = server
+    readings, photos = tmp_path / "readings", tmp_path / "photos"
+    readings.mkdir()
+    photos.mkdir()
+    for image in ("IMG_20.jpeg", "IMG_21.jpeg"):
+        (readings / image.replace(".jpeg", ".json")).write_text(json.dumps({
+            "source_image": image, "transcribed_by": "llm", "store": "Musterladen",
+            "date": "2026-03-02", "currency": "EUR", "printed_total": 1.0,
+            "lines": [{"type": "product", "raw_name": "Rätsel", "qty": 1, "gross": 1.0,
+                       "discount": 0.0, "net": 1.0, "tax_class": "A"}]}))
+    (photos / "IMG_20.jpeg").write_bytes(b"photo")
+
+    monkeypatch.setattr(sys, "argv", ["grocery-app", "db", "add-readings", "--url", URL,
+                                      "--readings", str(readings), "--photos", str(photos)])
+    main()
+    stored = {r.source_image: r.transcribed_by
+              for r in session.scalars(select(Receipt).where(Receipt.store == "Musterladen"))}
+    assert stored.get("IMG_20.jpeg") == "llm" and "IMG_21.jpeg" not in stored

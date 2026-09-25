@@ -1,6 +1,6 @@
 # Design: The Catalog Grows Itself
 
-Written 2026-09-24 · Status: steps 1–5 built (2026-09-25); step 6 not started.
+Written 2026-09-24 · Status: all six steps built (2026-09-25).
 
 ## Why
 
@@ -289,8 +289,34 @@ on.
    create a product from an answer and to replace a machine answer, and a
    `questions` endpoint lists what is waiting. Until there is a phone screen,
    questions are put to Parham in the chat, through that endpoint.
-6. Housekeeping: the subscription reader (`claude -p`) as a selectable reader
-   for local use, and the fresh receipts moved into the real history.
+6. Housekeeping (2026-09-25): the fresh receipts moved into the real
+   history, and the subscription reader.
+
+   - **The subscription reader** is its own pull request, held until the
+     one paid test can run (the API account was out of credit on
+     2026-09-25).
+   - **The real history is the `grocery` database from now on.** It was
+     behind the files (schema 0002, 99 products); it was backed up to
+     `data/backups/`, upgraded, and loaded with the files (`db import`), and
+     the 27 original receipts come out of it line for line as they do from
+     the files. The 22 fresh receipts went in as model readings
+     (`db add-readings`, `transcribed_by = llm`), then the matcher ran
+     (`db match`: 18 answers, 7 families, 47 products from shop listings),
+     then Parham's answer sheet was given to the open questions
+     (`db answer`: 16 answered). New products and answers now live in the
+     database; the files are what `db export` writes. `web/purchases.json`
+     is unchanged: it still shows only the hand-verified receipts.
+   - Result on the fresh receipts: **89 of 135 lines placed, €190 of €300**
+     (on 24 September: 30 lines, €50). 60 questions are open, 46 of them
+     from the fresh receipts: 41 whose answer on the sheet is a description
+     rather than a product ("lemon, premium, 1"), which is not turned into a
+     product name without the shopper, and 5 whose shop article was not
+     among the matcher's candidates.
+
+   The fresh receipts are now what the matcher has learned from, so they no
+   longer test it. The next batch of receipts is the untouched test: score it
+   (`eval-matching` against an export of the database as it stood) before
+   its answers are added.
 
 ## Open questions
 

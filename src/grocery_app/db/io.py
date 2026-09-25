@@ -267,6 +267,34 @@ def _copy(target: Any, source: Any, fields: tuple[str, ...]) -> None:
         setattr(target, field, getattr(source, field))
 
 
+def import_receipts(session: Session, paths: Any,
+                    summary: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Load receipt files into the tables, matched by `source_image`.
+
+    An existing receipt's header is updated and its lines replaced; its line
+    answers survive because they hang off the receipt, not the line.
+    """
+    summary = summary if summary is not None else {"receipts": {"added": 0, "updated": 0}}
+    header = tuple(f for f in RECEIPT_FIELDS if f != "lines")
+    for path in paths:
+        d = load_json(path)
+        new = receipt_from_dict(d)
+        existing = session.scalar(select(Receipt).where(Receipt.source_image == new.source_image))
+        if existing:
+            _copy(existing, new, header)
+            existing.lines = []
+            session.flush()  # the old positions must be gone before the new ones land
+            # Fresh line objects: moving `new.lines` over would drag the
+            # transient `new` receipt into the session behind them.
+            existing.lines = [line_from_dict(i, line) for i, line in enumerate(d.get("lines", []))]
+            summary["receipts"]["updated"] += 1
+        else:
+            session.add(new)
+            summary["receipts"]["added"] += 1
+    session.flush()
+    return summary
+
+
 def import_data(session: Session, receipts_dir: str | Path, products_path: str | Path,
                 resolution_path: str | Path, line_resolutions_path: str | Path | None = None,
                 products_dir: str | Path | None = None) -> dict[str, Any]:
@@ -294,23 +322,7 @@ def import_data(session: Session, receipts_dir: str | Path, products_path: str |
             summary["products"]["added"] += 1
     session.flush()
 
-    header = tuple(f for f in RECEIPT_FIELDS if f != "lines")
-    for path in receipt_files(receipts_dir):
-        d = load_json(path)
-        new = receipt_from_dict(d)
-        existing = session.scalar(select(Receipt).where(Receipt.source_image == new.source_image))
-        if existing:
-            _copy(existing, new, header)
-            existing.lines = []
-            session.flush()  # the old positions must be gone before the new ones land
-            # Fresh line objects: moving `new.lines` over would drag the
-            # transient `new` receipt into the session behind them.
-            existing.lines = [line_from_dict(i, line) for i, line in enumerate(d.get("lines", []))]
-            summary["receipts"]["updated"] += 1
-        else:
-            session.add(new)
-            summary["receipts"]["added"] += 1
-    session.flush()
+    import_receipts(session, receipt_files(receipts_dir), summary)
 
     for d in load_json(resolution_path)["entries"]:
         new = resolution_from_dict(d)
