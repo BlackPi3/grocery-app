@@ -2,7 +2,13 @@
 
 import json
 
-from grocery_app.normalizer import load_receipts, load_resolution, normalize_line
+from grocery_app.normalizer import (
+    load_receipts,
+    load_resolution,
+    lookup,
+    normalize_line,
+    spelling_key,
+)
 
 PRODUCTS = {
     "p-1": {"name": "Dusche Sweet Treat", "brand": "Dove", "product_line": None,
@@ -187,3 +193,51 @@ def test_meta_sidecars_are_not_mistaken_for_receipts(tmp_path):
         json.dumps({"source_image": "IMG_1.jpeg", "cost_usd": 0.03}), encoding="utf-8"
     )
     assert load_receipts(tmp_path) == [receipt]
+
+
+# --- the name, spelled two ways ------------------------------------------------
+
+MEMORY = {
+    ("musterladen", "SAHNEBR?TCHEN 3+1"): ["p-1"],
+    ("musterladen", "MU Skyr"): ["p-2"],
+    ("musterladen", "MU Eier 10er FH"): ["p-3"],
+    ("andersladen", "Gr?ne Bohnen"): ["p-3"],
+}
+
+
+def test_an_umlaut_and_the_placeholder_a_till_prints_for_it_are_one_name():
+    assert lookup(MEMORY, "Musterladen", "SAHNEBRÖTCHEN 3+1") == ["p-1"]
+    assert spelling_key("Mu?e") == spelling_key("Muße"), "ß is the other letter such tills lack"
+
+
+def test_case_and_a_misread_full_stop_do_not_make_a_new_name():
+    assert lookup(MEMORY, "Musterladen", "Mu. skyr") == ["p-2"]
+
+
+def test_a_full_stop_inside_a_size_is_kept():
+    assert spelling_key("Zwiebeln 1.5kg") != spelling_key("Zwiebeln 15kg")
+
+
+def test_a_trailing_code_is_part_of_the_name():
+    """FH is free-range; without it the till means the barn eggs."""
+    assert lookup(MEMORY, "Musterladen", "MU Eier 10er") == []
+
+
+def test_spelling_never_reaches_across_stores():
+    assert lookup(MEMORY, "Musterladen", "Grüne Bohnen") == []
+
+
+def test_the_exact_name_wins_over_a_spelling_match():
+    memory = {("musterladen", "MU Käse"): ["p-1"], ("musterladen", "MU K?se"): ["p-2"]}
+    assert lookup(memory, "Musterladen", "MU Käse") == ["p-1"]
+
+
+def test_two_remembered_names_that_spell_alike_but_disagree_answer_nothing():
+    memory = {("musterladen", "MU Käse"): ["p-1"], ("musterladen", "MU K?se"): ["p-2"]}
+    assert lookup(memory, "Musterladen", "MU KÄSE") == [], "picking one would be a guess"
+
+
+def test_a_spelling_match_is_still_an_exact_resolution():
+    line = {"type": "product", "raw_name": "Dove dusche.", "qty": 1, "gross": 2.49, "net": 2.24}
+    record = normalize_line(line, RECEIPT, {("globus", "Dove Dusche"): ["p-1"]}, PRODUCTS)
+    assert record["resolution"] == "exact" and record["product_id"] == "p-1"
