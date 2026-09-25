@@ -292,9 +292,19 @@ on.
 6. Housekeeping (2026-09-25): the fresh receipts moved into the real
    history, and the subscription reader.
 
-   - **The subscription reader** is its own pull request, held until the
-     one paid test can run (the API account was out of credit on
-     2026-09-25).
+   - **`grocery-app extract --reader claude-code`** reads photos through
+     `claude -p` on the subscription: the same prepared photo, prompt, schema
+     and parser as the API reader, with `Read` as the model's only tool.
+     **It reads worse than the API, measured on the 27 hand-verified
+     receipts (2026-09-25):** 16 of 27 fully correct against the API's 21;
+     names 93.5% against 99.2%, tax class 89.9% against 97.2%; quantities
+     and amounts as good. It "repairs" the `?` a till prints for an umlaut
+     (`Kiwi gr?n St?ck` read as `Kiwi grün Stück`) and writes a rate (`7%`)
+     where the paper prints a code (`2`). A likely cause, not proven: the
+     file reader shows the model a smaller copy of the photo. So it is
+     opt-in, never the default. The 22 fresh receipts were read this way;
+     the memory's spelling key treats `?` and an umlaut alike, and no amount
+     is affected, but their tax classes may be rates.
    - **The real history is the `grocery` database from now on.** It was
      behind the files (schema 0002, 99 products); it was backed up to
      `data/backups/`, upgraded, and loaded with the files (`db import`), and

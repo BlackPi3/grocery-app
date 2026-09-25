@@ -104,6 +104,10 @@ def main() -> None:
     x.add_argument("--model", default=DEFAULT_MODEL)
     x.add_argument("--force", action="store_true", help="Re-extract even if a cached result exists")
     x.add_argument("--limit", type=int, default=None, help="Only process the first N images")
+    x.add_argument("--reader", choices=["api", "claude-code"], default="api",
+                   help="api: a paid API call per photo; claude-code: the same model, prompt "
+                        "and schema through `claude -p`, on the subscription (reads worse: "
+                        "see docs/designs/catalog-growth.md, step 6)")
 
     c = subparsers.add_parser(
         "catalog",
@@ -277,9 +281,14 @@ def main() -> None:
             print(f"  ambiguous:      {meta['ambiguous_items']}")
 
     if args.command == "extract":
-        print(f"Extracting with {args.model} (prompt {PROMPT_VERSION}) -> {args.out}")
+        from grocery_app.extract import claude_code_reader
+
+        reader = claude_code_reader(args.model) if args.reader == "claude-code" else None
+        print(f"Extracting with {args.model} (prompt {PROMPT_VERSION}, reader {args.reader}) "
+              f"-> {args.out}")
         summary = extract_directory(
-            args.images, args.out, model=args.model, force=args.force, limit=args.limit
+            args.images, args.out, model=args.model, force=args.force, limit=args.limit,
+            reader=reader,
         )
         print(
             f"\n{summary['extracted']} extracted, {summary['cached']} cached, "
