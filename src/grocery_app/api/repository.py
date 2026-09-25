@@ -16,11 +16,18 @@ from typing import Any, Protocol, runtime_checkable
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from grocery_app import memory
 from grocery_app.api.jobs import job_to_dict
 from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict
-from grocery_app.db.models import Job, LineResolution, Product, Receipt
+from grocery_app.db.models import Correction, Job, LineResolution, Product, Receipt, Resolution
 from grocery_app.db.session import database_url, make_engine, make_session_factory
-from grocery_app.normalizer import assemble_purchases, normalize_receipt
+from grocery_app.normalizer import (
+    assemble_purchases,
+    never_remembered,
+    normalize_receipt,
+    spelling_key,
+)
+from grocery_app.resolver import store_key
 
 DEFAULT_PURCHASES = "data/purchases.json"
 
@@ -183,6 +190,12 @@ class PostgresRepository:
         Whether the normalizer can act on the answer is a separate question
         answered in `normalize_line`; what is refused here is an answer that
         could never be right — an unknown product, or a deposit line.
+
+        The answer also teaches the memory what the printed name means at this
+        store (`memory.learn`), so the next receipt needs no question. A
+        machine's answer it overrules is logged in `corrections`. Withdrawing
+        an answer takes back the line's answer only; what the name was learned
+        to mean stays.
         """
         with self.session_factory() as session:
             row = self._get(session, receipt_id)
@@ -202,6 +215,7 @@ class PostgresRepository:
                         f"line {position} is a {line.type} line, not a product")
                 if session.get(Product, product_id) is None:
                     raise UnknownProduct(f"no product {product_id}")
+                before = self._receipt_view(session, row)["lines"][position]
                 answer = existing or LineResolution(receipt_id=receipt_id, position=position)
                 answer.raw_name = line.raw_name
                 answer.product_id = product_id
@@ -209,8 +223,53 @@ class PostgresRepository:
                 answer.confirmed_at = date.today()
                 answer.basis = basis
                 session.add(answer)
+                self._remember(session, row, line.raw_name, position, product_id,
+                               answer.confirmed_by, before)
             session.commit()
             return self._receipt_view(session, self._get(session, receipt_id))
+
+    def _remember(self, session: Session, receipt: Receipt, raw_name: str, position: int,
+                  product_id: str, confirmed_by: str, before: dict[str, Any]) -> None:
+        """Teach the memory what one answered line says about its printed name."""
+        if not receipt.store or never_remembered(receipt.store, raw_name):
+            return
+        entry = self._memory_entry(session, receipt.store, raw_name)
+        held = ({"product_id": entry.product_id, "product_ids": list(entry.product_ids or []),
+                 "confirmed_by": entry.confirmed_by} if entry else None)
+
+        overruled = memory.machine_answer(before, held)
+        if overruled and overruled != product_id:
+            session.add(Correction(receipt_id=receipt.id, position=position,
+                                   store=receipt.store, raw_name=raw_name,
+                                   machine_how=before["resolution"],
+                                   machine_product_id=overruled,
+                                   shopper_product_id=product_id))
+
+        learned = memory.learn(held, product_id)
+        if learned is None:
+            return
+        if entry is None:
+            entry = Resolution(store=receipt.store, raw_name=raw_name, line_type="product")
+            session.add(entry)
+        entry.product_id = learned["product_id"]
+        entry.product_ids = learned["product_ids"]
+        entry.status = "ambiguous_on_receipt" if learned["product_ids"] else None
+        entry.confirmed_by = confirmed_by
+        entry.confirmed_at = date.today()
+        entry.source = "shopper-answer"
+
+    @staticmethod
+    def _memory_entry(session: Session, store: str, raw_name: str) -> Resolution | None:
+        """The memory's row for this name at this store, found as `lookup` finds it:
+        the exact name first, then one spelled the same."""
+        rows = [r for r in session.scalars(select(Resolution).where(
+                    Resolution.line_type == "product"))
+                if store_key(r.store) == store_key(store)]
+        exact = [r for r in rows if r.raw_name == raw_name]
+        if exact:
+            return exact[0]
+        alike = [r for r in rows if spelling_key(r.raw_name) == spelling_key(raw_name)]
+        return alike[0] if len(alike) == 1 else None
 
     def update_receipt(self, receipt_id: int, is_duplicate: bool | None = None,
                        store: str | None = None) -> dict[str, Any]:

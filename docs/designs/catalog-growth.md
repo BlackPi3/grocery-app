@@ -1,6 +1,6 @@
 # Design: The Catalog Grows Itself
 
-Written 2026-09-24 · Status: steps 1–4 built (2026-09-25); 5 and 6 not started.
+Written 2026-09-24 · Status: steps 1–4 built, step 5a built (2026-09-25); 5b, 5c and 6 not started.
 
 ## Why
 
@@ -203,10 +203,15 @@ on.
        printed no flavour (`JT Tortilla Wraps`, `Bitter-Getränk`) — or was
        right but not sure, or the price disagreed.
      - **Decided 2026-09-25: a name the till prints for several versions
-       (`JT Tortilla Wraps`: Classic or Mehrkorn, same price) is asked
-       once, then remembered.** Parham knew both answers from memory, so
-       a family would throw away what he knows. The answer applies to the
-       next receipt through the memory (step 5); a switch is one correction.
+       (`JT Tortilla Wraps`: Classic or Mehrkorn, same price) is recorded
+       as a family, and nobody is asked.** Knowing the version changes no
+       number the app shows: the versions share a price, a brand and a
+       category, and where versions differ in price the price already
+       tells them apart. If the shopper does say which it was, that is true
+       for that line only; next week it may be the other one. (An earlier
+       note here said "asked once, then remembered"; Parham corrected it
+       the same day.) The rule behind it: ask only when the answer changes
+       a number.
    - **4c, creating products** (built 2026-09-25, `matcher.new_product`).
      A shop listing the catalog does not hold becomes a product copied from
      it: the shop's name, brand, pack size and barcode, and a category only
@@ -224,7 +229,28 @@ on.
      too little to go on (`Bio Bulgur`: the vocabulary has no grain but
      rice). Ten GLOBUS shelves were added to `categorize.SHOP_PATHS`, only
      where a shelf is plainly one of our categories or sections.
-5. The list of meaningless names, moved here from step 3: it exists to stop
+5. **5a, remembering answers** (built 2026-09-25, `memory.py`). A shopper's
+   answer on a line now also teaches the memory what the printed name means
+   at that store, so the next receipt needs no question:
+
+   | held | answer X | afterwards |
+   |---|---|---|
+   | nothing | X | X |
+   | a machine's answer Y | X | X, and the mistake is logged in `corrections` |
+   | a person's answer Y | X | the family {Y, X}: the till prints one name for both |
+   | a family | X | the family, with X added if it was not in it |
+
+   The answer itself stays true for its own line. Names on
+   `normalizer.NEVER_REMEMBERED` teach nothing and are never looked up:
+   FK Frisch Kauf's `Diverse Lebensmittel`, `Brot und Backwaren` and
+   `Exportware /Haushaltsware` (decided 2026-09-25). Withdrawing an answer
+   takes back the line's answer, not what the name was learned to mean.
+
+   Still to come in step 5: **5b**, the matcher runs on the server and its
+   accepted answers and new products are saved; **5c**, a questions list.
+
+   The original plan for this step read:
+   The list of meaningless names, moved here from step 3: it exists to stop
    an answer being remembered for `Diverse Lebensmittel`, and nothing
    remembers answers until this step. Questions and corrections through the
    server: `PUT .../resolution` learns to

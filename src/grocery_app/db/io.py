@@ -24,6 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from grocery_app.db.models import (
+    Correction,
     LineResolution,
     Product,
     Receipt,
@@ -373,7 +374,7 @@ def export_data(session: Session, out_dir: str | Path) -> dict[str, int]:
     out = Path(out_dir)
     truth = out / "receipts" / "truth"
     counts = {"receipts": 0, "products": 0, "resolutions": 0, "listings": 0,
-              "line_resolutions": 0}
+              "line_resolutions": 0, "corrections": 0}
 
     receipts = session.scalars(select(Receipt).options(selectinload(Receipt.lines))).all()
     for receipt in receipts:
@@ -407,4 +408,18 @@ def export_data(session: Session, out_dir: str | Path) -> dict[str, int]:
     save_json({"meta": {"schema": 1}, "entries": answers},
               out / "receipts" / "line_resolutions.json")
     counts["line_resolutions"] = len(answers)
+
+    # Written by the server only, so there is nothing to import back: this is
+    # the record of machine answers the shopper overruled, for reading.
+    corrections = [{"source_image": source_image, "line_index": c.position, "store": c.store,
+                    "raw_name": c.raw_name, "machine_how": c.machine_how,
+                    "machine_product_id": c.machine_product_id,
+                    "shopper_product_id": c.shopper_product_id,
+                    "corrected_at": c.corrected_at.isoformat()}
+                   for c, source_image in session.execute(
+                       select(Correction, Receipt.source_image).outerjoin(Receipt)
+                       .order_by(Correction.id))]
+    save_json({"meta": {"schema": 1}, "entries": corrections},
+              out / "receipts" / "corrections.json")
+    counts["corrections"] = len(corrections)
     return counts

@@ -173,6 +173,30 @@ class LineResolution(Base):
     basis: Mapped[str | None] = mapped_column(String)  # memory, photo, ...
 
 
+class Correction(Base):
+    """A machine's answer for a line that the shopper overruled.
+
+    Kept so the rate of wrong automatic answers is always known
+    (`catalog-growth.md`, decision 5): the matcher's mistakes and the produce
+    vocabulary's are counted, not silently replaced. Written by the route that
+    takes a shopper's answer, never edited after.
+    """
+
+    __tablename__ = "corrections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    receipt_id: Mapped[int | None] = mapped_column(
+        ForeignKey("receipts.id", ondelete="SET NULL"))
+    position: Mapped[int] = mapped_column(Integer)
+    store: Mapped[str | None] = mapped_column(String)
+    raw_name: Mapped[str] = mapped_column(String)
+    machine_how: Mapped[str] = mapped_column(String)  # the line's `resolution` before
+    machine_product_id: Mapped[str] = mapped_column(String)
+    shopper_product_id: Mapped[str] = mapped_column(String)
+    corrected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                   server_default=func.now())
+
+
 class Job(Base):
     """One extraction: a photo that arrived over HTTP and what became of it.
 
