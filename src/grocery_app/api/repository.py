@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -19,7 +19,15 @@ from sqlalchemy.orm import Session, sessionmaker
 from grocery_app import memory
 from grocery_app.api.jobs import job_to_dict
 from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict
-from grocery_app.db.models import Correction, Job, LineResolution, Product, Receipt, Resolution
+from grocery_app.db.models import (
+    Correction,
+    Job,
+    LineResolution,
+    Product,
+    Question,
+    Receipt,
+    Resolution,
+)
 from grocery_app.db.session import database_url, make_engine, make_session_factory
 from grocery_app.normalizer import (
     assemble_purchases,
@@ -206,6 +214,10 @@ class PostgresRepository:
             existing = session.scalars(
                 select(LineResolution).where(LineResolution.receipt_id == receipt_id,
                                              LineResolution.position == position)).first()
+            question = session.scalars(select(Question).where(
+                Question.receipt_id == receipt_id, Question.position == position)).first()
+            if question is not None:
+                question.answered_at = None if product_id is None else datetime.now(UTC)
             if product_id is None:
                 if existing is not None:
                     session.delete(existing)

@@ -175,6 +175,15 @@ def evaluate_matching(truth_doc: dict[str, Any], readings: dict[str, dict[str, A
                 scored["answered"] = [proposal["pick"].get("product_id")
                                       or proposal["pick"].get("article")]
                 scored["outcome"] = model_alone
+            elif proposal["verdict"] == "family":
+                # Right when the shopper's product is among the versions, the
+                # same rule a remembered family is scored by.
+                versions = proposal["versions"]
+                scored["resolution"] = "matcher-family"
+                scored["answered"] = [v.get("product_id") or v.get("article") for v in versions]
+                verdicts = {judge_pick(v, truth_line, index) for v in versions}
+                scored["outcome"] = ("right" if "right" in verdicts else
+                                     "wrong" if "wrong" in verdicts else "unchecked")
             else:
                 scored["outcome"] = "asked"
         lines.append(scored)
@@ -183,8 +192,7 @@ def evaluate_matching(truth_doc: dict[str, Any], readings: dict[str, dict[str, A
     # receipts with the same bulgur would create it once.
     creates: dict[str, dict[str, Any]] = {}
     for line in lines:
-        made = (line.get("proposal") or {}).get("creates")
-        if made:
+        for made in (line.get("proposal") or {}).get("creates") or []:
             creates.setdefault(made["provenance"]["source"] or made["name"],
                                {**made, "for": line["raw_name"], "outcome": line["outcome"]})
     return {"totals": _tally(lines), "creates": list(creates.values()),
@@ -208,6 +216,8 @@ def _tally(lines: list[dict[str, Any]]) -> dict[str, Any]:
 def _answer_label(line: dict[str, Any]) -> str:
     if line.get("resolution") == "matcher":
         return (line["proposal"]["pick"] or {}).get("name") or "-"
+    if line.get("resolution") == "matcher-family":
+        return " | ".join(v.get("name") or "-" for v in line["proposal"]["versions"])
     return ",".join(line["answered"]) or "-"
 
 

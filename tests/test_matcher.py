@@ -265,10 +265,53 @@ def test_a_new_product_passes_the_catalogs_own_checks():
 def test_accepting_a_new_listing_creates_a_product_and_a_known_one_does_not():
     new = propose(line("Reinex Kühlschr. Deo", 1.95), "Musterladen", PRODUCTS,
                   RESOLUTION, SHELF, INDEX, SHOPS, answering(1))
-    assert new["creates"]["name"] == "Kühlschrank Deo"
+    assert [made["name"] for made in new["creates"]] == ["Kühlschrank Deo"]
     known = propose(line("Kleenex Ultra Soft W", 2.49), "Musterladen", PRODUCTS,
                     RESOLUTION, SHELF, INDEX, SHOPS, answering(3))
-    assert known["verdict"] == "accept" and known["creates"] is None, "already ours"
+    assert known["verdict"] == "accept" and known["creates"] == [], "already ours"
     asked = propose(line("Reinex Kühlschr. Deo", 1.65), "Musterladen", PRODUCTS,
                     RESOLUTION, SHELF, INDEX, SHOPS, answering(1))
-    assert asked["creates"] is None, "a question creates nothing until it is answered"
+    assert asked["creates"] == [], "a question creates nothing until it is answered"
+
+
+# --- versions the line cannot tell apart ---------------------------------------------
+
+WRAPS = {"musterladen": lambda raw_name: [
+    {"article_number": "11", "name": "Tortilla Wraps, Classic", "brand": "Muster",
+     "pack_size": "0,37 kg", "price": 1.19},
+    {"article_number": "12", "name": "Tortilla Wraps Mehrkorn", "brand": "Muster",
+     "pack_size": "0,37 kg", "price": 1.19},
+    {"article_number": "13", "name": "Tortilla Wraps Weizen", "brand": "Anders",
+     "pack_size": "0,36 kg", "price": 1.69},
+]}
+
+
+def versions(numbers, confidence="high"):
+    def decider(system, prompt, schema):
+        return {"choice": 0, "versions": numbers, "confidence": confidence,
+                "reason": "the line prints no version"}
+    return decider
+
+
+def test_versions_the_line_cannot_tell_apart_are_recorded_as_a_family():
+    """Nobody is asked which wrap it was: the version changes no number."""
+    proposal = propose(line("MU Tortilla Wraps", 1.19), "Musterladen", PRODUCTS,
+                       RESOLUTION, SHELF, INDEX, WRAPS, versions([1, 2]))
+    assert proposal["verdict"] == "family"
+    assert [v["article"] for v in proposal["versions"]] == ["11", "12"]
+    assert [made["name"] for made in proposal["creates"]] == \
+        ["Tortilla Wraps, Classic", "Tortilla Wraps Mehrkorn"]
+
+
+@pytest.mark.parametrize("numbers, paid, confidence, why", [
+    ([1, 2], 1.29, "high", "the price paid is none of theirs"),
+    ([1, 2], 1.19, "medium", "the model is not sure it is this product"),
+    ([1], 1.19, "high", "one version is not a family"),
+    ([1, 99], 1.19, "high", "a number off the list is not a version"),
+])
+def test_a_family_needs_the_model_sure_and_the_price_one_of_theirs(numbers, paid,
+                                                                    confidence, why):
+    proposal = propose(line("MU Tortilla Wraps", paid), "Musterladen", PRODUCTS,
+                       RESOLUTION, SHELF, INDEX, WRAPS, versions(numbers, confidence))
+    assert proposal["verdict"] == "ask", why
+    assert proposal["creates"] == []

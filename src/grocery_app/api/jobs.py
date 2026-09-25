@@ -108,8 +108,14 @@ def _store_receipt(session: Session, job: Job, extraction: Extraction) -> None:
 
 
 def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
-            extractor: Extractor, job_id: str) -> None:
-    """Extract one photo and record what happened, whatever happens."""
+            extractor: Extractor, job_id: str, matcher: Any | None = None) -> None:
+    """Extract one photo and record what happened, whatever happens.
+
+    With a `matcher` (`api.matching.line_matcher`), the lines the memory cannot
+    place are matched before the job is `done`, so a client polling the job
+    sees the receipt as it will stay. A matcher that fails does not fail the
+    job: the receipt is stored and read, and `error` says what went wrong.
+    """
     with session_factory() as session:
         job = session.get(Job, job_id)
         if job is None or job.status != "queued":
@@ -148,6 +154,18 @@ def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
             job.finished_at = _now()
             session.commit()
             return
+
+        session.commit()
+        if matcher is not None:
+            from grocery_app.api.matching import match_receipt
+
+            try:
+                match_receipt(session, job.receipt_id, matcher)
+                session.commit()
+            except Exception as exc:  # noqa: BLE001 - the receipt stands without matching
+                session.rollback()
+                job = session.get(Job, job_id)
+                job.error = f"matching failed: {type(exc).__name__}: {exc}"
 
         job.status = "done"
         job.finished_at = _now()

@@ -197,6 +197,28 @@ class Correction(Base):
                                                    server_default=func.now())
 
 
+class Question(Base):
+    """A line the matcher could not settle, waiting for the shopper.
+
+    `proposal` is what the matcher saw and said (`matcher.propose`): the
+    candidates to offer, its own pick and why. Kept whole, so asking costs no
+    second model call and a later matcher can be compared with this one.
+    `answered_at` is set when the shopper answers the line.
+    """
+
+    __tablename__ = "questions"
+    __table_args__ = (UniqueConstraint("receipt_id", "position"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    receipt_id: Mapped[int] = mapped_column(ForeignKey("receipts.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(Integer)
+    raw_name: Mapped[str] = mapped_column(String)
+    proposal: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 server_default=func.now())
+    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Job(Base):
     """One extraction: a photo that arrived over HTTP and what became of it.
 

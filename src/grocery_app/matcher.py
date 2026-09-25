@@ -43,7 +43,7 @@ from typing import Any
 
 from grocery_app.resolver import expand_abbreviations, fold, store_key
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 TOP_SHOP = 8
 TOP_CATALOG = 5
 
@@ -227,21 +227,24 @@ line was, or 0 when none of them is it.
 - A size, count or variant the line prints must agree with the product. A
   trailing code can be the whole difference: `Eier 10er FH` is free-range
   (Freilandhaltung), not barn eggs.
-- When the line cannot tell two listed products apart (a flavour or size it does
-  not print), answer 0 and say which ones it could be. A wrong answer costs more
-  than a question.
-- confidence: `high` when the line names the product unambiguously, `medium`
-  when it very probably is, `low` when it is a guess.
+- When the line cannot tell listed products apart (a flavour or version it does
+  not print), answer 0 and list their numbers in `versions`. Only versions of
+  one product go there: the same brand, product and size, differing in what
+  the line does not print. A wrong answer costs more than a question.
+- confidence: `high` when the line names the product (or, with `versions`, the
+  product the versions belong to) unambiguously, `medium` when it very probably
+  does, `low` when it is a guess.
 - reason: one short sentence, in English."""
 
 DECISION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "choice": {"type": "integer", "minimum": 0},
+        "versions": {"type": "array", "items": {"type": "integer", "minimum": 1}},
         "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
         "reason": {"type": "string"},
     },
-    "required": ["choice", "confidence", "reason"],
+    "required": ["choice", "versions", "confidence", "reason"],
     "additionalProperties": False,
 }
 
@@ -256,6 +259,8 @@ class Decision:
     pick: Candidate | None
     confidence: str
     reason: str
+    # The versions of one product the line could be, when it cannot say which.
+    versions: list[Candidate] = field(default_factory=list)
 
 
 def decide(raw_name: str, store: str | None, candidates: list[Candidate],
@@ -268,7 +273,13 @@ def decide(raw_name: str, store: str | None, candidates: list[Candidate],
     choice = answer.get("choice")
     pick = (candidates[choice - 1]
             if isinstance(choice, int) and 1 <= choice <= len(candidates) else None)
-    return Decision(pick, answer.get("confidence") or "low", answer.get("reason") or "")
+    numbers = sorted({n for n in answer.get("versions") or []
+                      if isinstance(n, int) and 1 <= n <= len(candidates)})
+    # A pick is one product; versions are only read when there is none, and
+    # one version is not a family.
+    versions = [candidates[n - 1] for n in numbers] if pick is None and len(numbers) > 1 else []
+    return Decision(pick, answer.get("confidence") or "low", answer.get("reason") or "",
+                    versions)
 
 
 # --- 3. accept or ask ----------------------------------------------------------
@@ -329,15 +340,26 @@ def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[st
             shops: dict[str, ShopSource], decider: Decider) -> dict[str, Any]:
     """What the matcher would do with one line. Writes nothing.
 
-    `verdict` is `accept` only when the model picked a product, is sure of it
-    (`ACCEPTED_CONFIDENCE`), and the price paid singles it out; otherwise
-    `ask`, with the candidates to ask about.
+    `verdict` is one of:
+
+    - `accept`: the model picked a product, is sure of it
+      (`ACCEPTED_CONFIDENCE`), and the price paid singles it out;
+    - `family`: the model is sure the line is one of several versions of a
+      product it cannot tell apart (`JT Tortilla Wraps`: Classic or
+      Mehrkorn), and the price paid is one of theirs. Recorded as the
+      family, and nobody is asked, because the version changes no number
+      the app shows (decided 2026-09-25);
+    - `ask`: anything else, with the candidates to ask about.
     """
     raw_name = line["raw_name"]
     candidates = gather(raw_name, store, products, resolution, shelf_prices, index, shops)
     decision = decide(raw_name, store, candidates, decider)
     agrees = decision.pick is not None and price_singles_out(line, decision.pick, candidates)
     sure = decision.confidence in ACCEPTED_CONFIDENCE
+    family = sure and any(price_agrees(line, v) for v in decision.versions)
+    verdict = "accept" if agrees and sure else "family" if family else "ask"
+    chosen = ([decision.pick] if verdict == "accept" else
+              decision.versions if verdict == "family" else [])
     return {
         "raw_name": raw_name,
         "store": store,
@@ -346,12 +368,12 @@ def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[st
         "pick": asdict(decision.pick) if decision.pick else None,
         "confidence": decision.confidence,
         "reason": decision.reason,
+        "versions": [asdict(c) for c in decision.versions],
         "price_agrees": agrees,
-        "verdict": "accept" if agrees and sure else "ask",
-        # What accepting would add to the catalog: nothing when the pick is
-        # already ours, else the product copied from the shop's listing.
-        "creates": (new_product(asdict(decision.pick), "matcher")
-                    if agrees and sure and not decision.pick.product_id else None),
+        "verdict": verdict,
+        # What accepting would add to the catalog: a product copied from the
+        # shop's listing for each chosen candidate that is not ours already.
+        "creates": [new_product(asdict(c), "matcher") for c in chosen if not c.product_id],
     }
 
 
