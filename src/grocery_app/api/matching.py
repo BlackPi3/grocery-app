@@ -59,22 +59,26 @@ def article_index(session: Session) -> dict[str, str]:
     return index
 
 
-def _next_product_id(session: Session) -> str:
+def next_product_id(session: Session) -> str:
     numbers = [int(pid.split("-")[1]) for pid in session.scalars(select(Product.id))
                if pid.startswith("p-") and pid.split("-")[1].isdigit()]
     return f"p-{max(numbers, default=0) + 1:04d}"
 
 
-def _product_for(session: Session, candidate: dict[str, Any], store: str,
-                 inputs: dict[str, Any]) -> str:
-    """Our product for a chosen candidate, made from its shop listing if new."""
+def product_for(session: Session, candidate: dict[str, Any], store: str,
+                inputs: dict[str, Any], decided_by: str = "matcher") -> str:
+    """Our product for a chosen candidate, made from its shop listing if new.
+
+    `inputs` needs `index` and `products`, and both are kept up to date, so a
+    listing chosen twice becomes one product.
+    """
     if candidate.get("product_id"):
         return candidate["product_id"]
     article = candidate.get("article")
     if article and article in inputs["index"]:
         return inputs["index"][article]
-    product_id = _next_product_id(session)
-    made = matching.new_product(candidate, "matcher")
+    product_id = next_product_id(session)
+    made = matching.new_product(candidate, decided_by)
     session.add(product_from_dict(product_id, made))
     if article:
         session.add(StoreListing(
@@ -85,6 +89,28 @@ def _product_for(session: Session, candidate: dict[str, Any], store: str,
         inputs["index"][article] = product_id
     session.flush()
     inputs["products"][product_id] = made
+    return product_id
+
+
+def shopper_product(session: Session, name: str, brand: str | None) -> str:
+    """"None of these, it's …": a product in the shopper's words, as far as they go.
+
+    Kashk from a shop no catalog lists. Nothing else is known, and nothing is
+    guessed: size, category and barcode stay empty, and `open_questions` says
+    so. A barcode scanned at home later can fill in the rest.
+    """
+    from grocery_app.categorize import CATEGORY_UNKNOWN
+    from grocery_app.resolver import brand_questions
+
+    product_id = next_product_id(session)
+    session.add(product_from_dict(product_id, {
+        "label": name, "name": name, "brand": brand, "product_line": None, "variant": None,
+        "size": {"count": 1, "value": None, "unit": None}, "category": None,
+        "is_organic": None, "eans": [],
+        "open_questions": brand_questions(brand) + [CATEGORY_UNKNOWN],
+        "provenance": {"attributes": "shopper", "source": None, "decided_by": "shopper"},
+    }))
+    session.flush()
     return product_id
 
 
@@ -125,7 +151,7 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher) -> dict
 
         chosen = [proposal["pick"]] if verdict == "accept" else proposal["versions"]
         before = len(inputs["products"])
-        ids = [_product_for(session, c, receipt.store, inputs) for c in chosen]
+        ids = [product_for(session, c, receipt.store, inputs) for c in chosen]
         counts["products"] += len(inputs["products"]) - before
         family = len(ids) > 1
         session.add(Resolution(

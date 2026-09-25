@@ -175,3 +175,89 @@ def test_answering_a_question_closes_it_and_overruling_the_matcher_is_counted(se
     (mistake,) = session.scalars(select(Correction)).all()
     assert (mistake.raw_name, mistake.machine_product_id, mistake.shopper_product_id) == \
         ("MU Milch fettarm", "p-0001", "p-0002")
+
+
+# --- the questions list, and answering it (5c) ----------------------------------------
+
+
+def test_questions_are_the_lines_nothing_placed_with_what_the_matcher_found(server):
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["Rätsel", "MU Wraps", "MU Milch 1,5%"])
+    catch_all = add_receipt(session, "IMG_8.jpeg", ["Diverse Lebensmittel"],
+                            store="FK Frisch Kauf GmbH")
+    wraps = [listing("11", "Tortilla Wraps, Classic"), listing("12", "Tortilla Wraps Mehrkorn")]
+    rätsel = [listing("21", "Rätselheft"), OURS]
+    table = TableMatcher({"MU Wraps": ("family", wraps), "Rätsel": ("ask", rätsel)})
+    match_receipt(session, receipt, table)
+    match_receipt(session, catch_all, table)
+    session.commit()
+
+    body = client.get("/v1/questions").json()
+    asked = {(q["receipt_id"], q["raw_name"]): q for q in body["questions"]}
+    # Geheimnis from the fixture's IMG_2 is open too; the family and the known
+    # milk are not questions.
+    assert set(asked) == {(receipt, "Rätsel"), (catch_all, "Diverse Lebensmittel"),
+                          (asked_id(body, "Geheimnis"), "Geheimnis")}
+    rq = asked[(receipt, "Rätsel")]
+    assert [c["name"] for c in rq["candidates"]] == ["Rätselheft", "Milch 1,5%"]
+    assert rq["candidates"][1]["product_id"] == "p-0001"
+    assert rq["paid"] == 1.19 and rq["per_line"] is False
+    assert asked[(catch_all, "Diverse Lebensmittel")]["per_line"] is True
+    assert asked[(catch_all, "Diverse Lebensmittel")]["candidates"] == [], "never matched"
+    assert body["meta"] == {"open": 3, "matcher_answers": 1, "overruled": 0}
+
+
+def asked_id(body, raw_name):
+    return next(q["receipt_id"] for q in body["questions"] if q["raw_name"] == raw_name)
+
+
+def test_answering_with_a_candidate_makes_the_listing_a_product_the_shopper_chose(server):
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["Rätsel"])
+    match_receipt(session, receipt, TableMatcher(
+        {"Rätsel": ("ask", [listing("21", "Rätselheft", price=2.5)])}))
+    session.commit()
+
+    response = client.put(f"/v1/receipts/{receipt}/lines/0/resolution", json={"candidate": 1})
+    assert response.status_code == 200
+    line = response.json()["lines"][0]
+    assert (line["resolution"], line["product"]) == ("user", "Rätselheft")
+    product = session.get(Product, line["product_id"])
+    assert product.provenance["decided_by"] == "shopper"
+    assert [q["raw_name"] for q in client.get("/v1/questions").json()["questions"]] == \
+        ["Geheimnis"], "answered, and remembered for the next receipt"
+
+
+def test_none_of_these_makes_a_product_in_the_shoppers_words(server):
+    """Kashk: no shop lists it, the shopper knows it. The product holds what
+    was said and says what is still unknown."""
+    client, session = server
+    receipt = add_receipt(session, "IMG_8.jpeg", ["Diverse Lebensmittel"],
+                          store="FK Frisch Kauf GmbH")
+
+    response = client.put(f"/v1/receipts/{receipt}/lines/0/resolution",
+                          json={"new_product": {"name": "Kashk"}})
+    line = response.json()["lines"][0]
+    assert (line["resolution"], line["product"]) == ("user", "Kashk")
+    product = session.get(Product, line["product_id"])
+    assert product.open_questions == ["brand unknown", "category unknown"]
+    assert product.provenance == {"attributes": "shopper", "source": None,
+                                  "decided_by": "shopper"}
+    assert session.scalars(select(Resolution).where(
+        Resolution.raw_name == "Diverse Lebensmittel")).all() == [], "per line, never a rule"
+
+
+@pytest.mark.parametrize("body, detail", [
+    ({"candidate": 3}, "offers no candidate 3"),
+    ({"candidate": 1, "product_id": "p-0001"}, "exactly one of"),
+    ({}, "exactly one of"),
+])
+def test_an_answer_must_name_one_real_thing(server, body, detail):
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["Rätsel"])
+    match_receipt(session, receipt, TableMatcher({"Rätsel": ("ask", [listing("21", "Heft")])}))
+    session.commit()
+
+    response = client.put(f"/v1/receipts/{receipt}/lines/0/resolution", json=body)
+    assert response.status_code == 422
+    assert detail in response.json()["detail"]

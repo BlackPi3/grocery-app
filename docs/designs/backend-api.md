@@ -236,7 +236,9 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
   computed server-side from signals that already exist — name similarity against the
   catalog, the amount paid against `shelf_prices` (the same signal `priced_like`
   uses), and what the shopper has bought before — offered as about five rows and a
-  "none of these". Unbuilt.
+  "none of these". *Built 2026-09-25 as `GET /v1/questions` (catalog-growth
+  step 5c): the matcher's candidates from the catalog and the shop, answered
+  by number, or "none of these" with a name.*
 - **And when the product is not in the catalog at all?** Then there is nothing to
   point at, and the shopper needs to create one. Open Food Facts cannot help pick an
   existing product (it does not know this catalog), but it is the right source for

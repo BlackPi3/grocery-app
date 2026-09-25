@@ -31,6 +31,7 @@ from grocery_app.api.jobs import Extractor, anthropic_extractor, run_job
 from grocery_app.api.matching import LineMatcher, line_matcher
 from grocery_app.api.repository import (
     DEFAULT_PURCHASES,
+    NoSuchCandidate,
     NotAProductLine,
     NotFound,
     Repository,
@@ -46,6 +47,7 @@ from grocery_app.api.schemas import (
     JobDocument,
     LineResolutionRequest,
     PurchasesDocument,
+    QuestionsDocument,
     ReceiptDocument,
     ReceiptPatch,
 )
@@ -204,14 +206,35 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         the state it is now in rather than guess.
         """
         repo = require_writes()
+        given = [k for k in ("product_id", "candidate", "new_product")
+                 if k in answer.model_fields_set]
+        if len(given) != 1:
+            raise HTTPException(
+                status_code=422,
+                detail="send exactly one of product_id (null withdraws), candidate, new_product")
         try:
-            updated = repo.set_line_resolution(receipt_id, position, answer.product_id,
+            product_id = answer.product_id
+            if given[0] != "product_id":
+                product_id = repo.product_for_answer(
+                    receipt_id, position, answer.candidate,
+                    answer.new_product.model_dump() if answer.new_product else None)
+            updated = repo.set_line_resolution(receipt_id, position, product_id,
                                                answer.confirmed_by, answer.basis)
         except NotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except (UnknownProduct, NotAProductLine) as exc:
+        except (UnknownProduct, NotAProductLine, NoSuchCandidate) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return ReceiptDocument.model_validate(updated)
+
+    @app.get("/v1/questions", response_model=QuestionsDocument)
+    def questions() -> QuestionsDocument:
+        """Every line nothing could place, with what the matcher found for it.
+
+        Answer one with `PUT /v1/receipts/{receipt_id}/lines/{position}/resolution`:
+        a `candidate` number from here, a `product_id` from the catalog, or a
+        `new_product` in words when it is none of them.
+        """
+        return QuestionsDocument.model_validate(require_writes().questions())
 
     @app.patch("/v1/receipts/{receipt_id}", response_model=ReceiptDocument,
                response_model_exclude_unset=True)
