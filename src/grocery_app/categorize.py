@@ -58,6 +58,7 @@ from grocery_app.resolver import fold
 SHOP_PATHS: dict[str, str] = {
     # Brot, Aufstriche & Cerealien
     "aufstriche/fruchtaufstriche": "marmelade",
+    "aufstriche/honig-sirup": "honig",
     "backzutaten/nuesse-zum-backen": "nuesse",
     "kaffee/kaffeesahne-kondensmilch": "sahne",
     "meisterbaeckerei/brot-broetchen": "@backwaren",
@@ -73,24 +74,34 @@ SHOP_PATHS: dict[str, str] = {
     "koerperpflege/deodorants": "deo",
     "koerperpflege/duschgel": "duschgel",
     # Haushalt
+    "reinigungsmittel/kuechenreiniger": "putzmittel",
     "kuechenzubehoer/beutel-folien": "folien-beutel",
     "kuechenzubehoer/kuechenrollen": "kuechenrolle",
     "reinigungsmittel/reinigungszubehoer": "@haushaltshelfer",
     # Molkerei
     "milchprodukte-eier/eier": "eier-kat",
+    "kaese/kaesescheiben": "@kaese",
     "kaese/reibekaese": "reibekaese",
     "milchprodukte-eier/laktosefrei": "@milch-joghurt",
     "milch-molkereiprodukte/quark": "quark",
+    "milch-molkereiprodukte/sahne": "sahne",
     # Konserven
     "konserven-feinkost/gemuesekonserven": "@konserven-glas",
+    "konserven-feinkost/obstkonserven": "obstkonserven",
+    # Nudeln, Öl & Soßen
+    "nudeln-reis-getreide/nudeln-pasta": "nudeln",
+    "essig-oel-gewuerze-sossen/oele": "oel-essig",
+    "sossen-gewuerze/sossen-bindemittel": "@gewuerze-oele",
     # Obst & Gemüse
     "frisches-gemuese/tomaten": "tomaten",
+    "frisches-obst/exotisches-obst": "exotisches-obst",
     "trockenobst-nuesse-kerne/trockenobst": "@nuesse-trockenobst",
     # Süßes & Salziges
     "gebaeck/waffelgebaeck": "waffeln",
     "schokolade/sonstige-schokoladenartikel": "schokolade",
     "schokolade/tafelschokolade": "schokolade",
     "snacks-knabberzeug/chips": "chips",
+    "suessigkeiten/kaugummi": "bonbons",
     # Tiefkühlung
     "eis/eis-desserts": "speiseeis",
     "eis/eis-grosspackungen": "speiseeis",

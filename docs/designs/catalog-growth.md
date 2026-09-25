@@ -1,6 +1,6 @@
 # Design: The Catalog Grows Itself
 
-Written 2026-09-24 · Status: steps 1–3 built, steps 4a and 4b built (2026-09-25); the rest not started.
+Written 2026-09-24 · Status: steps 1–4 built (2026-09-25); 5 and 6 not started.
 
 ## Why
 
@@ -207,7 +207,23 @@ on.
        once, then remembered.** Parham knew both answers from memory, so
        a family would throw away what he knows. The answer applies to the
        next receipt through the memory (step 5); a switch is one correction.
-   - **4c, creating products** from accepted shop listings.
+   - **4c, creating products** (built 2026-09-25, `matcher.new_product`).
+     A shop listing the catalog does not hold becomes a product copied from
+     it: the shop's name, brand, pack size and barcode, and a category only
+     when the shop's shelf and the name agree. `provenance` says which shop
+     listing it came from and who decided (`matcher` or `shopper`).
+     **Decided: 4c builds the product and saves nothing**; step 5 saves a
+     product together with the printed name that led to it, whether the
+     answer came from the matcher or the shopper, so there is one way of
+     writing to the catalog.
+
+     On the test set, accepting would create 17 products, all from GLOBUS,
+     all for lines answered right. 10 get a category; 7 carry
+     `category unknown`: three where shelf and name disagree
+     (`Kühlschrank Deo` on the kitchen-cleaner shelf), four where there is
+     too little to go on (`Bio Bulgur`: the vocabulary has no grain but
+     rice). Ten GLOBUS shelves were added to `categorize.SHOP_PATHS`, only
+     where a shelf is plainly one of our categories or sections.
 5. The list of meaningless names, moved here from step 3: it exists to stop
    an answer being remembered for `Diverse Lebensmittel`, and nothing
    remembers answers until this step. Questions and corrections through the

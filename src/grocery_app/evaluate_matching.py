@@ -179,7 +179,15 @@ def evaluate_matching(truth_doc: dict[str, Any], readings: dict[str, dict[str, A
                 scored["outcome"] = "asked"
         lines.append(scored)
 
-    return {"totals": _tally(lines),
+    # One product per shop listing, however many lines it answered: two
+    # receipts with the same bulgur would create it once.
+    creates: dict[str, dict[str, Any]] = {}
+    for line in lines:
+        made = (line.get("proposal") or {}).get("creates")
+        if made:
+            creates.setdefault(made["provenance"]["source"] or made["name"],
+                               {**made, "for": line["raw_name"], "outcome": line["outcome"]})
+    return {"totals": _tally(lines), "creates": list(creates.values()),
             "by_store": {store: _tally([line for line in lines if line["store"] == store])
                          for store in sorted({line["store"] for line in lines})},
             "lines": lines, "stale": stale}
@@ -243,6 +251,15 @@ def format_matching_report(report: dict[str, Any]) -> str:
         offered = sum(line["offered"] for line in asked)
         lines += ["", f"  asked {len(asked)}: the model's own pick was {picks}; "
                       f"the right answer was among the candidates for {offered}"]
+
+    creates = report.get("creates") or []
+    if creates:
+        by_source = Counter(made["provenance"]["attributes"].removesuffix("-listing")
+                            for made in creates)
+        categorised = sum(1 for made in creates if made["category"])
+        lines += ["", f"  would create {len(creates)} products ("
+                      + ", ".join(f"{n} from {src}" for src, n in by_source.most_common())
+                      + f"); {categorised} with a category the shelf and name agree on"]
 
     for outcome in ("wrong", "missed"):
         bad = [line for line in report["lines"] if line["outcome"] == outcome]

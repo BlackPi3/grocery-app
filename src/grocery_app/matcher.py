@@ -17,8 +17,11 @@ every time:
    is accepted. The model never saw prices, so the two cannot be one source counted
    twice. Anything else is a question for the shopper.
 
+4. **Create when the pick is new.** A shop listing the catalog does not hold
+   becomes a product copied from the listing (`new_product`, step 4c).
+
 Nothing here writes to the catalog or the memory. `propose` returns a
-proposal; what is done with it is the caller's business (step 5).
+proposal, with the product it would create; saving is step 5's job.
 
 The model is reached through a *decider*, a callable taking a system prompt, a
 prompt and a JSON schema and returning the answer as a dict. `ClaudeCodeDecider`
@@ -345,7 +348,54 @@ def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[st
         "reason": decision.reason,
         "price_agrees": agrees,
         "verdict": "accept" if agrees and sure else "ask",
+        # What accepting would add to the catalog: nothing when the pick is
+        # already ours, else the product copied from the shop's listing.
+        "creates": (new_product(asdict(decision.pick), "matcher")
+                    if agrees and sure and not decision.pick.product_id else None),
     }
+
+
+# --- 4. a new product from a shop listing ------------------------------------------
+
+
+def new_product(pick: dict[str, Any], decided_by: str) -> dict[str, Any]:
+    """The catalog product a picked shop listing becomes. Nothing is guessed.
+
+    Name, brand, pack size and barcode are the shop's own. The category is
+    set only when the shop's shelf and the name agree (`categorize.propose`,
+    the rule every category in the catalog follows); otherwise it stays empty
+    and the product says so in `open_questions`. `provenance` records where
+    the product came from and who decided the line was it: `matcher` for a
+    model pick the price agreed with, `shopper` for an answer to a question.
+
+    It returns the record without an id. Minting the id and saving it,
+    together with the printed name that led to it, is step 5's job.
+    """
+    from grocery_app import categorize
+    from grocery_app.resolver import _BARCODE_LENGTHS, _size_from_row, brand_questions
+
+    article = pick.get("article") or ""
+    product: dict[str, Any] = {
+        "label": pick["name"],
+        "name": pick["name"],
+        "brand": pick.get("brand") or None,
+        "product_line": None,
+        "variant": None,
+        "size": _size_from_row({"pack_size": pick.get("pack_size"),
+                                "catalog_name": pick["name"]}),
+        "category": None,
+        "is_organic": True if "bio" in fold(pick["name"]).split() else None,
+        "eans": [article] if len(article) in _BARCODE_LENGTHS else [],
+        "open_questions": brand_questions(pick.get("brand")),
+        "provenance": {"attributes": f"{pick['source']}-listing",
+                       "source": pick.get("url"), "decided_by": decided_by},
+    }
+    category = categorize.propose("new", product)
+    if category.settled:
+        product["category"] = category.key
+    else:
+        product["open_questions"].append(categorize.CATEGORY_UNKNOWN)
+    return product
 
 
 # --- deciders ---------------------------------------------------------------------
