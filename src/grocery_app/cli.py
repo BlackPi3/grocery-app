@@ -86,6 +86,11 @@ def main() -> None:
     em.add_argument("--products", default="data/products/products.json")
     em.add_argument("--resolution", default="data/products/resolution.json")
     em.add_argument("--products-dir", default="data/products")
+    em.add_argument("--matcher", choices=["claude-code"], default=None,
+                    help="Also run the matcher (step 4b) on lines the memory leaves open. "
+                         "claude-code asks the model through `claude -p`, on the "
+                         "subscription; answers are cached under data/matched/")
+    em.add_argument("--matcher-model", default="sonnet")
     em.add_argument("--json", action="store_true", help="Emit the raw report as JSON")
 
     x = subparsers.add_parser(
@@ -582,13 +587,23 @@ def main() -> None:
     if args.command == "eval-matching":
         truth = json.loads(Path(args.truth).read_text(encoding="utf-8"))
         products = load_products(args.products)
+        resolution = load_resolution(args.resolution)
+        shelf_prices = load_shelf_prices(args.products_dir)
+        index = article_index(products, args.products_dir)
+        matcher = None
+        if args.matcher:
+            from grocery_app import matcher as matching
+
+            decider = matching.ClaudeCodeDecider(args.matcher_model)
+            shops = matching.default_shops(args.products_dir)
+
+            def matcher(line, receipt):
+                return matching.propose(line, receipt.get("store"), products, resolution,
+                                        shelf_prices, index, shops, decider)
         report = evaluate_matching(
             truth,
             load_readings(args.readings, {line["source_image"] for line in truth["lines"]}),
-            load_resolution(args.resolution),
-            products,
-            load_shelf_prices(args.products_dir),
-            article_index(products, args.products_dir),
+            resolution, products, shelf_prices, index, matcher,
         )
         if args.json:
             print(json.dumps(report, indent=2, ensure_ascii=False))
