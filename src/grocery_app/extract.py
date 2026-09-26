@@ -341,19 +341,33 @@ def extract_receipt(
     return Extraction(receipt=receipt, meta=meta)
 
 
-CLAUDE_CODE_MODELS = {"claude-sonnet-5": "claude-sonnet-5", "claude-opus-5": "claude-opus-5"}
+# The photo is shown to `claude -p` in two pieces that overlap by this share of
+# its height. Measured on the 27 hand-verified receipts (2026-09-26): the whole
+# photo read 16 and then 20 of them fully correct in two runs; in two pieces,
+# 21, as many as the API. A likely reason: the file reader shows the model a
+# smaller copy of a large image, and each piece keeps more of the small print.
+PIECE_OVERLAP = 0.12
+
+PIECES_PROMPT = (
+    "Transcribe the receipt. It is photographed in two overlapping pieces: "
+    "receipt-top.jpg is the upper part and receipt-bottom.jpg the lower part. "
+    "The pieces overlap by a few lines; a line that appears in both is one line, "
+    "so transcribe it once. Read both files before answering."
+)
 
 
-def claude_code_reader(model: str = DEFAULT_MODEL, timeout_s: int = 600):
+def claude_code_reader(model: str = DEFAULT_MODEL, timeout_s: int = 900):
     """The same reading through `claude -p`, on the shopper's subscription.
 
-    Everything that decides the reading is shared with `extract_receipt`: the
-    photo is prepared by `prepare_image`, the model gets `SYSTEM_PROMPT` and
-    must answer in `RECEIPT_SCHEMA`, and `parse_model_output` turns the answer
-    into a receipt. Only the transport differs. The prepared photo is written
-    to an empty directory the model may read and nothing else: `Read` is its
-    only tool. The meta says `reader: claude-code` and carries no cost, because
-    none is billed per call.
+    What decides the reading is shared with `extract_receipt`: the photo is
+    prepared by `prepare_image`, the model gets `SYSTEM_PROMPT` and must answer
+    in `RECEIPT_SCHEMA`, and `parse_model_output` turns the answer into a
+    receipt. Two things differ. The transport: the prepared photo is written
+    to an empty directory the model may read and nothing else (`Read` is its
+    only tool). And the photo arrives in two overlapping pieces
+    (`PIECE_OVERLAP`), which is what brought this reader level with the API.
+    The meta says `reader: claude-code` and carries no cost, because none is
+    billed per call.
     """
     import subprocess
     import tempfile
@@ -361,16 +375,22 @@ def claude_code_reader(model: str = DEFAULT_MODEL, timeout_s: int = 600):
     def read(image_path: str | Path) -> Extraction:
         image_path = Path(image_path)
         started = time.monotonic()
-        with tempfile.TemporaryDirectory() as folder:
-            (Path(folder) / "receipt.jpg").write_bytes(prepare_image(image_path))
-            command = ["claude", "-p", "Transcribe the receipt in receipt.jpg.",
-                       "--model", CLAUDE_CODE_MODELS.get(model, model),
-                       "--system-prompt", SYSTEM_PROMPT,
-                       "--json-schema", json.dumps(RECEIPT_SCHEMA),
-                       "--tools", "Read", "--allowedTools", "Read",
-                       "--no-session-persistence", "--output-format", "json"]
-            done = subprocess.run(command, capture_output=True, text=True, cwd=folder,
-                                  timeout=timeout_s, check=False)
+        with Image.open(io.BytesIO(prepare_image(image_path))) as image:
+            width, height = image.size
+            cut, pad = height // 2, int(height * PIECE_OVERLAP / 2)
+            with tempfile.TemporaryDirectory() as folder:
+                image.crop((0, 0, width, cut + pad)).save(
+                    Path(folder) / "receipt-top.jpg", quality=JPEG_QUALITY)
+                image.crop((0, cut - pad, width, height)).save(
+                    Path(folder) / "receipt-bottom.jpg", quality=JPEG_QUALITY)
+                command = ["claude", "-p", PIECES_PROMPT,
+                           "--model", model,
+                           "--system-prompt", SYSTEM_PROMPT,
+                           "--json-schema", json.dumps(RECEIPT_SCHEMA),
+                           "--tools", "Read", "--allowedTools", "Read",
+                           "--no-session-persistence", "--output-format", "json"]
+                done = subprocess.run(command, capture_output=True, text=True, cwd=folder,
+                                      timeout=timeout_s, check=False)
         try:
             result = json.loads(done.stdout)
         except ValueError as exc:
@@ -381,10 +401,10 @@ def claude_code_reader(model: str = DEFAULT_MODEL, timeout_s: int = 600):
         receipt = parse_model_output(json.dumps(answer), image_path.name)
         meta = {
             "source_image": image_path.name, "model": model, "prompt_version": PROMPT_VERSION,
-            "reader": "claude-code", "cost_usd": None,
+            "reader": "claude-code", "pieces": 2, "cost_usd": None,
             "seconds": round(time.monotonic() - started, 1),
-            "note": "read through `claude -p` on the subscription; same model, prompt and "
-                    "schema as the API reader",
+            "note": "read through `claude -p` on the subscription, the photo in two "
+                    "overlapping pieces; same model, system prompt and schema as the API reader",
         }
         return Extraction(receipt=receipt, meta=meta)
 
