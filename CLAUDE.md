@@ -73,10 +73,13 @@ seam between stages extends `tests/test_pipeline.py`.
 No test may call a paid model: `create_app` takes the extractor as an argument with
 no default, so forgetting it is a 503 rather than a charge. The one test that does
 make a real call is marked `paid` and deselected by default. Run it before merging
-any change to `extract.py`, the receipt schema, or the upload route:
+any change to `extract.py`, the receipt schema, or the upload route, with the
+reader the server uses (`GROCERY_READER`: `api` or `claude-code`, the subscription;
+decided 2026-09-26, when the API account had no credit and was not to be topped up):
 
 ```
-DATABASE_URL=... GROCERY_TEST_PHOTO=data/receipts/photos/IMG_5384.jpeg pytest -m paid
+DATABASE_URL=... GROCERY_READER=claude-code \
+    GROCERY_TEST_PHOTO=data/receipts/images/IMG_5384.jpeg pytest -m paid
 ```
 
 When making changes:

@@ -33,7 +33,8 @@ from grocery_app.api.images import ImageStore
 from grocery_app.db.io import receipt_from_dict
 from grocery_app.db.models import Job
 
-__all__ = ["Extractor", "anthropic_extractor", "job_to_dict", "run_job"]
+__all__ = ["Extractor", "anthropic_extractor", "configured_extractor", "job_to_dict",
+           "run_job"]
 
 # Derived at extraction time from the lines and the printed total. The receipt
 # tables hold what the paper says; these two are a reading of it, recomputable,
@@ -68,6 +69,31 @@ def anthropic_extractor(model: str | None = None) -> Extractor:
         return extract_receipt(path, client, model=model or DEFAULT_MODEL)
 
     return extract
+
+
+READER_ENV = "GROCERY_READER"
+READERS = ("api", "claude-code")
+
+
+def configured_extractor(reader: str | None = None) -> Extractor:
+    """The extractor `GROCERY_READER` names: `api` (the default) or `claude-code`.
+
+    `claude-code` reads through `claude -p` on the subscription, for a server
+    running where `claude` is logged in. It is measurably less accurate than
+    the API (docs/designs/catalog-growth.md, step 6), so it is a choice, not
+    a fallback: a server whose API calls fail says so rather than quietly
+    reading worse.
+    """
+    import os
+
+    reader = reader or os.environ.get(READER_ENV, "api")
+    if reader not in READERS:
+        raise ValueError(f"{READER_ENV}={reader!r}: expected one of {', '.join(READERS)}")
+    if reader == "claude-code":
+        from grocery_app.extract import claude_code_reader
+
+        return claude_code_reader()
+    return anthropic_extractor()
 
 
 def job_to_dict(job: Job) -> dict[str, Any]:

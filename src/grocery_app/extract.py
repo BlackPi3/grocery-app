@@ -341,6 +341,56 @@ def extract_receipt(
     return Extraction(receipt=receipt, meta=meta)
 
 
+CLAUDE_CODE_MODELS = {"claude-sonnet-5": "claude-sonnet-5", "claude-opus-5": "claude-opus-5"}
+
+
+def claude_code_reader(model: str = DEFAULT_MODEL, timeout_s: int = 600):
+    """The same reading through `claude -p`, on the shopper's subscription.
+
+    Everything that decides the reading is shared with `extract_receipt`: the
+    photo is prepared by `prepare_image`, the model gets `SYSTEM_PROMPT` and
+    must answer in `RECEIPT_SCHEMA`, and `parse_model_output` turns the answer
+    into a receipt. Only the transport differs. The prepared photo is written
+    to an empty directory the model may read and nothing else: `Read` is its
+    only tool. The meta says `reader: claude-code` and carries no cost, because
+    none is billed per call.
+    """
+    import subprocess
+    import tempfile
+
+    def read(image_path: str | Path) -> Extraction:
+        image_path = Path(image_path)
+        started = time.monotonic()
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / "receipt.jpg").write_bytes(prepare_image(image_path))
+            command = ["claude", "-p", "Transcribe the receipt in receipt.jpg.",
+                       "--model", CLAUDE_CODE_MODELS.get(model, model),
+                       "--system-prompt", SYSTEM_PROMPT,
+                       "--json-schema", json.dumps(RECEIPT_SCHEMA),
+                       "--tools", "Read", "--allowedTools", "Read",
+                       "--no-session-persistence", "--output-format", "json"]
+            done = subprocess.run(command, capture_output=True, text=True, cwd=folder,
+                                  timeout=timeout_s, check=False)
+        try:
+            result = json.loads(done.stdout)
+        except ValueError as exc:
+            raise ExtractionError(f"claude -p gave no JSON: {done.stderr[:300]}") from exc
+        answer = result.get("structured_output")
+        if result.get("is_error") or not isinstance(answer, dict):
+            raise ExtractionError(f"claude -p failed: {str(result.get('result'))[:300]}")
+        receipt = parse_model_output(json.dumps(answer), image_path.name)
+        meta = {
+            "source_image": image_path.name, "model": model, "prompt_version": PROMPT_VERSION,
+            "reader": "claude-code", "cost_usd": None,
+            "seconds": round(time.monotonic() - started, 1),
+            "note": "read through `claude -p` on the subscription; same model, prompt and "
+                    "schema as the API reader",
+        }
+        return Extraction(receipt=receipt, meta=meta)
+
+    return read
+
+
 def output_dir(base: str | Path, model: str, prompt_version: str = PROMPT_VERSION) -> Path:
     return Path(base) / model / prompt_version
 
@@ -353,8 +403,13 @@ def extract_directory(
     limit: int | None = None,
     client: anthropic.Anthropic | None = None,
     log=print,
+    reader=None,
 ) -> dict[str, Any]:
-    """Extract every image in a directory, skipping ones already cached."""
+    """Extract every image in a directory, skipping ones already cached.
+
+    `reader` (image path -> Extraction) replaces the API call, e.g.
+    `claude_code_reader(model)`; without it every image is a paid API call.
+    """
     images = sorted(
         p for p in Path(images_dir).iterdir()
         if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
@@ -373,11 +428,12 @@ def extract_directory(
             log(f"  cached  {image.name}")
             continue
 
-        if client is None:
+        if reader is None and client is None:
             client = anthropic.Anthropic()
         try:
-            result = extract_receipt(image, client, model=model)
-        except (ExtractionError, anthropic.APIError) as exc:
+            result = (reader(image) if reader is not None
+                      else extract_receipt(image, client, model=model))
+        except (ExtractionError, anthropic.APIError, OSError) as exc:
             summary["failed"] += 1
             log(f"  FAILED  {image.name}: {exc}")
             meta_path.write_text(
@@ -394,9 +450,11 @@ def extract_directory(
         summary["extracted"] += 1
         summary["cost_usd"] += result.meta["cost_usd"] or 0.0
         flag = "" if result.receipt["reconciled"] else "  (does not reconcile)"
+        cost = result.meta["cost_usd"]
         log(
             f"  ok      {image.name}  {len(result.receipt['lines'])} lines, "
-            f"{result.receipt['printed_total']:.2f}, ${result.meta['cost_usd']:.3f}, "
+            f"{result.receipt['printed_total']:.2f}, "
+            f"{f'${cost:.3f}' if cost is not None else 'subscription'}, "
             f"{result.meta['seconds']}s{flag}"
         )
 

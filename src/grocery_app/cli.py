@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import date
 from pathlib import Path
 
@@ -104,6 +105,10 @@ def main() -> None:
     x.add_argument("--model", default=DEFAULT_MODEL)
     x.add_argument("--force", action="store_true", help="Re-extract even if a cached result exists")
     x.add_argument("--limit", type=int, default=None, help="Only process the first N images")
+    x.add_argument("--reader", choices=["api", "claude-code"], default="api",
+                   help="api: a paid API call per photo; claude-code: the same model, prompt "
+                        "and schema through `claude -p`, on the subscription (reads worse: "
+                        "see docs/designs/catalog-growth.md, step 6)")
 
     c = subparsers.add_parser(
         "catalog",
@@ -230,6 +235,10 @@ def main() -> None:
     s.add_argument("--purchases", default="data/purchases.json")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)
+    s.add_argument("--reader", choices=["api", "claude-code"], default=None,
+                   help="How uploaded photos are read; defaults to GROCERY_READER, then api")
+    s.add_argument("--products-dir", default="data/products",
+                   help="Where the matcher finds the ALDI SÜD crawl and the GLOBUS search cache")
 
     d = subparsers.add_parser(
         "db",
@@ -277,9 +286,14 @@ def main() -> None:
             print(f"  ambiguous:      {meta['ambiguous_items']}")
 
     if args.command == "extract":
-        print(f"Extracting with {args.model} (prompt {PROMPT_VERSION}) -> {args.out}")
+        from grocery_app.extract import claude_code_reader
+
+        reader = claude_code_reader(args.model) if args.reader == "claude-code" else None
+        print(f"Extracting with {args.model} (prompt {PROMPT_VERSION}, reader {args.reader}) "
+              f"-> {args.out}")
         summary = extract_directory(
-            args.images, args.out, model=args.model, force=args.force, limit=args.limit
+            args.images, args.out, model=args.model, force=args.force, limit=args.limit,
+            reader=reader,
         )
         print(
             f"\n{summary['extracted']} extracted, {summary['cached']} cached, "
@@ -533,7 +547,8 @@ def main() -> None:
 
             from grocery_app.api.app import create_app
             from grocery_app.api.images import default_image_store
-            from grocery_app.api.jobs import anthropic_extractor
+            from grocery_app.api.jobs import READERS, configured_extractor
+            from grocery_app.api.matching import line_matcher
             from grocery_app.api.repository import default_repository
         except ImportError as exc:
             raise SystemExit(
@@ -549,8 +564,19 @@ def main() -> None:
         else:
             print("  uploads:  off (needs DATABASE_URL)")
         # The extractor builds its client on first use, so no API key is
-        # needed to start a server that only ever serves reads.
-        uvicorn.run(create_app(repository, store, anthropic_extractor()),
+        # needed to start a server that only ever serves reads. The matcher
+        # is the same one `default_app` wires: unknown lines of an uploaded
+        # receipt are matched before its job is done.
+        from grocery_app import matcher as matching
+
+        reader = args.reader or os.environ.get("GROCERY_READER", "api")
+        if reader not in READERS:
+            raise SystemExit(f"unknown reader {reader!r}: expected {', '.join(READERS)}")
+        if on_postgres:
+            print(f"  reader:   {reader}; matcher: claude -p (subscription)")
+        match = line_matcher(matching.ClaudeCodeDecider(),
+                             matching.default_shops(args.products_dir))
+        uvicorn.run(create_app(repository, store, configured_extractor(reader), match),
                     host=args.host, port=args.port)
 
     if args.command == "db":

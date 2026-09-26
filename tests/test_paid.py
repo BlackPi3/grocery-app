@@ -4,11 +4,12 @@ Everything else in this suite fakes the model call, which means nothing else
 proves that what the model returns today still fits the code that stores it.
 The fake promises a shape; this is the only test that checks the promise.
 
-It costs a few cents, so it is marked `paid` and deselected by default. Run it
-deliberately:
+It makes a real model call, so it is marked `paid` and deselected by default.
+It reads through the reader the server uses (`GROCERY_READER`: `api`, a few
+cents; `claude-code`, the subscription). Run it deliberately:
 
-    DATABASE_URL=... GROCERY_TEST_PHOTO=data/receipts/photos/IMG_5384.jpeg \
-        pytest -m paid
+    DATABASE_URL=... GROCERY_READER=claude-code \
+        GROCERY_TEST_PHOTO=data/receipts/images/IMG_5384.jpeg pytest -m paid
 
 Run it when the model changes, the prompt changes, the receipt schema changes,
 or the upload route changes. One photo is enough: "does it still fit?" is a
@@ -26,7 +27,7 @@ from fastapi.testclient import TestClient
 
 from grocery_app.api.app import create_app
 from grocery_app.api.images import DiskImageStore
-from grocery_app.api.jobs import anthropic_extractor
+from grocery_app.api.jobs import READER_ENV, configured_extractor
 from grocery_app.api.repository import PostgresRepository
 from grocery_app.db.session import make_session_factory
 from tests.conftest import DATABASE_URL as URL
@@ -47,7 +48,7 @@ def test_a_real_photo_becomes_a_real_receipt(engine, session, tmp_path):
     client = TestClient(create_app(
         PostgresRepository(make_session_factory(engine)),
         DiskImageStore(tmp_path / "uploads"),
-        anthropic_extractor(),
+        configured_extractor(),
     ))
 
     queued = client.post("/v1/receipts",
@@ -56,7 +57,8 @@ def test_a_real_photo_becomes_a_real_receipt(engine, session, tmp_path):
 
     job = client.get(f"/v1/jobs/{queued.json()['job_id']}").json()
     assert job["status"] == "done", job.get("error")
-    assert job["cost_usd"] and job["cost_usd"] > 0, "a real call costs real money"
+    if os.environ.get(READER_ENV, "api") == "api":
+        assert job["cost_usd"] and job["cost_usd"] > 0, "a real call costs real money"
     assert job["receipt_id"] is not None
 
     receipt = client.get(f"/v1/receipts/{job['receipt_id']}").json()
@@ -69,4 +71,5 @@ def test_a_real_photo_becomes_a_real_receipt(engine, session, tmp_path):
                for p in served["purchases"]), "the real receipt reached the history"
 
     print(f"\n  {photo.name}: {len(receipt['lines'])} lines, "
-          f"{receipt['receipt']['printed_total']:.2f}, ${job['cost_usd']:.4f}")
+          f"{receipt['receipt']['printed_total']:.2f}, "
+          f"{os.environ.get(READER_ENV, 'api')} reader, cost {job['cost_usd']}")
