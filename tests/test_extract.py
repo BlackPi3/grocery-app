@@ -139,3 +139,15 @@ def test_a_failed_subscription_read_is_an_extraction_error(tmp_path, monkeypatch
         command, 1, json.dumps({"is_error": True, "result": "usage limit"}), ""))
     with pytest.raises(extract.ExtractionError, match="usage limit"):
         extract.claude_code_reader()(photo)
+
+
+def test_the_server_reads_photos_with_the_reader_it_is_told_to_use(monkeypatch):
+    from grocery_app.api import jobs
+
+    monkeypatch.setenv(jobs.READER_ENV, "claude-code")
+    assert jobs.configured_extractor().__qualname__.startswith("claude_code_reader")
+    monkeypatch.delenv(jobs.READER_ENV)
+    assert jobs.configured_extractor().__qualname__.startswith("anthropic_extractor"), \
+        "the API stays the default"
+    with pytest.raises(ValueError, match="expected one of api, claude-code"):
+        jobs.configured_extractor("gemini")

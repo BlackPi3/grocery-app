@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import date
 from pathlib import Path
 
@@ -234,6 +235,10 @@ def main() -> None:
     s.add_argument("--purchases", default="data/purchases.json")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)
+    s.add_argument("--reader", choices=["api", "claude-code"], default=None,
+                   help="How uploaded photos are read; defaults to GROCERY_READER, then api")
+    s.add_argument("--products-dir", default="data/products",
+                   help="Where the matcher finds the ALDI SÜD crawl and the GLOBUS search cache")
 
     d = subparsers.add_parser(
         "db",
@@ -542,7 +547,8 @@ def main() -> None:
 
             from grocery_app.api.app import create_app
             from grocery_app.api.images import default_image_store
-            from grocery_app.api.jobs import anthropic_extractor
+            from grocery_app.api.jobs import READERS, configured_extractor
+            from grocery_app.api.matching import line_matcher
             from grocery_app.api.repository import default_repository
         except ImportError as exc:
             raise SystemExit(
@@ -558,8 +564,19 @@ def main() -> None:
         else:
             print("  uploads:  off (needs DATABASE_URL)")
         # The extractor builds its client on first use, so no API key is
-        # needed to start a server that only ever serves reads.
-        uvicorn.run(create_app(repository, store, anthropic_extractor()),
+        # needed to start a server that only ever serves reads. The matcher
+        # is the same one `default_app` wires: unknown lines of an uploaded
+        # receipt are matched before its job is done.
+        from grocery_app import matcher as matching
+
+        reader = args.reader or os.environ.get("GROCERY_READER", "api")
+        if reader not in READERS:
+            raise SystemExit(f"unknown reader {reader!r}: expected {', '.join(READERS)}")
+        if on_postgres:
+            print(f"  reader:   {reader}; matcher: claude -p (subscription)")
+        match = line_matcher(matching.ClaudeCodeDecider(),
+                             matching.default_shops(args.products_dir))
+        uvicorn.run(create_app(repository, store, configured_extractor(reader), match),
                     host=args.host, port=args.port)
 
     if args.command == "db":

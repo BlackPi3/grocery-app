@@ -27,7 +27,7 @@ from grocery_app.api.images import (
     looks_like_an_image,
     sha256_of,
 )
-from grocery_app.api.jobs import Extractor, anthropic_extractor, run_job
+from grocery_app.api.jobs import Extractor, configured_extractor, run_job
 from grocery_app.api.matching import LineMatcher, line_matcher
 from grocery_app.api.repository import (
     DEFAULT_PURCHASES,
@@ -258,11 +258,12 @@ def default_app() -> FastAPI:
 
     `DATABASE_URL` selects PostgreSQL; otherwise `GROCERY_PURCHASES` names the
     purchases.json to serve. This is the one place the real, paid extractor is
-    wired in, and `GROCERY_IMAGES` says where uploaded photos are kept. The
+    wired in: `GROCERY_READER` picks the API (default) or `claude -p` on the
+    subscription. `GROCERY_IMAGES` says where uploaded photos are kept. The
     matcher asks the model through `claude -p`, on the subscription.
     """
     from grocery_app import matcher as matching
 
     matcher = line_matcher(matching.ClaudeCodeDecider(), matching.default_shops())
-    return create_app(default_repository(), default_image_store(), anthropic_extractor(),
+    return create_app(default_repository(), default_image_store(), configured_extractor(),
                       matcher)
