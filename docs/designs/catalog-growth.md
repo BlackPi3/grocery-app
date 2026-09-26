@@ -295,16 +295,27 @@ on.
    - **`grocery-app extract --reader claude-code`** reads photos through
      `claude -p` on the subscription: the same prepared photo, prompt, schema
      and parser as the API reader, with `Read` as the model's only tool.
-     **It reads worse than the API, measured on the 27 hand-verified
-     receipts (2026-09-25):** 16 of 27 fully correct against the API's 21;
-     names 93.5% against 99.2%, tax class 89.9% against 97.2%; quantities
-     and amounts as good. It "repairs" the `?` a till prints for an umlaut
-     (`Kiwi gr?n St?ck` read as `Kiwi grün Stück`) and writes a rate (`7%`)
-     where the paper prints a code (`2`). A likely cause, not proven: the
-     file reader shows the model a smaller copy of the photo. So it is
-     opt-in, never the default. The 22 fresh receipts were read this way;
-     the memory's spelling key treats `?` and an umlaut alike, and no amount
-     is affected, but their tax classes may be rates.
+     Measured on the 27 hand-verified receipts:
+
+     | reader | fully correct | names | amounts | tax class |
+     |---|---|---|---|---|
+     | API | 21 | 99.2% | 98.4% | 97.2% |
+     | subscription, whole photo, run 1 | 16 | 93.5% | 98.4% | 89.9% |
+     | subscription, whole photo, run 2 | 20 | 97.2% | 98.4% | 92.7% |
+     | **subscription, photo in two pieces** | **21** | 98.4% | 99.2% | 92.7% |
+
+     Two findings (2026-09-26). The same reader moved from 16 to 20 between
+     runs, so one run says little and most of the first gap was chance. And
+     given the photo in two overlapping pieces it matches the API on whole
+     receipts and amounts; that is how it now reads (`PIECE_OVERLAP`). A
+     likely reason, not proven: the file reader shows the model a smaller copy
+     of a large image. The gap left is the tax class, which writes a rate
+     (`7%`) where the paper prints a code (`2`); no insight and nothing on
+     the demo reads the tax class. The API stays the default in code, because
+     a hosted server will not have `claude` logged in; the server on the
+     laptop reads with `GROCERY_READER=claude-code` (or `serve --reader
+     claude-code`), since the API account has no credit. The 22 fresh
+     receipts were read with the whole photo, before this.
    - **The real history is the `grocery` database from now on.** It was
      behind the files (schema 0002, 99 products); it was backed up to
      `data/backups/`, upgraded, and loaded with the files (`db import`), and

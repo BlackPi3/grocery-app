@@ -90,14 +90,15 @@ def test_estimate_cost_uses_model_prices():
 
 
 def test_the_subscription_reader_shares_everything_but_the_transport(tmp_path, monkeypatch):
-    """Same prepared photo, prompt, schema and parser as the API reader; the
-    model may read the photo and nothing else; no cost is claimed."""
+    """Same prepared photo, system prompt, schema and parser as the API reader;
+    the photo in two overlapping pieces; the model may read them and nothing
+    else; no cost is claimed."""
     import subprocess
 
     from grocery_app import extract
 
     photo = tmp_path / "IMG_9.jpeg"
-    Image.new("RGB", (40, 60), "white").save(photo, format="JPEG")
+    Image.new("RGB", (40, 100), "white").save(photo, format="JPEG")
     answer = {"store": "Musterladen", "store_location": None, "date": "2026-03-01",
               "time": "10:00", "currency": "EUR", "printed_total": 1.09,
               "printed_savings": None, "tax_buckets": [],
@@ -111,6 +112,8 @@ def test_the_subscription_reader_shares_everything_but_the_transport(tmp_path, m
         from pathlib import Path
 
         seen["command"], seen["files"] = command, sorted(p.name for p in Path(cwd).iterdir())
+        from PIL import Image as PILImage
+        seen["heights"] = [PILImage.open(Path(cwd) / name).height for name in seen["files"]]
         return subprocess.CompletedProcess(command, 0, json.dumps(
             {"is_error": False, "structured_output": answer}), "")
 
@@ -125,7 +128,10 @@ def test_the_subscription_reader_shares_everything_but_the_transport(tmp_path, m
     assert command[command.index("--system-prompt") + 1] == extract.SYSTEM_PROMPT
     assert json.loads(command[command.index("--json-schema") + 1]) == extract.RECEIPT_SCHEMA
     assert command[command.index("--tools") + 1] == "Read"
-    assert seen["files"] == ["receipt.jpg"], "the model's folder holds the photo and nothing else"
+    assert seen["files"] == ["receipt-bottom.jpg", "receipt-top.jpg"], \
+        "the model's folder holds the photo, in two pieces, and nothing else"
+    assert result.meta["pieces"] == 2
+    assert seen["heights"] == [56, 56], "each piece is half the photo plus the overlap"
 
 
 def test_a_failed_subscription_read_is_an_extraction_error(tmp_path, monkeypatch):
