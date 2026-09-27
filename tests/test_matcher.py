@@ -185,12 +185,25 @@ def test_claude_code_answers_are_cached_and_asked_once(tmp_path, monkeypatch):
     assert calls[0][:2] == ["claude", "-p"] and "--tools" in calls[0]
 
 
+def test_a_momentary_failure_is_tried_once_more(tmp_path, monkeypatch):
+    replies = [{"is_error": True, "result": "Not logged in"},
+               {"is_error": False, "structured_output": {"choice": 0}}]
+
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(command, 0, json.dumps(replies.pop(0)), "")
+
+    monkeypatch.setattr(matcher.subprocess, "run", fake_run)
+    monkeypatch.setattr(ClaudeCodeDecider, "RETRY_AFTER_S", 0)
+    assert ClaudeCodeDecider("sonnet", tmp_path)("s", "p", {}) == {"choice": 0}
+
+
 def test_a_failed_call_is_an_error_and_is_not_cached(tmp_path, monkeypatch):
     def fake_run(command, **kwargs):
         return subprocess.CompletedProcess(command, 1, json.dumps(
             {"is_error": True, "result": "usage limit"}), "")
 
     monkeypatch.setattr(matcher.subprocess, "run", fake_run)
+    monkeypatch.setattr(ClaudeCodeDecider, "RETRY_AFTER_S", 0)
     with pytest.raises(DeciderError, match="usage limit"):
         ClaudeCodeDecider("sonnet", tmp_path)("s", "p", {})
     assert not list(tmp_path.rglob("*.json"))

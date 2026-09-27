@@ -36,6 +36,7 @@ import hashlib
 import json
 import subprocess
 import tempfile
+import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -437,10 +438,15 @@ class ClaudeCodeDecider:
     the model.
     """
 
+    # One more try after a pause: on 2026-09-27 a scoring run stopped after
+    # 76 of 135 lines on a single momentary "Not logged in", and the next
+    # call worked. A second failure in a row is a real one and is raised.
+    RETRY_AFTER_S = 20
+
     def __init__(self, model: str = "sonnet", cache_dir: str | Path = "data/matched",
-                 timeout_s: int = 180):
+                 timeout_s: int = 180, version: str = PROMPT_VERSION):
         self.model = model
-        self.cache = Path(cache_dir) / f"claude-code-{model}" / PROMPT_VERSION
+        self.cache = Path(cache_dir) / f"claude-code-{model}" / version
         self.timeout_s = timeout_s
 
     def __call__(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
@@ -449,6 +455,17 @@ class ClaudeCodeDecider:
         path = self.cache / f"{key}.json"
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))["answer"]
+        try:
+            answer = self._ask(system, prompt, schema)
+        except (DeciderError, subprocess.TimeoutExpired):
+            time.sleep(self.RETRY_AFTER_S)
+            answer = self._ask(system, prompt, schema)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"prompt": prompt, "answer": answer},
+                                   ensure_ascii=False, indent=2), encoding="utf-8")
+        return answer
+
+    def _ask(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
         command = ["claude", "-p", prompt, "--model", self.model, "--tools", "",
                    "--no-session-persistence", "--system-prompt", system,
                    "--output-format", "json", "--json-schema", json.dumps(schema)]
@@ -462,7 +479,4 @@ class ClaudeCodeDecider:
         answer = result.get("structured_output")
         if result.get("is_error") or not isinstance(answer, dict):
             raise DeciderError(f"claude -p failed: {str(result.get('result'))[:300]}")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"prompt": prompt, "answer": answer},
-                                   ensure_ascii=False, indent=2), encoding="utf-8")
         return answer

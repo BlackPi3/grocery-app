@@ -72,6 +72,10 @@ BRANCHES: dict[str, str] = {
     "tiefkuehl": "Tiefkühlung",
     "haushalt": "Haushaltsartikel",
     "drogerie": "Drogerie & Kosmetik",
+    # Kept in the history, kept out of the grocery insights (Parham,
+    # 2026-09-27): a café breakfast or a birthday card is money spent, not a
+    # grocery bought. `is_grocery` is the one place that says so.
+    "kein-lebensmitteleinkauf": "Kein Lebensmitteleinkauf",
 }
 
 # --- level 2: the sections within a branch ------------------------------------
@@ -111,6 +115,8 @@ SECTIONS: dict[str, tuple[str, str]] = {
     "haushaltshelfer": ("Haushaltshelfer", "haushalt"),
     "koerperpflege": ("Körperpflege", "drogerie"),
     "gesundheit": ("Gesundheit", "drogerie"),
+    "gastronomie": ("Gastronomie", "kein-lebensmitteleinkauf"),
+    "sonstiger-einkauf": ("Sonstiges", "kein-lebensmitteleinkauf"),
 }
 
 # --- level 3: the shopping-list line ------------------------------------------
@@ -406,6 +412,18 @@ CATEGORIES: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "nahrungsergaenzung": ("Nahrungsergänzung", "gesundheit",
                            ("magnesium", "vitamin", "vitamine", "supplement",
                             "nahrungsergaenzung", "zink", "eisen")),
+    # --- Kein Lebensmitteleinkauf ---
+    "cafe-imbiss": ("Café & Imbiss", "gastronomie", ("fruehstueck komplett",)),
+    "blumen": ("Blumen & Pflanzen", "sonstiger-einkauf",
+               ("rosen", "chrysanthemen", "blumenstrauss")),
+    "taschen-tueten": ("Taschen & Tüten", "sonstiger-einkauf",
+                       ("mehrwegtasche", "tragetasche", "obstknotenbeutel")),
+    "foto-karten": ("Foto & Karten", "sonstiger-einkauf",
+                    ("passbild", "grusskarte", "geburtstagskarte")),
+    "make-up": ("Make-up & Accessoires", "sonstiger-einkauf",
+                ("lippenstift", "mascara", "nagellack", "haarspangen")),
+    "medizinprodukte": ("Medizinprodukte & Tests", "sonstiger-einkauf",
+                        ("schwangerschaftstest",)),
 }
 
 # The sections where a null brand is the final answer rather than a gap. You
@@ -422,6 +440,17 @@ def is_produce(category_key: str | None) -> bool:
     """True when a null brand on this category is the final answer, not a gap."""
     entry = CATEGORIES.get(category_key or "")
     return bool(entry) and entry[1] in PRODUCE_SECTIONS
+
+
+NOT_GROCERY_BRANCHES: frozenset[str] = frozenset({"kein-lebensmitteleinkauf"})
+
+
+def is_grocery(category_key: str | None) -> bool:
+    """False only for a category known not to be a grocery. An unknown or
+    missing category counts as grocery: leaving money out of the insights
+    needs a reason, not the absence of one."""
+    entry = CATEGORIES.get(category_key or "")
+    return not entry or SECTIONS[entry[1]][1] not in NOT_GROCERY_BRANCHES
 
 
 def label(category_key: str) -> str:
