@@ -95,6 +95,18 @@ def main() -> None:
     em.add_argument("--matcher-model", default="sonnet")
     em.add_argument("--json", action="store_true", help="Emit the raw report as JSON")
 
+    ei = subparsers.add_parser(
+        "eval-identify",
+        help="Score what the app says each line is against the shopper's answer sheet "
+             "(claude -p, on the subscription; answers cached under data/identified/)",
+    )
+    ei.add_argument("--truth", default="data/receipts/product_truth.json")
+    ei.add_argument("--model", default="sonnet")
+    ei.add_argument("--products", default="data/products/products.json")
+    ei.add_argument("--resolution", default="data/products/resolution.json")
+    ei.add_argument("--products-dir", default="data/products")
+    ei.add_argument("--json", action="store_true", help="Emit the raw report as JSON")
+
     x = subparsers.add_parser(
         "extract",
         help="Extract structured receipts from photos with a vision model",
@@ -667,6 +679,34 @@ def main() -> None:
             print(json.dumps(report, indent=2, ensure_ascii=False))
         else:
             print(format_report(report))
+
+    if args.command == "eval-identify":
+        from dataclasses import asdict
+
+        from grocery_app import identify as identifying
+        from grocery_app import matcher as matching
+        from grocery_app.evaluate_identify import bound_identifier, evaluate_identify
+        from grocery_app.evaluate_identify import format_report as format_identify
+        from grocery_app.evaluate_matching import article_index as files_index
+        from grocery_app.matcher import ClaudeCodeDecider
+
+        reader = ClaudeCodeDecider(args.model, "data/identified",
+                                   version=identifying.PROMPT_VERSION)
+        judge = ClaudeCodeDecider(args.model, "data/identified", version="judge-v1")
+        products = load_products(args.products)
+        resolution = load_resolution(args.resolution)
+        shelf = load_shelf_prices(args.products_dir)
+        index = files_index(products, args.products_dir)
+        shops = matching.default_shops(args.products_dir)
+
+        def context(raw_name, store):
+            return [asdict(c) for c in matching.gather(raw_name, store, products, resolution,
+                                                      shelf, index, shops)]
+
+        report = evaluate_identify(load_json(args.truth), bound_identifier(reader, context),
+                                   judge)
+        print(json.dumps(report, indent=2, ensure_ascii=False) if args.json
+              else format_identify(report))
 
     if args.command == "eval-matching":
         truth = json.loads(Path(args.truth).read_text(encoding="utf-8"))
