@@ -106,4 +106,7 @@ def format_report(report: dict[str, Any]) -> str:
                 said = " | ".join(str(who[k]) for k in ("name", "brand", "variant") if who[k])
                 out.append(f"  {line['raw_name']:<28} said: {said:<40} sheet: {line['sheet']}")
                 out.append(f"  {'':<28} {line['why']}")
+                if who.get("parts"):
+                    out.append(f"  {'':<28} parts: " + "; ".join(
+                        f"{part['printed']} = {part['means'] or '?'}" for part in who["parts"]))
     return "\n".join(out)

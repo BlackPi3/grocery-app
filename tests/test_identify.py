@@ -10,7 +10,9 @@ from grocery_app.identify import SCHEMA, SYSTEM_PROMPT, identify
 
 
 def answering(**answer):
-    base = {"name": "Erdbeeren", "category": "beeren", "brand": None, "variant": None,
+    base = {"parts": [{"printed": "Erdbeeren", "means": "strawberries (kind)"},
+                      {"printed": "400g", "means": "size"}],
+            "name": "Erdbeeren", "category": "beeren", "brand": None, "variant": None,
             "size": "400g", "can_tell": True, "reason": "the line says strawberries"}
     asked = []
 
@@ -100,3 +102,50 @@ def test_the_scorer_gives_each_line_its_receipt():
     truth = {"lines": [sheet("A", "a", 0), sheet("B", "b", 1)]}
     evaluate_identify(truth, identifier, lambda *a: {})
     assert seen == {"A": ["A", "B"], "B": ["A", "B"]}
+
+
+# --- every printed part is accounted for -------------------------------------
+
+def test_an_answer_that_leaves_a_printed_word_out_cannot_tell():
+    """A till prints nothing by accident: `MU` dropped means the model took the
+    first pad it saw instead of reading the brand."""
+    identity = identify("MU Pads 36er", "Musterladen", answering(
+        parts=[{"printed": "Pads", "means": "pads"}, {"printed": "36er", "means": "36"}],
+        name="Wattepads", can_tell=True, reason="similar product"))
+    assert identity.can_tell is False
+    assert identity.reason.startswith("left out `MU`")
+
+
+def test_every_word_accounted_for_keeps_the_answer():
+    identity = identify("MU Pads 36er", "Musterladen", answering(
+        parts=[{"printed": "MU", "means": "Muster (brand)"}, {"printed": "Pads", "means": "pads"},
+               {"printed": "36er", "means": "36"}], name="Kaffeepads", can_tell=True))
+    assert identity.can_tell is True
+    assert identity.parts[0] == {"printed": "MU", "means": "Muster (brand)"}
+
+
+def test_a_word_split_across_parts_or_punctuation_dropped_still_counts():
+    from grocery_app.identify import left_out
+
+    assert left_out("MUSTERKORNBRÖT. 2er", [{"printed": "MUSTERKORN"}, {"printed": "BRÖT."},
+                                            {"printed": "2er"}]) == []
+    assert left_out("Kekse,Muster / Ding W", [{"printed": "Kekse"}, {"printed": "Muster"},
+                                              {"printed": "Ding W"}]) == []
+    assert left_out("Kekse Muster", [{"printed": "Kekse"}]) == ["Muster"]
+
+
+def test_the_model_is_told_to_read_every_part_first():
+    assert "Leave nothing out" in SYSTEM_PROMPT
+    assert SCHEMA["required"][0] == "parts"
+
+
+def test_the_report_shows_the_parts_of_a_line_it_lists():
+    from grocery_app.identify import Identity
+
+    said = Identity("Wattepads", None, None, None, None, True, ".",
+                    [{"printed": "MU", "means": None}, {"printed": "Pads", "means": "pads"}])
+    report = evaluate_identify({"lines": [sheet("MU Pads", "Muster coffee pads")]},
+                               lambda *_: said,
+                               lambda *_: {"verdict": "wrong", "reason": "test"})
+    assert "parts: MU = ?; Pads = pads" in format_report(report)
+
