@@ -25,8 +25,9 @@ from collections import Counter
 from collections.abc import Callable
 from typing import Any
 
-from grocery_app.identify import Identity, identify
+from grocery_app.identify import Identity, identify, line_vat_rates, paid
 from grocery_app.matcher import Decider
+from grocery_app.resolver import store_key
 
 OUTCOMES = ("right", "close", "wrong", "asked")
 
@@ -50,8 +51,9 @@ JUDGE_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
-# (printed name, store, the other printed names on the receipt) -> what it is
-Identifier = Callable[[str, str | None, list[str]], Identity]
+# (printed name, store, the other printed names on the receipt, what the
+# receipt says was paid for the line) -> what it is
+Identifier = Callable[[str, str | None, list[str], str], Identity]
 
 
 def judge(identity: Identity, sheet: dict[str, Any], decider: Decider) -> dict[str, str]:
@@ -63,21 +65,40 @@ def judge(identity: Identity, sheet: dict[str, Any], decider: Decider) -> dict[s
                                  f"Answer: {said}\nShopper's description: {words}", JUDGE_SCHEMA)
 
 
+def paid_texts(truth_doc: dict[str, Any],
+               readings: dict[str, dict[str, Any]]) -> dict[tuple[str, int], str]:
+    """(photo, position) -> what was paid, from the parser's reading of the
+    photo, for each sheet line whose position still holds the same name."""
+    out = {}
+    for sheet in truth_doc["lines"]:
+        reading = readings.get(sheet["source_image"])
+        lines = (reading or {}).get("lines") or []
+        position = sheet["position"]
+        if position < len(lines) and lines[position].get("raw_name") == sheet["raw_name"]:
+            out[(sheet["source_image"], position)] = paid(
+                lines[position], line_vat_rates(reading)[position])
+    return out
+
+
 def evaluate_identify(truth_doc: dict[str, Any], identifier: Identifier,
-                      judge_decider: Decider) -> dict[str, Any]:
+                      judge_decider: Decider,
+                      readings: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
+    paid_for = paid_texts(truth_doc, readings or {})
     receipts: dict[str, list[str]] = {}
     for sheet in sorted(truth_doc["lines"], key=lambda t: t["position"]):
         receipts.setdefault(sheet["source_image"], []).append(sheet["raw_name"])
     lines = []
     for sheet in truth_doc["lines"]:
         identity = identifier(sheet["raw_name"], sheet.get("store"),
-                              receipts[sheet["source_image"]])
+                              receipts[sheet["source_image"]],
+                              paid_for.get((sheet["source_image"], sheet["position"]), ""))
         verdict = {"verdict": "asked", "reason": identity.reason}
         if identity.can_tell:
             verdict = judge(identity, sheet, judge_decider)
         lines.append({"source_image": sheet["source_image"], "position": sheet["position"],
                       "store": sheet.get("store"), "raw_name": sheet["raw_name"],
                       "sheet": sheet["product"], "identity": identity.as_dict(),
+                      "paid": paid_for.get((sheet["source_image"], sheet["position"]), ""),
                       "outcome": verdict["verdict"], "why": verdict.get("reason", "")})
     count = Counter(line["outcome"] for line in lines)
     return {"totals": {o: count[o] for o in OUTCOMES}, "lines": lines}
@@ -85,11 +106,13 @@ def evaluate_identify(truth_doc: dict[str, Any], identifier: Identifier,
 
 def bound_identifier(decider: Decider,
                      context: Callable[[str, str | None], list[dict[str, Any]]] | None = None,
-                     ) -> Identifier:
-    """`identify` bound to a decider, and to where the shop's similar products
-    come from (`matcher.gather`), when there is such a source."""
-    return lambda raw_name, store, receipt_lines: identify(
-        raw_name, store, decider, context(raw_name, store) if context else None, receipt_lines)
+                     learned: dict[str, dict[str, Counter]] | None = None) -> Identifier:
+    """`identify` bound to a decider, to where the shop's similar products come
+    from (`matcher.gather`), and to the abbreviations learned from the memory
+    (`identify.abbreviations`), when there are such sources."""
+    return lambda raw_name, store, receipt_lines, paid_text="": identify(
+        raw_name, store, decider, context(raw_name, store) if context else None,
+        receipt_lines, paid_text, (learned or {}).get(store_key(store)))
 
 
 def format_report(report: dict[str, Any]) -> str:
@@ -106,4 +129,7 @@ def format_report(report: dict[str, Any]) -> str:
                 said = " | ".join(str(who[k]) for k in ("name", "brand", "variant") if who[k])
                 out.append(f"  {line['raw_name']:<28} said: {said:<40} sheet: {line['sheet']}")
                 out.append(f"  {'':<28} {line['why']}")
+                if who.get("parts"):
+                    out.append(f"  {'':<28} parts: " + "; ".join(
+                        f"{part['printed']} = {part['means'] or '?'}" for part in who["parts"]))
     return "\n".join(out)

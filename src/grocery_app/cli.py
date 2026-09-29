@@ -105,6 +105,9 @@ def main() -> None:
     ei.add_argument("--products", default="data/products/products.json")
     ei.add_argument("--resolution", default="data/products/resolution.json")
     ei.add_argument("--products-dir", default="data/products")
+    ei.add_argument("--readings", default="data/extracted/claude-sonnet-5/v1",
+                    help="The parser's readings of the sheet's photos: what each line cost "
+                         "and its VAT rate")
     ei.add_argument("--json", action="store_true", help="Emit the raw report as JSON")
 
     x = subparsers.add_parser(
@@ -703,8 +706,13 @@ def main() -> None:
             return [asdict(c) for c in matching.gather(raw_name, store, products, resolution,
                                                       shelf, index, shops)]
 
-        report = evaluate_identify(load_json(args.truth), bound_identifier(reader, context),
-                                   judge)
+        from grocery_app.evaluate_matching import load_readings as readings_for
+
+        truth = load_json(args.truth)
+        readings = readings_for(args.readings, {line["source_image"] for line in truth["lines"]})
+        learned = identifying.abbreviations(resolution, products)
+        report = evaluate_identify(truth, bound_identifier(reader, context, learned), judge,
+                                   readings)
         print(json.dumps(report, indent=2, ensure_ascii=False) if args.json
               else format_identify(report))
 
