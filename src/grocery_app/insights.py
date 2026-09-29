@@ -19,6 +19,12 @@ The four insights promised in CLAUDE.md, in the order they are computed:
 
 plus the same-item comparison across stores, which is honest about having no
 data until a product resolves at two stores.
+
+Only groceries count. A café breakfast, flowers or a birthday card stays in the
+history, but a basket index or a budget-brand share that included them would
+answer a question nobody asked. `categories.is_grocery` is the one place that
+says what is not a grocery; coverage reports what was left out and how much
+money it was, so the exclusion is visible rather than silent.
 """
 
 from __future__ import annotations
@@ -33,7 +39,7 @@ from typing import Any
 from grocery_app import categories
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 2
+CONTRACT_VERSION = 3
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -343,7 +349,20 @@ def cross_store(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 # --- coverage and assembly ---------------------------------------------------
 
-def coverage(purchases: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
+def _not_grocery(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    by_category: dict[str, float] = defaultdict(float)
+    for p in rows:
+        by_category[categories.label(p["category"])] += p.get("net_paid") or 0.0
+    return {"lines": len(rows),
+            "spend": round(sum(by_category.values(), 0.0), 2),
+            "by_category": {c: round(v, 2) for c, v in
+                            sorted(by_category.items(), key=lambda kv: -kv[1])}}
+
+
+def coverage(purchases: dict[str, Any], rows: list[dict[str, Any]],
+             left_out: list[dict[str, Any]]) -> dict[str, Any]:
+    """What the insights rest on. `rows` are the grocery lines; `left_out` the
+    lines known not to be groceries, reported here and nowhere else."""
     resolved = [p for p in rows if p.get("product_id")]
     spend = sum(p.get("net_paid") or 0.0 for p in rows)
     resolved_spend = sum(p.get("net_paid") or 0.0 for p in resolved)
@@ -363,20 +382,25 @@ def coverage(purchases: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str,
         "resolved_spend": round(resolved_spend, 2),
         "resolved_share_of_spend": round(resolved_spend / spend, 3) if spend else None,
         "by_store": dict(sorted(per_store.items())),
-        "note": "product-level insights use resolved lines only; spend figures use every line",
+        "not_grocery": _not_grocery(left_out),
+        "note": "groceries only: lines known not to be groceries are counted under "
+                "not_grocery and left out of every insight; product-level insights use "
+                "resolved lines only; spend figures use every grocery line",
     }
 
 
 def build_insights(purchases: dict[str, Any], as_of: date | None = None) -> dict[str, Any]:
     """The insights contract, from a purchases.json document."""
-    rows = _product_rows(purchases.get("purchases", []))
-    dates = sorted(p["date"] for p in rows if p.get("date"))
+    lines = _product_rows(purchases.get("purchases", []))
+    rows = [p for p in lines if categories.is_grocery(p.get("category"))]
+    left_out = [p for p in lines if not categories.is_grocery(p.get("category"))]
+    dates = sorted(p["date"] for p in lines if p.get("date"))
     if as_of is None:
         as_of = _parse(dates[-1]) if dates else date.today()
     return {
         "contract_version": CONTRACT_VERSION,
         "as_of": as_of.isoformat(),
-        "coverage": coverage(purchases, rows),
+        "coverage": coverage(purchases, rows, left_out),
         "repurchase": repurchase(rows, as_of),
         "price_changes": price_changes(rows),
         "basket_index": basket_index(rows),
