@@ -1,5 +1,5 @@
 {
-  "contract_version": 2,
+  "contract_version": 3,
   "as_of": "2026-08-29",
   "coverage": {
     "receipts": 27,
@@ -42,7 +42,12 @@
         "resolved": 1
       }
     },
-    "note": "product-level insights use resolved lines only; spend figures use every line"
+    "not_grocery": {
+      "lines": 0,
+      "spend": 0.0,
+      "by_category": {}
+    },
+    "note": "groceries only: lines known not to be groceries are counted under not_grocery and left out of every insight; product-level insights use resolved lines only; spend figures use every grocery line"
   },
   "repurchase": [
     {

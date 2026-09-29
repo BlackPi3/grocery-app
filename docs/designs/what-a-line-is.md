@@ -107,3 +107,11 @@ error rate stays known.
 - **Organic is part of it too**, as `produce-vocabulary.md` already decided
   for produce: `Bananen` and `Bananen Bio` are two products, because the price
   gap between them is what the project measures.
+- **Things that are not groceries stay in the history and leave the
+  insights** (Parham, 2026-09-27): café, flowers, cards, bags, make-up. They
+  sit under the category group `Kein Lebensmitteleinkauf`, and
+  `categories.is_grocery` is the one place that says so; a café receipt as a
+  whole is not groceries. Built 2026-09-29: every insight reads grocery lines
+  only, and `coverage.not_grocery` says how many lines and how much money were
+  left out (insights contract 3). A line with no category still counts as a
+  grocery: leaving money out needs a reason.

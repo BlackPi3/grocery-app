@@ -186,3 +186,29 @@ def test_build_insights_defaults_as_of_to_the_last_receipt_not_today():
     assert out["coverage"]["product_lines"] == 2, "deposits are not product lines"
     assert out["coverage"]["resolved_share_of_spend"] == 1.0
     assert out["repurchase"][0]["status"] == "upcoming"
+
+
+# --- groceries only ----------------------------------------------------------
+
+def test_a_line_that_is_not_a_grocery_leaves_every_insight_but_is_counted():
+    # A café breakfast bought three times with the same price rise would make a
+    # repurchase, a price change and a basket product if it were counted.
+    cafe = [row("p-cafe", d, net, category="cafe-imbiss", product="Frühstück")
+            for d, net in (("2026-01-03", 8.0), ("2026-02-03", 9.0), ("2026-02-10", 9.0))]
+    milk = [row("p-milk", d, 1.0, category="milch-joghurt") for d in ("2026-01-03", "2026-02-03")]
+    out = build_insights({"meta": {}, "purchases": cafe + milk})
+    everywhere = str({k: v for k, v in out.items() if k != "coverage"})
+    assert "p-cafe" not in everywhere
+    assert "p-milk" in everywhere
+    assert out["budget_brand"]["overall"]["unknown"] == 2.0, "only the milk's money"
+    assert out["coverage"]["spend"] == 2.0
+    assert out["coverage"]["product_lines"] == 2
+    assert out["coverage"]["not_grocery"] == {"lines": 3, "spend": 26.0,
+                                              "by_category": {"Café & Imbiss": 26.0}}
+
+
+def test_an_unknown_or_missing_category_still_counts_as_a_grocery():
+    rows = [row(None, "2026-01-03", 2.0), row("p-1", "2026-01-03", 3.0, category="kein-key")]
+    cov = build_insights({"meta": {}, "purchases": rows})["coverage"]
+    assert cov["spend"] == 5.0
+    assert cov["not_grocery"] == {"lines": 0, "spend": 0.0, "by_category": {}}
