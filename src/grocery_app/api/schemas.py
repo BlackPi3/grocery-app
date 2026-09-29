@@ -27,7 +27,11 @@ from pydantic import BaseModel, ConfigDict, Field
 # beside it with the three labels a reader sees. Same field name, different
 # language in it, which is exactly the change a consumer must be told about.
 PURCHASES_CONTRACT_VERSION = 4
-INSIGHTS_CONTRACT_VERSION = 2
+#
+# Insights bumped to 3 on 2026-09-29: lines known not to be groceries (café,
+# flowers, cards) left every insight, so `coverage.spend` means grocery spend,
+# and `coverage.not_grocery` says what was left out.
+INSIGHTS_CONTRACT_VERSION = 3
 
 
 class UnitPrice(BaseModel):

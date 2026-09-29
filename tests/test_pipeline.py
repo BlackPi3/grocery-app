@@ -36,7 +36,7 @@ def test_receipts_become_purchases_become_insights(data):
         "a line with no product gains no attributes, this one included"
 
     insights = build_insights(purchases)
-    assert insights["contract_version"] == 2
+    assert insights["contract_version"] == 3
     assert insights["as_of"] == "2026-02-05"
     assert insights["coverage"]["resolved_lines"] == 4
     (change,) = [c for c in insights["price_changes"] if c["product_id"] == "p-0001"]
@@ -180,3 +180,50 @@ def test_produce_known_at_one_store_resolves_at_another_through_the_seam(data):
     (banana,) = [p for p in purchases["purchases"] if p["store"] == "Woanders"]
     assert (banana["resolution"], banana["product_id"]) == ("produce", "p-0002")
     assert "Bananen lose" not in purchases["meta"]["unresolved_items"]
+
+
+def test_a_line_that_is_not_a_grocery_stays_in_the_history_and_out_of_the_insights(data):
+    """The category decides it, and the category is set on the product, so the
+    exclusion has to survive two seams: catalog -> purchases.json, where the
+    line keeps its money and its category, and purchases.json -> insights,
+    where it counts under `not_grocery` and nowhere else."""
+    products = json.loads((data / "products" / "products.json").read_text())
+    products["products"]["p-0003"] = {
+        "label": "fruehstueck", "name": "Frühstück", "brand": None, "product_line": None,
+        "variant": None, "size": None, "category": "cafe-imbiss", "is_organic": False,
+        "eans": [], "open_questions": [], "provenance": {"attributes": "test", "source": "test"}}
+    (data / "products" / "products.json").write_text(json.dumps(products), encoding="utf-8")
+    resolution = json.loads((data / "products" / "resolution.json").read_text())
+    resolution["entries"].append(
+        {"store": "Musterladen", "raw_name": "Fruehstueck", "line_type": "product",
+         "product_id": "p-0003", "confirmed_by": "test", "confirmed_at": "2026-01-01",
+         "source": "test"})
+    (data / "products" / "resolution.json").write_text(json.dumps(resolution), encoding="utf-8")
+    cafe = {"source_image": "IMG_4.jpeg", "transcribed_by": "hand", "store": "Musterladen",
+            "date": "2026-02-07", "time": "09:00", "currency": "EUR", "printed_total": 7.5,
+            "lines": [{"type": "product", "raw_name": "Fruehstueck", "qty": 1,
+                       "gross": 7.5, "discount": 0.0, "net": 7.5, "tax_class": "B"}]}
+    (data / "receipts" / "truth" / "IMG_4.json").write_text(json.dumps(cafe), encoding="utf-8")
+
+    purchases = build_purchases(data / "receipts" / "truth",
+                                data / "products" / "products.json",
+                                data / "products" / "resolution.json",
+                                None, data / "products")
+    (line,) = [p for p in purchases["purchases"] if p["source_image"] == "IMG_4.jpeg"]
+    assert (line["product_id"], line["category"], line["net_paid"]) == \
+        ("p-0003", "cafe-imbiss", 7.5), "the history keeps it"
+
+    insights = build_insights(purchases)
+    assert insights["as_of"] == "2026-02-07", "the last receipt is still the last receipt"
+    assert insights["coverage"]["not_grocery"] == {
+        "lines": 1, "spend": 7.5, "by_category": {"Café & Imbiss": 7.5}}
+    assert insights["coverage"]["product_lines"] == 5, "the five grocery lines only"
+    assert "p-0003" not in json.dumps({k: v for k, v in insights.items() if k != "coverage"})
+
+    from fastapi.testclient import TestClient
+
+    from grocery_app.api.app import create_app
+    from grocery_app.api.repository import InMemoryRepository
+
+    client = TestClient(create_app(InMemoryRepository(purchases)))
+    assert client.get("/v1/insights").json() == insights
