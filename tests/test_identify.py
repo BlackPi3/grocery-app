@@ -54,8 +54,11 @@ def test_each_line_gets_the_outcome_the_judge_gives_or_asked():
     said = {"Erdbeeren 400g": Identity("Erdbeeren", "beeren", None, None, "400g", True, "."),
             "MU Wraps": Identity("Tortilla Wraps", None, None, None, None, True, "."),
             "Kekse": Identity("Salzstangen", None, None, None, None, True, "."),
-            "DESTAN": Identity("DESTAN", None, None, None, None, False, "a brand alone")}
-    verdicts = {"Erdbeeren 400g": "right", "MU Wraps": "close", "Kekse": "wrong"}
+            "DESTAN": Identity("DESTAN", None, None, None, None, False, "a brand alone"),
+            "Kartoffeln F.K.": Identity("Kartoffeln", None, None, "Frühkartoffeln", None,
+                                        True, ".")}
+    verdicts = {"Erdbeeren 400g": "right", "MU Wraps": "missing", "Kekse": "wrong",
+                "Kartoffeln F.K.": "false_detail"}
 
     def judge(system, prompt, schema):
         name = prompt.split("`")[1]
@@ -63,11 +66,25 @@ def test_each_line_gets_the_outcome_the_judge_gives_or_asked():
 
     truth = {"lines": [sheet("Erdbeeren 400g", "strawberries 400 g", 0),
                        sheet("MU Wraps", "Muster tortilla wraps", 1),
-                       sheet("Kekse", "biscuits", 2), sheet("DESTAN", "unknown", 3)]}
+                       sheet("Kekse", "biscuits", 2), sheet("DESTAN", "unknown", 3),
+                       sheet("Kartoffeln F.K.", "waxy potatoes", 4)]}
     report = evaluate_identify(truth, lambda raw, store, others, paid: said[raw], judge)
-    assert report["totals"] == {"right": 1, "close": 1, "wrong": 1, "asked": 1}
+    assert report["totals"] == {"right": 1, "missing": 1, "false_detail": 1, "wrong": 1,
+                                "asked": 1}
+    assert report["mistakes"] == 2, "a false detail is a mistake; a missing one is not"
     text = format_report(report)
-    assert "Kekse" in text.split("Wrong:")[1] and "DESTAN" in text.split("Asked:")[1]
+    assert "mistakes (false_detail + wrong): 2" in text
+    assert "Kekse" in text.split("Wrong:")[1].split("False detail:")[0]
+    assert "Kartoffeln F.K." in text.split("False detail:")[1].split("Missing:")[0]
+    assert "MU Wraps" in text.split("Missing:")[1] and "DESTAN" in text.split("Asked:")[1]
+
+
+def test_the_judge_is_told_a_false_detail_is_not_a_missing_one():
+    from grocery_app.evaluate_identify import JUDGE_PROMPT, JUDGE_SCHEMA
+
+    assert JUDGE_SCHEMA["properties"]["verdict"]["enum"] == \
+        ["right", "missing", "false_detail", "wrong"]
+    assert "A true kind with one false detail is\nfalse_detail, not missing." in JUDGE_PROMPT
 
 
 def test_the_shops_similar_products_are_context_without_prices():

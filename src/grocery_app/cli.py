@@ -695,7 +695,7 @@ def main() -> None:
 
         reader = ClaudeCodeDecider(args.model, "data/identified",
                                    version=identifying.PROMPT_VERSION)
-        judge = ClaudeCodeDecider(args.model, "data/identified", version="judge-v1")
+        judge = ClaudeCodeDecider(args.model, "data/identified", version="judge-v2")
         products = load_products(args.products)
         resolution = load_resolution(args.resolution)
         shelf = load_shelf_prices(args.products_dir)

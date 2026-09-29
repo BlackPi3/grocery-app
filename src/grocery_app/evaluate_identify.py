@@ -9,14 +9,20 @@ sorting, not the authority: the listed lines are.
 
 Every line gets one outcome:
 
-- `right`   it said what it is, and that is what the sheet says;
-- `close`   the right thing with a detail wrong or missing (a brand it should
-            have read, a variant it dropped);
-- `wrong`   it said what it is, and it is something else;
-- `asked`   it said it cannot tell, so the shopper would be asked.
+- `right`         it said what it is, and that is what the sheet says;
+- `missing`       the right thing, with a detail the sheet names left out
+                  (the milk's brand, which the till does not print);
+- `false_detail`  the right kind of thing, with a detail that is false or a
+                  guess (`F.K.` read as Frühkartoffeln: it is festkochend);
+- `wrong`         it said what it is, and it is something else;
+- `asked`         it said it cannot tell, so the shopper would be asked.
 
-`wrong` is the number that must stay at zero: it is a product put on a line
-without asking. `asked` is the number to keep small.
+`missing` is no mistake: saying less than the sheet is what a line that prints
+less allows. `false_detail` and `wrong` are mistakes: both write something
+untrue into the history without asking, and together they are the number that
+must stay at zero. They were one outcome, `close`, with the missing details,
+until 2026-09-29, when a score of 0 wrong turned out to hide four false
+details. `asked` is the number to keep small.
 """
 
 from __future__ import annotations
@@ -29,23 +35,31 @@ from grocery_app.identify import Identity, identify, line_vat_rates, paid
 from grocery_app.matcher import Decider
 from grocery_app.resolver import store_key
 
-OUTCOMES = ("right", "close", "wrong", "asked")
+OUTCOMES = ("right", "missing", "false_detail", "wrong", "asked")
+MISTAKES = ("false_detail", "wrong")
 
 JUDGE_PROMPT = """\
 You check one answer against the shopper's own description of what they bought.
 The shopper is always right. Compare only what the product is: its kind, and
-its brand and variant when the shopper names them. Ignore language (English or
-German), word order, pack sizes and quantities.
+its brand, variant and other details. Ignore language (English or German),
+word order, pack sizes and quantities. A detail printed on the receipt line
+is supported even when the shopper does not mention it.
 
-- right: the answer is the same product as the description.
-- close: the same kind of product, but a brand or variant the shopper names is
-  missing or different in the answer.
+- right: the same product, and every detail the answer states is true.
+- missing: the same kind of product, and nothing the answer states is false,
+  but it leaves out a brand or variant the shopper names.
+- false_detail: the same kind of product, but the answer states a brand,
+  variant or other detail that the description contradicts, or that neither
+  the description nor the receipt line supports (a guess).
 - wrong: a different product.
+Check every detail in the answer. A true kind with one false detail is
+false_detail, not missing.
 reason: one short sentence."""
 
 JUDGE_SCHEMA: dict[str, Any] = {
     "type": "object",
-    "properties": {"verdict": {"type": "string", "enum": ["right", "close", "wrong"]},
+    "properties": {"verdict": {"type": "string",
+                               "enum": ["right", "missing", "false_detail", "wrong"]},
                    "reason": {"type": "string"}},
     "required": ["verdict", "reason"],
     "additionalProperties": False,
@@ -101,7 +115,8 @@ def evaluate_identify(truth_doc: dict[str, Any], identifier: Identifier,
                       "paid": paid_for.get((sheet["source_image"], sheet["position"]), ""),
                       "outcome": verdict["verdict"], "why": verdict.get("reason", "")})
     count = Counter(line["outcome"] for line in lines)
-    return {"totals": {o: count[o] for o in OUTCOMES}, "lines": lines}
+    return {"totals": {o: count[o] for o in OUTCOMES},
+            "mistakes": sum(count[o] for o in MISTAKES), "lines": lines}
 
 
 def bound_identifier(decider: Decider,
@@ -119,11 +134,12 @@ def format_report(report: dict[str, Any]) -> str:
     totals = report["totals"]
     n = sum(totals.values()) or 1
     out = [f"What a line is: {n} lines of the answer sheet", "",
-           "  " + "  ".join(f"{o} {totals[o]} ({100 * totals[o] / n:.0f}%)" for o in OUTCOMES)]
-    for outcome in ("wrong", "close", "asked"):
+           "  " + "  ".join(f"{o} {totals[o]} ({100 * totals[o] / n:.0f}%)" for o in OUTCOMES),
+           f"  mistakes (false_detail + wrong): {report['mistakes']}"]
+    for outcome in ("wrong", "false_detail", "missing", "asked"):
         listed = [line for line in report["lines"] if line["outcome"] == outcome]
         if listed:
-            out += ["", f"{outcome.capitalize()}:"]
+            out += ["", f"{outcome.replace('_', ' ').capitalize()}:"]
             for line in listed:
                 who = line["identity"]
                 said = " | ".join(str(who[k]) for k in ("name", "brand", "variant") if who[k])
