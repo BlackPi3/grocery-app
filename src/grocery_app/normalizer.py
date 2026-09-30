@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from grocery_app import categories, produce
+from grocery_app.memory import MACHINE_AUTHORS
 from grocery_app.resolver import budget_brand_status, store_key
 
 # --- loading -----------------------------------------------------------------
@@ -166,6 +167,40 @@ def never_remembered(store: str | None, raw_name: str) -> bool:
     return spelling_key(raw_name) in {spelling_key(name) for name in names}
 
 
+def entry_key(resolution: dict[tuple[str, str], list[str]], store: str | None,
+              raw_name: str) -> tuple[str, str] | None:
+    """The memory entry `lookup` uses for this printed name, or None."""
+    if never_remembered(store, raw_name):
+        return None
+    key = store_key(store)
+    if (key, raw_name) in resolution:
+        return (key, raw_name)
+    wanted = spelling_key(raw_name)
+    found = {tuple(ids): (entry_store, name) for (entry_store, name), ids in resolution.items()
+             if entry_store == key and spelling_key(name) == wanted}
+    return next(iter(found.values())) if len(found) == 1 else None
+
+
+def said_by(how: str, author: str | None, authors_known: bool) -> str | None:
+    """Who said what this line is: `you`, `app`, or None when nobody has.
+
+    `you` is the shopper's own answer for the line, or a memory entry a person
+    decided (including rows a person marked on a review sheet). `app` is a
+    memory entry the matcher or identify wrote, or a reading the normalizer
+    makes by rule (the produce vocabulary, a price narrowing a family): all of
+    them guesses the shopper can overrule. Without the memory's authors (an
+    old caller), a remembered line says None rather than guess."""
+    if how == "user":
+        return "you"
+    if how in ("produce", "price"):
+        return "app"
+    if how in ("exact", "family"):
+        if not authors_known:
+            return None
+        return "app" if author in MACHINE_AUTHORS else "you"
+    return None
+
+
 def lookup(resolution: dict[tuple[str, str], list[str]], store: str | None,
            raw_name: str) -> list[str]:
     """The product ids the memory holds for this printed name at this store.
@@ -176,23 +211,16 @@ def lookup(resolution: dict[tuple[str, str], list[str]], store: str | None,
     memory cannot say which one this line is, and picking one would be a guess.
     A name on `NEVER_REMEMBERED` finds nothing, whatever the memory holds.
     """
-    if never_remembered(store, raw_name):
-        return []
-    key = store_key(store)
-    exact = resolution.get((key, raw_name))
-    if exact is not None:
-        return exact
-    wanted = spelling_key(raw_name)
-    found = {tuple(ids) for (entry_store, name), ids in resolution.items()
-             if entry_store == key and spelling_key(name) == wanted}
-    return list(next(iter(found))) if len(found) == 1 else []
+    key = entry_key(resolution, store, raw_name)
+    return list(resolution[key]) if key else []
 
 
 def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
                    resolution: dict[tuple[str, str], list[str]],
                    products: dict[str, dict[str, Any]],
                    pinpoint: dict[str, Any] | None = None,
-                   shelf_prices: dict[str, set[float]] | None = None) -> dict[str, Any]:
+                   shelf_prices: dict[str, set[float]] | None = None,
+                   authors: dict[tuple[str, str], str | None] | None = None) -> dict[str, Any]:
     """Turn one parsed receipt line into an enriched purchase record.
 
     `pinpoint` is the shopper's own answer for this line, when there is one.
@@ -212,6 +240,9 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
 
     `shelf_prices` (product_id -> prices ever seen on the shelf) lets the paid
     amount narrow a family when exactly one candidate has been sold at it.
+
+    `authors` ((store, printed name) -> who wrote the memory entry) is what
+    `said_by` is read from.
     """
     raw_name = line["raw_name"]
     ids = lookup(resolution, receipt.get("store"), raw_name)
@@ -261,6 +292,9 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
         # unknown variant, because the till printed one name for all of them.
         "resolved": product_id is not None,
         "resolution": how,
+        "said_by": said_by(how, (authors or {}).get(
+            entry_key(resolution, receipt.get("store"), raw_name) or ("", "")),
+            authors is not None),
         "candidate_ids": ids if how == "family" else [],
         "qty": qty,
         "gross": line.get("gross"),
@@ -344,6 +378,7 @@ def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str],
                       products: dict[str, dict[str, Any]],
                       line_resolutions: dict[tuple[str, int], dict[str, Any]] | None = None,
                       shelf_prices: dict[str, set[float]] | None = None,
+                      authors: dict[tuple[str, str], str | None] | None = None,
                       ) -> list[dict[str, Any]]:
     image = receipt.get("source_image")
     records = []
@@ -354,7 +389,7 @@ def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str],
         if pinpoint and pinpoint.get("raw_name") != line.get("raw_name"):
             pinpoint = None
         records.append(normalize_line(line, receipt, resolution, products,
-                                      pinpoint, shelf_prices))
+                                      pinpoint, shelf_prices, authors))
     return records
 
 
@@ -376,6 +411,12 @@ def load_resolution(path: str | Path) -> dict[tuple[str, str], list[str]]:
         if ids:
             lookup[(store_key(entry["store"]), entry["raw_name"])] = ids
     return lookup
+
+
+def load_resolution_authors(path: str | Path) -> dict[tuple[str, str], str | None]:
+    """(store, raw_name) -> who confirmed that memory entry (`confirmed_by`)."""
+    return {(store_key(entry["store"]), entry["raw_name"]): entry.get("confirmed_by")
+            for entry in load_json(path)["entries"]}
 
 
 def load_products(path: str | Path) -> dict[str, dict[str, Any]]:
@@ -419,7 +460,9 @@ def assemble_purchases(receipts: list[dict[str, Any]],
                        products: dict[str, dict[str, Any]],
                        resolution: dict[tuple[str, str], list[str]],
                        line_resolutions: dict[tuple[str, int], dict[str, Any]] | None = None,
-                       shelf_prices: dict[str, set[float]] | None = None) -> dict[str, Any]:
+                       shelf_prices: dict[str, set[float]] | None = None,
+                       authors: dict[tuple[str, str], str | None] | None = None,
+                       ) -> dict[str, Any]:
     """The purchases.json contract from already-loaded inputs.
 
     This is the whole normalizer; `build_purchases` loads the files and calls
@@ -438,7 +481,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
             continue
         used_receipts += 1
         purchases.extend(normalize_receipt(receipt, resolution, products,
-                                           line_resolutions, shelf_prices))
+                                           line_resolutions, shelf_prices, authors))
 
     product_lines = [p for p in purchases if p["type"] == "product"]
     unresolved = sorted({p["raw_name"] for p in product_lines if p["resolution"] == "none"})
@@ -448,7 +491,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     dates = sorted({r["date"] for r in receipts if not r.get("is_duplicate")})
 
     return {
-        "contract_version": 4,
+        "contract_version": 5,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],
@@ -472,6 +515,7 @@ def build_purchases(receipts_dir: str | Path, products_path: str | Path,
         load_resolution(resolution_path),
         load_line_resolutions(line_resolutions_path),
         load_shelf_prices(products_dir),
+        load_resolution_authors(resolution_path),
     )
 
 

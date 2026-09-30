@@ -18,13 +18,15 @@ def test_receipts_become_purchases_become_insights(data):
                                 data / "products" / "products.json",
                                 data / "products" / "resolution.json",
                                 None, data / "products")
-    assert purchases["contract_version"] == 4
+    assert purchases["contract_version"] == 5
     assert purchases["meta"]["receipts"] == 2
     assert purchases["meta"]["product_lines"] == 5
     assert purchases["meta"]["unresolved_items"] == ["Geheimnis"]
     milk = [p for p in purchases["purchases"] if p["product_id"] == "p-0001"]
     assert [p["resolution"] for p in milk] == ["exact", "exact"], \
         "store spelled two ways still resolves"
+    assert [p["said_by"] for p in milk] == ["you", "you"], \
+        "the fixture's memory entries were confirmed by a person"
     assert milk[0]["unit_price"] == {"amount": 1.09, "per": "l"}
     # The catalog stores the vocabulary key and nothing else; the three labels
     # a reader sees are derived here, once, on the way into the contract.

@@ -26,7 +26,10 @@ from pydantic import BaseModel, ConfigDict, Field
 # and became a key from the closed vocabulary, and `category_path` arrived
 # beside it with the three labels a reader sees. Same field name, different
 # language in it, which is exactly the change a consumer must be told about.
-PURCHASES_CONTRACT_VERSION = 4
+#
+# Purchases bumped to 5 on 2026-09-30: `said_by` says who said what each line
+# is, `you` or `app`, so a reader can tell a confirmed answer from a guess.
+PURCHASES_CONTRACT_VERSION = 5
 #
 # Insights bumped to 3 on 2026-09-29: lines known not to be groceries (café,
 # flowers, cards) left every insight, so `coverage.spend` means grocery spend,
@@ -54,6 +57,9 @@ class Purchase(BaseModel):
     product_id: str | None
     resolved: bool
     resolution: Literal["exact", "user", "price", "family", "produce", "none"]
+    said_by: Literal["you", "app"] | None = Field(
+        description="Who said what this line is: the shopper (`you`) or a guess the shopper "
+                    "can overrule (`app`); null when nothing places it")
     candidate_ids: list[str]
     qty: float
     gross: float | None

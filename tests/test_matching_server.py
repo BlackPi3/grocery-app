@@ -223,6 +223,7 @@ def test_a_line_identify_can_read_is_placed_on_a_new_level_one_product_not_asked
     (line,) = [p for p in served["purchases"] if p["raw_name"] == "Himbeeren 250g"]
     assert (line["product_id"], line["category"], line["unit_price"]) == \
         (product_id, "beeren", None), "no size on the product, so no price per kg yet"
+    assert line["said_by"] == "app", "identify's answer is a guess the shopper can overrule"
 
 
 def test_the_same_thing_read_twice_is_one_product_and_an_existing_one_is_reused(server):
@@ -276,6 +277,9 @@ def test_overruling_identify_is_counted_like_overruling_the_matcher(server):
         Resolution.raw_name == "Himbeeren 250g")).one()
     session.refresh(entry)
     assert entry.product_id == "p-0002", "the shopper's answer replaces the guess"
+    (line,) = [p for p in client.get("/v1/purchases").json()["purchases"]
+               if p["raw_name"] == "Himbeeren 250g"]
+    assert line["said_by"] == "you"
     meta = client.get("/v1/questions").json()["meta"]
     assert (meta["identify_answers"], meta["overruled"]) == (0, 1)
 

@@ -181,7 +181,8 @@ class PostgresRepository:
         inputs = load_normalizer_inputs(session)
         doc = receipt_to_dict(row)
         records = normalize_receipt(doc, inputs["resolution"], inputs["products"],
-                                    inputs["line_resolutions"], inputs["shelf_prices"])
+                                    inputs["line_resolutions"], inputs["shelf_prices"],
+                                    inputs["authors"])
         return {"receipt_id": row.id, "receipt": doc,
                 "lines": [{**record, "position": i} for i, record in enumerate(records)]}
 
@@ -347,7 +348,8 @@ class PostgresRepository:
             for receipt in receipts:
                 doc = receipt_to_dict(receipt)
                 records = normalize_receipt(doc, inputs["resolution"], inputs["products"],
-                                            inputs["line_resolutions"], inputs["shelf_prices"])
+                                            inputs["line_resolutions"], inputs["shelf_prices"],
+                                            inputs["authors"])
                 for position, (line, record) in enumerate(zip(doc["lines"], records, strict=True)):
                     if record["resolution"] != "none" or record["type"] != "product":
                         continue

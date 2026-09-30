@@ -18,7 +18,7 @@ from grocery_app.insights import build_insights
 from grocery_app.normalizer import save_json
 
 PURCHASES = {
-    "contract_version": 4,
+    "contract_version": 5,
     "meta": {
         "receipts": 2, "date_range": ["2026-01-05", "2026-02-05"], "product_lines": 3,
         "total_net_paid": 4.03, "unresolved_items": ["Geheimnis"], "ambiguous_items": [],
@@ -26,7 +26,8 @@ PURCHASES = {
     "purchases": [
         {"date": "2026-01-05", "store": "Musterladen", "source_image": "IMG_1.jpeg",
          "type": "product", "raw_name": "MU Milch 1,5%", "product_id": "p-0001",
-         "resolved": True, "resolution": "exact", "candidate_ids": [], "qty": 1,
+         "resolved": True, "resolution": "exact", "said_by": "you", "candidate_ids": [],
+         "qty": 1,
          "gross": 1.09, "discount": 0.0, "net_paid": 1.09, "tax_class": "A", "tax_rate": 0.07,
          "product": "Milch 1,5%", "brand": "Muster", "product_line": None, "variant": None,
          "category": "milch",
@@ -35,7 +36,8 @@ PURCHASES = {
          "unit_price": {"amount": 1.09, "per": "l"}},
         {"date": "2026-02-05", "store": "Musterladen", "source_image": "IMG_2.jpeg",
          "type": "product", "raw_name": "MU Milch 1,5%", "product_id": "p-0001",
-         "resolved": True, "resolution": "exact", "candidate_ids": [], "qty": 1,
+         "resolved": True, "resolution": "exact", "said_by": "you", "candidate_ids": [],
+         "qty": 1,
          "gross": 1.19, "discount": 0.0, "net_paid": 1.19, "tax_class": "A", "tax_rate": 0.07,
          "product": "Milch 1,5%", "brand": "Muster", "product_line": None, "variant": None,
          "category": "milch",
@@ -44,7 +46,8 @@ PURCHASES = {
          "unit_price": {"amount": 1.19, "per": "l"}},
         {"date": "2026-02-05", "store": "Musterladen", "source_image": "IMG_2.jpeg",
          "type": "product", "raw_name": "Geheimnis", "product_id": None,
-         "resolved": False, "resolution": "none", "candidate_ids": [], "qty": 1,
+         "resolved": False, "resolution": "none", "said_by": None, "candidate_ids": [],
+         "qty": 1,
          "gross": 1.75, "discount": 0.0, "net_paid": 1.75, "tax_class": "A", "tax_rate": 0.07,
          "unit_price": None},
     ],
@@ -58,7 +61,7 @@ def client():
 
 def test_health_reports_contract_versions_and_receipts(client):
     body = client.get("/health").json()
-    assert body == {"status": "ok", "purchases_contract_version": 4,
+    assert body == {"status": "ok", "purchases_contract_version": 5,
                     "insights_contract_version": 3, "receipts": 2,
                     "uploads": False, "writes": False}
     assert (body["uploads"], body["writes"]) == (False, False), \
