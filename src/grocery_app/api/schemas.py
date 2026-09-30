@@ -190,11 +190,15 @@ class Question(BaseModel):
         description="What the matcher found; empty when it was not run or found nothing")
     model_pick: int | None = Field(description="The candidate the model would pick, if any")
     reason: str | None = Field(description="The model's reason, in one sentence")
+    unclear: str | None = Field(
+        default=None, description="Why identify could not tell what the line is, when it "
+                                  "was run: the part of the printed name it cannot read")
 
 
 class QuestionsMeta(BaseModel):
     open: int
     matcher_answers: int = Field(description="Names the memory holds on the matcher's word")
+    identify_answers: int = Field(description="Names the memory holds on identify's word")
     overruled: int = Field(description="Machine answers the shopper corrected (`corrections`)")
 
 

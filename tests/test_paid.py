@@ -45,10 +45,18 @@ def test_a_real_photo_becomes_a_real_receipt(engine, session, tmp_path):
     photo = Path(PHOTO)
     assert photo.exists(), f"GROCERY_TEST_PHOTO does not exist: {photo}"
 
+    from grocery_app import matcher as matching
+    from grocery_app.api.app import identify_decider
+    from grocery_app.api.matching import line_identifier, line_matcher
+
+    # Wired as the server wires it: every line is new to this empty database,
+    # so the matcher and identify both run for real (on the subscription).
     client = TestClient(create_app(
         PostgresRepository(make_session_factory(engine)),
         DiskImageStore(tmp_path / "uploads"),
         configured_extractor(),
+        line_matcher(matching.ClaudeCodeDecider(), matching.default_shops()),
+        line_identifier(identify_decider()),
     ))
 
     queued = client.post("/v1/receipts",
@@ -57,6 +65,7 @@ def test_a_real_photo_becomes_a_real_receipt(engine, session, tmp_path):
 
     job = client.get(f"/v1/jobs/{queued.json()['job_id']}").json()
     assert job["status"] == "done", job.get("error")
+    assert not job.get("error"), job["error"]  # a failed matcher or identify says so here
     if os.environ.get(READER_ENV, "api") == "api":
         assert job["cost_usd"] and job["cost_usd"] > 0, "a real call costs real money"
     assert job["receipt_id"] is not None
@@ -70,6 +79,11 @@ def test_a_real_photo_becomes_a_real_receipt(engine, session, tmp_path):
     assert any(p["source_image"] == receipt["receipt"]["source_image"]
                for p in served["purchases"]), "the real receipt reached the history"
 
-    print(f"\n  {photo.name}: {len(receipt['lines'])} lines, "
+    placed = [line["resolution"] for line in receipt["lines"] if line["type"] == "product"]
+    questions = client.get("/v1/questions").json()["meta"]
+    print(f"\n  placed: {sum(r != 'none' for r in placed)} of {len(placed)} product lines; "
+          f"identify answered {questions['identify_answers']}, open questions "
+          f"{questions['open']}")
+    print(f"  {photo.name}: {len(receipt['lines'])} lines, "
           f"{receipt['receipt']['printed_total']:.2f}, "
           f"{os.environ.get(READER_ENV, 'api')} reader, cost {job['cost_usd']}")

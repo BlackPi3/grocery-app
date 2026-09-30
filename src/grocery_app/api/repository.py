@@ -364,11 +364,14 @@ class PostgresRepository:
                             for n, c in enumerate(offered, 1)],
                         "model_pick": offered.index(pick) + 1 if pick in offered else None,
                         "reason": proposal.get("reason"),
+                        "unclear": (proposal.get("identity") or {}).get("reason"),
                     })
-            matcher_answers = sum(1 for r in session.scalars(select(Resolution))
-                                  if r.confirmed_by == "matcher")
+            authors = [r.confirmed_by for r in session.scalars(select(Resolution))]
+            matcher_answers, identify_answers = (authors.count("matcher"),
+                                                 authors.count("identify"))
             overruled = len(session.scalars(select(Correction)).all())
         return {"meta": {"open": len(questions), "matcher_answers": matcher_answers,
+                         "identify_answers": identify_answers,
                          "overruled": overruled},
                 "questions": questions}
 

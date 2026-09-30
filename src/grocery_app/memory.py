@@ -28,7 +28,7 @@ from __future__ import annotations
 from typing import Any
 
 # Who wrote a memory entry, when it was not a person.
-MACHINE_AUTHORS = frozenset({"matcher"})
+MACHINE_AUTHORS = frozenset({"matcher", "identify"})
 # Readings the normalizer makes without any entry saying so.
 MACHINE_READINGS = frozenset({"produce", "price"})
 

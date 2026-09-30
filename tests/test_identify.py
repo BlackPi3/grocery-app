@@ -259,3 +259,26 @@ def test_the_scorer_hands_each_store_its_own_abbreviations():
     bound_identifier(decider, None, learned)("MT Pads", "MUSTERLADEN", [], "")
     assert "`MT` = Muster Tag" in decider.asked[0][1]
     assert "Mehr Tee" not in decider.asked[0][1]
+
+
+def test_the_server_reads_a_line_with_the_evidence_it_is_scored_with():
+    """`api.matching.line_identifier` hands identify the same evidence
+    `eval-identify` measured: price and VAT, the other printed names, the
+    shop's similar products and the abbreviations learned at this store."""
+    from grocery_app.api.matching import line_identifier
+
+    decider = answering(parts=[{"printed": "MT", "means": "x"}, {"printed": "Pads", "means": "x"},
+                               {"printed": "6er", "means": "x"}])
+    receipt = {"store": "Musterladen", "tax_buckets": {"7%": 6.48},
+               "lines": [{"type": "product", "raw_name": "MT Pads 6er", "qty": 1, "net": 5.49},
+                         {"type": "deposit", "raw_name": "Pfand", "qty": 1, "net": 0.0},
+                         {"type": "product", "raw_name": "Kekse", "qty": 1, "net": 0.99}]}
+    inputs = {"resolution": {("musterladen", "MT Kaffee 500g"): ["p-1"]},
+              "products": {"p-1": {"brand": "Muster Tag"}}}
+    proposal = {"candidates": [{"name": "Kaffeepads Crema", "brand": "Muster", "pack_size": None}]}
+    line_identifier(decider)(0, receipt, proposal, inputs)
+    prompt = decider.asked[0][1]
+    assert "Paid: 5,49 € for 1, VAT 7 %" in prompt
+    assert "- `MT` = Muster Tag (1 confirmed name)" in prompt
+    assert "- `Kekse`" in prompt and "Pfand" not in prompt
+    assert "- Kaffeepads Crema | Muster" in prompt

@@ -85,7 +85,8 @@ def test_an_accepted_known_product_is_remembered_as_the_matchers(server):
     counts = match_receipt(session, receipt, TableMatcher({"MU Milch fettarm": ("accept", [OURS])}))
     session.commit()
 
-    assert counts == {"accepted": 1, "families": 0, "questions": 0, "products": 0}
+    assert counts == {"accepted": 1, "families": 0, "identified": 0, "questions": 0,
+                      "products": 0}
     assert reading(client, receipt) == [("exact", "p-0001", [])]
     entry = session.scalars(select(Resolution).where(
         Resolution.raw_name == "MU Milch fettarm")).one()
@@ -177,6 +178,108 @@ def test_answering_a_question_closes_it_and_overruling_the_matcher_is_counted(se
         ("MU Milch fettarm", "p-0001", "p-0002")
 
 
+# --- identify, when the matcher would ask ---------------------------------------------
+
+def reads_as(**table):
+    """An identifier answering from a table, printed name -> Identity fields
+    (None: cannot tell), and remembering what it was asked."""
+    from grocery_app.identify import Identity
+
+    def identify(position, receipt, proposal, inputs):
+        raw_name = receipt["lines"][position]["raw_name"]
+        identify.calls.append(raw_name)
+        said = table.get(raw_name)
+        if said is None:
+            return Identity(raw_name, None, None, None, None, False, "`XY` is unreadable")
+        return Identity(said.get("name"), said.get("category"), said.get("brand"),
+                        said.get("variant"), None, True, "test")
+    identify.calls = []
+    return identify
+
+
+def test_a_line_identify_can_read_is_placed_on_a_new_level_one_product_not_asked(server):
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["Himbeeren 250g"])
+    identify = reads_as(**{"Himbeeren 250g": {"name": "Himbeeren", "category": "beeren"}})
+    counts = match_receipt(session, receipt, TableMatcher({}), identify)
+    session.commit()
+
+    assert counts["identified"] == 1 and counts["questions"] == 0 and counts["products"] == 1
+    assert session.scalars(select(Question)).all() == []
+    (_, product_id, _), = reading(client, receipt)
+    product = session.get(Product, product_id)
+    assert (product.name, product.brand, product.category, product.size["value"]) == \
+        ("Himbeeren", None, "beeren", None), "level 1: what it is, no size"
+    assert product.provenance["decided_by"] == "identify"
+    entry = session.scalars(select(Resolution).where(
+        Resolution.raw_name == "Himbeeren 250g")).one()
+    assert (entry.confirmed_by, entry.source) == ("identify", "identify v6")
+    # The seam to the contract: purchases.json is strict, so an identified
+    # line must fit it as any other line does.
+    from grocery_app.api.schemas import PurchasesDocument
+
+    served = client.get("/v1/purchases").json()
+    PurchasesDocument.model_validate(served)
+    (line,) = [p for p in served["purchases"] if p["raw_name"] == "Himbeeren 250g"]
+    assert (line["product_id"], line["category"], line["unit_price"]) == \
+        (product_id, "beeren", None), "no size on the product, so no price per kg yet"
+
+
+def test_the_same_thing_read_twice_is_one_product_and_an_existing_one_is_reused(server):
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["Himbeeren 250g", "HIMBEEREN 500G",
+                                                  "MU Milch laktosefrei"])
+    identify = reads_as(**{"Himbeeren 250g": {"name": "Himbeeren"},
+                           "HIMBEEREN 500G": {"name": "himbeeren"},
+                           "MU Milch laktosefrei": {"name": "Milch 1,5%", "brand": "MUSTER"}})
+    counts = match_receipt(session, receipt, TableMatcher({}), identify)
+    session.commit()
+
+    ids = [product_id for _, product_id, _ in reading(client, receipt)]
+    assert ids[0] == ids[1], "two pack sizes of raspberries are one product"
+    assert ids[2] == "p-0001", "the catalog's Milch 1,5% by Muster, letter case aside"
+    assert counts["products"] == 1
+
+
+def test_a_line_identify_cannot_read_is_asked_and_says_why(server):
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["XY Ding"])
+    match_receipt(session, receipt, TableMatcher({}), reads_as())
+    session.commit()
+
+    (question,) = [q for q in client.get("/v1/questions").json()["questions"]
+                   if q["receipt_id"] == receipt]
+    assert (question["raw_name"], question["unclear"]) == ("XY Ding", "`XY` is unreadable")
+
+
+def test_identify_is_not_asked_when_the_matcher_settles_the_line(server):
+    _, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MU Milch fettarm"])
+    identify = reads_as()
+    match_receipt(session, receipt, TableMatcher({"MU Milch fettarm": ("accept", [OURS])}),
+                  identify)
+    assert identify.calls == []
+
+
+def test_overruling_identify_is_counted_like_overruling_the_matcher(server):
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["Himbeeren 250g"])
+    match_receipt(session, receipt, TableMatcher({}),
+                  reads_as(**{"Himbeeren 250g": {"name": "Himbeeren"}}))
+    session.commit()
+    identified = reading(client, receipt)[0][1]
+
+    client.put(f"/v1/receipts/{receipt}/lines/0/resolution", json={"product_id": "p-0002"})
+    (mistake,) = session.scalars(select(Correction)).all()
+    assert (mistake.machine_product_id, mistake.shopper_product_id) == (identified, "p-0002")
+    entry = session.scalars(select(Resolution).where(
+        Resolution.raw_name == "Himbeeren 250g")).one()
+    session.refresh(entry)
+    assert entry.product_id == "p-0002", "the shopper's answer replaces the guess"
+    meta = client.get("/v1/questions").json()["meta"]
+    assert (meta["identify_answers"], meta["overruled"]) == (0, 1)
+
+
 # --- the questions list, and answering it (5c) ----------------------------------------
 
 
@@ -204,7 +307,8 @@ def test_questions_are_the_lines_nothing_placed_with_what_the_matcher_found(serv
     assert rq["paid"] == 1.19 and rq["per_line"] is False
     assert asked[(catch_all, "Diverse Lebensmittel")]["per_line"] is True
     assert asked[(catch_all, "Diverse Lebensmittel")]["candidates"] == [], "never matched"
-    assert body["meta"] == {"open": 3, "matcher_answers": 1, "overruled": 0}
+    assert body["meta"] == {"open": 3, "matcher_answers": 1, "identify_answers": 0,
+                            "overruled": 0}
 
 
 def asked_id(body, raw_name):
