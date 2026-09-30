@@ -1,6 +1,7 @@
 # Design: What a Line Is
 
-Written 2026-09-27 · Status: proposed, not built.
+Written 2026-09-27 · Status: identify built and scored (#44, #46-#48); used by the
+server since 2026-09-30 (option A below); catalog rewrite not built.
 
 ## The mistake this fixes
 
@@ -115,3 +116,15 @@ error rate stays known.
   only, and `coverage.not_grocery` says how many lines and how much money were
   left out (insights contract 3). A line with no category still counts as a
   grocery: leaving money out needs a reason.
+- **Identify goes into the app before the catalog rewrite** (Parham,
+  2026-09-30, option A). A line the memory and the shop listings cannot place
+  is read by identify instead of becoming a question; its answer is saved as
+  identify's (`confirmed_by = "identify"`, open to correction and counted
+  when overruled, like the matcher's) and points at a level-1 product: one
+  with the same name, brand and variant, or a new one. Until the rewrite, a
+  new level-1 product can double an older one named another way; the rewrite
+  merges them, and since the history points at product ids nothing is lost.
+  The rewrite is a program, not hand edits, so a later change of style is a
+  re-run. Known gap: a level-1 product has no size, so an identified line has
+  no price per kilo until the size is read from the line (it belongs to the
+  purchase).

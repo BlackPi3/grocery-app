@@ -7,8 +7,14 @@ cannot place goes to `matcher.propose`, and its verdict is acted on here:
   matcher's (`confirmed_by = "matcher"`), so the next receipt needs no model
   call. A chosen shop listing the catalog does not hold becomes a product
   first (`matcher.new_product`), with its listing and the price seen.
-- `ask`: the line becomes a **question**, with everything the matcher saw,
-  for the shopper to answer (5c lists them).
+- `ask`: with an identifier, `identify` reads the line first (price, VAT,
+  the rest of the receipt, the shop's similar products). When it can tell
+  what the line is, that is **saved to the memory** as identify's answer
+  (`confirmed_by = "identify"`), pointing at a level-1 product: an existing
+  one with the same name, brand and variant, else a new one in that format
+  (`docs/designs/what-a-line-is.md`). Only when it cannot tell does the line
+  become a **question**, with everything the matcher and identify saw, for
+  the shopper to answer (5c lists them).
 
 The matcher's answers are not final: a shopper's answer overrules one and the
 mistake is counted (`memory.learn`, `corrections`). Names a till prints for
@@ -16,7 +22,15 @@ anything (`normalizer.NEVER_REMEMBERED`) are left alone: nothing about one
 line of them says anything about the next, so they wait for the shopper.
 
 The line matcher is an argument with no default, like the extractor: a model
-call is not something a test may trigger by forgetting a parameter.
+call is not something a test may trigger by forgetting a parameter. The
+identifier too; without one, a line the matcher cannot settle is a question,
+as before.
+
+Until the catalog is rewritten in the level-1 format, a new level-1 product
+can be the same thing as an older product named another way (`Magerquark,
+Jeden Tag` beside `Magerquark (low-fat quark)`). That rewrite merges them;
+the history points at product ids, so nothing is lost meanwhile (decided
+with Parham 2026-09-30, option A).
 """
 
 from __future__ import annotations
@@ -28,6 +42,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from grocery_app import identify as identifying
 from grocery_app import matcher as matching
 from grocery_app.db.io import load_normalizer_inputs, product_from_dict, receipt_to_dict
 from grocery_app.db.models import Product, Question, Receipt, Resolution, StoreListing
@@ -36,6 +51,10 @@ from grocery_app.resolver import store_key
 
 # (receipt line, store, the normalizer's inputs plus `index`) -> a proposal.
 LineMatcher = Callable[[dict[str, Any], str | None, dict[str, Any]], dict[str, Any]]
+# (position, the receipt as a dict, the matcher's proposal, the normalizer's
+# inputs) -> what the line is, or that it cannot tell.
+LineIdentifier = Callable[[int, dict[str, Any], dict[str, Any], dict[str, Any]],
+                          identifying.Identity]
 
 
 def line_matcher(decider: matching.Decider,
@@ -46,6 +65,63 @@ def line_matcher(decider: matching.Decider,
         return matching.propose(line, store, inputs["products"], inputs["resolution"],
                                 inputs["shelf_prices"], inputs["index"], shops, decider)
     return match
+
+
+def line_identifier(decider: matching.Decider) -> LineIdentifier:
+    """`identify.identify`, bound to a decider, with the evidence it is scored
+    with: what was paid and the VAT rate, the other printed names on the
+    receipt, the shop's similar products the matcher gathered, and the
+    abbreviations the memory has learned at this store."""
+    def read(position: int, receipt: dict[str, Any], proposal: dict[str, Any],
+             inputs: dict[str, Any]) -> identifying.Identity:
+        line = receipt["lines"][position]
+        store = receipt.get("store")
+        learned = identifying.abbreviations(inputs["resolution"], inputs["products"])
+        others = [other["raw_name"] for other in receipt["lines"]
+                  if other.get("type", "product") == "product"]
+        paid = identifying.paid(line, identifying.line_vat_rates(receipt)[position])
+        return identifying.identify(line["raw_name"], store, decider,
+                                    proposal.get("candidates") or None, others, paid,
+                                    learned.get(store_key(store)))
+    return read
+
+
+def identified_product(session: Session, identity: identifying.Identity,
+                       inputs: dict[str, Any]) -> str:
+    """The level-1 product for what identify said a line is.
+
+    An existing product with the same name, brand and variant (letter case
+    aside) is that product; otherwise a new one is made from the identity and
+    nothing else. No size: it belongs to the purchase, not the product. Organic
+    only when the name says Bio; otherwise unknown, not false."""
+    def key(name: str | None, brand: str | None, variant: str | None) -> tuple[str, ...]:
+        return tuple((v or "").strip().casefold() for v in (name, brand, variant))
+
+    wanted = key(identity.name, identity.brand, identity.variant)
+    for product_id, product in inputs["products"].items():
+        if key(product.get("name"), product.get("brand"), product.get("variant")) == wanted:
+            return product_id
+
+    from grocery_app.categorize import CATEGORY_UNKNOWN
+    from grocery_app.resolver import brand_questions
+
+    product_id = next_product_id(session)
+    made = {
+        "label": identity.name, "name": identity.name, "brand": identity.brand,
+        "product_line": None, "variant": identity.variant,
+        "size": {"count": 1, "value": None, "unit": None}, "category": identity.category,
+        "is_organic": True if "bio" in identity.name.casefold().split() else None,
+        "eans": [],
+        "open_questions": brand_questions(identity.brand)
+        + ([] if identity.category else [CATEGORY_UNKNOWN]),
+        "provenance": {"attributes": "identify",
+                       "source": f"identify {identifying.PROMPT_VERSION}",
+                       "decided_by": "identify"},
+    }
+    session.add(product_from_dict(product_id, made))
+    session.flush()
+    inputs["products"][product_id] = made
+    return product_id
 
 
 def article_index(session: Session) -> dict[str, str]:
@@ -114,7 +190,8 @@ def shopper_product(session: Session, name: str, brand: str | None) -> str:
     return product_id
 
 
-def match_receipt(session: Session, receipt_id: int, match: LineMatcher) -> dict[str, int]:
+def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
+                  identify: LineIdentifier | None = None) -> dict[str, int]:
     """Match every line of one receipt the memory cannot place. The caller commits.
 
     A printed name is matched once per receipt: the second `Bitter-Getränk`
@@ -122,7 +199,7 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher) -> dict
     question is not asked about twice.
     """
     receipt = session.get(Receipt, receipt_id)
-    counts = {"accepted": 0, "families": 0, "questions": 0, "products": 0}
+    counts = {"accepted": 0, "families": 0, "identified": 0, "questions": 0, "products": 0}
     if receipt is None or not receipt.store:
         return counts
 
@@ -143,6 +220,22 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher) -> dict
 
         proposal = match(line, receipt.store, inputs)
         verdict = proposal["verdict"]
+        if verdict == "ask" and identify is not None:
+            identity = identify(position, doc, proposal, inputs)
+            if identity.can_tell:
+                before = len(inputs["products"])
+                product_id = identified_product(session, identity, inputs)
+                counts["products"] += len(inputs["products"]) - before
+                session.add(Resolution(
+                    store=receipt.store, raw_name=line["raw_name"], line_type="product",
+                    product_id=product_id, product_ids=[],
+                    confirmed_by="identify", confirmed_at=date.today(),
+                    source=f"identify {identifying.PROMPT_VERSION}"))
+                inputs["resolution"][(store_key(receipt.store), line["raw_name"])] = \
+                    [product_id]
+                counts["identified"] += 1
+                continue
+            proposal = {**proposal, "identity": identity.as_dict()}
         if verdict == "ask":
             session.add(Question(receipt_id=receipt_id, position=position,
                                  raw_name=line["raw_name"], proposal=proposal))

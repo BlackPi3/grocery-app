@@ -560,10 +560,10 @@ def main() -> None:
         try:
             import uvicorn
 
-            from grocery_app.api.app import create_app
+            from grocery_app.api.app import create_app, identify_decider
             from grocery_app.api.images import default_image_store
             from grocery_app.api.jobs import READERS, configured_extractor
-            from grocery_app.api.matching import line_matcher
+            from grocery_app.api.matching import line_identifier, line_matcher
             from grocery_app.api.repository import default_repository
         except ImportError as exc:
             raise SystemExit(
@@ -588,10 +588,11 @@ def main() -> None:
         if reader not in READERS:
             raise SystemExit(f"unknown reader {reader!r}: expected {', '.join(READERS)}")
         if on_postgres:
-            print(f"  reader:   {reader}; matcher: claude -p (subscription)")
+            print(f"  reader:   {reader}; matcher and identify: claude -p (subscription)")
         match = line_matcher(matching.ClaudeCodeDecider(),
                              matching.default_shops(args.products_dir))
-        uvicorn.run(create_app(repository, store, configured_extractor(reader), match),
+        uvicorn.run(create_app(repository, store, configured_extractor(reader), match,
+                               line_identifier(identify_decider())),
                     host=args.host, port=args.port)
 
     if args.command == "db":
@@ -651,16 +652,18 @@ def main() -> None:
             from sqlalchemy import select
 
             from grocery_app import matcher as matching
-            from grocery_app.api.matching import line_matcher, match_receipt
+            from grocery_app.api.app import identify_decider
+            from grocery_app.api.matching import line_identifier, line_matcher, match_receipt
             from grocery_app.db.models import Receipt
 
             match = line_matcher(matching.ClaudeCodeDecider(),
                                  matching.default_shops(args.products_dir))
+            identify = line_identifier(identify_decider())
             totals: dict[str, int] = {}
             with factory() as session:
                 for receipt in session.scalars(select(Receipt).order_by(Receipt.date,
                                                                         Receipt.id)).all():
-                    counts = match_receipt(session, receipt.id, match)
+                    counts = match_receipt(session, receipt.id, match, identify)
                     session.commit()  # each receipt's answers stand on their own
                     for kind, n in counts.items():
                         totals[kind] = totals.get(kind, 0) + n

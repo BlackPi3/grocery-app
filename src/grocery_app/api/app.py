@@ -28,7 +28,7 @@ from grocery_app.api.images import (
     sha256_of,
 )
 from grocery_app.api.jobs import Extractor, configured_extractor, run_job
-from grocery_app.api.matching import LineMatcher, line_matcher
+from grocery_app.api.matching import LineIdentifier, LineMatcher, line_identifier, line_matcher
 from grocery_app.api.repository import (
     DEFAULT_PURCHASES,
     NoSuchCandidate,
@@ -52,6 +52,7 @@ from grocery_app.api.schemas import (
     ReceiptPatch,
 )
 from grocery_app.insights import build_insights
+from grocery_app.matcher import ClaudeCodeDecider
 
 __all__ = ["DEFAULT_PURCHASES", "MAX_UPLOAD_BYTES", "create_app", "default_app"]
 
@@ -63,7 +64,8 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 def create_app(repository: Repository, image_store: ImageStore | None = None,
                extractor: Extractor | None = None,
-               matcher: LineMatcher | None = None) -> FastAPI:
+               matcher: LineMatcher | None = None,
+               identify: LineIdentifier | None = None) -> FastAPI:
     app = FastAPI(
         title="Grocery App API",
         version="0.1.0",
@@ -164,7 +166,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         # Only now, with the row committed, is there something to poll and
         # something to recover.
         background.add_task(run_job, repo.session_factory, image_store, extractor,
-                            job["job_id"], matcher)
+                            job["job_id"], matcher, identify)
         return JobDocument.model_validate(job)
 
     @app.get("/v1/jobs/{job_id}", response_model=JobDocument)
@@ -260,10 +262,18 @@ def default_app() -> FastAPI:
     purchases.json to serve. This is the one place the real, paid extractor is
     wired in: `GROCERY_READER` picks the API (default) or `claude -p` on the
     subscription. `GROCERY_IMAGES` says where uploaded photos are kept. The
-    matcher asks the model through `claude -p`, on the subscription.
+    matcher and identify ask the model through `claude -p`, on the subscription.
     """
     from grocery_app import matcher as matching
 
     matcher = line_matcher(matching.ClaudeCodeDecider(), matching.default_shops())
     return create_app(default_repository(), default_image_store(), configured_extractor(),
-                      matcher)
+                      matcher, line_identifier(identify_decider()))
+
+
+def identify_decider() -> ClaudeCodeDecider:
+    """identify's model, on the subscription, cached where `eval-identify`
+    caches it: a line scored once is not paid for again when it is uploaded."""
+    from grocery_app import identify as identifying
+
+    return ClaudeCodeDecider("sonnet", "data/identified", version=identifying.PROMPT_VERSION)
