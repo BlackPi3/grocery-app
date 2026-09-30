@@ -16,11 +16,12 @@ from typing import Any, Protocol, runtime_checkable
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from grocery_app import memory
+from grocery_app import categories, memory
 from grocery_app.api.jobs import job_to_dict
 from grocery_app.api.matching import article_index
 from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict
 from grocery_app.db.models import (
+    Check,
     Correction,
     Job,
     LineResolution,
@@ -98,6 +99,9 @@ class WriteRepository(Protocol):
         ...
 
     def questions(self) -> dict[str, Any]:
+        ...
+
+    def checks(self) -> dict[str, Any]:
         ...
 
     def update_receipt(self, receipt_id: int, is_duplicate: bool | None,
@@ -376,6 +380,56 @@ class PostgresRepository:
                          "identify_answers": identify_answers,
                          "overruled": overruled},
                 "questions": questions}
+
+    def checks(self) -> dict[str, Any]:
+        """Open spot checks, and what the answered ones say (`api.checks`).
+
+        A check is answered when the shopper has answered its line. Its
+        outcome is read from that answer: the product the app said is
+        `right`, any other is `corrected`. Nothing about it is stored twice.
+        """
+        from grocery_app import matcher as matching
+        from grocery_app.normalizer import entry_key
+
+        with self.session_factory() as session:
+            answers = {(lr.receipt_id, lr.position): lr.product_id
+                       for lr in session.scalars(select(LineResolution))}
+            checks = session.scalars(select(Check)).all()
+            right = sum(1 for c in checks
+                        if answers.get((c.receipt_id, c.position)) == c.app_product_id)
+            corrected = sum(1 for c in checks if (c.receipt_id, c.position) in answers) - right
+            open_checks = [c for c in checks if (c.receipt_id, c.position) not in answers]
+
+            inputs = load_normalizer_inputs(session)
+            views = []
+            for check in open_checks:
+                receipt = session.get(Receipt, check.receipt_id)
+                doc = receipt_to_dict(receipt)
+                line = doc["lines"][check.position]
+                record = normalize_receipt(
+                    {**doc, "lines": [line]}, inputs["resolution"], inputs["products"],
+                    None, inputs["shelf_prices"], inputs["authors"])[0]
+                decided_by = record["resolution"]
+                if decided_by in ("exact", "family"):
+                    decided_by = inputs["authors"].get(
+                        entry_key(inputs["resolution"], receipt.store, line["raw_name"]))
+                product = inputs["products"].get(check.app_product_id, {})
+                views.append({
+                    "receipt_id": check.receipt_id, "position": check.position,
+                    "store": receipt.store, "date": doc.get("date"),
+                    "raw_name": check.raw_name, "paid": matching.paid_price(line),
+                    "app_product_id": check.app_product_id,
+                    "app_product": product.get("name"), "brand": product.get("brand"),
+                    "category_path": (list(categories.path(product["category"]))
+                                      if product.get("category") in categories.CATEGORIES
+                                      else None),
+                    "decided_by": decided_by,
+                })
+        views.sort(key=lambda v: (v["date"] or "", v["receipt_id"], v["position"]))
+        answered = right + corrected
+        return {"meta": {"open": len(views), "right": right, "corrected": corrected,
+                         "error_rate": round(corrected / answered, 3) if answered else None},
+                "checks": views}
 
     def update_receipt(self, receipt_id: int, is_duplicate: bool | None = None,
                        store: str | None = None) -> dict[str, Any]:

@@ -201,6 +201,40 @@ class Question(BaseModel):
                                   "was run: the part of the printed name it cannot read")
 
 
+class SpotCheck(BaseModel):
+    """A line the app placed on its own, put to the shopper at random."""
+
+    receipt_id: int
+    position: int
+    store: str | None
+    date: str | None
+    raw_name: str
+    paid: float | None = Field(description="Shelf price paid, before discount (per kg if weighed)")
+    app_product_id: str = Field(description="What the app said the line is")
+    app_product: str | None = Field(description="That product's name")
+    brand: str | None
+    category_path: list[str] | None
+    decided_by: str | None = Field(
+        description="Which part of the app said it: `matcher`, `identify`, `produce` (the "
+                    "produce vocabulary) or `price` (a price narrowing a family)")
+
+
+class ChecksMeta(BaseModel):
+    open: int
+    right: int = Field(description="Answered with the product the app said")
+    corrected: int = Field(description="Answered with another product")
+    error_rate: float | None = Field(
+        description="corrected / (right + corrected): the app's mistake rate on lines it was "
+                    "sure of, on real shopping; null before any check is answered")
+
+
+class ChecksDocument(BaseModel):
+    """Open spot checks, oldest receipt first, and what the answered ones say."""
+
+    meta: ChecksMeta
+    checks: list[SpotCheck]
+
+
 class QuestionsMeta(BaseModel):
     open: int
     matcher_answers: int = Field(description="Names the memory holds on the matcher's word")

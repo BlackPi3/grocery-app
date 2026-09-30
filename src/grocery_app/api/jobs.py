@@ -140,7 +140,8 @@ def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
 
     With a `matcher` (`api.matching.line_matcher`), the lines the memory cannot
     place are matched before the job is `done`, so a client polling the job
-    sees the receipt as it will stay; with an `identify`
+    sees the receipt as it will stay, with its spot checks chosen
+    (`api.checks`); with an `identify`
     (`api.matching.line_identifier`), a line the matcher cannot settle is read
     before it becomes a question. A matcher that fails does not fail the
     job: the receipt is stored and read, and `error` says what went wrong.
@@ -195,6 +196,19 @@ def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
                 session.rollback()
                 job = session.get(Job, job_id)
                 job.error = f"matching failed: {type(exc).__name__}: {exc}"
+
+        # Chosen after matching, from what the app placed on its own. A
+        # receipt stands without its spot checks.
+        from grocery_app.api.checks import pick_checks
+
+        try:
+            pick_checks(session, job.receipt_id)
+            session.commit()
+        except Exception as exc:  # noqa: BLE001 - the receipt stands without checks
+            session.rollback()
+            job = session.get(Job, job_id)
+            failed = f"spot checks failed: {type(exc).__name__}: {exc}"
+            job.error = f"{job.error}; {failed}" if job.error else failed
 
         job.status = "done"
         job.finished_at = _now()

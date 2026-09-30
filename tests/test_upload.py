@@ -274,3 +274,23 @@ def test_a_matcher_that_fails_leaves_the_receipt_stored(engine, tmp_path):
     done = client.get(f"/v1/jobs/{job.json()['job_id']}").json()
     assert done["status"] == "done" and done["receipt_id"] is not None
     assert done["error"] == "matching failed: RuntimeError: usage limit"
+
+
+def test_a_photo_gets_its_spot_checks_before_its_job_is_done(engine, session, tmp_path):
+    """The lines the matcher placed on its own are where the checks come from."""
+    repository = PostgresRepository(make_session_factory(engine))
+    session.add(Product(id="p-0001", name="Butter", brand="Muster"))
+    session.commit()
+
+    def matcher(line, store, inputs):
+        return {"verdict": "accept", "pick": {"product_id": "p-0001"}, "versions": [],
+                "candidates": [], "creates": []}
+
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path), FakeExtractor(),
+                                   matcher))
+    job = client.post("/v1/receipts", files={"file": ("image.jpg", a_photo("red"), "image/jpeg")})
+    done = client.get(f"/v1/jobs/{job.json()['job_id']}").json()
+    assert (done["status"], done["error"]) == ("done", None)
+    (check,) = client.get("/v1/checks").json()["checks"]
+    assert (check["receipt_id"], check["raw_name"], check["decided_by"]) == \
+        (done["receipt_id"], "MU Butter", "matcher")
