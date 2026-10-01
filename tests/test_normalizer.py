@@ -390,3 +390,20 @@ def test_a_weight_or_volume_on_the_line_counts_only_for_food():
 def test_a_line_nothing_places_gets_no_price_per_unit_from_its_words():
     line = {"type": "product", "raw_name": "Rätsel 10er", "qty": 1, "gross": 3.0, "net": 3.0}
     assert normalize_line(line, RECEIPT, {}, PRODUCTS)["unit_price"] is None
+
+
+def test_how_a_line_was_sold_belongs_to_the_purchase():
+    level_one = {"p-9": {"name": "Rispentomaten", "brand": None, "category": "tomaten",
+                         "size": {"count": 1, "value": None, "unit": None}}}
+    memory = {("globus", "Rispentomaten lose"): ["p-9"], ("globus", "Rispentomaten 650g"): ["p-9"]}
+    loose = normalize_line({"type": "product", "raw_name": "Rispentomaten lose", "qty": 1,
+                            "net": 0.59, "sold_by_weight": True, "weight_kg": 0.5},
+                           RECEIPT, memory, level_one)
+    pack = normalize_line({"type": "product", "raw_name": "Rispentomaten 650g", "qty": 1,
+                           "net": 1.79}, RECEIPT, memory, level_one)
+    assert loose["product_id"] == pack["product_id"] == "p-9", "one product"
+    assert loose["sold_as"] == {"form": "loose", "size": None}
+    assert pack["sold_as"] == {"form": "pack", "size": {"count": 1, "value": 650.0, "unit": "g"}}
+    unknown = normalize_line({"type": "product", "raw_name": "Rätsel", "qty": 1, "net": 1.0},
+                             RECEIPT, {}, PRODUCTS)
+    assert unknown["sold_as"] is None

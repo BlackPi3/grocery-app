@@ -105,6 +105,40 @@ def printed_size(raw_name: str) -> dict[str, Any] | None:
     return None
 
 
+def pack_size(line: dict[str, Any], entry: dict[str, Any] | None,
+              category: str | None = None, from_line: bool = True) -> dict[str, Any] | None:
+    """The pack this line bought, or None: the product's own size when it
+    has one, else the size printed on the line (`printed_size`). A weight or
+    volume from the line only for food: `Müllbeutel 35 L` is a capacity.
+    `from_line=False` (a line nothing places) reads nothing from the words."""
+    size = (entry or {}).get("size") or {}
+    if size.get("value") and size.get("unit"):
+        return size
+    if not from_line:
+        return None
+    size = printed_size(line.get("raw_name") or "") or {}
+    if not size or (size["unit"] in ("kg", "g", "ml", "l") and not categories.is_food(category)):
+        return None
+    return size
+
+
+def sold_as(line: dict[str, Any], pack: dict[str, Any] | None) -> dict[str, Any] | None:
+    """How the line was sold: `loose` (weighed at the till) or `pack` (with
+    its size), or None when neither is known.
+
+    The product stays one thing; the form belongs to the purchase, like the
+    size (Parham, 2026-10-01): `Rispentomaten lose` at 1,18 EUR/kg and
+    `Rispentomaten 650g` at 2,75 EUR/kg are one product bought two ways. Price
+    comparisons keep the two apart, and "loose is cheaper than the pack" can
+    be read from the same data.
+    """
+    if line.get("sold_by_weight") and line.get("weight_kg"):
+        return {"form": "loose", "size": None}
+    if pack:
+        return {"form": "pack", "size": {k: pack.get(k) for k in ("count", "value", "unit")}}
+    return None
+
+
 def compute_unit_price(net_paid: float, qty: int, line: dict[str, Any],
                        entry: dict[str, Any] | None,
                        category: str | None = None,
@@ -127,11 +161,7 @@ def compute_unit_price(net_paid: float, qty: int, line: dict[str, Any],
     if line.get("sold_by_weight") and line.get("weight_kg"):
         return {"amount": round(net_paid / line["weight_kg"], 2), "per": "kg"}
 
-    size = (entry or {}).get("size") or {}
-    if (not size.get("value") or not size.get("unit")) and from_line:
-        size = printed_size(line.get("raw_name") or "") or {}
-        if size.get("unit") in ("kg", "g", "ml", "l") and not categories.is_food(category):
-            return None
+    size = pack_size(line, entry, category, from_line) or {}
     net_quantity = size.get("value")
     unit = size.get("unit")
     if not net_quantity or not unit:
@@ -364,12 +394,14 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
         record["is_budget_brand"] = budget_brand_status(receipt.get("store"), record.get("brand"))
         # Unit price needs a pack size, and only an exact match has one we can
         # trust: a family may span 0,5 kg and 0,2 kg of the same seeds.
-        record["unit_price"] = compute_unit_price(
-            net_paid, qty, line, candidates[0] if how != "family" else None,
-            record.get("category"))
+        entry = candidates[0] if how != "family" else None
+        record["unit_price"] = compute_unit_price(net_paid, qty, line, entry,
+                                                  record.get("category"))
+        record["sold_as"] = sold_as(line, pack_size(line, entry, record.get("category")))
     else:
         # Unresolved: keep the money, be honest about the missing identity.
         record["unit_price"] = compute_unit_price(net_paid, qty, line, None, from_line=False)
+        record["sold_as"] = sold_as(line, None)
 
     return record
 
@@ -540,7 +572,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     dates = sorted({r["date"] for r in receipts if not r.get("is_duplicate")})
 
     return {
-        "contract_version": 5,
+        "contract_version": 6,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],

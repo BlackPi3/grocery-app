@@ -29,12 +29,18 @@ from pydantic import BaseModel, ConfigDict, Field
 #
 # Purchases bumped to 5 on 2026-09-30: `said_by` says who said what each line
 # is, `you` or `app`, so a reader can tell a confirmed answer from a guess.
-PURCHASES_CONTRACT_VERSION = 5
+# And to 6 on 2026-10-01: `sold_as` says how the line was sold, loose or a
+# pack of some size; the product stays one thing.
+PURCHASES_CONTRACT_VERSION = 6
 #
 # Insights bumped to 3 on 2026-09-29: lines known not to be groceries (café,
 # flowers, cards) left every insight, so `coverage.spend` means grocery spend,
 # and `coverage.not_grocery` says what was left out.
-INSIGHTS_CONTRACT_VERSION = 3
+#
+# Insights bumped to 4 on 2026-10-01: price changes and the basket compare
+# like with like (loose with loose, packs with packs), so an entry carries
+# `sold_as` and the basket names product and form.
+INSIGHTS_CONTRACT_VERSION = 4
 
 
 class UnitPrice(BaseModel):
@@ -42,6 +48,23 @@ class UnitPrice(BaseModel):
 
     amount: float
     per: str = Field(description="The basis: 'kg', 'l', 'piece', ...")
+
+
+class PackSize(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    count: int | None
+    value: float | None
+    unit: str | None
+
+
+class SoldAs(BaseModel):
+    """How a line was sold: loose (weighed at the till), or a pack of `size`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    form: Literal["loose", "pack"]
+    size: PackSize | None
 
 
 class Purchase(BaseModel):
@@ -68,6 +91,7 @@ class Purchase(BaseModel):
     tax_class: str | None = Field(description="As printed on the receipt, never interpreted")
     tax_rate: float | None
     unit_price: UnitPrice | None = None
+    sold_as: SoldAs | None = None
 
     # Present only when the line resolved to a product or a family of products.
     product: str | None = None

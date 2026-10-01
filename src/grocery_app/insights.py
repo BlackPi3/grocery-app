@@ -39,7 +39,7 @@ from typing import Any
 from grocery_app import categories
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 3
+CONTRACT_VERSION = 4
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -70,6 +70,23 @@ def _paid_unit_price(p: dict[str, Any]) -> tuple[float, str] | None:
     if net is None or net <= 0:
         return None
     return round(net / qty, 2), "item"
+
+
+def _form(p: dict[str, Any]) -> str | None:
+    """How the line was sold: `loose`, `pack`, or None (`normalizer.sold_as`)."""
+    return (p.get("sold_as") or {}).get("form")
+
+
+def _by_product_and_form(rows: list[dict[str, Any]]
+                         ) -> dict[tuple[str, str | None], list[dict[str, Any]]]:
+    """Like with like: loose tomatoes are compared with loose tomatoes and the
+    650 g pack with packs, so a change of form never reads as inflation
+    (Parham, 2026-10-01). The product stays one; only the comparison splits."""
+    groups: dict[tuple[str, str | None], list[dict[str, Any]]] = defaultdict(list)
+    for p in rows:
+        if p.get("product_id"):
+            groups[(p["product_id"], _form(p))].append(p)
+    return groups
 
 
 def _name(rows: list[dict[str, Any]]) -> str:
@@ -158,10 +175,11 @@ def _observations(group: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], st
 
 
 def price_changes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Every product seen on at least two dates, with the price it was bought at each time."""
+    """Every product seen on at least two dates in the same form (loose, a pack,
+    or unknown), with the price it was bought at each time."""
     labels = _store_labels(rows)
     out = []
-    for pid, group in _by_product(rows).items():
+    for (pid, form), group in _by_product_and_form(rows).items():
         found = _observations(group)
         if found is None:
             continue
@@ -173,6 +191,7 @@ def price_changes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "product": _name(group),
             "brand": group[-1].get("brand"),
             "store": _store(group[-1], labels),
+            "sold_as": form,
             "per": unit,
             "first": obs[0],
             "last": obs[-1],
@@ -185,14 +204,21 @@ def price_changes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 # --- 3. personal basket index -----------------------------------------------
 
-def _month_prices(rows: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, float]]]:
-    """month -> product_id -> {"price": mean paid unit price, "quantity": units bought}.
+Key = tuple[str, str | None, str]  # product, form, unit of the price
+
+
+def _month_prices(rows: list[dict[str, Any]]) -> dict[str, dict[Key, dict[str, float]]]:
+    """month -> (product, form, unit) -> {"price": mean paid unit price, "quantity": units}.
+
+    Keyed on the form as well as the product, so the basket compares like
+    with like; and on the unit, so a price per kilo is never averaged with a
+    price per item.
 
     Quantity is spend divided by unit price, so it is in the unit the price is
     in: pieces for packs, kilograms for loose goods. That keeps price x quantity
     equal to money for every kind of line.
     """
-    acc: dict[str, dict[str, dict[str, list[float]]]] = defaultdict(
+    acc: dict[str, dict[Key, dict[str, list[float]]]] = defaultdict(
         lambda: defaultdict(lambda: {"prices": [], "spend": []}))
     for p in rows:
         if not p.get("product_id") or not p.get("date"):
@@ -201,9 +227,10 @@ def _month_prices(rows: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, f
         if priced is None:
             continue
         month = p["date"][:7]
-        acc[month][p["product_id"]]["prices"].append(priced[0])
-        acc[month][p["product_id"]]["spend"].append(p.get("net_paid") or 0.0)
-    out: dict[str, dict[str, dict[str, float]]] = {}
+        key = (p["product_id"], _form(p), priced[1])
+        acc[month][key]["prices"].append(priced[0])
+        acc[month][key]["spend"].append(p.get("net_paid") or 0.0)
+    out: dict[str, dict[Key, dict[str, float]]] = {}
     for month, products in acc.items():
         out[month] = {}
         for pid, v in products.items():
@@ -226,7 +253,8 @@ def basket_index(rows: list[dict[str, Any]]) -> dict[str, Any]:
     series: list[dict[str, Any]] = []
     level = 100.0
     for prev, cur in zip(order, order[1:], strict=False):
-        overlap = sorted(set(months[prev]) & set(months[cur]))
+        overlap = sorted(set(months[prev]) & set(months[cur]),
+                         key=lambda k: (k[0], k[1] or "", k[2]))
         entry: dict[str, Any] = {"month": cur, "versus": prev, "products": len(overlap)}
         if len(overlap) < MIN_BASKET_PRODUCTS:
             entry.update({"index": None, "month_over_month_pct": None,
@@ -245,7 +273,10 @@ def basket_index(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "month_over_month_pct": round((ratio - 1) * 100, 1),
             "basket_cost_at_previous_prices": round(base_cost, 2),
             "basket_cost_at_current_prices": round(cur_cost, 2),
-            "product_ids": overlap,
+            # What was compared: each product in the form and unit it was
+            # priced in both months.
+            "compared": [{"product_id": pid, "sold_as": form, "per": per}
+                         for pid, form, per in overlap],
         })
         series.append(entry)
     return {

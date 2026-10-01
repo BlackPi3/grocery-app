@@ -1,5 +1,5 @@
 {
-  "contract_version": 3,
+  "contract_version": 4,
   "as_of": "2026-08-29",
   "coverage": {
     "receipts": 27,
@@ -375,40 +375,11 @@
   ],
   "price_changes": [
     {
-      "product_id": "p-0113",
-      "product": "Rispentomaten",
-      "brand": null,
-      "store": "ALDI SÜD",
-      "per": "kg",
-      "first": {
-        "date": "2026-06-29",
-        "price": 0.99
-      },
-      "last": {
-        "date": "2026-08-22",
-        "price": 2.75
-      },
-      "change_pct": 177.8,
-      "observations": [
-        {
-          "date": "2026-06-29",
-          "price": 0.99
-        },
-        {
-          "date": "2026-07-18",
-          "price": 1.18
-        },
-        {
-          "date": "2026-08-22",
-          "price": 2.75
-        }
-      ]
-    },
-    {
       "product_id": "p-0121",
       "product": "Paprika rot",
       "brand": null,
       "store": "Kaufland",
+      "sold_as": "loose",
       "per": "kg",
       "first": {
         "date": "2026-06-29",
@@ -431,36 +402,11 @@
       ]
     },
     {
-      "product_id": "p-0103",
-      "product": "Johannisbeeren",
-      "brand": null,
-      "store": "ALDI SÜD",
-      "per": "kg",
-      "first": {
-        "date": "2026-06-26",
-        "price": 5.98
-      },
-      "last": {
-        "date": "2026-08-22",
-        "price": 9.95
-      },
-      "change_pct": 66.4,
-      "observations": [
-        {
-          "date": "2026-06-26",
-          "price": 5.98
-        },
-        {
-          "date": "2026-08-22",
-          "price": 9.95
-        }
-      ]
-    },
-    {
       "product_id": "p-0116",
       "product": "Lauchzwiebeln",
       "brand": null,
       "store": "ALDI SÜD",
+      "sold_as": null,
       "per": "item",
       "first": {
         "date": "2026-07-09",
@@ -491,6 +437,7 @@
       "product": "Datteltomaten",
       "brand": null,
       "store": "ALDI SÜD",
+      "sold_as": "pack",
       "per": "kg",
       "first": {
         "date": "2026-07-09",
@@ -517,6 +464,7 @@
       "product": "Magerquark (low-fat quark)",
       "brand": "Jeden Tag",
       "store": "GLOBUS",
+      "sold_as": "pack",
       "per": "kg",
       "first": {
         "date": "2026-07-15",
@@ -547,6 +495,7 @@
       "product": "Nektarinen",
       "brand": null,
       "store": "ALDI SÜD",
+      "sold_as": "pack",
       "per": "kg",
       "first": {
         "date": "2026-07-09",
@@ -573,6 +522,7 @@
       "product": "Avocado",
       "brand": "GLOBUS",
       "store": "GLOBUS",
+      "sold_as": "pack",
       "per": "piece",
       "first": {
         "date": "2026-07-15",
@@ -595,10 +545,92 @@
       ]
     },
     {
+      "product_id": "p-0107",
+      "product": "Zwiebeln",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "sold_as": "pack",
+      "per": "kg",
+      "first": {
+        "date": "2026-07-09",
+        "price": 1.25
+      },
+      "last": {
+        "date": "2026-08-22",
+        "price": 0.99
+      },
+      "change_pct": -20.8,
+      "observations": [
+        {
+          "date": "2026-07-09",
+          "price": 1.25
+        },
+        {
+          "date": "2026-08-22",
+          "price": 0.99
+        }
+      ]
+    },
+    {
+      "product_id": "p-0107",
+      "product": "Zwiebeln",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "sold_as": null,
+      "per": "item",
+      "first": {
+        "date": "2026-06-26",
+        "price": 1.49
+      },
+      "last": {
+        "date": "2026-08-22",
+        "price": 1.19
+      },
+      "change_pct": -20.1,
+      "observations": [
+        {
+          "date": "2026-06-26",
+          "price": 1.49
+        },
+        {
+          "date": "2026-08-22",
+          "price": 1.19
+        }
+      ]
+    },
+    {
+      "product_id": "p-0113",
+      "product": "Rispentomaten",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "sold_as": "loose",
+      "per": "kg",
+      "first": {
+        "date": "2026-06-29",
+        "price": 0.99
+      },
+      "last": {
+        "date": "2026-07-18",
+        "price": 1.18
+      },
+      "change_pct": 19.2,
+      "observations": [
+        {
+          "date": "2026-06-29",
+          "price": 0.99
+        },
+        {
+          "date": "2026-07-18",
+          "price": 1.18
+        }
+      ]
+    },
+    {
       "product_id": "p-0104",
       "product": "Salatgurken",
       "brand": null,
       "store": "ALDI SÜD",
+      "sold_as": null,
       "per": "item",
       "first": {
         "date": "2026-07-09",
@@ -625,10 +657,38 @@
       ]
     },
     {
+      "product_id": "p-0102",
+      "product": "Mini-Gurken",
+      "brand": null,
+      "store": "ALDI SÜD",
+      "sold_as": null,
+      "per": "item",
+      "first": {
+        "date": "2026-06-26",
+        "price": 0.99
+      },
+      "last": {
+        "date": "2026-06-29",
+        "price": 1.11
+      },
+      "change_pct": 12.1,
+      "observations": [
+        {
+          "date": "2026-06-26",
+          "price": 0.99
+        },
+        {
+          "date": "2026-06-29",
+          "price": 1.11
+        }
+      ]
+    },
+    {
       "product_id": "p-0077",
       "product": "Saatenbrötchen 3er (3x 1,000 Stück)",
       "brand": "GLOBUS Meisterbäckerei",
       "store": "GLOBUS",
+      "sold_as": "pack",
       "per": "piece",
       "first": {
         "date": "2026-07-14",
@@ -663,6 +723,7 @@
       "product": "Coca-Cola Classic",
       "brand": "Coca-Cola",
       "store": "ALDI SÜD",
+      "sold_as": "pack",
       "per": "l",
       "first": {
         "date": "2026-06-26",
@@ -689,6 +750,7 @@
       "product": "Mini-Karotten Bio",
       "brand": null,
       "store": "ALDI SÜD",
+      "sold_as": "pack",
       "per": "kg",
       "first": {
         "date": "2026-06-29",
@@ -715,6 +777,7 @@
       "product": "Chocolate",
       "brand": "Alnatura",
       "store": "GLOBUS",
+      "sold_as": null,
       "per": "item",
       "first": {
         "date": "2026-07-15",
@@ -741,6 +804,7 @@
       "product": "Distilled water",
       "brand": "OHO",
       "store": "GLOBUS",
+      "sold_as": null,
       "per": "item",
       "first": {
         "date": "2026-07-20",
@@ -767,6 +831,7 @@
       "product": "Bio 3 Korn Flocken",
       "brand": "Alnatura",
       "store": "GLOBUS",
+      "sold_as": "pack",
       "per": "kg",
       "first": {
         "date": "2026-07-21",
@@ -793,6 +858,7 @@
       "product": "Schoko Rosinen, Vollmilchschokoladee",
       "brand": "Jeden Tag",
       "store": "GLOBUS",
+      "sold_as": "pack",
       "per": "kg",
       "first": {
         "date": "2026-08-01",
@@ -819,6 +885,7 @@
       "product": "Speisequark Magerstufe",
       "brand": "Jeden Tag",
       "store": "GLOBUS",
+      "sold_as": "pack",
       "per": "kg",
       "first": {
         "date": "2026-08-05",
@@ -845,6 +912,7 @@
       "product": "Bio H-Alpenmilch 1,5% Fett, Laktosefrei",
       "brand": "Berchtesgadener Land",
       "store": "GLOBUS",
+      "sold_as": "pack",
       "per": "l",
       "first": {
         "date": "2026-08-05",
@@ -871,6 +939,7 @@
       "product": "Waffeln Snack minis, Milch-Haselnuss",
       "brand": "Manner",
       "store": "GLOBUS",
+      "sold_as": "pack",
       "per": "kg",
       "first": {
         "date": "2026-08-06",
@@ -900,41 +969,88 @@
       {
         "month": "2026-07",
         "versus": "2026-06",
-        "products": 7,
-        "index": 175.1,
-        "month_over_month_pct": 75.1,
-        "basket_cost_at_previous_prices": 10.37,
-        "basket_cost_at_current_prices": 18.16,
-        "product_ids": [
-          "p-0102",
-          "p-0105",
-          "p-0107",
-          "p-0113",
-          "p-0120",
-          "p-0121",
-          "p-0127"
+        "products": 3,
+        "index": 125.9,
+        "month_over_month_pct": 25.9,
+        "basket_cost_at_previous_prices": 2.01,
+        "basket_cost_at_current_prices": 2.53,
+        "compared": [
+          {
+            "product_id": "p-0113",
+            "sold_as": "loose",
+            "per": "kg"
+          },
+          {
+            "product_id": "p-0121",
+            "sold_as": "loose",
+            "per": "kg"
+          },
+          {
+            "product_id": "p-0127",
+            "sold_as": "pack",
+            "per": "kg"
+          }
         ]
       },
       {
         "month": "2026-08",
         "versus": "2026-07",
-        "products": 11,
-        "index": 175.1,
-        "month_over_month_pct": -0.0,
-        "basket_cost_at_previous_prices": 23.19,
-        "basket_cost_at_current_prices": 23.18,
-        "product_ids": [
-          "p-0001",
-          "p-0016",
-          "p-0039",
-          "p-0054",
-          "p-0077",
-          "p-0104",
-          "p-0107",
-          "p-0109",
-          "p-0112",
-          "p-0113",
-          "p-0116"
+        "products": 10,
+        "index": 122.3,
+        "month_over_month_pct": -2.9,
+        "basket_cost_at_previous_prices": 22.85,
+        "basket_cost_at_current_prices": 22.19,
+        "compared": [
+          {
+            "product_id": "p-0001",
+            "sold_as": null,
+            "per": "item"
+          },
+          {
+            "product_id": "p-0016",
+            "sold_as": "pack",
+            "per": "piece"
+          },
+          {
+            "product_id": "p-0039",
+            "sold_as": null,
+            "per": "item"
+          },
+          {
+            "product_id": "p-0054",
+            "sold_as": "pack",
+            "per": "kg"
+          },
+          {
+            "product_id": "p-0077",
+            "sold_as": "pack",
+            "per": "piece"
+          },
+          {
+            "product_id": "p-0104",
+            "sold_as": null,
+            "per": "item"
+          },
+          {
+            "product_id": "p-0107",
+            "sold_as": "pack",
+            "per": "kg"
+          },
+          {
+            "product_id": "p-0109",
+            "sold_as": "pack",
+            "per": "kg"
+          },
+          {
+            "product_id": "p-0112",
+            "sold_as": "pack",
+            "per": "kg"
+          },
+          {
+            "product_id": "p-0116",
+            "sold_as": null,
+            "per": "item"
+          }
         ]
       }
     ],
