@@ -91,11 +91,13 @@ class WriteRepository(Protocol):
         ...
 
     def set_line_resolution(self, receipt_id: int, position: int, product_id: str | None,
-                            confirmed_by: str | None, basis: str | None) -> dict[str, Any]:
+                            confirmed_by: str | None, basis: str | None,
+                            shopper_words: str | None = None) -> dict[str, Any]:
         ...
 
     def product_for_answer(self, receipt_id: int, position: int, candidate: int | None,
-                           new_product: dict[str, Any] | None) -> str:
+                           new_product: dict[str, Any] | None,
+                           identify: Any | None = None) -> str:
         ...
 
     def questions(self) -> dict[str, Any]:
@@ -209,7 +211,8 @@ class PostgresRepository:
 
     def set_line_resolution(self, receipt_id: int, position: int, product_id: str | None,
                             confirmed_by: str | None = None,
-                            basis: str | None = None) -> dict[str, Any]:
+                            basis: str | None = None,
+                            shopper_words: str | None = None) -> dict[str, Any]:
         """Record, or withdraw, the shopper's answer for one line.
 
         This is the most valuable data the project has: the till prints a name
@@ -257,6 +260,7 @@ class PostgresRepository:
                 answer.confirmed_by = confirmed_by or "shopper"
                 answer.confirmed_at = date.today()
                 answer.basis = basis
+                answer.shopper_words = shopper_words
                 session.add(answer)
                 self._remember(session, row, line.raw_name, position, product_id,
                                answer.confirmed_by, before)
@@ -307,22 +311,24 @@ class PostgresRepository:
         return alike[0] if len(alike) == 1 else None
 
     def product_for_answer(self, receipt_id: int, position: int, candidate: int | None,
-                           new_product: dict[str, Any] | None) -> str:
+                           new_product: dict[str, Any] | None,
+                           identify: Any | None = None) -> str:
         """The product an answer names by candidate number or in words, made if new.
 
         A candidate is quoted by its number in the line's question; a shop
         listing the catalog lacks becomes a product, decided by the shopper.
-        A product in words is made as far as the words go. Either way the
+        A description in the shopper's words is read into our format by
+        `identify` (`matching.described_product`). Either way the
         product is committed before the answer is recorded, so a refused
         answer can leave a product behind, never an answer without one.
         """
-        from grocery_app.api.matching import product_for, shopper_product
+        from grocery_app.api.matching import described_product, product_for
 
         with self.session_factory() as session:
             row = self._get(session, receipt_id)
             if new_product is not None:
-                product_id = shopper_product(session, new_product["name"],
-                                             new_product.get("brand"))
+                product_id = described_product(session, receipt_id, position,
+                                               new_product["description"], identify)
             else:
                 question = session.scalars(select(Question).where(
                     Question.receipt_id == receipt_id, Question.position == position)).first()

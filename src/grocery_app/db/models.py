@@ -171,6 +171,10 @@ class LineResolution(Base):
     confirmed_by: Mapped[str | None] = mapped_column(String)
     confirmed_at: Mapped[date | None] = mapped_column(Date)
     basis: Mapped[str | None] = mapped_column(String)  # memory, photo, ...
+    # What the shopper wrote, as written, when the answer was a description:
+    # the product holds the app's reading of it, and a bad reading can be
+    # traced back to the words (Parham, 2026-10-01).
+    shopper_words: Mapped[str | None] = mapped_column(String)
 
 
 class Correction(Base):

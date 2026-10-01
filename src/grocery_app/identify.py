@@ -286,8 +286,16 @@ def known_abbreviations(raw_name: str, learned: dict[str, Counter] | None) -> li
 def build_prompt(raw_name: str, store: str | None,
                  shop_products: list[dict[str, Any]] | None = None,
                  receipt_lines: list[str] | None = None, paid_text: str = "",
-                 abbreviations_seen: list[str] | None = None) -> str:
+                 abbreviations_seen: list[str] | None = None,
+                 description: str | None = None) -> str:
     prompt = f"Shop: {store or 'unknown'}\nReceipt line: `{raw_name}`"
+    if description:
+        # In the line's prompt, not the system prompt: the scored prompt and
+        # its cached answers stay what they were.
+        prompt += (f"\n\nThe shopper who bought it says what it is, in their own words:\n"
+                   f"<<{description}>>\nThey are right about what it is: take the kind, brand "
+                   f"and variant from their words, read together with the printed line. Never "
+                   f"contradict them. Your job is only the format above, in German.")
     if paid_text:
         prompt += f"\n{paid_text}"
     if abbreviations_seen:
@@ -308,7 +316,8 @@ def build_prompt(raw_name: str, store: str | None,
 def identify(raw_name: str, store: str | None, decider: Decider,
              shop_products: list[dict[str, Any]] | None = None,
              receipt_lines: list[str] | None = None, paid_text: str = "",
-             learned: dict[str, Counter] | None = None) -> Identity:
+             learned: dict[str, Counter] | None = None,
+             description: str | None = None) -> Identity:
     """Read one printed name, as a person would, with its context.
 
     `shop_products` are candidates the matcher gathered (`matcher.gather`):
@@ -319,11 +328,13 @@ def identify(raw_name: str, store: str | None, decider: Decider,
     breakfast, not a jar of compote). A category outside the vocabulary is
     none, never kept. An answer that leaves a printed word out of its `parts`
     cannot tell, and says which word. `paid_text` is `paid(...)` for this
-    line; `learned` is this store's part of `abbreviations(...)`.
+    line; `learned` is this store's part of `abbreviations(...)`. `description`
+    is the shopper's own words for what the line was: the meaning is theirs,
+    the format is ours (Parham, 2026-10-01).
     """
     answer = decider(SYSTEM_PROMPT,
                      build_prompt(raw_name, store, shop_products, receipt_lines, paid_text,
-                                  known_abbreviations(raw_name, learned)), SCHEMA)
+                                  known_abbreviations(raw_name, learned), description), SCHEMA)
     category = answer.get("category")
     parts = [{"printed": str(p.get("printed") or ""), "means": p.get("means") or None}
              for p in answer.get("parts") or []]
