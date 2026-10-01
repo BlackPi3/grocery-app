@@ -141,12 +141,19 @@ class ReceiptDocument(BaseModel):
 
 
 class NewProductAnswer(BaseModel):
-    """"None of these, it's …": a product nobody lists, in the shopper's words."""
+    """"None of these, it's …": what the line was, described in the shopper's words.
+
+    Any language, as loose as they like: kind, brand, what it is for. The
+    server reads it into its own format (`matching.described_product`) and
+    keeps the words beside the answer; the shopper never writes our format,
+    which may change (Parham, 2026-10-01).
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(min_length=1, description="What it was, e.g. 'Kashk'")
-    brand: str | None = Field(default=None, description="The brand, when the shopper knows it")
+    description: str = Field(
+        min_length=1, description="What it was, in your own words, e.g. "
+                                  "'salted pickled cucumbers, the Pamir ones'")
 
 
 class LineResolutionRequest(BaseModel):

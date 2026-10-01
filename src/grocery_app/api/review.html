@@ -154,27 +154,31 @@ function productText(name, brand) {
 
 async function answer(receiptId, position, body) {
   try {
-    await api(`/v1/receipts/${receiptId}/lines/${position}/resolution`, {
+    const doc = await api(`/v1/receipts/${receiptId}/lines/${position}/resolution`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    toast("Saved");
+    // Say what it was stored as: a description is read into the app's format.
+    const line = (doc.lines || []).find(l => l.position === position);
+    toast(line && line.product ? "Saved as: " + productText(line.product, line.brand) : "Saved");
     await load();
   } catch (error) {
     toast("Not saved: " + error.message);
   }
 }
 
-// Search the catalog, or name a new product in your own words.
+// Search the catalog, or say what it was in your own words: any language, as
+// loose as you like. The server reads a description into its own format.
 function picker(receiptId, position, extra) {
   const results = el("div", { class: "list" });
-  const brand = el("input", { placeholder: "Brand, if you know it (optional)" });
-  const search = el("input", { placeholder: "What was it? Search or type a name" });
+  const search = el("input", { placeholder: "What was it? Search, or describe it" });
   const create = el("button", { onclick: () => {
-    const name = search.value.trim();
-    if (!name) return;
-    answer(receiptId, position, { new_product: { name, brand: brand.value.trim() || null } });
-  } }, "Save as a new product");
+    const description = search.value.trim();
+    if (!description) return;
+    create.disabled = true;
+    create.textContent = "Reading your description…";
+    answer(receiptId, position, { new_product: { description } });
+  } }, "None of these: save my description");
   let timer;
   search.addEventListener("input", () => {
     clearTimeout(timer);
@@ -194,7 +198,7 @@ function picker(receiptId, position, extra) {
       } catch (error) { toast(error.message); }
     }, 250);
   });
-  return el("div", { class: "picker" }, extra || null, search, results, brand, create);
+  return el("div", { class: "picker" }, extra || null, search, results, create);
 }
 
 // --- views ----------------------------------------------------------------

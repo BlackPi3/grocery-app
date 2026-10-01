@@ -336,15 +336,16 @@ def test_answering_with_a_candidate_makes_the_listing_a_product_the_shopper_chos
         ["Geheimnis"], "answered, and remembered for the next receipt"
 
 
-def test_none_of_these_makes_a_product_in_the_shoppers_words(server):
-    """Kashk: no shop lists it, the shopper knows it. The product holds what
-    was said and says what is still unknown."""
+def test_without_an_identifier_a_description_is_kept_as_written(server):
+    """Kashk: no shop lists it, the shopper knows it. With nothing to read the
+    words into our format, the product holds what was said and says what is
+    still unknown: an answer is never lost for want of a format."""
     client, session = server
     receipt = add_receipt(session, "IMG_8.jpeg", ["Diverse Lebensmittel"],
                           store="FK Frisch Kauf GmbH")
 
     response = client.put(f"/v1/receipts/{receipt}/lines/0/resolution",
-                          json={"new_product": {"name": "Kashk"}})
+                          json={"new_product": {"description": "Kashk"}})
     line = response.json()["lines"][0]
     assert (line["resolution"], line["product"]) == ("user", "Kashk")
     product = session.get(Product, line["product_id"])
@@ -552,7 +553,7 @@ def test_a_product_typed_twice_is_one_product(server):
     receipt = add_receipt(session, "IMG_7.jpeg", ["Rätsel", "Noch ein Rätsel"])
     for position in (0, 1):
         client.put(f"/v1/receipts/{receipt}/lines/{position}/resolution",
-                   json={"new_product": {"name": "Kashk", "brand": None}})
+                   json={"new_product": {"description": "Kashk"}})
     ids = [product_id for _, product_id, _ in reading(client, receipt)]
     assert ids[0] == ids[1] and ids[0] is not None
 
@@ -564,3 +565,65 @@ def test_the_review_page_is_served_at_the_root(server):
     assert "<title>Basket review</title>" in page.text
     for route in ("/v1/checks", "/v1/questions", "/v1/receipts", "/v1/products"):
         assert route in page.text, f"the page reads {route}"
+
+
+
+# --- answers in the shopper's own words ---------------------------------------------------
+
+def describing(engine, **table):
+    """A server whose identifier reads a description from a table, words ->
+    Identity fields (None: cannot tell), and remembers what it was given."""
+    from grocery_app.identify import Identity
+
+    def identify(position, receipt, proposal, inputs, description=None):
+        identify.seen.append((receipt["lines"][position]["raw_name"], description))
+        said = table.get(description)
+        if said is None:
+            return Identity(description or "", None, None, None, None, False, "unreadable")
+        return Identity(said["name"], said.get("category"), said.get("brand"),
+                        said.get("variant"), None, True, "test")
+    identify.seen = []
+    client = TestClient(create_app(PostgresRepository(make_session_factory(engine)),
+                                   identify=identify))
+    return client, identify
+
+
+def test_a_description_is_read_into_our_format_and_the_words_are_kept(server, engine):
+    from grocery_app.db.models import LineResolution
+
+    _, session = server
+    words = "salted pickled cucumbers, the Pamir ones"
+    client, identify = describing(engine, **{words: {"name": "Salzgurken", "brand": "Pamir",
+                                                     "category": "gurken"}})
+    receipt = add_receipt(session, "IMG_8.jpeg", ["Pamir"], store="FK Frisch Kauf GmbH")
+
+    line = client.put(f"/v1/receipts/{receipt}/lines/0/resolution",
+                      json={"new_product": {"description": words}}).json()["lines"][0]
+    assert identify.seen == [("Pamir", words)], "identify reads the line with the words"
+    assert (line["product"], line["brand"], line["category"], line["said_by"]) == \
+        ("Salzgurken", "Pamir", "gurken", "you"), "the meaning is his, the format ours"
+    product = session.get(Product, line["product_id"])
+    assert product.provenance["decided_by"] == "shopper"
+    answer = session.scalars(select(LineResolution).where(
+        LineResolution.receipt_id == receipt)).one()
+    assert answer.shopper_words == words, "his words, as written, beside the answer"
+
+
+def test_a_description_of_something_we_have_is_that_product(server, engine):
+    _, session = server
+    client, _ = describing(engine, **{"die fettarme Milch von Muster":
+                                      {"name": "Milch 1,5%", "brand": "Muster"}})
+    receipt = add_receipt(session, "IMG_8.jpeg", ["Rätsel"])
+    line = client.put(f"/v1/receipts/{receipt}/lines/0/resolution",
+                      json={"new_product": {"description": "die fettarme Milch von Muster"}}
+                      ).json()["lines"][0]
+    assert line["product_id"] == "p-0001"
+
+
+def test_words_identify_cannot_read_are_kept_as_written(server, engine):
+    _, session = server
+    client, _ = describing(engine)
+    receipt = add_receipt(session, "IMG_8.jpeg", ["Rätsel"])
+    line = client.put(f"/v1/receipts/{receipt}/lines/0/resolution",
+                      json={"new_product": {"description": "das grüne Zeug"}}).json()["lines"][0]
+    assert line["product"] == "das grüne Zeug"

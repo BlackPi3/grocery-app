@@ -227,9 +227,11 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
             if given[0] != "product_id":
                 product_id = repo.product_for_answer(
                     receipt_id, position, answer.candidate,
-                    answer.new_product.model_dump() if answer.new_product else None)
-            updated = repo.set_line_resolution(receipt_id, position, product_id,
-                                               answer.confirmed_by, answer.basis)
+                    answer.new_product.model_dump() if answer.new_product else None,
+                    identify)
+            updated = repo.set_line_resolution(
+                receipt_id, position, product_id, answer.confirmed_by, answer.basis,
+                answer.new_product.description if answer.new_product else None)
         except NotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except (UnknownProduct, NotAProductLine, NoSuchCandidate) as exc:

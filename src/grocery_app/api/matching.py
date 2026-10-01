@@ -52,9 +52,9 @@ from grocery_app.resolver import store_key
 # (receipt line, store, the normalizer's inputs plus `index`) -> a proposal.
 LineMatcher = Callable[[dict[str, Any], str | None, dict[str, Any]], dict[str, Any]]
 # (position, the receipt as a dict, the matcher's proposal, the normalizer's
-# inputs) -> what the line is, or that it cannot tell.
-LineIdentifier = Callable[[int, dict[str, Any], dict[str, Any], dict[str, Any]],
-                          identifying.Identity]
+# inputs, and optionally the shopper's description) -> what the line is, or
+# that it cannot tell.
+LineIdentifier = Callable[..., identifying.Identity]
 
 
 def line_matcher(decider: matching.Decider,
@@ -73,7 +73,7 @@ def line_identifier(decider: matching.Decider) -> LineIdentifier:
     receipt, the shop's similar products the matcher gathered, and the
     abbreviations the memory has learned at this store."""
     def read(position: int, receipt: dict[str, Any], proposal: dict[str, Any],
-             inputs: dict[str, Any]) -> identifying.Identity:
+             inputs: dict[str, Any], description: str | None = None) -> identifying.Identity:
         line = receipt["lines"][position]
         store = receipt.get("store")
         learned = identifying.abbreviations(inputs["resolution"], inputs["products"])
@@ -82,7 +82,7 @@ def line_identifier(decider: matching.Decider) -> LineIdentifier:
         paid = identifying.paid(line, identifying.line_vat_rates(receipt)[position])
         return identifying.identify(line["raw_name"], store, decider,
                                     proposal.get("candidates") or None, others, paid,
-                                    learned.get(store_key(store)))
+                                    learned.get(store_key(store)), description)
     return read
 
 
@@ -94,7 +94,7 @@ def same_product_key(name: str | None, brand: str | None,
 
 
 def identified_product(session: Session, identity: identifying.Identity,
-                       inputs: dict[str, Any]) -> str:
+                       inputs: dict[str, Any], decided_by: str = "identify") -> str:
     """The level-1 product for what identify said a line is.
 
     An existing product with the same name, brand and variant (letter case
@@ -121,7 +121,7 @@ def identified_product(session: Session, identity: identifying.Identity,
         + ([] if identity.category else [CATEGORY_UNKNOWN]),
         "provenance": {"attributes": "identify",
                        "source": f"identify {identifying.PROMPT_VERSION}",
-                       "decided_by": "identify"},
+                       "decided_by": decided_by},
     }
     session.add(product_from_dict(product_id, made))
     session.flush()
@@ -199,6 +199,36 @@ def shopper_product(session: Session, name: str, brand: str | None) -> str:
     }))
     session.flush()
     return product_id
+
+
+def described_product(session: Session, receipt_id: int, position: int, description: str,
+                      identify: LineIdentifier | None) -> str:
+    """The product a shopper's description of a line means, in our format.
+
+    The shopper says what it was in their own words, in any language and as
+    loosely as they like ("salted pickled cucumbers, the Pamir ones").
+    identify reads the words with the printed line, the price and the rest of
+    the receipt, and gives the level-1 product (`Salzgurken`, Pamir): an
+    existing one with that name, brand and variant, or a new one decided by
+    the shopper. The meaning is the shopper's; only the wording is ours, so
+    a change of format is a re-run, never a question back (Parham,
+    2026-10-01). The words themselves are kept on the line's answer.
+
+    When identify cannot read the words, or there is no identifier, the
+    product is the words as written (`shopper_product`): an answer is never
+    lost for want of a format.
+    """
+    if identify is not None:
+        receipt = session.get(Receipt, receipt_id)
+        doc = receipt_to_dict(receipt)
+        inputs = load_normalizer_inputs(session)
+        question = session.scalars(select(Question).where(
+            Question.receipt_id == receipt_id, Question.position == position)).first()
+        proposal = question.proposal if question is not None else {"candidates": []}
+        identity = identify(position, doc, proposal, inputs, description=description)
+        if identity.can_tell:
+            return identified_product(session, identity, inputs, decided_by="shopper")
+    return shopper_product(session, description, None)
 
 
 def match_receipt(session: Session, receipt_id: int, match: LineMatcher,

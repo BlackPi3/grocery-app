@@ -282,3 +282,18 @@ def test_the_server_reads_a_line_with_the_evidence_it_is_scored_with():
     assert "- `MT` = Muster Tag (1 confirmed name)" in prompt
     assert "- `Kekse`" in prompt and "Pfand" not in prompt
     assert "- Kaffeepads Crema | Muster" in prompt
+
+
+
+def test_the_shoppers_description_goes_in_the_lines_prompt_not_the_system_prompt():
+    """The meaning is the shopper's, the format ours; and the scored system
+    prompt, with its cached answers, stays as it was."""
+    decider = answering(parts=[{"printed": "Pamir", "means": "brand"}])
+    identify("Pamir", "FK Frisch Kauf GmbH", decider,
+             description="salted pickled cucumbers, the Pamir ones")
+    system, prompt, _ = decider.asked[0]
+    assert "<<salted pickled cucumbers, the Pamir ones>>" in prompt
+    assert "Never contradict them" in prompt
+    assert system == SYSTEM_PROMPT
+    identify("Pamir", "FK Frisch Kauf GmbH", decider)
+    assert "<<" not in decider.asked[1][1], "no description, no such section"

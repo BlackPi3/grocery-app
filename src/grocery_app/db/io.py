@@ -216,13 +216,16 @@ def listing_to_dict(listing: StoreListing) -> dict[str, Any]:
 
 
 LINE_RESOLUTION_FIELDS = ("source_image", "line_index", "raw_name", "product_id",
-                          "confirmed_by", "confirmed_at", "basis")
+                          "confirmed_by", "confirmed_at", "basis", "shopper_words")
 
 
 def line_resolution_to_dict(lr: LineResolution, source_image: str) -> dict[str, Any]:
-    return {"source_image": source_image, "line_index": lr.position, "raw_name": lr.raw_name,
-            "product_id": lr.product_id, "confirmed_by": lr.confirmed_by,
-            "confirmed_at": _iso(lr.confirmed_at), "basis": lr.basis}
+    d = {"source_image": source_image, "line_index": lr.position, "raw_name": lr.raw_name,
+         "product_id": lr.product_id, "confirmed_by": lr.confirmed_by,
+         "confirmed_at": _iso(lr.confirmed_at), "basis": lr.basis}
+    if lr.shopper_words is not None:  # only answers given as a description have them
+        d["shopper_words"] = lr.shopper_words
+    return d
 
 
 # --- reading for the normalizer ----------------------------------------------
@@ -369,7 +372,8 @@ def import_data(session: Session, receipts_dir: str | Path, products_path: str |
             new = LineResolution(receipt_id=receipt.id, position=d["line_index"],
                                  raw_name=d["raw_name"], product_id=d["product_id"],
                                  confirmed_by=d.get("confirmed_by"),
-                                 confirmed_at=_date(d.get("confirmed_at")), basis=d.get("basis"))
+                                 confirmed_at=_date(d.get("confirmed_at")), basis=d.get("basis"),
+                                 shopper_words=d.get("shopper_words"))
             if existing:
                 _copy(existing, new, ("raw_name", "product_id", "confirmed_by", "confirmed_at",
                                       "basis"))
