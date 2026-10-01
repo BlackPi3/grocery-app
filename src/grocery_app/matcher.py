@@ -444,10 +444,15 @@ class ClaudeCodeDecider:
     RETRY_AFTER_S = 20
 
     def __init__(self, model: str = "sonnet", cache_dir: str | Path = "data/matched",
-                 timeout_s: int = 180, version: str = PROMPT_VERSION):
+                 timeout_s: int = 180, version: str = PROMPT_VERSION, search: bool = False):
         self.model = model
-        self.cache = Path(cache_dir) / f"claude-code-{model}" / version
+        # With search the same prompt can get another answer, so the answers
+        # live apart: a cached answer never crosses from one setup to the other.
+        self.cache = (Path(cache_dir) / f"claude-code-{model}{'-search' if search else ''}"
+                      / version)
         self.timeout_s = timeout_s
+        # `searches` tells identify it may ask for a search (`identify.SEARCH_HINT`).
+        self.searches = search
 
     def __call__(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
         key = hashlib.sha256(json.dumps([self.model, system, prompt, schema],
@@ -466,7 +471,10 @@ class ClaudeCodeDecider:
         return answer
 
     def _ask(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
-        command = ["claude", "-p", prompt, "--model", self.model, "--tools", "",
+        # No tools at all, or web search alone: never files, never a shell.
+        tools = ["--tools", "WebSearch", "--allowedTools", "WebSearch"] if self.searches \
+            else ["--tools", ""]
+        command = ["claude", "-p", prompt, "--model", self.model, *tools,
                    "--no-session-persistence", "--system-prompt", system,
                    "--output-format", "json", "--json-schema", json.dumps(schema)]
         with tempfile.TemporaryDirectory() as empty:
@@ -480,3 +488,90 @@ class ClaudeCodeDecider:
         if result.get("is_error") or not isinstance(answer, dict):
             raise DeciderError(f"claude -p failed: {str(result.get('result'))[:300]}")
         return answer
+
+
+class SearchBudgetExceeded(DeciderError):
+    pass
+
+
+class GeminiDecider:
+    """Gemini through Google's API, with Google Search, paid per call.
+
+    The same contract as `ClaudeCodeDecider`: (system, prompt, schema) -> the
+    structured answer, cached under `<cache_dir>/gemini-<model>[-search]/
+    <version>/`, so re-scoring costs nothing. The key is `GEMINI_API_KEY`.
+
+    Searches cost money, so they are counted (what each call searched is kept
+    in its cache file) and a run stops at `max_searches` rather than spend
+    past what the shopper put in (Parham charged 5 EUR, 2026-10-01).
+    """
+
+    URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+    def __init__(self, model: str, cache_dir: str | Path, version: str, search: bool = True,
+                 max_searches: int = 150, api_key: str | None = None, timeout_s: int = 180):
+        import os
+
+        self.model = model
+        self.cache = (Path(cache_dir) / f"gemini-{model}{'-search' if search else ''}"
+                      / version)
+        self.searches = search
+        self.max_searches = max_searches
+        self.searched = 0
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        self.timeout_s = timeout_s
+
+    def __call__(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
+        key = hashlib.sha256(json.dumps([self.model, self.searches, system, prompt, schema],
+                                        sort_keys=True).encode()).hexdigest()[:24]
+        path = self.cache / f"{key}.json"
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))["answer"]
+        if self.searched >= self.max_searches:
+            raise SearchBudgetExceeded(f"{self.searched} searches made; the limit is "
+                                       f"{self.max_searches}")
+        answer, queries, usage = self._ask(system, prompt, schema)
+        self.searched += len(queries)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"prompt": prompt, "answer": answer, "searched": queries,
+                                    "usage": usage}, ensure_ascii=False, indent=2),
+                        encoding="utf-8")
+        return answer
+
+    def _ask(self, system: str, prompt: str,
+             schema: dict[str, Any]) -> tuple[dict[str, Any], list[str], dict[str, Any]]:
+        import urllib.error
+        import urllib.request
+
+        if not self.api_key:
+            raise DeciderError("GEMINI_API_KEY is not set")
+        body: dict[str, Any] = {
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseMimeType": "application/json",
+                                 "responseJsonSchema": schema},
+        }
+        if self.searches:
+            body["tools"] = [{"google_search": {}}]
+        request = urllib.request.Request(
+            self.URL.format(model=self.model), data=json.dumps(body).encode(),
+            headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"})
+        for attempt in (1, 2):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
+                    data = json.load(response)
+                break
+            except urllib.error.HTTPError as error:
+                detail = error.read()[:300].decode(errors="replace")
+                if attempt == 2 or error.code not in (429, 500, 503):
+                    raise DeciderError(f"Gemini {error.code}: {detail}") from error
+                time.sleep(20)
+        candidate = (data.get("candidates") or [{}])[0]
+        text = "".join(part.get("text", "") for part in
+                       (candidate.get("content") or {}).get("parts", []))
+        try:
+            answer = json.loads(text)
+        except ValueError as error:
+            raise DeciderError(f"Gemini gave no JSON: {text[:300]}") from error
+        queries = (candidate.get("groundingMetadata") or {}).get("webSearchQueries") or []
+        return answer, list(queries), data.get("usageMetadata") or {}

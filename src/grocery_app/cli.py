@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -105,6 +106,14 @@ def main() -> None:
     ei.add_argument("--products", default="data/products/products.json")
     ei.add_argument("--resolution", default="data/products/resolution.json")
     ei.add_argument("--products-dir", default="data/products")
+    ei.add_argument("--reader", choices=["claude", "claude-search", "gemini-search"],
+                    default="claude",
+                    help="Who reads the lines: Claude through `claude -p` (subscription), "
+                         "the same with web search, or Gemini through Google's API with "
+                         "Google Search (paid per call; GEMINI_API_KEY)")
+    ei.add_argument("--gemini-model", default="gemini-3.8-flash")
+    ei.add_argument("--max-searches", type=int, default=150,
+                    help="Stop a gemini-search run after this many Google searches")
     ei.add_argument("--readings", default="data/extracted/claude-sonnet-5/v1",
                     help="The parser's readings of the sheet's photos: what each line cost "
                          "and its VAT rate")
@@ -696,8 +705,14 @@ def main() -> None:
         from grocery_app.evaluate_matching import article_index as files_index
         from grocery_app.matcher import ClaudeCodeDecider
 
-        reader = ClaudeCodeDecider(args.model, "data/identified",
-                                   version=identifying.PROMPT_VERSION)
+        if args.reader == "gemini-search":
+            reader = matching.GeminiDecider(args.gemini_model, "data/identified",
+                                            identifying.PROMPT_VERSION,
+                                            max_searches=args.max_searches)
+        else:
+            reader = ClaudeCodeDecider(args.model, "data/identified",
+                                       version=identifying.PROMPT_VERSION,
+                                       search=args.reader == "claude-search")
         judge = ClaudeCodeDecider(args.model, "data/identified", version="judge-v2")
         products = load_products(args.products)
         resolution = load_resolution(args.resolution)
@@ -718,6 +733,9 @@ def main() -> None:
                                    readings)
         print(json.dumps(report, indent=2, ensure_ascii=False) if args.json
               else format_identify(report))
+        if args.reader == "gemini-search":
+            print(f"Google searches this run (not counting cached answers): {reader.searched}",
+                  file=sys.stderr)
 
     if args.command == "eval-matching":
         truth = json.loads(Path(args.truth).read_text(encoding="utf-8"))

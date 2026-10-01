@@ -129,6 +129,18 @@ unrelated. If nothing settles a cut word, set can_tell to false.
 Categories:
 {_category_list()}"""
 
+# Added to the system prompt when the decider can search the web (its
+# `searches` is true). The search is built from the whole printed line, as a
+# person would type it into Google: a part alone (`TC`) finds nothing (Parham,
+# 2026-09-29). A general instruction, never a rule for one line.
+SEARCH_HINT = """
+
+You can search the web. Search when a part of the line is unclear or a word is
+unknown to you: search for the whole printed line, with the shop's name, as a
+person would type it into Google, not for the unclear part alone. Then search
+again for what you found, to check it. What you find is evidence like the
+rest: the printed line, the price and the VAT rate must still fit it."""
+
 SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -332,7 +344,8 @@ def identify(raw_name: str, store: str | None, decider: Decider,
     is the shopper's own words for what the line was: the meaning is theirs,
     the format is ours (Parham, 2026-10-01).
     """
-    answer = decider(SYSTEM_PROMPT,
+    system = SYSTEM_PROMPT + (SEARCH_HINT if getattr(decider, "searches", False) else "")
+    answer = decider(system,
                      build_prompt(raw_name, store, shop_products, receipt_lines, paid_text,
                                   known_abbreviations(raw_name, learned), description), SCHEMA)
     category = answer.get("category")

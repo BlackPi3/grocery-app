@@ -297,3 +297,93 @@ def test_the_shoppers_description_goes_in_the_lines_prompt_not_the_system_prompt
     assert system == SYSTEM_PROMPT
     identify("Pamir", "FK Frisch Kauf GmbH", decider)
     assert "<<" not in decider.asked[1][1], "no description, no such section"
+
+
+# --- readers that can search ------------------------------------------------------
+
+def test_a_reader_that_can_search_is_told_how_and_one_that_cannot_is_not():
+    from grocery_app.identify import SEARCH_HINT
+
+    plain = answering()
+    identify("Erdbeeren 400g", "Musterladen", plain)
+    assert plain.asked[0][0] == SYSTEM_PROMPT
+
+    searching = answering()
+    searching.searches = True
+    identify("Erdbeeren 400g", "Musterladen", searching)
+    assert searching.asked[0][0] == SYSTEM_PROMPT + SEARCH_HINT
+    assert "search for the whole printed line" in SEARCH_HINT
+
+
+def test_claude_with_search_may_search_the_web_and_nothing_else(monkeypatch, tmp_path):
+    import subprocess
+
+    from grocery_app.matcher import ClaudeCodeDecider
+
+    ran = []
+
+    def fake_run(command, **kwargs):
+        ran.append(command)
+        return subprocess.CompletedProcess(command, 0, '{"structured_output": {"a": 1}}', "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    ClaudeCodeDecider("sonnet", tmp_path, version="t", search=True)("s", "p", {})
+    ClaudeCodeDecider("sonnet", tmp_path, version="t")("s", "p", {})
+    searching, plain = ran
+    assert searching[searching.index("--tools") + 1] == "WebSearch"
+    assert searching[searching.index("--allowedTools") + 1] == "WebSearch"
+    assert plain[plain.index("--tools") + 1] == ""
+    assert {p.parent.parent.name for p in tmp_path.rglob("*.json")} == \
+        {"claude-code-sonnet-search", "claude-code-sonnet"}, "answers never cross setups"
+
+
+class FakeGemini:
+    """Stands in for Google's API: answers every call, searching `queries`."""
+
+    def __init__(self, queries):
+        self.queries = queries
+        self.bodies = []
+
+    def __call__(self, request, timeout=None):
+        import io
+        import json
+
+        self.bodies.append(json.loads(request.data))
+        payload = {"candidates": [{"content": {"parts": [{"text": '{"name": "Kaffeepads"}'}]},
+                                   "groundingMetadata": {"webSearchQueries": self.queries}}],
+                   "usageMetadata": {"totalTokenCount": 10}}
+        response = io.BytesIO(json.dumps(payload).encode())
+        response.__enter__ = lambda *a: response
+        response.__exit__ = lambda *a: None
+        return response
+
+
+def test_gemini_searches_with_google_and_stops_at_its_search_budget(monkeypatch, tmp_path):
+    import json
+    import urllib.request
+
+    import pytest
+
+    from grocery_app.matcher import GeminiDecider, SearchBudgetExceeded
+
+    fake = FakeGemini(["TC Pads 36er GLOBUS", "Tchibo Kaffeepads 36"])
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    gemini = GeminiDecider("gemini-test", tmp_path, "t", max_searches=3, api_key="k")
+    assert gemini.searches is True
+
+    assert gemini("system", "line one", {"type": "object"}) == {"name": "Kaffeepads"}
+    body = fake.bodies[0]
+    assert body["tools"] == [{"google_search": {}}]
+    assert body["systemInstruction"]["parts"][0]["text"] == "system"
+    assert body["generationConfig"]["responseJsonSchema"] == {"type": "object"}
+    (cached,) = tmp_path.rglob("*.json")
+    assert json.loads(cached.read_text())["searched"] == ["TC Pads 36er GLOBUS",
+                                                         "Tchibo Kaffeepads 36"]
+
+    assert gemini("system", "line one", {"type": "object"}) == {"name": "Kaffeepads"}
+    assert len(fake.bodies) == 1, "a cached answer costs nothing"
+    gemini("system", "line two", {"type": "object"})
+    assert gemini.searched == 4
+    with pytest.raises(SearchBudgetExceeded):
+        gemini("system", "line three", {"type": "object"})
+    assert len(fake.bodies) == 2, "no call once the budget is spent"
