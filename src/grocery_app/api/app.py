@@ -18,8 +18,10 @@ there is no argument a test can forget that would make one happen.
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Response, UploadFile
+from fastapi.responses import HTMLResponse
 
 from grocery_app.api.images import (
     ImageStore,
@@ -47,15 +49,20 @@ from grocery_app.api.schemas import (
     InsightsDocument,
     JobDocument,
     LineResolutionRequest,
+    ProductMatch,
     PurchasesDocument,
     QuestionsDocument,
     ReceiptDocument,
     ReceiptPatch,
+    ReceiptSummary,
 )
 from grocery_app.insights import build_insights
 from grocery_app.matcher import ClaudeCodeDecider
 
 __all__ = ["DEFAULT_PURCHASES", "MAX_UPLOAD_BYTES", "create_app", "default_app"]
+
+# The shopper's page (`GET /`): one static file, shipped with the package.
+REVIEW_PAGE = Path(__file__).with_name("review.html")
 
 # A receipt photo off a phone is a few megabytes. The cap is not a security
 # boundary, it is a promise that one request cannot read an arbitrary amount
@@ -228,6 +235,26 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         except (UnknownProduct, NotAProductLine, NoSuchCandidate) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return ReceiptDocument.model_validate(updated)
+
+    @app.get("/v1/receipts", response_model=list[ReceiptSummary])
+    def receipts() -> list[ReceiptSummary]:
+        """Every receipt, newest first, with how many of its product lines are
+        placed on the shopper's word, on the app's, or not at all."""
+        return [ReceiptSummary.model_validate(r) for r in require_writes().receipts()]
+
+    @app.get("/v1/products", response_model=list[ProductMatch])
+    def products(q: str = Query(min_length=1, description="Words in the name or brand")
+                 ) -> list[ProductMatch]:
+        """Catalog products to answer a line with: every word of `q` in the
+        name or brand, shortest name first, at most 20."""
+        return [ProductMatch.model_validate(p) for p in require_writes().search_products(q)]
+
+    @app.get("/", include_in_schema=False)
+    def review_page() -> HTMLResponse:
+        """The review page: what is waiting for the shopper, and every receipt
+        with who said what each line is. It reads and answers through the
+        routes above, nothing else."""
+        return HTMLResponse(REVIEW_PAGE.read_text(encoding="utf-8"))
 
     @app.get("/v1/checks", response_model=ChecksDocument)
     def checks() -> ChecksDocument:

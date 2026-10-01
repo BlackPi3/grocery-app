@@ -18,6 +18,10 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+# The review page `grocery-app serve` hands out at `/`.
+grocery_app = ["api/review.html"]
+
 [project.optional-dependencies]
 dev = ["pytest", "ruff", "httpx"]
 # The HTTP layer is optional so the pipeline CLI stays installable without it.

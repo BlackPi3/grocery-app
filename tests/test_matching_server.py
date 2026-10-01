@@ -520,3 +520,47 @@ def test_answering_checks_gives_the_apps_mistake_rate(server):
     assert (mistake.raw_name, mistake.shopper_product_id) == ("Schmand 200g", "p-0002")
     lines = client.get(f"/v1/receipts/{receipt}").json()["lines"]
     assert [line["said_by"] for line in lines] == ["you", "you"], "both are his word now"
+
+
+# --- what the review page reads ----------------------------------------------------------
+
+def test_receipts_are_listed_newest_first_with_who_placed_their_lines(server):
+    client, session = server
+    receipt = identified_receipt(session, ["Himbeeren 250g"], known=["MU Milch 1,5%"])
+    add_receipt(session, "IMG_11.jpeg", ["Rätsel"])  # nothing places it
+
+    listed = {r["source_image"]: r for r in client.get("/v1/receipts").json()}
+    mine = listed["IMG_9.jpeg"]
+    assert (mine["receipt_id"], mine["product_lines"], mine["said_by_you"],
+            mine["said_by_app"], mine["unplaced"]) == (receipt, 2, 1, 1, 0)
+    assert listed["IMG_11.jpeg"]["unplaced"] == 1
+    dates = [r["date"] for r in client.get("/v1/receipts").json()]
+    assert dates == sorted(dates, reverse=True)
+
+
+def test_products_are_found_by_every_word_in_name_or_brand(server):
+    client, _ = server
+    found = client.get("/v1/products", params={"q": "milch muster"}).json()
+    assert [p["product_id"] for p in found] == ["p-0001"]
+    assert found[0]["category_path"][-1] == "Milch"
+    assert client.get("/v1/products", params={"q": "milch nichts"}).json() == []
+    assert client.get("/v1/products", params={"q": ""}).status_code == 422
+
+
+def test_a_product_typed_twice_is_one_product(server):
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["Rätsel", "Noch ein Rätsel"])
+    for position in (0, 1):
+        client.put(f"/v1/receipts/{receipt}/lines/{position}/resolution",
+                   json={"new_product": {"name": "Kashk", "brand": None}})
+    ids = [product_id for _, product_id, _ in reading(client, receipt)]
+    assert ids[0] == ids[1] and ids[0] is not None
+
+
+def test_the_review_page_is_served_at_the_root(server):
+    client, _ = server
+    page = client.get("/")
+    assert page.status_code == 200 and page.headers["content-type"].startswith("text/html")
+    assert "<title>Basket review</title>" in page.text
+    for route in ("/v1/checks", "/v1/questions", "/v1/receipts", "/v1/products"):
+        assert route in page.text, f"the page reads {route}"

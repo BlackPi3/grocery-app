@@ -219,6 +219,31 @@ class SpotCheck(BaseModel):
                     "produce vocabulary) or `price` (a price narrowing a family)")
 
 
+class ReceiptSummary(BaseModel):
+    """One receipt in the list, and how far its product lines are placed."""
+
+    receipt_id: int
+    date: str | None
+    store: str | None
+    source_image: str
+    printed_total: float | None
+    is_duplicate: bool
+    product_lines: int
+    said_by_you: int
+    said_by_app: int
+    unplaced: int
+
+
+class ProductMatch(BaseModel):
+    """A catalog product a search found."""
+
+    product_id: str
+    name: str | None
+    brand: str | None
+    variant: str | None
+    category_path: list[str] | None
+
+
 class ChecksMeta(BaseModel):
     open: int
     right: int = Field(description="Answered with the product the app said")
