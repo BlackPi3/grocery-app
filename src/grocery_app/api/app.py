@@ -42,6 +42,7 @@ from grocery_app.api.repository import (
 from grocery_app.api.schemas import (
     INSIGHTS_CONTRACT_VERSION,
     PURCHASES_CONTRACT_VERSION,
+    ChecksDocument,
     Health,
     InsightsDocument,
     JobDocument,
@@ -227,6 +228,17 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         except (UnknownProduct, NotAProductLine, NoSuchCandidate) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return ReceiptDocument.model_validate(updated)
+
+    @app.get("/v1/checks", response_model=ChecksDocument)
+    def checks() -> ChecksDocument:
+        """Spot checks: lines the app placed on its own, put to the shopper at
+        random, two per uploaded receipt, and the app's mistake rate on them.
+
+        Answer one as any line, `PUT /v1/receipts/{receipt_id}/lines/{position}/resolution`:
+        `product_id` = `app_product_id` when the app was right, another product
+        when it was not (the mistake is counted in `corrections` as well).
+        """
+        return ChecksDocument.model_validate(require_writes().checks())
 
     @app.get("/v1/questions", response_model=QuestionsDocument)
     def questions() -> QuestionsDocument:

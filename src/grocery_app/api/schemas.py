@@ -26,7 +26,10 @@ from pydantic import BaseModel, ConfigDict, Field
 # and became a key from the closed vocabulary, and `category_path` arrived
 # beside it with the three labels a reader sees. Same field name, different
 # language in it, which is exactly the change a consumer must be told about.
-PURCHASES_CONTRACT_VERSION = 4
+#
+# Purchases bumped to 5 on 2026-09-30: `said_by` says who said what each line
+# is, `you` or `app`, so a reader can tell a confirmed answer from a guess.
+PURCHASES_CONTRACT_VERSION = 5
 #
 # Insights bumped to 3 on 2026-09-29: lines known not to be groceries (café,
 # flowers, cards) left every insight, so `coverage.spend` means grocery spend,
@@ -54,6 +57,9 @@ class Purchase(BaseModel):
     product_id: str | None
     resolved: bool
     resolution: Literal["exact", "user", "price", "family", "produce", "none"]
+    said_by: Literal["you", "app"] | None = Field(
+        description="Who said what this line is: the shopper (`you`) or a guess the shopper "
+                    "can overrule (`app`); null when nothing places it")
     candidate_ids: list[str]
     qty: float
     gross: float | None
@@ -193,6 +199,40 @@ class Question(BaseModel):
     unclear: str | None = Field(
         default=None, description="Why identify could not tell what the line is, when it "
                                   "was run: the part of the printed name it cannot read")
+
+
+class SpotCheck(BaseModel):
+    """A line the app placed on its own, put to the shopper at random."""
+
+    receipt_id: int
+    position: int
+    store: str | None
+    date: str | None
+    raw_name: str
+    paid: float | None = Field(description="Shelf price paid, before discount (per kg if weighed)")
+    app_product_id: str = Field(description="What the app said the line is")
+    app_product: str | None = Field(description="That product's name")
+    brand: str | None
+    category_path: list[str] | None
+    decided_by: str | None = Field(
+        description="Which part of the app said it: `matcher`, `identify`, `produce` (the "
+                    "produce vocabulary) or `price` (a price narrowing a family)")
+
+
+class ChecksMeta(BaseModel):
+    open: int
+    right: int = Field(description="Answered with the product the app said")
+    corrected: int = Field(description="Answered with another product")
+    error_rate: float | None = Field(
+        description="corrected / (right + corrected): the app's mistake rate on lines it was "
+                    "sure of, on real shopping; null before any check is answered")
+
+
+class ChecksDocument(BaseModel):
+    """Open spot checks, oldest receipt first, and what the answered ones say."""
+
+    meta: ChecksMeta
+    checks: list[SpotCheck]
 
 
 class QuestionsMeta(BaseModel):

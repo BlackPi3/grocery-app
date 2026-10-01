@@ -223,6 +223,7 @@ def test_a_line_identify_can_read_is_placed_on_a_new_level_one_product_not_asked
     (line,) = [p for p in served["purchases"] if p["raw_name"] == "Himbeeren 250g"]
     assert (line["product_id"], line["category"], line["unit_price"]) == \
         (product_id, "beeren", None), "no size on the product, so no price per kg yet"
+    assert line["said_by"] == "app", "identify's answer is a guess the shopper can overrule"
 
 
 def test_the_same_thing_read_twice_is_one_product_and_an_existing_one_is_reused(server):
@@ -276,6 +277,9 @@ def test_overruling_identify_is_counted_like_overruling_the_matcher(server):
         Resolution.raw_name == "Himbeeren 250g")).one()
     session.refresh(entry)
     assert entry.product_id == "p-0002", "the shopper's answer replaces the guess"
+    (line,) = [p for p in client.get("/v1/purchases").json()["purchases"]
+               if p["raw_name"] == "Himbeeren 250g"]
+    assert line["said_by"] == "you"
     meta = client.get("/v1/questions").json()["meta"]
     assert (meta["identify_answers"], meta["overruled"]) == (0, 1)
 
@@ -427,3 +431,92 @@ def test_readings_are_added_only_for_the_named_photos(server, tmp_path, monkeypa
     stored = {r.source_image: r.transcribed_by
               for r in session.scalars(select(Receipt).where(Receipt.store == "Musterladen"))}
     assert stored.get("IMG_20.jpeg") == "llm" and "IMG_21.jpeg" not in stored
+
+
+# --- spot checks -----------------------------------------------------------------------
+
+def identified_receipt(session, names, known=()):
+    """A receipt whose `names` identify places, beside `known` ones the fixture's
+    memory holds on a person's word."""
+    receipt = add_receipt(session, "IMG_9.jpeg", list(known) + list(names))
+    match_receipt(session, receipt, TableMatcher({}),
+                  reads_as(**{n: {"name": n.split()[0]} for n in names}))
+    session.commit()
+    return receipt
+
+
+def test_spot_checks_are_two_lines_the_app_placed_itself_chosen_once(server):
+    from grocery_app.api.checks import pick_checks
+    from grocery_app.db.models import Check
+
+    _, session = server
+    receipt = identified_receipt(session, ["Himbeeren 250g", "Schmand 200g", "Fladenbrot"],
+                                 known=["MU Milch 1,5%"])
+    assert pick_checks(session, receipt) == 2
+    assert pick_checks(session, receipt) == 0, "a receipt is picked for once"
+    session.commit()
+    checks = session.scalars(select(Check)).all()
+    assert len(checks) == 2
+    assert {c.raw_name for c in checks} <= {"Himbeeren 250g", "Schmand 200g", "Fladenbrot"}, \
+        "never the line the shopper's memory placed"
+    assert all(c.app_product_id.startswith("p-") for c in checks)
+
+
+def test_a_line_placed_on_a_persons_word_is_never_checked(server):
+    from grocery_app.api.checks import pick_checks
+    from grocery_app.db.models import Check
+
+    _, session = server
+    receipt = identified_receipt(session, ["Himbeeren 250g"], known=["MU Milch 1,5%", "Bananen"])
+    assert pick_checks(session, receipt) == 1, "one app line, two of the shopper's"
+    session.commit()
+    assert [c.raw_name for c in session.scalars(select(Check))] == ["Himbeeren 250g"]
+
+
+def test_a_receipt_with_fewer_app_lines_gets_fewer_checks_and_a_name_is_checked_once(server):
+    from grocery_app.api.checks import pick_checks
+
+    _, session = server
+    one = identified_receipt(session, ["Himbeeren 250g", "Himbeeren 250g"])
+    assert pick_checks(session, one) == 1, "the same printed name twice is one check"
+    none = add_receipt(session, "IMG_10.jpeg", ["MU Milch 1,5%"])
+    assert pick_checks(session, none) == 0, "nothing the app said on its own"
+
+
+def test_a_line_the_shopper_answered_is_not_checked(server):
+    from grocery_app.api.checks import pick_checks
+    from grocery_app.db.models import Check
+
+    client, session = server
+    receipt = identified_receipt(session, ["Himbeeren 250g", "Schmand 200g"])
+    client.put(f"/v1/receipts/{receipt}/lines/0/resolution", json={"product_id": "p-0002"})
+    assert pick_checks(session, receipt) == 1
+    session.commit()
+    assert [c.position for c in session.scalars(select(Check))] == [1]
+
+
+def test_answering_checks_gives_the_apps_mistake_rate(server):
+    from grocery_app.api.checks import pick_checks
+
+    client, session = server
+    receipt = identified_receipt(session, ["Himbeeren 250g", "Schmand 200g"])
+    pick_checks(session, receipt)
+    session.commit()
+
+    body = client.get("/v1/checks").json()
+    assert body["meta"] == {"open": 2, "right": 0, "corrected": 0, "error_rate": None}
+    first, second = body["checks"]
+    assert (first["raw_name"], first["app_product"], first["decided_by"]) == \
+        ("Himbeeren 250g", "Himbeeren", "identify")
+
+    client.put(f"/v1/receipts/{receipt}/lines/{first['position']}/resolution",
+               json={"product_id": first["app_product_id"]})
+    client.put(f"/v1/receipts/{receipt}/lines/{second['position']}/resolution",
+               json={"product_id": "p-0002"})
+
+    body = client.get("/v1/checks").json()
+    assert body["meta"] == {"open": 0, "right": 1, "corrected": 1, "error_rate": 0.5}
+    (mistake,) = session.scalars(select(Correction)).all()
+    assert (mistake.raw_name, mistake.shopper_product_id) == ("Schmand 200g", "p-0002")
+    lines = client.get(f"/v1/receipts/{receipt}").json()["lines"]
+    assert [line["said_by"] for line in lines] == ["you", "you"], "both are his word now"

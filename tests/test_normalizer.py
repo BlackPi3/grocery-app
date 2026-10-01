@@ -281,3 +281,37 @@ def test_the_vocabulary_never_turns_a_deposit_into_produce():
     deposit = dict(TOMATO_LINE, type="deposit")
     record = normalize_line(deposit, RECEIPT, {}, TOMATOES)
     assert (record["resolution"], record["product_id"]) == ("none", None)
+
+
+# --- who said what a line is ---------------------------------------------------
+
+def test_said_by_is_you_for_a_person_and_app_for_a_guess():
+    from grocery_app.normalizer import normalize_receipt
+
+    receipt = {**RECEIPT, "lines": [
+        {**LINE, "raw_name": "Dove Dusche"},       # remembered, a person decided
+        {**LINE, "raw_name": "Muster Deo"},        # remembered, the matcher decided
+        {**LINE, "raw_name": "Muster Seife"},      # remembered, identify decided
+        {**LINE, "raw_name": "Rätsel"},            # nothing places it
+        {**LINE, "raw_name": "Kekse"}]}            # the shopper answered this line
+    resolution = {("globus", "Dove Dusche"): ["p-1"], ("globus", "Muster Deo"): ["p-1"],
+                  ("globus", "Muster Seife"): ["p-2"]}
+    authors = {("globus", "Dove Dusche"): "parham", ("globus", "Muster Deo"): "matcher",
+               ("globus", "Muster Seife"): "identify"}
+    answers = {(RECEIPT.get("source_image"), 4): {"raw_name": "Kekse", "product_id": "p-2"}}
+    records = normalize_receipt(receipt, resolution, PRODUCTS, answers, None, authors)
+    assert [r["said_by"] for r in records] == ["you", "app", "app", None, "you"]
+
+
+def test_a_reading_by_rule_is_the_apps_and_a_spelling_variant_keeps_its_author():
+    record = normalize_line({**LINE, "raw_name": "DOVE DUSCHE"}, RECEIPT,
+                            {("globus", "Dove Dusche"): ["p-1"]}, PRODUCTS,
+                            authors={("globus", "Dove Dusche"): "matcher"})
+    assert (record["resolution"], record["said_by"]) == ("exact", "app")
+    record = normalize_line(TOMATO_LINE, RECEIPT, {}, TOMATOES, authors={})
+    assert (record["resolution"], record["said_by"]) == ("produce", "app")
+
+
+def test_without_the_authors_a_remembered_line_does_not_guess_who_said_it():
+    record = normalize_line(LINE, RECEIPT, {("globus", "Dove Dusche"): ["p-1"]}, PRODUCTS)
+    assert (record["resolution"], record["said_by"]) == ("exact", None)

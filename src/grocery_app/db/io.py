@@ -232,17 +232,20 @@ def load_normalizer_inputs(session: Session) -> dict[str, Any]:
     """Keyword arguments for `normalizer.assemble_purchases`, from the tables.
 
     The lookups are built the same way the file loaders build them
-    (`load_resolution`, `load_line_resolutions`, `load_shelf_prices`).
+    (`load_resolution`, `load_line_resolutions`, `load_shelf_prices`,
+    `load_resolution_authors`).
     """
     receipts = [receipt_to_dict(r) for r in
                 session.scalars(select(Receipt).options(selectinload(Receipt.lines)))]
     products = {p.id: product_to_dict(p) for p in session.scalars(select(Product))}
 
     resolution: dict[tuple[str, str], list[str]] = {}
+    authors: dict[tuple[str, str], str | None] = {}
     for r in session.scalars(select(Resolution)):
         ids = list(r.product_ids or []) or ([r.product_id] if r.product_id else [])
         if ids:
             resolution[(store_key(r.store), r.raw_name)] = ids
+        authors[(store_key(r.store), r.raw_name)] = r.confirmed_by
 
     line_resolutions = {
         (source_image, lr.position): line_resolution_to_dict(lr, source_image)
@@ -256,7 +259,8 @@ def load_normalizer_inputs(session: Session) -> dict[str, Any]:
             shelf_prices.setdefault(listing.product_id, set()).add(float(observed["price"]))
 
     return {"receipts": receipts, "products": products, "resolution": resolution,
-            "line_resolutions": line_resolutions, "shelf_prices": shelf_prices}
+            "line_resolutions": line_resolutions, "shelf_prices": shelf_prices,
+            "authors": authors}
 
 
 # --- import ------------------------------------------------------------------

@@ -219,6 +219,30 @@ class Question(Base):
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class Check(Base):
+    """A spot check: a line the app placed on its own, put to the shopper.
+
+    The app's mistakes that it does not know about are found only by asking
+    about lines it thinks it got right. A couple per receipt (Parham,
+    2026-09-30: two) are chosen at random from the lines the app placed
+    itself, and `app_product_id` keeps what it said at the time. The answer
+    is the shopper's ordinary line answer (`line_resolutions`), so the
+    outcome is read from there, never stored twice: the same product is
+    `right`, another one is `corrected` (and a `corrections` row).
+    """
+
+    __tablename__ = "checks"
+    __table_args__ = (UniqueConstraint("receipt_id", "position"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    receipt_id: Mapped[int] = mapped_column(ForeignKey("receipts.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(Integer)
+    raw_name: Mapped[str] = mapped_column(String)
+    app_product_id: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 server_default=func.now())
+
+
 class Job(Base):
     """One extraction: a photo that arrived over HTTP and what became of it.
 
