@@ -222,7 +222,8 @@ def test_a_line_identify_can_read_is_placed_on_a_new_level_one_product_not_asked
     PurchasesDocument.model_validate(served)
     (line,) = [p for p in served["purchases"] if p["raw_name"] == "Himbeeren 250g"]
     assert (line["product_id"], line["category"], line["unit_price"]) == \
-        (product_id, "beeren", None), "no size on the product, so no price per kg yet"
+        (product_id, "beeren", {"amount": 4.76, "per": "kg"}), \
+        "no size on the product: the price per kg comes from the 250g printed on the line"
     assert line["said_by"] == "app", "identify's answer is a guess the shopper can overrule"
 
 

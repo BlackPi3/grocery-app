@@ -221,7 +221,10 @@
       ],
       "product": "Radieschen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 3.56,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-06-26",
@@ -441,7 +444,10 @@
       ],
       "product": "Coca-Cola Classic",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.79,
+        "per": "l"
+      }
     },
     {
       "date": "2026-06-26",
@@ -696,7 +702,10 @@
       ],
       "product": "Skyr Frucht",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.98,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-06-29",
@@ -857,7 +866,10 @@
       ],
       "product": "Oaties Haferkekse",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.3,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-06-29",
@@ -888,7 +900,10 @@
       ],
       "product": "Oaties Haferkekse",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.3,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-06-29",
@@ -919,7 +934,10 @@
       ],
       "product": "Limetten Bio",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.5,
+        "per": "piece"
+      }
     },
     {
       "date": "2026-06-29",
@@ -1146,7 +1164,10 @@
       ],
       "product": "H-Vollmilch 3,8%",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.45,
+        "per": "l"
+      }
     },
     {
       "date": "2026-06-29",
@@ -1208,7 +1229,10 @@
       ],
       "product": "Mini-Karotten Bio",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 4.95,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-06-29",
@@ -1478,7 +1502,10 @@
       ],
       "product": "Heidelbeeren",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 9.97,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-06-29",
@@ -1571,7 +1598,10 @@
       ],
       "product": "Naturelle Mineralwasser",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.93,
+        "per": "l"
+      }
     },
     {
       "date": "2026-07-04",
@@ -1702,7 +1732,10 @@
       ],
       "product": "Plattpfirsiche",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.49,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-07-09",
@@ -1733,7 +1766,10 @@
       ],
       "product": "Nektarinen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.49,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-07-09",
@@ -1764,7 +1800,10 @@
       ],
       "product": "Zwiebeln",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.25,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-07-09",
@@ -1795,7 +1834,10 @@
       ],
       "product": "Mini-Gurken",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 3.99,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-07-09",
@@ -2043,7 +2085,10 @@
       ],
       "product": "Physalis",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 15.92,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-07-09",
@@ -2297,7 +2342,10 @@
       ],
       "product": "Datteltomaten",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.98,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-07-09",
@@ -2328,7 +2376,10 @@
       ],
       "product": "Lasagneblätter",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.38,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-07-09",
@@ -2541,7 +2592,10 @@
       ],
       "product": "Mini-Karotten Bio",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 4.95,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-07-09",
@@ -2572,7 +2626,10 @@
       ],
       "product": "Salatherzen Bio",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.74,
+        "per": "piece"
+      }
     },
     {
       "date": "2026-07-09",
@@ -6744,7 +6801,10 @@
       ],
       "product": "Zwiebeln",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.99,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-08-22",
@@ -6837,7 +6897,10 @@
       ],
       "product": "Coca-Cola Classic",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.79,
+        "per": "l"
+      }
     },
     {
       "date": "2026-08-22",
@@ -6887,7 +6950,10 @@
       ],
       "product": "Coca-Cola Classic",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.79,
+        "per": "l"
+      }
     },
     {
       "date": "2026-08-22",
@@ -6937,7 +7003,10 @@
       ],
       "product": "Sahnejoghurt Griechischer Art",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.19,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-08-22",
@@ -7173,7 +7242,10 @@
       ],
       "product": "Käsewürfel Gouda Maasdamer",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": {
+        "amount": 12.23,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-08-22",
@@ -7297,7 +7369,10 @@
       ],
       "product": "Nektarinen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.89,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-08-22",
@@ -7359,7 +7434,10 @@
       ],
       "product": "Datteltomaten",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 3.98,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-08-22",
@@ -7390,7 +7468,10 @@
       ],
       "product": "Trauben",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 3.58,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-08-22",
@@ -7421,7 +7502,10 @@
       ],
       "product": "Rispentomaten",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.75,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-08-22",
@@ -7483,7 +7567,10 @@
       ],
       "product": "Birnen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.99,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-08-22",
@@ -7514,7 +7601,10 @@
       ],
       "product": "Johannisbeeren",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 9.95,
+        "per": "kg"
+      }
     },
     {
       "date": "2026-08-22",

@@ -69,21 +69,69 @@ _TO_KG = {"kg": 1.0, "g": 0.001}
 _TO_L = {"l": 1.0, "ml": 0.001}
 
 
+_UNIT = r"(kg|g|ml|l)(?![a-zäöüß])"
+_NUMBER = r"(\d+(?:[.,]\d+)?)"
+# Never the tail of another number (`5` in `1.5`), but a full stop alone
+# before it is the till's abbreviation mark: `SCH.250G`, `Wattep.70St`.
+# `4x100 g`: four packs of 100 g.
+_MULTIPACK = re.compile(r"(?<!\d)(?<!\d[.,])(\d+)\s*x\s*" + _NUMBER + r"\s*" + _UNIT, re.IGNORECASE)
+# `400g`, `0,5 L`, `1.25L`, and glued to the word as tills print it:
+# `Johannisbeeren200g`, `gelb1.5kg`. Never a number followed by `%` (fat).
+_AMOUNT = re.compile(r"(?<!\d)(?<!\d[.,])" + _NUMBER + r"\s*" + _UNIT, re.IGNORECASE)
+# `10er`, `22St`, `35ST`, `4Stk`, `2Stück`: how many pieces.
+_PIECES = re.compile(r"(?<!\d)(?<!\d[.,])(\d+)\s*(er|stk|stück|st)(?![a-zäöüß])", re.IGNORECASE)
+
+
+def printed_size(raw_name: str) -> dict[str, Any] | None:
+    """The pack size the printed line states, in the shape a product's `size`
+    has, or None.
+
+    Only an explicit unit counts. A number without one says nothing for
+    sure: `FRISCHKÄSE NATUR 200` was cut off before its unit, `3+1` is an
+    offer, `3-KORN` a name, `3.8%` the fat. The size belongs to the
+    purchase, not the product (`docs/designs/what-a-line-is.md`), so it is
+    read here, from the line, every time.
+    """
+    def number(text: str) -> float:
+        return float(text.replace(",", "."))
+
+    if match := _MULTIPACK.search(raw_name):
+        return {"count": int(match.group(1)), "value": number(match.group(2)),
+                "unit": match.group(3).lower()}
+    if match := _AMOUNT.search(raw_name):
+        return {"count": 1, "value": number(match.group(1)), "unit": match.group(2).lower()}
+    if match := _PIECES.search(raw_name):
+        return {"count": 1, "value": float(match.group(1)), "unit": "piece"}
+    return None
+
+
 def compute_unit_price(net_paid: float, qty: int, line: dict[str, Any],
-                       entry: dict[str, Any] | None) -> dict[str, Any] | None:
+                       entry: dict[str, Any] | None,
+                       category: str | None = None,
+                       from_line: bool = True) -> dict[str, Any] | None:
     """Return {'amount', 'per', 'currency'} for the effective paid unit price, or None.
 
     'Effective' means based on what was actually paid (net of discount), so it is
     directly comparable across stores and over time.
+
+    The size comes from the product when it holds one; otherwise from the
+    printed line (`printed_size`), which is how a level-1 product, which has
+    no size, gets a price per kilo: `Erdbeeren 400g` in one week and
+    `Erdbeeren 500g` in the next are one product at two pack sizes. A weight
+    or volume read off the line counts only for food (`categories.is_food`,
+    on `category`): `Müllbeutel 35 L` is a capacity, not contents. A count
+    (`10er`) counts for anything. A line nothing places (`from_line=False`)
+    gets no price per unit from its words: it would be a price of nothing.
     """
     # Weighed produce: the line itself carries the purchased weight in kg.
     if line.get("sold_by_weight") and line.get("weight_kg"):
         return {"amount": round(net_paid / line["weight_kg"], 2), "per": "kg"}
 
-    if not entry:
-        return None
-
-    size = entry.get("size") or {}
+    size = (entry or {}).get("size") or {}
+    if (not size.get("value") or not size.get("unit")) and from_line:
+        size = printed_size(line.get("raw_name") or "") or {}
+        if size.get("unit") in ("kg", "g", "ml", "l") and not categories.is_food(category):
+            return None
     net_quantity = size.get("value")
     unit = size.get("unit")
     if not net_quantity or not unit:
@@ -317,10 +365,11 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
         # Unit price needs a pack size, and only an exact match has one we can
         # trust: a family may span 0,5 kg and 0,2 kg of the same seeds.
         record["unit_price"] = compute_unit_price(
-            net_paid, qty, line, candidates[0] if how != "family" else None)
+            net_paid, qty, line, candidates[0] if how != "family" else None,
+            record.get("category"))
     else:
         # Unresolved: keep the money, be honest about the missing identity.
-        record["unit_price"] = compute_unit_price(net_paid, qty, line, None)
+        record["unit_price"] = compute_unit_price(net_paid, qty, line, None, from_line=False)
 
     return record
 
