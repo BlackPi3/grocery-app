@@ -212,3 +212,34 @@ def test_an_unknown_or_missing_category_still_counts_as_a_grocery():
     cov = build_insights({"meta": {}, "purchases": rows})["coverage"]
     assert cov["spend"] == 5.0
     assert cov["not_grocery"] == {"lines": 0, "spend": 0.0, "by_category": {}}
+
+
+# --- like with like ------------------------------------------------------------
+
+def sold(form):
+    return {"form": form, "size": None}
+
+
+def test_a_change_of_form_is_not_a_change_of_price():
+    """Loose tomatoes at 1 €/kg twice, then a 650 g pack at 2,75 €/kg: the
+    loose price did not move, and the pack was bought once."""
+    rows = [{**row("p-1", "2026-06-01", 0.5, unit=1.0, per="kg"), "sold_as": sold("loose")},
+            {**row("p-1", "2026-07-01", 0.5, unit=1.0, per="kg"), "sold_as": sold("loose")},
+            {**row("p-1", "2026-08-01", 1.79, unit=2.75, per="kg"), "sold_as": sold("pack")}]
+    (change,) = price_changes(rows)
+    assert (change["sold_as"], change["change_pct"]) == ("loose", 0.0)
+
+
+def test_the_basket_compares_a_product_in_the_same_form_and_unit():
+    def month(day, form, price):
+        return {**row("p-1", day, price, unit=price, per="kg"), "sold_as": sold(form)}
+
+    others = [row(pid, d, 1.0) for pid in ("p-2", "p-3", "p-4") for d in ("2026-06-01",
+                                                                          "2026-07-01")]
+    rows = others + [month("2026-06-01", "loose", 1.0), month("2026-07-01", "pack", 2.75)]
+    (step,) = basket_index(rows)["series"]
+    assert step["month_over_month_pct"] == 0.0, "loose in June and a pack in July: no overlap"
+    assert {"product_id": "p-1", "sold_as": "loose", "per": "kg"} not in step["compared"]
+    rows += [month("2026-07-01", "loose", 1.1)]
+    (step,) = basket_index(rows)["series"]
+    assert {"product_id": "p-1", "sold_as": "loose", "per": "kg"} in step["compared"]

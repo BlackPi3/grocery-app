@@ -453,6 +453,19 @@ def is_grocery(category_key: str | None) -> bool:
     return not entry or SECTIONS[entry[1]][1] not in NOT_GROCERY_BRANCHES
 
 
+NOT_FOOD_BRANCHES: frozenset[str] = frozenset({"haushalt", "drogerie",
+                                               "kein-lebensmitteleinkauf"})
+
+
+def is_food(category_key: str | None) -> bool:
+    """True only for a category known to be food or drink. Unknown is not food:
+    a weight or volume read off a printed name is used only when it is the
+    contents (`Erdbeeren 400g`), never a capacity (`Müllbeutel 35 L`) or a ply
+    (`Tatü-Box 4l`), and only the category can tell those apart."""
+    entry = CATEGORIES.get(category_key or "")
+    return bool(entry) and SECTIONS[entry[1]][1] not in NOT_FOOD_BRANCHES
+
+
 def label(category_key: str) -> str:
     return CATEGORIES[category_key][0]
 

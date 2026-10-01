@@ -18,7 +18,7 @@ def test_receipts_become_purchases_become_insights(data):
                                 data / "products" / "products.json",
                                 data / "products" / "resolution.json",
                                 None, data / "products")
-    assert purchases["contract_version"] == 5
+    assert purchases["contract_version"] == 6
     assert purchases["meta"]["receipts"] == 2
     assert purchases["meta"]["product_lines"] == 5
     assert purchases["meta"]["unresolved_items"] == ["Geheimnis"]
@@ -28,6 +28,8 @@ def test_receipts_become_purchases_become_insights(data):
     assert [p["said_by"] for p in milk] == ["you", "you"], \
         "the fixture's memory entries were confirmed by a person"
     assert milk[0]["unit_price"] == {"amount": 1.09, "per": "l"}
+    assert milk[0]["sold_as"] == {"form": "pack",
+                                  "size": {"count": 1, "value": 1.0, "unit": "l"}}
     # The catalog stores the vocabulary key and nothing else; the three labels
     # a reader sees are derived here, once, on the way into the contract.
     assert milk[0]["category"] == "milch"
@@ -38,7 +40,7 @@ def test_receipts_become_purchases_become_insights(data):
         "a line with no product gains no attributes, this one included"
 
     insights = build_insights(purchases)
-    assert insights["contract_version"] == 3
+    assert insights["contract_version"] == 4
     assert insights["as_of"] == "2026-02-05"
     assert insights["coverage"]["resolved_lines"] == 4
     (change,) = [c for c in insights["price_changes"] if c["product_id"] == "p-0001"]

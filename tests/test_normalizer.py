@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from grocery_app.normalizer import (
     load_receipts,
     load_resolution,
@@ -315,3 +317,93 @@ def test_a_reading_by_rule_is_the_apps_and_a_spelling_variant_keeps_its_author()
 def test_without_the_authors_a_remembered_line_does_not_guess_who_said_it():
     record = normalize_line(LINE, RECEIPT, {("globus", "Dove Dusche"): ["p-1"]}, PRODUCTS)
     assert (record["resolution"], record["said_by"]) == ("exact", None)
+
+
+# --- the pack size printed on the line ---------------------------------------------
+
+@pytest.mark.parametrize("raw_name, size", [
+    ("Erdbeeren 400g", {"count": 1, "value": 400.0, "unit": "g"}),
+    ("ALN.BIO BULGUR 500 G", {"count": 1, "value": 500.0, "unit": "g"}),
+    ("BERT.ORIGINALE 0,5 L", {"count": 1, "value": 0.5, "unit": "l"}),
+    ("Coca-Cola 1.25L", {"count": 1, "value": 1.25, "unit": "l"}),
+    ("Johannisbeeren200g", {"count": 1, "value": 200.0, "unit": "g"}),
+    ("Zwiebeln gelb1.5kg", {"count": 1, "value": 1.5, "unit": "kg"}),
+    ("INS.PAPRIKA SCH.250G", {"count": 1, "value": 250.0, "unit": "g"}),
+    ("JT Apfelmark 4x100 g", {"count": 4, "value": 100.0, "unit": "g"}),
+    ("JT Eier 10er FH", {"count": 1, "value": 10.0, "unit": "piece"}),
+    ("dmBio Café Crema Pads 22St", {"count": 1, "value": 22.0, "unit": "piece"}),
+    ("Limette BioFT 4Stk", {"count": 1, "value": 4.0, "unit": "piece"}),
+    ("natuvell Wattep.70St", {"count": 1, "value": 70.0, "unit": "piece"}),
+    ("BB Heumil 3.8% 1L", {"count": 1, "value": 1.0, "unit": "l"}),
+])
+def test_a_printed_size_is_read_when_it_has_a_unit(raw_name, size):
+    from grocery_app.normalizer import printed_size
+
+    assert printed_size(raw_name) == size
+
+
+@pytest.mark.parametrize("raw_name", [
+    "FRISCHKÄSE NATUR 200",   # cut off before its unit
+    "SAATENBRÖTCHEN 3+1",     # an offer, not a size
+    "ALN.3-KORN-FLOCKEN",     # a name
+    "JT Milch 1,5% ESL",      # the fat
+    "SOMAT 5in1 Deo Perls",
+    "JT Küchentücher 3-la",
+    "Küchenrollen 4x64",      # no unit
+])
+def test_a_number_without_a_unit_is_no_size(raw_name):
+    from grocery_app.normalizer import printed_size
+
+    assert printed_size(raw_name) is None
+
+
+def test_a_product_with_no_size_takes_the_size_printed_on_the_line():
+    level_one = {"p-9": {"name": "Erdbeeren", "brand": None, "category": "beeren",
+                         "size": {"count": 1, "value": None, "unit": None}}}
+    line = {"type": "product", "raw_name": "Erdbeeren 400g", "qty": 2, "gross": 4.0, "net": 4.0}
+    record = normalize_line(line, RECEIPT, {("globus", "Erdbeeren 400g"): ["p-9"]}, level_one)
+    assert record["unit_price"] == {"amount": 5.0, "per": "kg"}, "4,00 € for 2 x 400 g"
+
+
+def test_a_products_own_size_still_wins_over_the_line():
+    sized = {"p-9": {"name": "Milch", "brand": "Muster", "category": "milch",
+                     "size": {"count": 1, "value": 1.0, "unit": "l"}}}
+    line = {"type": "product", "raw_name": "Milch 0,5 L", "qty": 1, "gross": 1.0, "net": 1.0}
+    record = normalize_line(line, RECEIPT, {("globus", "Milch 0,5 L"): ["p-9"]}, sized)
+    assert record["unit_price"] == {"amount": 1.0, "per": "l"}, "nothing that worked changes"
+
+
+def test_a_weight_or_volume_on_the_line_counts_only_for_food():
+    def priced(raw_name, category):
+        product = {"p-9": {"name": "x", "brand": None, "category": category,
+                           "size": {"count": 1, "value": None, "unit": None}}}
+        line = {"type": "product", "raw_name": raw_name, "qty": 1, "gross": 3.0, "net": 3.0}
+        return normalize_line(line, RECEIPT, {("globus", raw_name): ["p-9"]}, product)[
+            "unit_price"]
+
+    assert priced("OHO Müllbeutel 35 L", "folien-beutel") is None, "a capacity, not contents"
+    assert priced("Muster Saft 1,5l", None) is None, "not known to be food"
+    assert priced("Muster Saft 1,5l", "saft") == {"amount": 2.0, "per": "l"}
+    assert priced("Muster Pads 30St", "folien-beutel") == {"amount": 0.1, "per": "piece"}
+
+
+def test_a_line_nothing_places_gets_no_price_per_unit_from_its_words():
+    line = {"type": "product", "raw_name": "Rätsel 10er", "qty": 1, "gross": 3.0, "net": 3.0}
+    assert normalize_line(line, RECEIPT, {}, PRODUCTS)["unit_price"] is None
+
+
+def test_how_a_line_was_sold_belongs_to_the_purchase():
+    level_one = {"p-9": {"name": "Rispentomaten", "brand": None, "category": "tomaten",
+                         "size": {"count": 1, "value": None, "unit": None}}}
+    memory = {("globus", "Rispentomaten lose"): ["p-9"], ("globus", "Rispentomaten 650g"): ["p-9"]}
+    loose = normalize_line({"type": "product", "raw_name": "Rispentomaten lose", "qty": 1,
+                            "net": 0.59, "sold_by_weight": True, "weight_kg": 0.5},
+                           RECEIPT, memory, level_one)
+    pack = normalize_line({"type": "product", "raw_name": "Rispentomaten 650g", "qty": 1,
+                           "net": 1.79}, RECEIPT, memory, level_one)
+    assert loose["product_id"] == pack["product_id"] == "p-9", "one product"
+    assert loose["sold_as"] == {"form": "loose", "size": None}
+    assert pack["sold_as"] == {"form": "pack", "size": {"count": 1, "value": 650.0, "unit": "g"}}
+    unknown = normalize_line({"type": "product", "raw_name": "Rätsel", "qty": 1, "net": 1.0},
+                             RECEIPT, {}, PRODUCTS)
+    assert unknown["sold_as"] is None

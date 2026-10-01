@@ -1,5 +1,5 @@
 {
-  "contract_version": 5,
+  "contract_version": 6,
   "meta": {
     "receipts": 27,
     "date_range": [
@@ -60,6 +60,10 @@
       "unit_price": {
         "amount": 2.49,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -94,6 +98,10 @@
       "unit_price": {
         "amount": 2.49,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -128,6 +136,10 @@
       "unit_price": {
         "amount": 5.98,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -159,7 +171,8 @@
       ],
       "product": "Minze",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -190,7 +203,8 @@
       ],
       "product": "Mini-Gurken",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -221,7 +235,18 @@
       ],
       "product": "Radieschen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 3.56,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 250.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-06-26",
@@ -255,7 +280,8 @@
       ],
       "product": "2 candidates",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -286,7 +312,8 @@
       ],
       "product": "Romatomaten",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -317,7 +344,8 @@
       ],
       "product": "Porree",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -348,7 +376,8 @@
       ],
       "product": "Zwiebeln",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -379,7 +408,8 @@
       ],
       "product": "Plattpfirsiche",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -410,7 +440,8 @@
       ],
       "product": "Eisschale Chocolate Chip",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -441,7 +472,18 @@
       ],
       "product": "Coca-Cola Classic",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.79,
+        "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1.25,
+          "unit": "l"
+        }
+      }
     },
     {
       "date": "2026-06-26",
@@ -460,7 +502,8 @@
       "net_paid": 0.25,
       "tax_class": "B",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -491,7 +534,8 @@
       ],
       "product": "Alpenvollmilch Schokolinsen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -522,7 +566,8 @@
       ],
       "product": "Schokokränze Gebäck",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -553,7 +598,8 @@
       ],
       "product": "Confetteria Kokos",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -584,7 +630,8 @@
       ],
       "product": "Pistazien ungesalzen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-26",
@@ -615,7 +662,8 @@
       ],
       "product": "Sultaninen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -646,7 +694,8 @@
       ],
       "product": "High Protein Skyr Drink",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -665,7 +714,8 @@
       "net_paid": 0.25,
       "tax_class": "A",
       "tax_rate": 0.07,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -696,7 +746,18 @@
       ],
       "product": "Skyr Frucht",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.98,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-06-29",
@@ -727,7 +788,8 @@
       ],
       "product": "Bio Gewürzgurken",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -761,6 +823,10 @@
       "unit_price": {
         "amount": 2.21,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -792,7 +858,8 @@
       ],
       "product": "Sauerkirsch Konfitüre",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -826,6 +893,10 @@
       "unit_price": {
         "amount": 1.99,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -857,7 +928,18 @@
       ],
       "product": "Oaties Haferkekse",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.3,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 300.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-06-29",
@@ -888,7 +970,18 @@
       ],
       "product": "Oaties Haferkekse",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.3,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 300.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-06-29",
@@ -919,7 +1012,18 @@
       ],
       "product": "Limetten Bio",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.5,
+        "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 4.0,
+          "unit": "piece"
+        }
+      }
     },
     {
       "date": "2026-06-29",
@@ -950,7 +1054,8 @@
       ],
       "product": "Kiwis",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -981,7 +1086,8 @@
       ],
       "product": "Kiwis",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1012,7 +1118,8 @@
       ],
       "product": "Kiwis",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1043,7 +1150,8 @@
       ],
       "product": "Kiwis",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1062,7 +1170,8 @@
       "net_paid": 0.02,
       "tax_class": "B",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1096,6 +1205,10 @@
       "unit_price": {
         "amount": 0.99,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -1115,7 +1228,8 @@
       "net_paid": 0.02,
       "tax_class": "B",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1146,7 +1260,18 @@
       ],
       "product": "H-Vollmilch 3,8%",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.45,
+        "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1.0,
+          "unit": "l"
+        }
+      }
     },
     {
       "date": "2026-06-29",
@@ -1177,7 +1302,8 @@
       ],
       "product": "Smoothie",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1208,7 +1334,18 @@
       ],
       "product": "Mini-Karotten Bio",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 4.95,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 200.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-06-29",
@@ -1239,7 +1376,8 @@
       ],
       "product": "Mini-Gurken",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1273,6 +1411,10 @@
       "unit_price": {
         "amount": 1.28,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -1292,7 +1434,8 @@
       "net_paid": 0.99,
       "tax_class": "B",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1323,7 +1466,8 @@
       ],
       "product": "Waschmittel",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1354,7 +1498,8 @@
       ],
       "product": "Weichspüler Aprilfrisch",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1385,7 +1530,8 @@
       ],
       "product": "Küchenrollen 3-lagig",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1416,7 +1562,8 @@
       ],
       "product": "Zaziki",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1447,7 +1594,8 @@
       ],
       "product": "Gemüsesortiment tiefgekühlt",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1478,7 +1626,18 @@
       ],
       "product": "Heidelbeeren",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 9.97,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 300.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-06-29",
@@ -1509,7 +1668,8 @@
       ],
       "product": "Gouda jung",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-06-29",
@@ -1540,7 +1700,8 @@
       ],
       "product": "Eier Bodenhaltung 10er",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-04",
@@ -1571,7 +1732,18 @@
       ],
       "product": "Naturelle Mineralwasser",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.93,
+        "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1.5,
+          "unit": "l"
+        }
+      }
     },
     {
       "date": "2026-07-04",
@@ -1590,7 +1762,8 @@
       "net_paid": 0.25,
       "tax_class": "A",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-05",
@@ -1621,7 +1794,8 @@
       ],
       "product": "Tee",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-05",
@@ -1652,7 +1826,8 @@
       ],
       "product": "Tablet Hazelnut",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -1671,7 +1846,8 @@
       "net_paid": 0.59,
       "tax_class": "A",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -1702,7 +1878,18 @@
       ],
       "product": "Plattpfirsiche",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.49,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1.0,
+          "unit": "kg"
+        }
+      }
     },
     {
       "date": "2026-07-09",
@@ -1733,7 +1920,18 @@
       ],
       "product": "Nektarinen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.49,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1.0,
+          "unit": "kg"
+        }
+      }
     },
     {
       "date": "2026-07-09",
@@ -1764,7 +1962,18 @@
       ],
       "product": "Zwiebeln",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.25,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 2.0,
+          "unit": "kg"
+        }
+      }
     },
     {
       "date": "2026-07-09",
@@ -1795,7 +2004,18 @@
       ],
       "product": "Mini-Gurken",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 3.99,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 750.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-07-09",
@@ -1826,7 +2046,8 @@
       ],
       "product": "Pufuleti gesalzen",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -1857,7 +2078,8 @@
       ],
       "product": "Chipsfrisch gesalzen",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -1888,7 +2110,8 @@
       ],
       "product": "Babyspinat Bio",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -1919,7 +2142,8 @@
       ],
       "product": "Goldbären",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -1950,7 +2174,8 @@
       ],
       "product": "Gehackte Tomaten",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -1981,7 +2206,8 @@
       ],
       "product": "Lauchzwiebeln",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2012,7 +2238,8 @@
       ],
       "product": "Salatgurken",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2043,7 +2270,18 @@
       ],
       "product": "Physalis",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 15.92,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 125.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-07-09",
@@ -2074,7 +2312,8 @@
       ],
       "product": "Blitzstart Mix",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2105,7 +2344,8 @@
       ],
       "product": "Studentenfutter Exotic",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2132,7 +2372,8 @@
       "category_path": null,
       "product": "Bubble Chill Wildberry",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2151,7 +2392,8 @@
       "net_paid": 0.25,
       "tax_class": "A",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2182,7 +2424,8 @@
       ],
       "product": "Chipsfrisch Salt & Vinegar",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2216,6 +2459,10 @@
       "unit_price": {
         "amount": 3.99,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -2235,7 +2482,8 @@
       "net_paid": 0.25,
       "tax_class": "B",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2266,7 +2514,8 @@
       ],
       "product": "Babyspinat Bio",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2297,7 +2546,18 @@
       ],
       "product": "Datteltomaten",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.98,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-07-09",
@@ -2328,7 +2588,18 @@
       ],
       "product": "Lasagneblätter",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.38,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-07-09",
@@ -2359,7 +2630,8 @@
       ],
       "product": "Creme a la Cuisine Kochsahne",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2390,7 +2662,8 @@
       ],
       "product": "Reibekäse Mozzarella",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2421,7 +2694,8 @@
       ],
       "product": "Mozzarella gerieben",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2452,7 +2726,8 @@
       ],
       "product": "Kekstaler",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2483,7 +2758,8 @@
       ],
       "product": "Frischkäse Natur",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2510,7 +2786,8 @@
       "category_path": null,
       "product": "Blätterteiggebäck",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2541,7 +2818,18 @@
       ],
       "product": "Mini-Karotten Bio",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 4.95,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 200.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-07-09",
@@ -2572,7 +2860,18 @@
       ],
       "product": "Salatherzen Bio",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.74,
+        "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 2.0,
+          "unit": "piece"
+        }
+      }
     },
     {
       "date": "2026-07-09",
@@ -2603,7 +2902,8 @@
       ],
       "product": "Fix für Salatsauce",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-09",
@@ -2634,7 +2934,8 @@
       ],
       "product": "Börek Stange Spinat",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-14",
@@ -2668,6 +2969,14 @@
       "unit_price": {
         "amount": 6.08,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 250,
+          "unit": "g"
+        }
       }
     },
     {
@@ -2702,6 +3011,14 @@
       "unit_price": {
         "amount": 1.6,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500,
+          "unit": "g"
+        }
       }
     },
     {
@@ -2736,6 +3053,14 @@
       "unit_price": {
         "amount": 21.2,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 250,
+          "unit": "g"
+        }
       }
     },
     {
@@ -2770,6 +3095,14 @@
       "unit_price": {
         "amount": 2.33,
         "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 675,
+          "unit": "ml"
+        }
       }
     },
     {
@@ -2804,6 +3137,14 @@
       "unit_price": {
         "amount": 1.12,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1200,
+          "unit": "g"
+        }
       }
     },
     {
@@ -2838,6 +3179,14 @@
       "unit_price": {
         "amount": 0.48,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 3.0,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -2872,6 +3221,14 @@
       "unit_price": {
         "amount": 1.55,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 400,
+          "unit": "g"
+        }
       }
     },
     {
@@ -2906,6 +3263,14 @@
       "unit_price": {
         "amount": 0.17,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 16,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -2940,6 +3305,14 @@
       "unit_price": {
         "amount": 3.58,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500,
+          "unit": "g"
+        }
       }
     },
     {
@@ -2959,7 +3332,8 @@
       "net_paid": -0.15,
       "tax_class": "2",
       "tax_rate": 0.07,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-14",
@@ -2978,7 +3352,8 @@
       "net_paid": -2.0,
       "tax_class": "1",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-15",
@@ -3012,6 +3387,14 @@
       "unit_price": {
         "amount": 0.76,
         "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1000,
+          "unit": "ml"
+        }
       }
     },
     {
@@ -3046,6 +3429,14 @@
       "unit_price": {
         "amount": 1.52,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500,
+          "unit": "g"
+        }
       }
     },
     {
@@ -3080,6 +3471,14 @@
       "unit_price": {
         "amount": 21.56,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 250,
+          "unit": "g"
+        }
       }
     },
     {
@@ -3114,6 +3513,14 @@
       "unit_price": {
         "amount": 20.6,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 100,
+          "unit": "g"
+        }
       }
     },
     {
@@ -3145,7 +3552,8 @@
       ],
       "product": "Sunflower oil",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-15",
@@ -3176,7 +3584,8 @@
       ],
       "product": "Chocolate",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-15",
@@ -3207,7 +3616,8 @@
       ],
       "product": "Blossom honey (Blütenhonig)",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-15",
@@ -3241,6 +3651,14 @@
       "unit_price": {
         "amount": 0.01,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 70,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -3272,7 +3690,8 @@
       ],
       "product": "Make-up remover",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-15",
@@ -3306,6 +3725,10 @@
       "unit_price": {
         "amount": 2.69,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -3340,6 +3763,10 @@
       "unit_price": {
         "amount": 3.61,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -3374,6 +3801,10 @@
       "unit_price": {
         "amount": 2.69,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -3408,6 +3839,14 @@
       "unit_price": {
         "amount": 1.79,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -3439,7 +3878,8 @@
       ],
       "product": "Magnesium bisglycinate (supplement)",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-15",
@@ -3473,6 +3913,14 @@
       "unit_price": {
         "amount": 2.6,
         "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1000,
+          "unit": "ml"
+        }
       }
     },
     {
@@ -3507,6 +3955,14 @@
       "unit_price": {
         "amount": 1.79,
         "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1000,
+          "unit": "ml"
+        }
       }
     },
     {
@@ -3538,7 +3994,8 @@
       ],
       "product": "Whole milk",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-17",
@@ -3569,7 +4026,8 @@
       ],
       "product": "Potato chips",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-17",
@@ -3603,6 +4061,14 @@
       "unit_price": {
         "amount": 6.67,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 150,
+          "unit": "g"
+        }
       }
     },
     {
@@ -3634,7 +4100,8 @@
       ],
       "product": "Potato chips",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-17",
@@ -3665,7 +4132,8 @@
       ],
       "product": "Skyr",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-17",
@@ -3699,6 +4167,14 @@
       "unit_price": {
         "amount": 1.53,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500,
+          "unit": "g"
+        }
       }
     },
     {
@@ -3733,6 +4209,14 @@
       "unit_price": {
         "amount": 11.84,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 250,
+          "unit": "g"
+        }
       }
     },
     {
@@ -3767,6 +4251,14 @@
       "unit_price": {
         "amount": 0.48,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 3.0,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -3798,7 +4290,8 @@
       ],
       "product": "Dishwasher tablets",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-17",
@@ -3829,7 +4322,8 @@
       ],
       "product": "Farb- und Schmutzfänger (colour & dirt collector sheets)",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-17",
@@ -3863,6 +4357,14 @@
       "unit_price": {
         "amount": 0.05,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 10,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -3894,7 +4396,8 @@
       ],
       "product": "Multigrain toast bread",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-18",
@@ -3925,7 +4428,8 @@
       ],
       "product": "Walnuts (natural)",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-18",
@@ -3959,6 +4463,14 @@
       "unit_price": {
         "amount": 0.27,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 10,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -3993,6 +4505,14 @@
       "unit_price": {
         "amount": 6.45,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 200,
+          "unit": "g"
+        }
       }
     },
     {
@@ -4024,7 +4544,8 @@
       ],
       "product": "Guacamole",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-18",
@@ -4055,7 +4576,8 @@
       ],
       "product": "Salatgurken",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-18",
@@ -4086,7 +4608,8 @@
       ],
       "product": "Schnittkräuter",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-18",
@@ -4117,7 +4640,8 @@
       ],
       "product": "Schnittkräuter",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-18",
@@ -4148,7 +4672,8 @@
       ],
       "product": "Schnittkräuter",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-18",
@@ -4167,7 +4692,8 @@
       "net_paid": 2.99,
       "tax_class": "A",
       "tax_rate": 0.07,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-18",
@@ -4201,6 +4727,10 @@
       "unit_price": {
         "amount": 1.18,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -4232,7 +4762,8 @@
       ],
       "product": "Lauchzwiebeln",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-18",
@@ -4263,7 +4794,8 @@
       ],
       "product": "Radieschen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-18",
@@ -4294,7 +4826,8 @@
       ],
       "product": "Kaffeepads Café Crema",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-20",
@@ -4325,7 +4858,8 @@
       ],
       "product": "Cocoa drink",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-20",
@@ -4356,7 +4890,8 @@
       ],
       "product": "Yogurt",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-20",
@@ -4387,7 +4922,8 @@
       ],
       "product": "Speisequark (quark)",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-20",
@@ -4421,6 +4957,14 @@
       "unit_price": {
         "amount": 0.6,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 3,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -4452,7 +4996,8 @@
       ],
       "product": "Mould remover spray",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-20",
@@ -4483,7 +5028,8 @@
       ],
       "product": "Replacement cleaning cloths",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-20",
@@ -4514,7 +5060,8 @@
       ],
       "product": "Distilled water",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-20",
@@ -4545,7 +5092,8 @@
       ],
       "product": "Garbage bags",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-21",
@@ -4579,6 +5127,14 @@
       "unit_price": {
         "amount": 17.9,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 100.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -4613,6 +5169,14 @@
       "unit_price": {
         "amount": 1.34,
         "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1000.0,
+          "unit": "ml"
+        }
       }
     },
     {
@@ -4647,6 +5211,14 @@
       "unit_price": {
         "amount": 1.98,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500,
+          "unit": "g"
+        }
       }
     },
     {
@@ -4681,6 +5253,14 @@
       "unit_price": {
         "amount": 8.0,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 370.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -4715,6 +5295,14 @@
       "unit_price": {
         "amount": 3.58,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -4749,6 +5337,14 @@
       "unit_price": {
         "amount": 61.75,
         "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 80.0,
+          "unit": "ml"
+        }
       }
     },
     {
@@ -4780,7 +5376,8 @@
       ],
       "product": "Soft cookies",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-22",
@@ -4811,7 +5408,8 @@
       ],
       "product": "Bread snack rolls",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-22",
@@ -4842,7 +5440,8 @@
       ],
       "product": "Waschemulsion (skin cleansing wash)",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-22",
@@ -4873,7 +5472,8 @@
       ],
       "product": "Reinigungstücher für Oberflächen (surface cleaning wipes)",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-23",
@@ -4904,7 +5504,8 @@
       ],
       "product": "Maple syrup",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-07-23",
@@ -4938,6 +5539,14 @@
       "unit_price": {
         "amount": 0.44,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 10,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -4969,7 +5578,8 @@
       ],
       "product": "Primitivo Tardivo Puglia IGP, Rotwein",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-01",
@@ -5003,6 +5613,14 @@
       "unit_price": {
         "amount": 7.6,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 200.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5037,6 +5655,14 @@
       "unit_price": {
         "amount": 14.89,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 90.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5071,6 +5697,14 @@
       "unit_price": {
         "amount": 4.0,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 200.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5105,6 +5739,14 @@
       "unit_price": {
         "amount": 29.92,
         "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 130.0,
+          "unit": "ml"
+        }
       }
     },
     {
@@ -5139,6 +5781,14 @@
       "unit_price": {
         "amount": 10.85,
         "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 460.0,
+          "unit": "ml"
+        }
       }
     },
     {
@@ -5173,6 +5823,14 @@
       "unit_price": {
         "amount": 1.89,
         "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1000.0,
+          "unit": "ml"
+        }
       }
     },
     {
@@ -5207,6 +5865,14 @@
       "unit_price": {
         "amount": 16.64,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 140.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5241,6 +5907,14 @@
       "unit_price": {
         "amount": 11.2,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 100.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5275,6 +5949,14 @@
       "unit_price": {
         "amount": 6.72,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 400.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5309,6 +5991,14 @@
       "unit_price": {
         "amount": 6.72,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 400.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5343,6 +6033,14 @@
       "unit_price": {
         "amount": 6.72,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 400.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5377,6 +6075,14 @@
       "unit_price": {
         "amount": 2.48,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 250.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5411,6 +6117,14 @@
       "unit_price": {
         "amount": 1.7,
         "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1000.0,
+          "unit": "ml"
+        }
       }
     },
     {
@@ -5445,6 +6159,14 @@
       "unit_price": {
         "amount": 7.6,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 200.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5479,6 +6201,14 @@
       "unit_price": {
         "amount": 9.85,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 200.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5513,6 +6243,14 @@
       "unit_price": {
         "amount": 6.08,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 250.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5547,6 +6285,14 @@
       "unit_price": {
         "amount": 11.22,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 400.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5581,6 +6327,14 @@
       "unit_price": {
         "amount": 7.18,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5615,6 +6369,14 @@
       "unit_price": {
         "amount": 3.58,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5649,6 +6411,14 @@
       "unit_price": {
         "amount": 0.49,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 3.0,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -5683,6 +6453,14 @@
       "unit_price": {
         "amount": 0.03,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 30.0,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -5717,6 +6495,14 @@
       "unit_price": {
         "amount": 1.34,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -5751,6 +6537,10 @@
       "unit_price": {
         "amount": 4.47,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -5785,6 +6575,14 @@
       "unit_price": {
         "amount": 8.97,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 300.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5819,6 +6617,14 @@
       "unit_price": {
         "amount": 6.72,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 400.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5853,6 +6659,14 @@
       "unit_price": {
         "amount": 8.97,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 300.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -5887,6 +6701,14 @@
       "unit_price": {
         "amount": 0.03,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 48.0,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -5921,6 +6743,14 @@
       "unit_price": {
         "amount": 0.02,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 200.0,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -5955,7 +6785,8 @@
       ],
       "product": "2 candidates",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-08",
@@ -5989,6 +6820,14 @@
       "unit_price": {
         "amount": 0.49,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 3.0,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -6023,7 +6862,8 @@
       ],
       "product": "2 candidates",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-08",
@@ -6057,7 +6897,8 @@
       ],
       "product": "2 candidates",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-08",
@@ -6092,7 +6933,8 @@
       ],
       "product": "3 candidates",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-08",
@@ -6126,6 +6968,14 @@
       "unit_price": {
         "amount": 2.48,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 250.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -6160,6 +7010,14 @@
       "unit_price": {
         "amount": 1.7,
         "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1000.0,
+          "unit": "ml"
+        }
       }
     },
     {
@@ -6194,6 +7052,14 @@
       "unit_price": {
         "amount": 5.72,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 250.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -6228,6 +7094,14 @@
       "unit_price": {
         "amount": 0.12,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 10.0,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -6262,6 +7136,14 @@
       "unit_price": {
         "amount": 14.32,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 125.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -6296,6 +7178,14 @@
       "unit_price": {
         "amount": 10.13,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 150.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -6330,6 +7220,14 @@
       "unit_price": {
         "amount": 0.48,
         "per": "piece"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 10.0,
+          "unit": "piece"
+        }
       }
     },
     {
@@ -6364,6 +7262,14 @@
       "unit_price": {
         "amount": 2.48,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 250.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -6398,6 +7304,14 @@
       "unit_price": {
         "amount": 4.74,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 340.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -6432,6 +7346,14 @@
       "unit_price": {
         "amount": 8.97,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 300.0,
+          "unit": "g"
+        }
       }
     },
     {
@@ -6463,7 +7385,8 @@
       ],
       "product": "Rotwein First Edition ",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-08",
@@ -6482,7 +7405,8 @@
       "net_paid": -1.0,
       "tax_class": "1",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-10",
@@ -6513,7 +7437,8 @@
       ],
       "product": "Haushaltshandschuhe S, 1 Paar",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-10",
@@ -6544,7 +7469,8 @@
       ],
       "product": "Küchentücher 4 x 64 Blatt",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-10",
@@ -6575,7 +7501,8 @@
       ],
       "product": "Chocolate",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-10",
@@ -6606,7 +7533,8 @@
       ],
       "product": "Distilled water",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-12",
@@ -6625,7 +7553,8 @@
       "net_paid": 7.77,
       "tax_class": null,
       "tax_rate": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-12",
@@ -6644,7 +7573,8 @@
       "net_paid": 1.59,
       "tax_class": null,
       "tax_rate": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-12",
@@ -6663,7 +7593,8 @@
       "net_paid": 1.59,
       "tax_class": null,
       "tax_rate": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-12",
@@ -6682,7 +7613,8 @@
       "net_paid": 1.99,
       "tax_class": null,
       "tax_rate": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -6713,7 +7645,8 @@
       ],
       "product": "Zwiebeln",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -6744,7 +7677,18 @@
       ],
       "product": "Zwiebeln",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.99,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1.5,
+          "unit": "kg"
+        }
+      }
     },
     {
       "date": "2026-08-22",
@@ -6775,7 +7719,8 @@
       ],
       "product": "Primitivo Puglia Rotwein",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -6806,7 +7751,8 @@
       ],
       "product": "Primitivo Rotwein Bio",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -6837,7 +7783,18 @@
       ],
       "product": "Coca-Cola Classic",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.79,
+        "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1.25,
+          "unit": "l"
+        }
+      }
     },
     {
       "date": "2026-08-22",
@@ -6856,7 +7813,8 @@
       "net_paid": 0.25,
       "tax_class": "B",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -6887,7 +7845,18 @@
       ],
       "product": "Coca-Cola Classic",
       "is_budget_brand": false,
-      "unit_price": null
+      "unit_price": {
+        "amount": 0.79,
+        "per": "l"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1.25,
+          "unit": "l"
+        }
+      }
     },
     {
       "date": "2026-08-22",
@@ -6906,7 +7875,8 @@
       "net_paid": 0.25,
       "tax_class": "B",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -6937,7 +7907,18 @@
       ],
       "product": "Sahnejoghurt Griechischer Art",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.19,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1.0,
+          "unit": "kg"
+        }
+      }
     },
     {
       "date": "2026-08-22",
@@ -6968,7 +7949,8 @@
       ],
       "product": "Orangendirektsaft",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -6987,7 +7969,8 @@
       "net_paid": 0.25,
       "tax_class": "B",
       "tax_rate": 0.19,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7018,7 +8001,8 @@
       ],
       "product": "Basmati Reis",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7049,7 +8033,8 @@
       ],
       "product": "Basmati Reis",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7080,7 +8065,8 @@
       ],
       "product": "Salatgurken",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7111,7 +8097,8 @@
       ],
       "product": "Salatgurken",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7142,7 +8129,8 @@
       ],
       "product": "Lauchzwiebeln",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7173,7 +8161,18 @@
       ],
       "product": "Käsewürfel Gouda Maasdamer",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": {
+        "amount": 12.23,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 220.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-08-22",
@@ -7204,7 +8203,8 @@
       ],
       "product": "Picco Belli Salami",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7235,7 +8235,8 @@
       ],
       "product": "Trockenfrüchte Mischung",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7266,7 +8267,8 @@
       ],
       "product": "Schoko Rosinen",
       "is_budget_brand": true,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7297,7 +8299,18 @@
       ],
       "product": "Nektarinen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.89,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1.0,
+          "unit": "kg"
+        }
+      }
     },
     {
       "date": "2026-08-22",
@@ -7328,7 +8341,8 @@
       ],
       "product": "American Cookies",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7359,7 +8373,18 @@
       ],
       "product": "Datteltomaten",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 3.98,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-08-22",
@@ -7390,7 +8415,18 @@
       ],
       "product": "Trauben",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 3.58,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 500.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-08-22",
@@ -7421,7 +8457,18 @@
       ],
       "product": "Rispentomaten",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 2.75,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 650.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-08-22",
@@ -7452,7 +8499,8 @@
       ],
       "product": "Kartoffelchips gesalzen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7483,7 +8531,18 @@
       ],
       "product": "Birnen",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 1.99,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 1.0,
+          "unit": "kg"
+        }
+      }
     },
     {
       "date": "2026-08-22",
@@ -7514,7 +8573,18 @@
       ],
       "product": "Johannisbeeren",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": {
+        "amount": 9.95,
+        "per": "kg"
+      },
+      "sold_as": {
+        "form": "pack",
+        "size": {
+          "count": 1,
+          "value": 200.0,
+          "unit": "g"
+        }
+      }
     },
     {
       "date": "2026-08-22",
@@ -7545,7 +8615,8 @@
       ],
       "product": "Dill",
       "is_budget_brand": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-22",
@@ -7579,6 +8650,10 @@
       "unit_price": {
         "amount": 1.44,
         "per": "kg"
+      },
+      "sold_as": {
+        "form": "loose",
+        "size": null
       }
     },
     {
@@ -7598,7 +8673,8 @@
       "net_paid": 2.49,
       "tax_class": "A",
       "tax_rate": 0.07,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-29",
@@ -7617,7 +8693,8 @@
       "net_paid": 5.98,
       "tax_class": null,
       "tax_rate": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-29",
@@ -7636,7 +8713,8 @@
       "net_paid": 7.98,
       "tax_class": null,
       "tax_rate": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     },
     {
       "date": "2026-08-29",
@@ -7655,7 +8733,8 @@
       "net_paid": 14.95,
       "tax_class": null,
       "tax_rate": null,
-      "unit_price": null
+      "unit_price": null,
+      "sold_as": null
     }
   ]
 }

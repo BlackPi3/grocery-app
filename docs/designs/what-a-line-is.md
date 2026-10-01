@@ -125,6 +125,8 @@ error rate stays known.
   new level-1 product can double an older one named another way; the rewrite
   merges them, and since the history points at product ids nothing is lost.
   The rewrite is a program, not hand edits, so a later change of style is a
-  re-run. Known gap: a level-1 product has no size, so an identified line has
-  no price per kilo until the size is read from the line (it belongs to the
-  purchase).
+  re-run. A level-1 product has no size; since 2026-10-01 the size is read
+  from the printed line (`normalizer.printed_size`: `400g`, `0,5 L`,
+  `4x100 g`, `10er`, `22St`; only with an explicit unit, and a weight or
+  volume only for food), so an identified line has a price per kilo, litre or
+  piece. A product's own size still wins where it has one.
