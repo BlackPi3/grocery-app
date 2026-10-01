@@ -104,6 +104,12 @@ class WriteRepository(Protocol):
     def checks(self) -> dict[str, Any]:
         ...
 
+    def receipts(self) -> list[dict[str, Any]]:
+        ...
+
+    def search_products(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
+        ...
+
     def update_receipt(self, receipt_id: int, is_duplicate: bool | None,
                        store: str | None) -> dict[str, Any]:
         ...
@@ -380,6 +386,45 @@ class PostgresRepository:
                          "identify_answers": identify_answers,
                          "overruled": overruled},
                 "questions": questions}
+
+    def receipts(self) -> list[dict[str, Any]]:
+        """Every receipt, newest first, with how far its lines are placed and by whom."""
+        with self.session_factory() as session:
+            inputs = load_normalizer_inputs(session)
+            out = []
+            for row in session.scalars(select(Receipt)):
+                doc = receipt_to_dict(row)
+                records = [r for r in normalize_receipt(
+                    doc, inputs["resolution"], inputs["products"], inputs["line_resolutions"],
+                    inputs["shelf_prices"], inputs["authors"]) if r["type"] == "product"]
+                out.append({
+                    "receipt_id": row.id, "date": doc.get("date"), "store": row.store,
+                    "source_image": row.source_image,
+                    "printed_total": doc.get("printed_total"),
+                    "is_duplicate": bool(row.is_duplicate),
+                    "product_lines": len(records),
+                    "said_by_you": sum(r["said_by"] == "you" for r in records),
+                    "said_by_app": sum(r["said_by"] == "app" for r in records),
+                    "unplaced": sum(r["said_by"] is None for r in records),
+                })
+        out.sort(key=lambda r: (r["date"] or "", r["receipt_id"]), reverse=True)
+        return out
+
+    def search_products(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
+        """Catalog products whose name or brand holds every word of `query`,
+        letter case aside, shortest name first: what a shopper picks from
+        when correcting a line."""
+        words = query.casefold().split()
+        if not words:
+            return []
+        with self.session_factory() as session:
+            found = [p for p in session.scalars(select(Product))
+                     if all(w in f"{p.name or ''} {p.brand or ''}".casefold() for w in words)]
+        found.sort(key=lambda p: (len(p.name or ""), p.name or "", p.id))
+        return [{"product_id": p.id, "name": p.name, "brand": p.brand, "variant": p.variant,
+                 "category_path": (list(categories.path(p.category))
+                                   if p.category in categories.CATEGORIES else None)}
+                for p in found[:limit]]
 
     def checks(self) -> dict[str, Any]:
         """Open spot checks, and what the answered ones say (`api.checks`).

@@ -86,6 +86,13 @@ def line_identifier(decider: matching.Decider) -> LineIdentifier:
     return read
 
 
+def same_product_key(name: str | None, brand: str | None,
+                     variant: str | None = None) -> tuple[str, ...]:
+    """What makes two level-1 products the same: name, brand and variant,
+    letter case and outer spaces aside."""
+    return tuple((v or "").strip().casefold() for v in (name, brand, variant))
+
+
 def identified_product(session: Session, identity: identifying.Identity,
                        inputs: dict[str, Any]) -> str:
     """The level-1 product for what identify said a line is.
@@ -94,12 +101,10 @@ def identified_product(session: Session, identity: identifying.Identity,
     aside) is that product; otherwise a new one is made from the identity and
     nothing else. No size: it belongs to the purchase, not the product. Organic
     only when the name says Bio; otherwise unknown, not false."""
-    def key(name: str | None, brand: str | None, variant: str | None) -> tuple[str, ...]:
-        return tuple((v or "").strip().casefold() for v in (name, brand, variant))
-
-    wanted = key(identity.name, identity.brand, identity.variant)
+    wanted = same_product_key(identity.name, identity.brand, identity.variant)
     for product_id, product in inputs["products"].items():
-        if key(product.get("name"), product.get("brand"), product.get("variant")) == wanted:
+        if same_product_key(product.get("name"), product.get("brand"),
+                            product.get("variant")) == wanted:
             return product_id
 
     from grocery_app.categorize import CATEGORY_UNKNOWN
@@ -173,11 +178,17 @@ def shopper_product(session: Session, name: str, brand: str | None) -> str:
 
     Kashk from a shop no catalog lists. Nothing else is known, and nothing is
     guessed: size, category and barcode stay empty, and `open_questions` says
-    so. A barcode scanned at home later can fill in the rest.
+    so. A barcode scanned at home later can fill in the rest. A product with
+    the same name and brand (and no variant) already is that product: typing
+    `Kashk` twice is one Kashk.
     """
     from grocery_app.categorize import CATEGORY_UNKNOWN
     from grocery_app.resolver import brand_questions
 
+    wanted = same_product_key(name, brand)
+    for product in session.scalars(select(Product)):
+        if same_product_key(product.name, product.brand, product.variant) == wanted:
+            return product.id
     product_id = next_product_id(session)
     session.add(product_from_dict(product_id, {
         "label": name, "name": name, "brand": brand, "product_line": None, "variant": None,

@@ -20,7 +20,7 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 - **Enrichment**: `grocery-app enrich` fills what a store listing never says (category, organic label, Nutri-Score, NOVA group) from [Open Food Facts](https://openfoodfacts.org) by barcode, only where the product has no confirmed value. Open Food Facts data is licensed under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/).
 - **Purchase history**: `purchases.json`, built from the extracted receipts by the normalization layer.
 - **Insights**: `grocery-app insights` reads purchases.json and writes `insights.json`: repurchase cadence with an expected next date, price over time per product, a personal basket index (last month's repeat basket priced at this month's prices), budget vs name brand share, and the same item across stores. Every figure carries the coverage it rests on.
-- **API**: `grocery-app serve` exposes the same two documents over HTTP (`/v1/purchases`, `/v1/insights`, OpenAPI at `/docs`), from the JSON files or from PostgreSQL (`grocery-app db upgrade`, `db import`, `db export`); the same normalizer runs either way, and a test proves the two agree. With PostgreSQL it also takes photos: `POST /v1/receipts` stores the image, returns a job id, and extracts in the background; `GET /v1/jobs/{id}` reports `queued` / `running` / `done` / `failed` with the model's cost. One photo is never extracted twice. A shopper can read a receipt back (`GET /v1/receipts/{id}`), say what a line actually was (`PUT .../lines/{position}/resolution`), and mark a receipt as a duplicate (`PATCH /v1/receipts/{id}`) — the corrections land in `line_resolutions` and `db export` writes them back out for the catalog loop. The plan, and what is deliberately not done yet, is in `docs/designs/backend-api.md`.
+- **API**: `grocery-app serve` exposes the same two documents over HTTP (`/v1/purchases`, `/v1/insights`, OpenAPI at `/docs`), from the JSON files or from PostgreSQL (`grocery-app db upgrade`, `db import`, `db export`); the same normalizer runs either way, and a test proves the two agree. With PostgreSQL it also takes photos: `POST /v1/receipts` stores the image, returns a job id, and extracts in the background; `GET /v1/jobs/{id}` reports `queued` / `running` / `done` / `failed` with the model's cost. One photo is never extracted twice. A shopper can read a receipt back (`GET /v1/receipts/{id}`), say what a line actually was (`PUT .../lines/{position}/resolution`), and mark a receipt as a duplicate (`PATCH /v1/receipts/{id}`). Every line says who said what it is (`said_by`: you or the app), two random lines the app placed itself per uploaded receipt are put to the shopper as spot checks (`GET /v1/checks`, with the app's mistake rate), and a phone-sized review page at `/` shows both — the corrections land in `line_resolutions` and `db export` writes them back out for the catalog loop. The plan, and what is deliberately not done yet, is in `docs/designs/backend-api.md`.
 - **Demo**: a self-contained static web page (`web/index.html`) presenting the history and the insights in a mobile-style layout, live at **https://blackpi3.github.io/grocery-app/**. The two JSON files it reads are my real shopping history, published deliberately.
 
 ## Produce
@@ -106,6 +106,11 @@ grocery-app db upgrade && grocery-app db import && grocery-app serve
 export GROCERY_IMAGES=data/uploads          # where uploaded photos are kept
 curl -F file=@data/receipts/photos/IMG_1.jpeg http://127.0.0.1:8000/v1/receipts
 curl http://127.0.0.1:8000/v1/jobs/<job-id>
+# the review page (PostgreSQL only): what is waiting for you, and every receipt
+# with who said what each line is. --host 0.0.0.0 lets a phone on the same
+# Wi-Fi open http://<this computer's address>:8000/ -- there is no login, so
+# only on a network you trust.
+grocery-app serve --host 0.0.0.0 --reader claude-code
 ```
 
 Extraction calls the Claude API and reads `ANTHROPIC_API_KEY` from the environment.

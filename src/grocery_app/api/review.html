@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Basket review</title>
+<!--
+  The shopper's page, served by `grocery-app serve` at `/`. It only reads and
+  answers through the API (/v1/checks, /v1/questions, /v1/receipts,
+  /v1/products, PUT .../resolution): nothing here decides anything. Throwaway
+  UI below the contract; the iOS app will do the same job against the same API.
+-->
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f4f4f1; --card: #ffffff; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --border: rgba(11,11,11,0.10);
+    --accent: #2a78d6; --accent-soft: #cde2fb;
+    --good: #006300; --bad: #d03b3b; --warn: #b06a00;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d; --card: #1f1f1e; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --border: rgba(255,255,255,0.12);
+      --accent: #3987e5; --accent-soft: #184f95;
+      --good: #0ca30c; --bad: #e34948; --warn: #fab219;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --card: #1f1f1e; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --border: rgba(255,255,255,0.12);
+    --accent: #3987e5; --accent-soft: #184f95;
+    --good: #0ca30c; --bad: #e34948; --warn: #fab219;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { overflow-x: hidden; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.45;
+    -webkit-font-smoothing: antialiased; }
+  .app { max-width: 480px; margin: 0 auto; padding: 0 16px 40px; }
+  header { padding: 18px 0 6px; position: sticky; top: 0; z-index: 5;
+    background: linear-gradient(var(--page) 80%, transparent); }
+  h1 { margin: 0; font-size: 20px; letter-spacing: -0.02em; }
+  .sub { color: var(--ink2); font-size: 13px; }
+  nav { display: flex; gap: 6px; margin-top: 10px; }
+  nav button { flex: 1; }
+  button { font: inherit; font-size: 14px; border-radius: 10px; padding: 9px 12px;
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer; }
+  button.on, button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.good { border-color: var(--good); color: var(--good); }
+  button.bad { border-color: var(--bad); color: var(--bad); }
+  button:disabled { opacity: 0.5; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px; margin: 12px 0; }
+  .meta { color: var(--muted); font-size: 12px; }
+  .printed { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14px;
+    background: var(--page); border-radius: 8px; padding: 6px 8px; margin: 6px 0;
+    overflow-wrap: anywhere; }
+  .says { font-size: 15px; margin: 6px 0 10px; }
+  .says b { font-weight: 650; }
+  .why { color: var(--ink2); font-size: 13px; margin: 4px 0 10px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row button { flex: 1 1 auto; }
+  .list button { display: block; width: 100%; text-align: left; margin: 6px 0; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; border-radius: 6px;
+    padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+  .badge.you { background: var(--accent-soft); color: var(--ink); }
+  .badge.app { border: 1px solid var(--warn); color: var(--warn); }
+  .badge.none { border: 1px solid var(--bad); color: var(--bad); }
+  .line { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0;
+    border-top: 1px solid var(--grid); cursor: pointer; }
+  .line:first-of-type { border-top: 0; }
+  .line .what { font-size: 14px; }
+  .line .money { font-variant-numeric: tabular-nums; color: var(--ink2); font-size: 13px;
+    white-space: nowrap; }
+  input { font: inherit; font-size: 16px; width: 100%; padding: 9px 10px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--page); color: var(--ink); margin: 6px 0; }
+  .picker { margin-top: 10px; border-top: 1px solid var(--grid); padding-top: 8px; }
+  .empty { color: var(--muted); text-align: center; padding: 30px 0; }
+  .toast { position: fixed; left: 16px; right: 16px; bottom: 20px; max-width: 448px;
+    margin: 0 auto; background: var(--ink); color: var(--page); border-radius: 10px;
+    padding: 10px 14px; font-size: 14px; display: none; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Basket review</h1>
+    <div class="sub" id="stats">Loading…</div>
+    <nav>
+      <button id="tab-waiting" class="on">Waiting for you</button>
+      <button id="tab-receipts">Receipts</button>
+    </nav>
+  </header>
+  <main id="view"></main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+// All text from receipts and the model goes in with textContent, never as HTML.
+const state = { tab: "waiting", checks: null, questions: null, receipts: null, open: null };
+
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs || {})) {
+    if (key === "class") node.className = value;
+    else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+    else node.setAttribute(key, value);
+  }
+  for (const child of children.flat()) {
+    if (child == null || child === false) continue;
+    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return node;
+}
+
+function toast(text) {
+  const box = document.getElementById("toast");
+  box.textContent = text;
+  box.style.display = "block";
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { box.style.display = "none"; }, 3500);
+}
+
+async function api(path, options) {
+  const response = await fetch(path, options);
+  if (!response.ok) {
+    let detail = response.statusText;
+    try { detail = (await response.json()).detail || detail; } catch (_) { /* not JSON */ }
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+  }
+  return response.json();
+}
+
+function euro(amount) {
+  return amount == null ? "" : amount.toFixed(2).replace(".", ",") + " €";
+}
+
+function badge(saidBy) {
+  if (saidBy === "you") return el("span", { class: "badge you" }, "you");
+  if (saidBy === "app") return el("span", { class: "badge app" }, "app");
+  return el("span", { class: "badge none" }, "not placed");
+}
+
+function productText(name, brand) {
+  return [name, brand].filter(Boolean).join(" · ");
+}
+
+// --- answering ------------------------------------------------------------
+
+async function answer(receiptId, position, body) {
+  try {
+    await api(`/v1/receipts/${receiptId}/lines/${position}/resolution`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    toast("Saved");
+    await load();
+  } catch (error) {
+    toast("Not saved: " + error.message);
+  }
+}
+
+// Search the catalog, or name a new product in your own words.
+function picker(receiptId, position, extra) {
+  const results = el("div", { class: "list" });
+  const brand = el("input", { placeholder: "Brand, if you know it (optional)" });
+  const search = el("input", { placeholder: "What was it? Search or type a name" });
+  const create = el("button", { onclick: () => {
+    const name = search.value.trim();
+    if (!name) return;
+    answer(receiptId, position, { new_product: { name, brand: brand.value.trim() || null } });
+  } }, "Save as a new product");
+  let timer;
+  search.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const q = search.value.trim();
+      results.replaceChildren();
+      if (!q) return;
+      try {
+        const found = await api("/v1/products?q=" + encodeURIComponent(q));
+        for (const p of found) {
+          results.append(el("button", { onclick: () => answer(receiptId, position,
+            { product_id: p.product_id }) },
+            productText(p.name, p.brand),
+            p.category_path ? el("div", { class: "meta" }, p.category_path.join(" › ")) : null));
+        }
+        if (!found.length) results.append(el("div", { class: "meta" }, "Nothing in the catalog."));
+      } catch (error) { toast(error.message); }
+    }, 250);
+  });
+  return el("div", { class: "picker" }, extra || null, search, results, brand, create);
+}
+
+// --- views ----------------------------------------------------------------
+
+function checkCard(check) {
+  const card = el("div", { class: "card" });
+  const wrong = el("button", { class: "bad", onclick: () => {
+    wrong.disabled = true;
+    card.append(picker(check.receipt_id, check.position));
+  } }, "Wrong");
+  card.append(
+    el("div", { class: "meta" }, "Spot check · ", check.store || "", " · ", check.date || "",
+       check.paid != null ? " · " + euro(check.paid) : ""),
+    el("div", { class: "printed" }, check.raw_name),
+    el("div", { class: "says" }, "The app says ", el("b", {}, productText(check.app_product,
+       check.brand) || check.app_product_id),
+       check.category_path ? el("div", { class: "meta" }, check.category_path.join(" › ")) : null),
+    el("div", { class: "row" },
+       el("button", { class: "good", onclick: () => answer(check.receipt_id, check.position,
+         { product_id: check.app_product_id }) }, "Right"),
+       wrong),
+  );
+  return card;
+}
+
+function questionCard(question) {
+  const card = el("div", { class: "card" });
+  const offered = el("div", { class: "list" }, question.candidates.map(c =>
+    el("button", { onclick: () => answer(question.receipt_id, question.position,
+      { candidate: c.number }) },
+      productText(c.name, c.brand), c.pack_size ? el("span", { class: "meta" }, " " + c.pack_size)
+      : null, question.model_pick === c.number ? el("span", { class: "badge app" }, "app's pick")
+      : null)));
+  const other = el("button", { onclick: () => {
+    other.disabled = true;
+    card.append(picker(question.receipt_id, question.position));
+  } }, question.candidates.length ? "Something else" : "Say what it was");
+  card.append(
+    el("div", { class: "meta" }, "Question · ", question.store || "", " · ",
+       question.date || "", question.paid != null ? " · " + euro(question.paid) : ""),
+    el("div", { class: "printed" }, question.raw_name),
+    question.per_line ? el("div", { class: "why" },
+      "The till prints this for anything: your answer is for this line only.") : null,
+    question.unclear ? el("div", { class: "why" }, "The app can't tell: ", question.unclear)
+      : null,
+    offered, el("div", { class: "row" }, other));
+  return card;
+}
+
+function waitingView() {
+  const cards = [...state.checks.checks.map(checkCard),
+                 ...state.questions.questions.map(questionCard)];
+  if (!cards.length) return [el("div", { class: "empty" }, "Nothing is waiting for you.")];
+  return cards;
+}
+
+async function openReceipt(receiptId) {
+  state.open = state.open === receiptId ? null : receiptId;
+  if (state.open !== null && !state.receiptLines?.[receiptId]) {
+    try {
+      const doc = await api(`/v1/receipts/${receiptId}`);
+      state.receiptLines = { ...(state.receiptLines || {}), [receiptId]: doc.lines };
+    } catch (error) { toast(error.message); state.open = null; }
+  }
+  render();
+}
+
+function receiptCard(summary) {
+  const card = el("div", { class: "card" });
+  card.append(el("div", { class: "line", onclick: () => openReceipt(summary.receipt_id) },
+    el("div", {},
+       el("div", { class: "what" }, summary.store || "Unknown shop",
+          summary.is_duplicate ? el("span", { class: "badge none" }, "duplicate") : null),
+       el("div", { class: "meta" }, summary.date || "", " · ", summary.product_lines,
+          " lines: ", summary.said_by_you, " you, ", summary.said_by_app, " app",
+          summary.unplaced ? `, ${summary.unplaced} not placed` : "")),
+    el("div", { class: "money" }, euro(summary.printed_total))));
+  if (state.open === summary.receipt_id) {
+    for (const line of (state.receiptLines?.[summary.receipt_id] || [])) {
+      if (line.type !== "product") continue;
+      const row = el("div", { class: "line" },
+        el("div", {},
+           el("div", { class: "what" }, line.product ? productText(line.product, line.brand)
+             : "—", badge(line.said_by)),
+           el("div", { class: "printed" }, line.raw_name)),
+        el("div", { class: "money" }, euro(line.net_paid)));
+      row.addEventListener("click", () => {
+        if (row.nextSibling?.classList?.contains("picker")) return;
+        row.after(picker(summary.receipt_id, line.position,
+          el("div", { class: "meta" }, "Correct what this line is:")));
+      });
+      card.append(row);
+    }
+  }
+  return card;
+}
+
+function receiptsView() {
+  if (!state.receipts.length) return [el("div", { class: "empty" }, "No receipts yet.")];
+  return state.receipts.map(receiptCard);
+}
+
+function render() {
+  document.getElementById("tab-waiting").className = state.tab === "waiting" ? "on" : "";
+  document.getElementById("tab-receipts").className = state.tab === "receipts" ? "on" : "";
+  const view = document.getElementById("view");
+  if (!state.checks) return;
+  view.replaceChildren(...(state.tab === "waiting" ? waitingView() : receiptsView()));
+  const m = state.checks.meta;
+  const answered = m.right + m.corrected;
+  document.getElementById("stats").textContent =
+    `${m.open} spot checks and ${state.questions.meta.open} questions waiting · ` +
+    (answered ? `app wrong on ${m.corrected} of ${answered} checked lines` :
+                "no spot check answered yet");
+}
+
+async function load() {
+  try {
+    const [checks, questions, receipts] = await Promise.all([
+      api("/v1/checks"), api("/v1/questions"), api("/v1/receipts")]);
+    Object.assign(state, { checks, questions, receipts, receiptLines: {} });
+    if (state.open !== null) {  // keep an open receipt open, with its new answers
+      const doc = await api(`/v1/receipts/${state.open}`);
+      state.receiptLines[state.open] = doc.lines;
+    }
+    render();
+  } catch (error) {
+    document.getElementById("stats").textContent = "Cannot load: " + error.message;
+  }
+}
+
+document.getElementById("tab-waiting").addEventListener("click", () => {
+  state.tab = "waiting"; render();
+});
+document.getElementById("tab-receipts").addEventListener("click", () => {
+  state.tab = "receipts"; render();
+});
+load();
+</script>
+</body>
+</html>
