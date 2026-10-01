@@ -232,15 +232,18 @@ function questionCard(question) {
     other.disabled = true;
     card.append(picker(question.receipt_id, question.position));
   } }, question.candidates.length ? "Something else" : "Say what it was");
-  card.append(
+  // Through el(), which skips missing parts: DOM append would print "null".
+  card.append(el("div", {},
     el("div", { class: "meta" }, "Question · ", question.store || "", " · ",
        question.date || "", question.paid != null ? " · " + euro(question.paid) : ""),
     el("div", { class: "printed" }, question.raw_name),
     question.per_line ? el("div", { class: "why" },
       "The till prints this for anything: your answer is for this line only.") : null,
     question.unclear ? el("div", { class: "why" }, "The app can't tell: ", question.unclear)
-      : null,
-    offered, el("div", { class: "row" }, other));
+      : el("div", { class: "why" }, "The app found no product it is sure of."),
+    question.candidates.length ? el("div", { class: "meta" },
+      "Shop products with similar names. Pick one only if it is what you bought:") : null,
+    offered, el("div", { class: "row" }, other)));
   return card;
 }
 
