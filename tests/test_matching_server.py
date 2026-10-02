@@ -422,10 +422,10 @@ def test_answers_from_a_sheet_are_given_only_where_they_name_a_real_product(serv
                          sheet, "parham", "answer sheet")
 
     assert {kind: len(labels) for kind, labels in done.items()} == {
-        "answered": 2, "placed_already": 1, "words_only": 1, "not_offered": 0,
-        "family": 0, "no_receipt": 1}
+        "answered": 2, "described": 0, "placed_already": 1, "words_only": 1,
+        "not_offered": 0, "family": 0, "no_receipt": 1}
     open_names = [q["raw_name"] for q in client.get("/v1/questions").json()["questions"]]
-    assert open_names == ["Kashk-ish"], "only the words-only line is still a question"
+    assert open_names == ["Kashk-ish"], "without an identifier, words stay a question"
     milk = client.get(f"/v1/receipts/{receipt}").json()["lines"][2]
     assert milk["product_id"] == "p-0001", "a placed line is not overruled by the sheet"
 
@@ -669,3 +669,30 @@ def test_the_page_is_shown_only_questions_a_search_narrowed_down(server):
     assert {"Kashk-ish", "Rätsel"} <= names, "without the flag, every question"
     assert shown["meta"]["held_back"] == len(names) - 1, "held back, and counted"
     assert every["meta"]["held_back"] == 0
+
+
+def test_answers_in_words_on_a_sheet_are_read_into_our_format_and_kept(server, engine):
+    from grocery_app.api.answers import apply_answers
+    from grocery_app.db.models import LineResolution
+
+    client, session = server
+    words = "Muster Schmand, the 200 g tub"
+    _, identify = describing(engine, **{words: {"name": "Schmand", "brand": "Muster"}})
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MSTR Schmand", "Kashk-ish"])
+    sheet = {"lines": [
+        {"source_image": "IMG_7.jpeg", "position": 0, "raw_name": "MSTR Schmand",
+         "catalog_ids": [], "article": None, "product": words},
+        {"source_image": "IMG_7.jpeg", "position": 1, "raw_name": "Kashk-ish",
+         "catalog_ids": [], "article": None, "product": "  "},
+    ]}
+    done = apply_answers(PostgresRepository(make_session_factory(session.get_bind())),
+                         sheet, "parham", "answer sheet", identify)
+
+    assert (done["described"], done["words_only"]) == \
+        (["IMG_7.jpeg#0 MSTR Schmand"], ["IMG_7.jpeg#1 Kashk-ish"])
+    assert identify.seen == [("MSTR Schmand", words)], "identify reads the line with the words"
+    line = client.get(f"/v1/receipts/{receipt}").json()["lines"][0]
+    assert (line["product"], line["brand"], line["said_by"]) == ("Schmand", "Muster", "you")
+    answer = session.scalars(select(LineResolution).where(
+        LineResolution.receipt_id == receipt)).one()
+    assert (answer.confirmed_by, answer.shopper_words) == ("parham", words)

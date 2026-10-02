@@ -662,12 +662,17 @@ def main() -> None:
                   f"{summary['receipts']['updated']} updated")
         if args.action == "answer":
             from grocery_app.api.answers import apply_answers
+            from grocery_app.api.app import identify_decider, identify_searcher
+            from grocery_app.api.matching import line_identifier
             from grocery_app.api.repository import PostgresRepository
 
+            # Answers in words are read into our format by identify, as on
+            # the review page (Gemini unless GROCERY_IDENTIFY says otherwise).
             truth = load_json(args.truth)
             done = apply_answers(PostgresRepository(factory), truth,
                                  truth.get("meta", {}).get("answered_by") or "shopper",
-                                 f"answer sheet {Path(args.truth).name}")
+                                 f"answer sheet {Path(args.truth).name}",
+                                 line_identifier(identify_decider(), identify_searcher()))
             for kind, labels in done.items():
                 print(f"  {kind + ':':<16}{len(labels)}")
             for label in done["words_only"] + done["not_offered"]:
