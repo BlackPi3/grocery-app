@@ -100,7 +100,7 @@ class WriteRepository(Protocol):
                            identify: Any | None = None) -> str:
         ...
 
-    def questions(self) -> dict[str, Any]:
+    def questions(self, searched_only: bool = False) -> dict[str, Any]:
         ...
 
     def checks(self) -> dict[str, Any]:
@@ -344,13 +344,17 @@ class PostgresRepository:
             session.commit()
             return product_id
 
-    def questions(self) -> dict[str, Any]:
+    def questions(self, searched_only: bool = False) -> dict[str, Any]:
         """Every line nothing could place, oldest receipt first.
 
         Derived, not stored: a line is a question while the normalizer leaves
         it open and the shopper has not answered it, whether or not the matcher
         saw it. The matcher's candidates come along where it did. A family is
         never a question: the version changes no number the app shows.
+
+        `searched_only` holds back every question no web search narrowed down,
+        and counts them (`held_back`): nothing reaches the shopper unsearched
+        (Parham, 2026-10-02). They are not answered or dropped, only not shown.
         """
         from grocery_app import matcher as matching
 
@@ -361,6 +365,7 @@ class PostgresRepository:
             receipts = session.scalars(select(Receipt).where(
                 Receipt.is_duplicate.is_(False)).order_by(Receipt.date, Receipt.id)).all()
             questions = []
+            held_back = 0
             for receipt in receipts:
                 doc = receipt_to_dict(receipt)
                 records = normalize_receipt(doc, inputs["resolution"], inputs["products"],
@@ -370,6 +375,9 @@ class PostgresRepository:
                     if record["resolution"] != "none" or record["type"] != "product":
                         continue
                     proposal = proposals.get((receipt.id, position)) or {}
+                    if searched_only and not (proposal.get("identity") or {}).get("searched"):
+                        held_back += 1
+                        continue
                     offered = proposal.get("candidates") or []
                     pick = proposal.get("pick")
                     questions.append({
@@ -391,7 +399,7 @@ class PostgresRepository:
             overruled = len(session.scalars(select(Correction)).all())
         return {"meta": {"open": len(questions), "matcher_answers": matcher_answers,
                          "identify_answers": identify_answers,
-                         "overruled": overruled},
+                         "overruled": overruled, "held_back": held_back},
                 "questions": questions}
 
     def receipts(self) -> list[dict[str, Any]]:

@@ -335,7 +335,7 @@ def test_questions_are_the_lines_nothing_placed_with_what_the_matcher_found(serv
     assert asked[(catch_all, "Diverse Lebensmittel")]["per_line"] is True
     assert asked[(catch_all, "Diverse Lebensmittel")]["candidates"] == [], "never matched"
     assert body["meta"] == {"open": 3, "matcher_answers": 1, "identify_answers": 0,
-                            "overruled": 0}
+                            "overruled": 0, "held_back": 0}
 
 
 def asked_id(body, raw_name):
@@ -651,3 +651,21 @@ def test_words_identify_cannot_read_are_kept_as_written(server, engine):
     line = client.put(f"/v1/receipts/{receipt}/lines/0/resolution",
                       json={"new_product": {"description": "das grüne Zeug"}}).json()["lines"][0]
     assert line["product"] == "das grüne Zeug"
+
+
+def test_the_page_is_shown_only_questions_a_search_narrowed_down(server):
+    client, session = server
+    searched = add_receipt(session, "IMG_7.jpeg", ["Rätsel"])
+    match_receipt(session, searched, TableMatcher({"Rätsel": ("ask", [])}), reads_as())
+    older = add_receipt(session, "IMG_8.jpeg", ["Kashk-ish"])
+    match_receipt(session, older, TableMatcher({"Kashk-ish": ("ask", [])}))  # before search
+    session.commit()
+
+    shown = client.get("/v1/questions?searched=true").json()
+    assert [q["raw_name"] for q in shown["questions"]] == ["Rätsel"]
+    assert shown["questions"][0]["choices"] == ["Muster Ding rot", "Muster Ding blau"]
+    every = client.get("/v1/questions").json()
+    names = {q["raw_name"] for q in every["questions"]}
+    assert {"Kashk-ish", "Rätsel"} <= names, "without the flag, every question"
+    assert shown["meta"]["held_back"] == len(names) - 1, "held back, and counted"
+    assert every["meta"]["held_back"] == 0
