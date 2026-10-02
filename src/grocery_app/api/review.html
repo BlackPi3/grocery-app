@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Basket review</title>
 <!--
-  The shopper's page, served by `grocery-app serve` at `/`. It only reads and
-  answers through the API (/v1/checks, /v1/questions, /v1/receipts,
-  /v1/products, PUT .../resolution): nothing here decides anything. Throwaway
-  UI below the contract; the iOS app will do the same job against the same API.
+  The shopper's page, served by `grocery-app serve` at `/`. It only reads,
+  uploads and answers through the API (/v1/checks, /v1/questions,
+  /v1/receipts, POST /v1/receipts + /v1/jobs, /v1/products, /v1/insights,
+  PUT .../resolution): nothing here decides anything. Throwaway UI below the
+  contract; the iOS app will do the same job against the same API.
 -->
 <style>
   :root {
@@ -46,7 +47,7 @@
   h1 { margin: 0; font-size: 20px; letter-spacing: -0.02em; }
   .sub { color: var(--ink2); font-size: 13px; }
   nav { display: flex; gap: 6px; margin-top: 10px; }
-  nav button { flex: 1; }
+  nav button { flex: 1; padding: 9px 4px; font-size: 13px; }
   button { font: inherit; font-size: 14px; border-radius: 10px; padding: 9px 12px;
     border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer; }
   button.on, button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -80,6 +81,12 @@
     border: 1px solid var(--border); background: var(--page); color: var(--ink); margin: 6px 0; }
   .picker { margin-top: 10px; border-top: 1px solid var(--grid); padding-top: 8px; }
   .empty { color: var(--muted); text-align: center; padding: 30px 0; }
+  .photo { display: block; text-align: center; padding: 18px 12px; border-radius: 12px;
+    background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
+  .photo input { display: none; }
+  .stat { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+  h2 { font-size: 15px; margin: 0 0 4px; }
+  .up { color: var(--bad); } .down { color: var(--good); }
   .toast { position: fixed; left: 16px; right: 16px; bottom: 20px; max-width: 448px;
     margin: 0 auto; background: var(--ink); color: var(--page); border-radius: 10px;
     padding: 10px 14px; font-size: 14px; display: none; }
@@ -91,8 +98,10 @@
     <h1>Basket review</h1>
     <div class="sub" id="stats">Loading…</div>
     <nav>
-      <button id="tab-waiting" class="on">Waiting for you</button>
+      <button id="tab-waiting" class="on">Waiting</button>
       <button id="tab-receipts">Receipts</button>
+      <button id="tab-add">Add</button>
+      <button id="tab-insights">Insights</button>
     </nav>
   </header>
   <main id="view"></main>
@@ -102,7 +111,9 @@
 <script>
 "use strict";
 // All text from receipts and the model goes in with textContent, never as HTML.
-const state = { tab: "waiting", checks: null, questions: null, receipts: null, open: null };
+const state = { tab: "waiting", checks: null, questions: null, receipts: null, open: null,
+                insights: null, upload: null };
+const TABS = ["waiting", "receipts", "add", "insights"];
 
 function el(tag, attrs, ...children) {
   const node = document.createElement(tag);
@@ -306,17 +317,123 @@ function receiptCard(summary) {
   return card;
 }
 
+// --- adding a receipt -----------------------------------------------------
+
+// Photo up, job id back, poll until it is read; then the receipt opens.
+async function upload(file) {
+  if (!file) return;
+  state.upload = { status: "uploading", name: file.name };
+  render();
+  try {
+    const body = new FormData();
+    body.append("file", file);
+    let job = await api("/v1/receipts", { method: "POST", body });
+    while (job.status === "queued" || job.status === "running") {
+      state.upload = { status: "reading", name: file.name };
+      render();
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      job = await api(`/v1/jobs/${job.job_id}`);
+    }
+    if (job.status === "failed" || job.receipt_id == null) {
+      state.upload = { status: "failed", name: file.name, error: job.error || "not read" };
+      render();
+      return;
+    }
+    state.upload = null;
+    if (job.error) toast("Read, but matching failed: " + job.error);
+    await load();
+    state.tab = "receipts";
+    state.open = null;
+    await openReceipt(job.receipt_id);
+  } catch (error) {
+    state.upload = { status: "failed", name: file.name, error: error.message };
+    render();
+  }
+}
+
+function addView() {
+  const u = state.upload;
+  if (u && (u.status === "uploading" || u.status === "reading")) {
+    return [el("div", { class: "card" },
+      el("h2", {}, u.status === "uploading" ? "Sending the photo…" : "Reading the receipt…"),
+      el("div", { class: "why" }, "This takes about half a minute. Keep this page open."))];
+  }
+  const input = el("input", { type: "file", accept: "image/*" });
+  input.addEventListener("change", () => upload(input.files[0]));
+  return [
+    el("div", { class: "card" },
+      el("label", { class: "photo" }, "Take or choose a photo of a receipt", input),
+      el("div", { class: "why" },
+        "The whole receipt, flat and in focus. The app reads it, places what it knows, " +
+        "and puts anything it cannot tell under Waiting for you.")),
+    u && u.status === "failed" ? el("div", { class: "card" },
+      el("h2", {}, "Not read"), el("div", { class: "why" }, u.error)) : null,
+  ].filter(Boolean);
+}
+
+// --- insights -------------------------------------------------------------
+
+function percent(share) {
+  return share == null ? "—" : Math.round(share * 100) + " %";
+}
+
+function insightsView() {
+  const d = state.insights;
+  if (!d) return [el("div", { class: "empty" }, "Loading insights…")];
+  const c = d.coverage;
+  const cards = [el("div", { class: "card" },
+    el("h2", {}, "What this rests on"),
+    el("div", { class: "why" }, `${c.receipts} receipts`,
+      c.date_range && c.date_range.length ? `, ${c.date_range[0]} to ${c.date_range[1]}. ` : ". ",
+      `The app knows what ${percent(c.resolved_share_of_spend)} of the money went on `,
+      `(${euro(c.resolved_spend)} of ${euro(c.spend)}); the rest is left out below.`))];
+
+  const due = d.repurchase.filter(r => r.status === "due").slice(0, 8);
+  cards.push(el("div", { class: "card" },
+    el("h2", {}, "Due to buy again"),
+    due.length ? due.map(r => el("div", { class: "line" },
+      el("div", {}, el("div", { class: "what" }, productText(r.product, r.brand)),
+         el("div", { class: "meta" }, `usually every ${r.typical_interval_days} days · last `,
+            r.last_bought, " · ", r.store)),
+      el("div", { class: "money" }, r.days_overdue ? `${r.days_overdue} d late` : "today")))
+      : el("div", { class: "meta" }, "Nothing is due.")));
+
+  const moved = [...d.price_changes].sort((a, b) => Math.abs(b.change_pct) - Math.abs(a.change_pct))
+    .slice(0, 8);
+  cards.push(el("div", { class: "card" },
+    el("h2", {}, "Prices that moved"),
+    moved.length ? moved.map(r => el("div", { class: "line" },
+      el("div", {}, el("div", { class: "what" }, productText(r.product, r.brand)),
+         el("div", { class: "meta" }, `${euro(r.first.price)} → ${euro(r.last.price)} per ${r.per}`,
+            ` · ${r.first.date} to ${r.last.date} · ${r.store}`)),
+      el("div", { class: "money " + (r.change_pct > 0 ? "up" : "down") },
+         (r.change_pct > 0 ? "+" : "") + r.change_pct.toFixed(0) + " %")))
+      : el("div", { class: "meta" }, "No product bought twice at a comparable size yet.")));
+
+  const b = d.budget_brand.overall;
+  cards.push(el("div", { class: "card" },
+    el("h2", {}, "Budget brands"),
+    el("div", { class: "stat" }, percent(b.budget_share_of_known)),
+    el("div", { class: "why" }, `of the branded spend went on budget lines (${euro(b.budget)} `,
+      `against ${euro(b.name_brand)} on name brands). Not counted: ${euro(b.unbranded)} `,
+      `unbranded, ${euro(b.unknown)} brand unknown, ${euro(b.unresolved)} not placed.`)));
+  return cards;
+}
+
 function receiptsView() {
   if (!state.receipts.length) return [el("div", { class: "empty" }, "No receipts yet.")];
   return state.receipts.map(receiptCard);
 }
 
 function render() {
-  document.getElementById("tab-waiting").className = state.tab === "waiting" ? "on" : "";
-  document.getElementById("tab-receipts").className = state.tab === "receipts" ? "on" : "";
+  for (const tab of TABS) {
+    document.getElementById("tab-" + tab).className = state.tab === tab ? "on" : "";
+  }
   const view = document.getElementById("view");
   if (!state.checks) return;
-  view.replaceChildren(...(state.tab === "waiting" ? waitingView() : receiptsView()));
+  const views = { waiting: waitingView, receipts: receiptsView, add: addView,
+                  insights: insightsView };
+  view.replaceChildren(...views[state.tab]());
   const m = state.checks.meta;
   const answered = m.right + m.corrected;
   document.getElementById("stats").textContent =
@@ -329,7 +446,10 @@ async function load() {
   try {
     const [checks, questions, receipts] = await Promise.all([
       api("/v1/checks"), api("/v1/questions"), api("/v1/receipts")]);
-    Object.assign(state, { checks, questions, receipts, receiptLines: {} });
+    Object.assign(state, { checks, questions, receipts, receiptLines: {}, insights: null });
+    // Insights are computed on request; fetched after the rest so they never hold it up.
+    api("/v1/insights").then(doc => { state.insights = doc; if (state.tab === "insights") render(); })
+      .catch(error => { if (state.tab === "insights") toast("Insights: " + error.message); });
     if (state.open !== null) {  // keep an open receipt open, with its new answers
       const doc = await api(`/v1/receipts/${state.open}`);
       state.receiptLines[state.open] = doc.lines;
@@ -340,12 +460,11 @@ async function load() {
   }
 }
 
-document.getElementById("tab-waiting").addEventListener("click", () => {
-  state.tab = "waiting"; render();
-});
-document.getElementById("tab-receipts").addEventListener("click", () => {
-  state.tab = "receipts"; render();
-});
+for (const tab of TABS) {
+  document.getElementById("tab-" + tab).addEventListener("click", () => {
+    state.tab = tab; render();
+  });
+}
 load();
 </script>
 </body>
