@@ -13,11 +13,14 @@ product are given:
 - a shop article that is among the line's question candidates -> that
   candidate, so a shop listing becomes a product decided by the shopper.
 
-An answer that is only words (`lemon, premium, 1`) is not turned into a
-product here: a description is not a product name, and inventing one would
-put words in the shopper's mouth. Those lines stay questions. A line
-something else already placed is left alone: the answer key is not a reason
-to overrule an answer that is not known to be wrong.
+An answer that is only words (the sheet's `product`, e.g. `Jeden Tag
+Magerquark 500 g`) is read into our format by `identify`, as a description
+typed on the review page is (`matching.described_product`): the meaning is
+the shopper's, the wording ours, and the words are kept beside the answer.
+Without an identifier those lines stay questions: the words themselves are
+not a product name. A line something else already placed is left alone: the
+answer key is not a reason to overrule an answer that is not known to be
+wrong.
 """
 
 from __future__ import annotations
@@ -31,14 +34,16 @@ from grocery_app.db.models import Receipt
 
 
 def apply_answers(repo: PostgresRepository, truth_doc: dict[str, Any],
-                  confirmed_by: str, basis: str) -> dict[str, list[str]]:
+                  confirmed_by: str, basis: str,
+                  identify: Any | None = None) -> dict[str, list[str]]:
     """Give every usable answer in `truth_doc`; say what happened to each line."""
     with repo.session_factory() as session:
         receipt_ids = {r.source_image: r.id for r in session.scalars(select(Receipt))}
     open_questions = {(q["receipt_id"], q["position"]): q
                       for q in repo.questions()["questions"]}
 
-    done: dict[str, list[str]] = {"answered": [], "placed_already": [], "words_only": [],
+    done: dict[str, list[str]] = {"answered": [], "described": [], "placed_already": [],
+                                  "words_only": [],
                                   "not_offered": [], "family": [], "no_receipt": []}
     for line in truth_doc["lines"]:
         label = f"{line['source_image']}#{line['position']} {line['raw_name']}"
@@ -53,6 +58,14 @@ def apply_answers(repo: PostgresRepository, truth_doc: dict[str, Any],
 
         ids = line.get("catalog_ids") or []
         article = str(line["article"]) if line.get("article") else None
+        words = (line.get("product") or "").strip()
+        if not ids and not article and words and identify is not None:
+            product_id = repo.product_for_answer(receipt_id, line["position"], None,
+                                                 {"description": words}, identify)
+            repo.set_line_resolution(receipt_id, line["position"], product_id,
+                                     confirmed_by, basis, words)
+            done["described"].append(label)
+            continue
         if len(ids) == 1:
             product_id = ids[0]
         elif len(ids) > 1 and not article:
