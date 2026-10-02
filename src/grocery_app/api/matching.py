@@ -67,11 +67,14 @@ def line_matcher(decider: matching.Decider,
     return match
 
 
-def line_identifier(decider: matching.Decider) -> LineIdentifier:
-    """`identify.identify`, bound to a decider, with the evidence it is scored
-    with: what was paid and the VAT rate, the other printed names on the
-    receipt, the shop's similar products the matcher gathered, and the
-    abbreviations the memory has learned at this store."""
+def line_identifier(decider: matching.Decider,
+                    searcher: matching.Decider | None = None) -> LineIdentifier:
+    """`identify.read_line`, bound to a reader and a searcher, with the
+    evidence it is scored with: what was paid and the VAT rate, the other
+    printed names on the receipt, the shop's similar products the matcher
+    gathered, and the abbreviations the memory has learned at this store.
+    With a searcher, every line that is not a café line is searched before it
+    is read, and a question carries what the search narrowed it to."""
     def read(position: int, receipt: dict[str, Any], proposal: dict[str, Any],
              inputs: dict[str, Any], description: str | None = None) -> identifying.Identity:
         line = receipt["lines"][position]
@@ -80,9 +83,10 @@ def line_identifier(decider: matching.Decider) -> LineIdentifier:
         others = [other["raw_name"] for other in receipt["lines"]
                   if other.get("type", "product") == "product"]
         paid = identifying.paid(line, identifying.line_vat_rates(receipt)[position])
-        return identifying.identify(line["raw_name"], store, decider,
-                                    proposal.get("candidates") or None, others, paid,
-                                    learned.get(store_key(store)), description)
+        return identifying.read_line(line["raw_name"], store, decider, searcher,
+                                     proposal.get("candidates") or None, others, paid,
+                                     learned.get(store_key(store)), description,
+                                     receipt.get("store_location"))
     return read
 
 
@@ -240,7 +244,8 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
     question is not asked about twice.
     """
     receipt = session.get(Receipt, receipt_id)
-    counts = {"accepted": 0, "families": 0, "identified": 0, "questions": 0, "products": 0}
+    counts = {"accepted": 0, "families": 0, "identified": 0, "questions": 0, "products": 0,
+              "unsearched": 0}
     if receipt is None or not receipt.store:
         return counts
 
@@ -263,6 +268,11 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
         verdict = proposal["verdict"]
         if verdict == "ask" and identify is not None:
             identity = identify(position, doc, proposal, inputs)
+            if identity.unsearched:
+                # No search happened: neither saved nor asked; the next run
+                # reads it again.
+                counts["unsearched"] += 1
+                continue
             if identity.can_tell:
                 before = len(inputs["products"])
                 product_id = identified_product(session, identity, inputs)

@@ -57,7 +57,7 @@ from grocery_app.api.schemas import (
     ReceiptSummary,
 )
 from grocery_app.insights import build_insights
-from grocery_app.matcher import ClaudeCodeDecider
+from grocery_app.matcher import ClaudeCodeDecider, GeminiDecider
 
 __all__ = ["DEFAULT_PURCHASES", "MAX_UPLOAD_BYTES", "create_app", "default_app"]
 
@@ -303,18 +303,68 @@ def default_app() -> FastAPI:
     purchases.json to serve. This is the one place the real, paid extractor is
     wired in: `GROCERY_READER` picks the API (default) or `claude -p` on the
     subscription. `GROCERY_IMAGES` says where uploaded photos are kept. The
-    matcher and identify ask the model through `claude -p`, on the subscription.
+    matcher asks the model through `claude -p`, on the subscription; identify
+    reads and searches with `GROCERY_IDENTIFY` (`identify_decider`).
     """
     from grocery_app import matcher as matching
 
+    repository = default_repository()
     matcher = line_matcher(matching.ClaudeCodeDecider(), matching.default_shops())
-    return create_app(default_repository(), default_image_store(), configured_extractor(),
-                      matcher, line_identifier(identify_decider()))
+    # Identify runs only on uploads, which need PostgreSQL: a server that only
+    # serves purchases.json needs no reader and no key.
+    identifier = (line_identifier(identify_decider(), identify_searcher())
+                  if type(repository).__name__ == "PostgresRepository" else None)
+    return create_app(repository, default_image_store(), configured_extractor(), matcher,
+                      identifier)
 
 
-def identify_decider() -> ClaudeCodeDecider:
-    """identify's model, on the subscription, cached where `eval-identify`
-    caches it: a line scored once is not paid for again when it is uploaded."""
+# Who reads and searches a line nothing else could place. Gemini through
+# Google's API, paid per search, is the default (Parham, 2026-10-02): on the 22
+# test lines it made no mistake and, where it asked, the right answer was among
+# its choices every time; Claude through `claude -p` is free on the
+# subscription and kept as the alternative.
+IDENTIFY_READERS = ("gemini", "claude-code")
+GEMINI_MODEL = "gemini-3.8-flash"
+
+
+def identify_reader_kind(kind: str | None = None) -> str:
+    """`kind`, else `GROCERY_IDENTIFY`, else Gemini; refuses anything else, and
+    Gemini without `GEMINI_API_KEY`, before a server starts rather than on the
+    first upload."""
+    import os
+
+    kind = kind or os.environ.get("GROCERY_IDENTIFY", "gemini")
+    if kind not in IDENTIFY_READERS:
+        raise SystemExit(f"unknown identify reader {kind!r}: expected "
+                         f"{', '.join(IDENTIFY_READERS)}")
+    if kind == "gemini" and not os.environ.get("GEMINI_API_KEY"):
+        raise SystemExit("identify reads with Gemini, and GEMINI_API_KEY is not set: set it, "
+                         "or GROCERY_IDENTIFY=claude-code to read on the subscription")
+    return kind
+
+
+def identify_decider(kind: str | None = None) -> ClaudeCodeDecider | GeminiDecider:
+    """identify's reader, cached where `eval-identify` caches it: a line scored
+    once is not paid for again when it is uploaded."""
     from grocery_app import identify as identifying
 
+    if identify_reader_kind(kind) == "gemini":
+        return GeminiDecider(GEMINI_MODEL, "data/identified", identifying.PROMPT_VERSION,
+                             search=False)
     return ClaudeCodeDecider("sonnet", "data/identified", version=identifying.PROMPT_VERSION)
+
+
+def identify_searcher(kind: str | None = None) -> ClaudeCodeDecider | GeminiDecider:
+    """The web search identify runs on a line before reading it
+    (`identify.search_line`), by the same model as the reader; cached like it.
+    A Gemini server stops searching after `GROCERY_MAX_SEARCHES` searches
+    (150 unless set), so a fault cannot spend without limit."""
+    import os
+
+    from grocery_app import identify as identifying
+
+    if identify_reader_kind(kind) == "gemini":
+        return GeminiDecider(GEMINI_MODEL, "data/identified", identifying.SEARCH_VERSION,
+                             max_searches=int(os.environ.get("GROCERY_MAX_SEARCHES", "150")))
+    return ClaudeCodeDecider("sonnet", "data/identified", version=identifying.SEARCH_VERSION,
+                             search=True)

@@ -230,6 +230,9 @@ class Question(BaseModel):
     unclear: str | None = Field(
         default=None, description="Why identify could not tell what the line is, when it "
                                   "was run: the part of the printed name it cannot read")
+    choices: list[str] = Field(
+        default_factory=list, description="What a web search for the whole line narrowed it "
+                                          "down to, when identify could not tell; best first")
 
 
 class SpotCheck(BaseModel):

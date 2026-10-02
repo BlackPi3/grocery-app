@@ -86,7 +86,7 @@ def test_an_accepted_known_product_is_remembered_as_the_matchers(server):
     session.commit()
 
     assert counts == {"accepted": 1, "families": 0, "identified": 0, "questions": 0,
-                      "products": 0}
+                      "products": 0, "unsearched": 0}
     assert reading(client, receipt) == [("exact", "p-0001", [])]
     entry = session.scalars(select(Resolution).where(
         Resolution.raw_name == "MU Milch fettarm")).one()
@@ -190,7 +190,9 @@ def reads_as(**table):
         identify.calls.append(raw_name)
         said = table.get(raw_name)
         if said is None:
-            return Identity(raw_name, None, None, None, None, False, "`XY` is unreadable")
+            return Identity(raw_name, None, None, None, None, False, "`XY` is unreadable",
+                            choices=["Muster Ding rot", "Muster Ding blau"],
+                            searched=[f"{raw_name} Musterladen"])
         return Identity(said.get("name"), said.get("category"), said.get("brand"),
                         said.get("variant"), None, True, "test")
     identify.calls = []
@@ -213,7 +215,7 @@ def test_a_line_identify_can_read_is_placed_on_a_new_level_one_product_not_asked
     assert product.provenance["decided_by"] == "identify"
     entry = session.scalars(select(Resolution).where(
         Resolution.raw_name == "Himbeeren 250g")).one()
-    assert (entry.confirmed_by, entry.source) == ("identify", "identify v6")
+    assert (entry.confirmed_by, entry.source) == ("identify", "identify v7")
     # The seam to the contract: purchases.json is strict, so an identified
     # line must fit it as any other line does.
     from grocery_app.api.schemas import PurchasesDocument
@@ -252,6 +254,26 @@ def test_a_line_identify_cannot_read_is_asked_and_says_why(server):
     (question,) = [q for q in client.get("/v1/questions").json()["questions"]
                    if q["receipt_id"] == receipt]
     assert (question["raw_name"], question["unclear"]) == ("XY Ding", "`XY` is unreadable")
+    assert question["choices"] == ["Muster Ding rot", "Muster Ding blau"], \
+        "the question carries what the search narrowed it to, never a bare name"
+
+
+def test_a_line_nobody_searched_is_neither_saved_nor_asked_and_waits(server):
+    from grocery_app.identify import Identity
+
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["XY Ding"])
+
+    def unsearched(position, receipt_doc, proposal, inputs):
+        return Identity("Ding", None, None, None, None, False, "not searched",
+                        unsearched=True)
+
+    counts = match_receipt(session, receipt, TableMatcher({}), unsearched)
+    session.commit()
+    assert counts["unsearched"] == 1 and counts["questions"] == 0
+    assert session.scalars(select(Question)).all() == []
+    assert session.scalars(select(Resolution).where(Resolution.raw_name == "XY Ding")).all() \
+        == [], "nothing remembered, so the next run reads it again"
 
 
 def test_identify_is_not_asked_when_the_matcher_settles_the_line(server):

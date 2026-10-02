@@ -383,6 +383,7 @@ class PostgresRepository:
                         "model_pick": offered.index(pick) + 1 if pick in offered else None,
                         "reason": proposal.get("reason"),
                         "unclear": (proposal.get("identity") or {}).get("reason"),
+                        "choices": (proposal.get("identity") or {}).get("choices") or [],
                     })
             authors = [r.confirmed_by for r in session.scalars(select(Resolution))]
             matcher_answers, identify_answers = (authors.count("matcher"),

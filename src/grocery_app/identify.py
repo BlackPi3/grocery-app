@@ -52,7 +52,21 @@ from grocery_app.normalizer import tax_rate
 # (`abbreviations`). A change to this prompt must be general: evidence a person
 # would use, tools, knowing when to ask, or learning from confirmations; never
 # a rule for one line.
-PROMPT_VERSION = "v6"
+# v7 (2026-10-02): search is a step the code runs, not something the reader may
+# choose (`read_line`): in the v6 comparison Gemini searched 2 lines in 154 and
+# both models read `Ult.` and `SCHOKO` wrongly without checking. The reader now
+# sees what the search found, and a line it still cannot tell comes with the
+# choices the search left (`choices`), so a question is never a bare name.
+PROMPT_VERSION = "v7"
+# s2 (2026-10-02): the searcher is told where the shop is and searches there
+# (Parham: "at least search in that country").
+SEARCH_VERSION = "s2"
+# Every receipt so far is German; the address printed on it says where.
+SHOP_COUNTRY = "Germany"
+# A line that is not groceries (café, flowers, a carrier bag, a photo print:
+# `categories.is_grocery`) does not concern the insights: once a line reads as
+# one, it is neither searched nor asked about (Parham, 2026-10-02: "you should
+# know it isn't groceries. not just for cafe").
 
 
 def _category_list() -> str:
@@ -124,10 +138,63 @@ products listed with the line, when there are any: they are what this shop
 sells under similar names, and one of them may settle how a word ends, what
 an abbreviation means or what a brand-like word is. They may also all be
 unrelated. If nothing settles a cut word, set can_tell to false.
+
+You may also see what a web search for the whole printed line found: the
+titles of the pages it returned, exactly as they came back, and the products
+those pages show. It is evidence like the rest, and often the best there is
+for a cut word or a brand-like word. Trust what the pages print over what you
+expect a word to mean: a page naming a product that fits every printed part,
+the price and the VAT rate settles what the line is. If the results do not
+settle it, set can_tell to false.
+- choices: when can_tell is false, what the line can still be, best first,
+  narrowed by everything above (the search, the price, the VAT rate), each a
+  product in a few words; empty when can_tell is true or nothing narrows it.
 - reason: one short sentence, in English.
 
 Categories:
 {_category_list()}"""
+
+SEARCH_SYSTEM = """\
+You look up one printed line of a German supermarket receipt on the web, for
+someone who will then decide what the product is.
+
+Search first for exactly the query you are given: the whole printed line and
+the shop's name, as a person would type it into Google. Then search once or
+twice more for what those results show, to check it.
+
+You are told where the shop is. Search as a shopper there would: in that
+country's language and on that country's sites. When results come from
+another country, search again with the country or the town in the query.
+
+Report what the pages say, not what you expect: write product names as the
+pages write them. A word cut off on the receipt is completed only by what a
+page shows. Do not decide which product it is.
+- products: the products the line could be, at most five, best first, each
+  with `product` (as a page names it), `brand`, `size` and `price` when a page
+  shows them, and `seen_at` (the site).
+- note: one short sentence, in English, on how well the results fit the line."""
+
+SEARCH_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "products": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"product": {"type": "string"},
+                               "brand": {"type": ["string", "null"]},
+                               "size": {"type": ["string", "null"]},
+                               "price": {"type": ["string", "null"]},
+                               "seen_at": {"type": ["string", "null"]}},
+                "required": ["product", "brand", "size", "price", "seen_at"],
+                "additionalProperties": False,
+            },
+        },
+        "note": {"type": "string"},
+    },
+    "required": ["products", "note"],
+    "additionalProperties": False,
+}
 
 SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -148,9 +215,11 @@ SCHEMA: dict[str, Any] = {
         "variant": {"type": ["string", "null"]},
         "size": {"type": ["string", "null"]},
         "can_tell": {"type": "boolean"},
+        "choices": {"type": "array", "items": {"type": "string"}},
         "reason": {"type": "string"},
     },
-    "required": ["parts", "name", "category", "brand", "variant", "size", "can_tell", "reason"],
+    "required": ["parts", "name", "category", "brand", "variant", "size", "can_tell",
+                 "choices", "reason"],
     "additionalProperties": False,
 }
 
@@ -167,9 +236,44 @@ class Identity:
     can_tell: bool
     reason: str
     parts: list[dict[str, str | None]] = field(default_factory=list)
+    # What the line can still be when the app cannot tell, from the search.
+    choices: list[str] = field(default_factory=list)
+    # What was searched before this answer; empty when nothing was.
+    searched: list[str] = field(default_factory=list)
+    # The line was due a search and the searcher did not search, even when
+    # told twice: it is neither saved nor asked about, and is read again later.
+    unsearched: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass
+class Findings:
+    """What a web search for the whole printed line found (`search_line`)."""
+
+    queries: list[str]
+    titles: list[str]
+    products: list[dict[str, Any]]
+    note: str = ""
+
+    def as_text(self) -> str:
+        out = ["What a web search for the whole printed line found.",
+               "Searched for: " + "; ".join(f"`{q}`" for q in self.queries)]
+        if self.titles:
+            out += ["Titles of the pages returned, exactly as they came back:"]
+            out += [f"- {title}" for title in self.titles[:MAX_TITLES]]
+        if self.products:
+            out += ["Products those pages show:"]
+            out += ["- " + " | ".join(str(p[k]) for k in ("product", "brand", "size", "price",
+                                                           "seen_at") if p.get(k))
+                    for p in self.products]
+        if self.note:
+            out.append(f"Searcher's note: {self.note}")
+        return "\n".join(out)
+
+
+MAX_TITLES = 15
 
 
 def left_out(raw_name: str, parts: list[dict[str, Any]]) -> list[str]:
@@ -287,7 +391,7 @@ def build_prompt(raw_name: str, store: str | None,
                  shop_products: list[dict[str, Any]] | None = None,
                  receipt_lines: list[str] | None = None, paid_text: str = "",
                  abbreviations_seen: list[str] | None = None,
-                 description: str | None = None) -> str:
+                 description: str | None = None, findings: Findings | None = None) -> str:
     prompt = f"Shop: {store or 'unknown'}\nReceipt line: `{raw_name}`"
     if description:
         # In the line's prompt, not the system prompt: the scored prompt and
@@ -310,6 +414,8 @@ def build_prompt(raw_name: str, store: str | None,
             "- " + " | ".join(str(p[k]) for k in ("name", "brand", "pack_size") if p.get(k))
             for p in shop_products)
         prompt += f"\n\nProducts with similar names (context, may be unrelated):\n{listed}"
+    if findings and findings.queries:
+        prompt += "\n\n" + findings.as_text()
     return prompt
 
 
@@ -317,7 +423,7 @@ def identify(raw_name: str, store: str | None, decider: Decider,
              shop_products: list[dict[str, Any]] | None = None,
              receipt_lines: list[str] | None = None, paid_text: str = "",
              learned: dict[str, Counter] | None = None,
-             description: str | None = None) -> Identity:
+             description: str | None = None, findings: Findings | None = None) -> Identity:
     """Read one printed name, as a person would, with its context.
 
     `shop_products` are candidates the matcher gathered (`matcher.gather`):
@@ -330,11 +436,13 @@ def identify(raw_name: str, store: str | None, decider: Decider,
     cannot tell, and says which word. `paid_text` is `paid(...)` for this
     line; `learned` is this store's part of `abbreviations(...)`. `description`
     is the shopper's own words for what the line was: the meaning is theirs,
-    the format is ours (Parham, 2026-10-01).
+    the format is ours (Parham, 2026-10-01). `findings` is what a search for
+    the whole line found (`search_line`); `read_line` decides when to search.
     """
     answer = decider(SYSTEM_PROMPT,
                      build_prompt(raw_name, store, shop_products, receipt_lines, paid_text,
-                                  known_abbreviations(raw_name, learned), description), SCHEMA)
+                                  known_abbreviations(raw_name, learned), description,
+                                  findings), SCHEMA)
     category = answer.get("category")
     parts = [{"printed": str(p.get("printed") or ""), "means": p.get("means") or None}
              for p in answer.get("parts") or []]
@@ -342,14 +450,91 @@ def identify(raw_name: str, store: str | None, decider: Decider,
     reason = answer.get("reason") or ""
     if missing:
         reason = f"left out {', '.join(f'`{w}`' for w in missing)}: {reason}"
+    can_tell = (bool(answer.get("can_tell")) and bool((answer.get("name") or "").strip())
+                and not missing)
     return Identity(
         name=(answer.get("name") or "").strip(),
         category=category if category in categories.CATEGORIES else None,
         brand=answer.get("brand") or None,
         variant=answer.get("variant") or None,
         size=answer.get("size") or None,
-        can_tell=(bool(answer.get("can_tell")) and bool((answer.get("name") or "").strip())
-                  and not missing),
+        can_tell=can_tell,
         reason=reason,
         parts=parts,
+        choices=[] if can_tell else [str(c) for c in answer.get("choices") or [] if c],
+        searched=list(findings.queries) if findings else [],
     )
+
+
+def search_line(raw_name: str, store: str | None, searcher: Decider,
+                paid_text: str = "", place: str | None = None) -> Findings:
+    """Search the web for the whole printed line, as a person would type it.
+
+    The query is built here, from the whole line and the shop's name: a part
+    alone (`TC`) finds nothing (Parham, 2026-09-29). The searcher must search;
+    one that answers without searching is told once more, and if it still
+    has not, the findings say so (no queries) rather than pass off what the
+    model already believed as something it found. What was searched is read
+    from the searcher (`last_search`), not from its own account. `place` is
+    the shop's address as the receipt prints it; the country is added.
+    """
+    from grocery_app.matcher import DeciderError
+
+    query = " ".join(part for part in (raw_name, store) if part)
+    where = ", ".join(part for part in (place, SHOP_COUNTRY) if part)
+    prompt = (f"Query to search first: {query}\nThe shop is at: {where}"
+              + (f"\n{paid_text}" if paid_text else ""))
+    try:
+        answer = searcher(SEARCH_SYSTEM, prompt, SEARCH_SCHEMA)
+        searched = searcher.last_search  # type: ignore[attr-defined]
+        if not searched.queries:
+            answer = searcher(SEARCH_SYSTEM, prompt + "\n\nYou have not searched yet. Search "
+                              "before you answer.", SEARCH_SCHEMA)
+            searched = searcher.last_search  # type: ignore[attr-defined]
+    except DeciderError:
+        # A failed or refused search (no key, the search budget spent) is no
+        # search: the line waits rather than being read unchecked.
+        return Findings([], [], [], "")
+    if not searched.queries:
+        return Findings([], [], [], "")
+    return Findings(list(searched.queries), list(searched.titles),
+                    [p for p in answer.get("products") or [] if isinstance(p, dict)],
+                    answer.get("note") or "")
+
+
+def read_line(raw_name: str, store: str | None, reader: Decider,
+              searcher: Decider | None = None,
+              shop_products: list[dict[str, Any]] | None = None,
+              receipt_lines: list[str] | None = None, paid_text: str = "",
+              learned: dict[str, Counter] | None = None,
+              description: str | None = None, place: str | None = None) -> Identity:
+    """What a line is, with search as a step rather than the reader's choice.
+
+    The line is read once as it is. A line that is not groceries stops there,
+    told or not exactly what it is: it is neither searched nor asked about.
+    Every other line is searched (`search_line`) and read again with what the
+    search found, however sure the first reading was: in the v6 comparison the
+    wrong answers were the confident ones (`Ult.` read as Ultra, a muesli read
+    as chocolate). A line whose searcher would not search is `unsearched`: an
+    answer nobody checked is not saved, and nothing is asked before a search.
+    A shopper's own description needs no search. Without a searcher this is
+    `identify`.
+    """
+    def read(findings: Findings | None = None) -> Identity:
+        return identify(raw_name, store, reader, shop_products, receipt_lines, paid_text,
+                        learned, description, findings)
+
+    first = read()
+    if searcher is None or description:
+        return first
+    if first.category and not categories.is_grocery(first.category):
+        first.can_tell = bool(first.name)
+        first.choices = []
+        first.reason = f"not groceries, so the exact item does not matter: {first.reason}"
+        return first
+    findings = search_line(raw_name, store, searcher, paid_text, place)
+    if not findings.queries:
+        first.can_tell, first.choices, first.unsearched = False, [], True
+        first.reason = f"not searched, so not read: {first.reason}"
+        return first
+    return read(findings)
