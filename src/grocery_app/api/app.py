@@ -270,14 +270,17 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         return ChecksDocument.model_validate(require_writes().checks())
 
     @app.get("/v1/questions", response_model=QuestionsDocument)
-    def questions() -> QuestionsDocument:
+    def questions(searched: bool = Query(
+            default=False,
+            description="Only questions a web search narrowed down; the rest are counted "
+                        "in `meta.held_back`")) -> QuestionsDocument:
         """Every line nothing could place, with what the matcher found for it.
 
         Answer one with `PUT /v1/receipts/{receipt_id}/lines/{position}/resolution`:
         a `candidate` number from here, a `product_id` from the catalog, or a
         `new_product` in words when it is none of them.
         """
-        return QuestionsDocument.model_validate(require_writes().questions())
+        return QuestionsDocument.model_validate(require_writes().questions(searched))
 
     @app.patch("/v1/receipts/{receipt_id}", response_model=ReceiptDocument,
                response_model_exclude_unset=True)

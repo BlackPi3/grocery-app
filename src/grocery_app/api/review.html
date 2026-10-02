@@ -445,7 +445,8 @@ function render() {
 async function load() {
   try {
     const [checks, questions, receipts] = await Promise.all([
-      api("/v1/checks"), api("/v1/questions"), api("/v1/receipts")]);
+      // Only searched questions: the shopper sees none a search could have answered.
+      api("/v1/checks"), api("/v1/questions?searched=true"), api("/v1/receipts")]);
     Object.assign(state, { checks, questions, receipts, receiptLines: {}, insights: null });
     // Insights are computed on request; fetched after the rest so they never hold it up.
     api("/v1/insights").then(doc => { state.insights = doc; if (state.tab === "insights") render(); })

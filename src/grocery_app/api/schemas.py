@@ -299,6 +299,8 @@ class QuestionsMeta(BaseModel):
     matcher_answers: int = Field(description="Names the memory holds on the matcher's word")
     identify_answers: int = Field(description="Names the memory holds on identify's word")
     overruled: int = Field(description="Machine answers the shopper corrected (`corrections`)")
+    held_back: int = Field(0, description="Questions not shown because no web search narrowed "
+                                          "them down (`searched=true` only)")
 
 
 class QuestionsDocument(BaseModel):
