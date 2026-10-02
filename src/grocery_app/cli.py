@@ -109,8 +109,12 @@ def main() -> None:
     ei.add_argument("--reader", choices=["claude", "claude-search", "gemini-search"],
                     default="claude",
                     help="Who reads the lines: Claude through `claude -p` (subscription), "
-                         "the same with web search, or Gemini through Google's API with "
-                         "Google Search (paid per call; GEMINI_API_KEY)")
+                         "the same with a web search on every line before it is read, or "
+                         "Gemini through Google's API with a Google Search on every line "
+                         "(paid per call; GEMINI_API_KEY)")
+    ei.add_argument("--only", action="append", default=[], metavar="PRINTED_NAME",
+                    help="Score only lines printed exactly so (repeatable): the lines that "
+                         "went wrong or were asked, not the whole sheet again")
     ei.add_argument("--gemini-model", default="gemini-3.8-flash")
     ei.add_argument("--max-searches", type=int, default=150,
                     help="Stop a gemini-search run after this many Google searches")
@@ -261,6 +265,10 @@ def main() -> None:
     s.add_argument("--port", type=int, default=8000)
     s.add_argument("--reader", choices=["api", "claude-code"], default=None,
                    help="How uploaded photos are read; defaults to GROCERY_READER, then api")
+    s.add_argument("--identify", choices=["gemini", "claude-code"], default=None,
+                   help="Who reads and searches a line nothing else could place; defaults to "
+                        "GROCERY_IDENTIFY, then gemini (Google's API, paid per search; "
+                        "GEMINI_API_KEY)")
     s.add_argument("--products-dir", default="data/products",
                    help="Where the matcher finds the ALDI SÜD crawl and the GLOBUS search cache")
 
@@ -569,7 +577,7 @@ def main() -> None:
         try:
             import uvicorn
 
-            from grocery_app.api.app import create_app, identify_decider
+            from grocery_app.api.app import create_app, identify_decider, identify_searcher
             from grocery_app.api.images import default_image_store
             from grocery_app.api.jobs import READERS, configured_extractor
             from grocery_app.api.matching import line_identifier, line_matcher
@@ -596,12 +604,19 @@ def main() -> None:
         reader = args.reader or os.environ.get("GROCERY_READER", "api")
         if reader not in READERS:
             raise SystemExit(f"unknown reader {reader!r}: expected {', '.join(READERS)}")
+        identifier = None
         if on_postgres:
-            print(f"  reader:   {reader}; matcher and identify: claude -p (subscription)")
+            from grocery_app.api.app import identify_reader_kind
+
+            kind = identify_reader_kind(args.identify)
+            identifier = line_identifier(identify_decider(kind), identify_searcher(kind))
+            print(f"  reader:   {reader}; matcher: claude -p (subscription); identify: "
+                  + ("Gemini with Google Search (paid per search)" if kind == "gemini"
+                     else "claude -p with web search (subscription)"))
         match = line_matcher(matching.ClaudeCodeDecider(),
                              matching.default_shops(args.products_dir))
         uvicorn.run(create_app(repository, store, configured_extractor(reader), match,
-                               line_identifier(identify_decider())),
+                               identifier),
                     host=args.host, port=args.port)
 
     if args.command == "db":
@@ -661,13 +676,13 @@ def main() -> None:
             from sqlalchemy import select
 
             from grocery_app import matcher as matching
-            from grocery_app.api.app import identify_decider
+            from grocery_app.api.app import identify_decider, identify_searcher
             from grocery_app.api.matching import line_identifier, line_matcher, match_receipt
             from grocery_app.db.models import Receipt
 
             match = line_matcher(matching.ClaudeCodeDecider(),
                                  matching.default_shops(args.products_dir))
-            identify = line_identifier(identify_decider())
+            identify = line_identifier(identify_decider(), identify_searcher())
             totals: dict[str, int] = {}
             with factory() as session:
                 for receipt in session.scalars(select(Receipt).order_by(Receipt.date,
@@ -705,14 +720,21 @@ def main() -> None:
         from grocery_app.evaluate_matching import article_index as files_index
         from grocery_app.matcher import ClaudeCodeDecider
 
+        # The reader reads without tools; the search is a separate step, made
+        # by the same model with its own search engine (`identify.read_line`).
+        searcher = None
         if args.reader == "gemini-search":
             reader = matching.GeminiDecider(args.gemini_model, "data/identified",
-                                            identifying.PROMPT_VERSION,
-                                            max_searches=args.max_searches)
+                                            identifying.PROMPT_VERSION, search=False)
+            searcher = matching.GeminiDecider(args.gemini_model, "data/identified",
+                                              identifying.SEARCH_VERSION,
+                                              max_searches=args.max_searches)
         else:
             reader = ClaudeCodeDecider(args.model, "data/identified",
-                                       version=identifying.PROMPT_VERSION,
-                                       search=args.reader == "claude-search")
+                                       version=identifying.PROMPT_VERSION)
+            if args.reader == "claude-search":
+                searcher = ClaudeCodeDecider(args.model, "data/identified",
+                                             version=identifying.SEARCH_VERSION, search=True)
         judge = ClaudeCodeDecider(args.model, "data/identified", version="judge-v2")
         products = load_products(args.products)
         resolution = load_resolution(args.resolution)
@@ -728,14 +750,18 @@ def main() -> None:
 
         truth = load_json(args.truth)
         readings = readings_for(args.readings, {line["source_image"] for line in truth["lines"]})
+        if args.only:
+            # Every line of the sheet stays known (the other lines of each
+            # receipt are evidence); only the chosen ones are scored.
+            truth = {**truth, "score_only": set(args.only)}
         learned = identifying.abbreviations(resolution, products)
-        report = evaluate_identify(truth, bound_identifier(reader, context, learned), judge,
-                                   readings)
+        report = evaluate_identify(truth, bound_identifier(reader, context, learned, searcher),
+                                   judge, readings, searching=searcher is not None)
         print(json.dumps(report, indent=2, ensure_ascii=False) if args.json
               else format_identify(report))
         if args.reader == "gemini-search":
-            print(f"Google searches this run (not counting cached answers): {reader.searched}",
-                  file=sys.stderr)
+            print(f"Google searches this run (not counting cached answers): "
+                  f"{searcher.searched}", file=sys.stderr)
 
     if args.command == "eval-matching":
         truth = json.loads(Path(args.truth).read_text(encoding="utf-8"))

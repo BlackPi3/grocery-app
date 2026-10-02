@@ -46,7 +46,7 @@ def test_a_real_photo_becomes_a_real_receipt(engine, session, tmp_path):
     assert photo.exists(), f"GROCERY_TEST_PHOTO does not exist: {photo}"
 
     from grocery_app import matcher as matching
-    from grocery_app.api.app import identify_decider
+    from grocery_app.api.app import identify_decider, identify_searcher
     from grocery_app.api.matching import line_identifier, line_matcher
 
     # Wired as the server wires it: every line is new to this empty database,
@@ -56,7 +56,7 @@ def test_a_real_photo_becomes_a_real_receipt(engine, session, tmp_path):
         DiskImageStore(tmp_path / "uploads"),
         configured_extractor(),
         line_matcher(matching.ClaudeCodeDecider(), matching.default_shops()),
-        line_identifier(identify_decider()),
+        line_identifier(identify_decider(), identify_searcher()),
     ))
 
     queued = client.post("/v1/receipts",

@@ -245,6 +245,13 @@ function questionCard(question) {
       "The till prints this for anything: your answer is for this line only.") : null,
     question.unclear ? el("div", { class: "why" }, "The app can't tell: ", question.unclear)
       : el("div", { class: "why" }, "The app found no product it is sure of."),
+    // What the search narrowed it to: one tap says it, in those words.
+    question.choices && question.choices.length ? el("div", { class: "meta" },
+      "A web search narrowed it to. Tap the one you bought:") : null,
+    question.choices && question.choices.length ? el("div", { class: "list" },
+      ...question.choices.map((choice) => el("button", { onclick: () => answer(
+        question.receipt_id, question.position, { new_product: { description: choice } }) },
+        choice))) : null,
     question.candidates.length ? el("div", { class: "meta" },
       "Shop products with similar names. Pick one only if it is what you bought:") : null,
     offered, el("div", { class: "row" }, other)));

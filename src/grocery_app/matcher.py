@@ -428,6 +428,41 @@ class DeciderError(Exception):
     pass
 
 
+@dataclass
+class Searched:
+    """What one call searched the web for, and the titles of what came back,
+    exactly as the search returned them."""
+
+    queries: list[str] = field(default_factory=list)
+    titles: list[str] = field(default_factory=list)
+
+
+def _claude_searches(events: list[dict[str, Any]]) -> Searched:
+    """The WebSearch queries in a `claude -p` event stream, and the titles of
+    the links each one returned."""
+    searched = Searched()
+    for event in events:
+        content = (event.get("message") or {}).get("content")
+        for block in content if isinstance(content, list) else []:
+            if block.get("type") == "tool_use" and block.get("name") == "WebSearch":
+                searched.queries.append(str((block.get("input") or {}).get("query") or ""))
+            if block.get("type") == "tool_result":
+                text = block.get("content")
+                if isinstance(text, list):
+                    text = " ".join(str(part.get("text") or "") for part in text
+                                    if isinstance(part, dict))
+                start = str(text or "").find("Links: [")
+                if start < 0:
+                    continue
+                try:
+                    links, _ = json.JSONDecoder().raw_decode(str(text)[start + 7:])
+                except ValueError:
+                    continue
+                searched.titles += [str(link.get("title") or "") for link in links
+                                    if isinstance(link, dict) and link.get("title")]
+    return searched
+
+
 class ClaudeCodeDecider:
     """The model through `claude -p`, on the shopper's subscription.
 
@@ -451,43 +486,71 @@ class ClaudeCodeDecider:
         self.cache = (Path(cache_dir) / f"claude-code-{model}{'-search' if search else ''}"
                       / version)
         self.timeout_s = timeout_s
-        # `searches` tells identify it may ask for a search (`identify.SEARCH_HINT`).
+        # `searches`: this decider may search the web (`identify.search_line`).
         self.searches = search
+        self.last_search = Searched()
 
     def __call__(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
         key = hashlib.sha256(json.dumps([self.model, system, prompt, schema],
                                         sort_keys=True).encode()).hexdigest()[:24]
         path = self.cache / f"{key}.json"
         if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))["answer"]
+            saved = json.loads(path.read_text(encoding="utf-8"))
+            self.last_search = Searched(saved.get("searched") or [], saved.get("titles") or [])
+            return saved["answer"]
         try:
-            answer = self._ask(system, prompt, schema)
+            answer, searched = self._ask(system, prompt, schema)
         except (DeciderError, subprocess.TimeoutExpired):
             time.sleep(self.RETRY_AFTER_S)
-            answer = self._ask(system, prompt, schema)
+            answer, searched = self._ask(system, prompt, schema)
+        self.last_search = searched
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"prompt": prompt, "answer": answer},
+        path.write_text(json.dumps({"prompt": prompt, "answer": answer,
+                                    "searched": searched.queries, "titles": searched.titles},
                                    ensure_ascii=False, indent=2), encoding="utf-8")
         return answer
 
-    def _ask(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
-        # No tools at all, or web search alone: never files, never a shell.
-        tools = ["--tools", "WebSearch", "--allowedTools", "WebSearch"] if self.searches \
-            else ["--tools", ""]
+    def _ask(self, system: str, prompt: str,
+             schema: dict[str, Any]) -> tuple[dict[str, Any], Searched]:
+        # No tools at all, or web search alone: never files, never a shell. With
+        # search the output is a stream of events, so what was searched and
+        # what came back can be recorded (`last_search`).
+        tools = ["--tools", "WebSearch", "--allowedTools", "WebSearch",
+                 "--output-format", "stream-json", "--verbose"] if self.searches \
+            else ["--tools", "", "--output-format", "json"]
         command = ["claude", "-p", prompt, "--model", self.model, *tools,
                    "--no-session-persistence", "--system-prompt", system,
-                   "--output-format", "json", "--json-schema", json.dumps(schema)]
+                   "--json-schema", json.dumps(schema)]
         with tempfile.TemporaryDirectory() as empty:
             done = subprocess.run(command, capture_output=True, text=True, cwd=empty,
                                   timeout=self.timeout_s, check=False)
-        try:
-            result = json.loads(done.stdout)
-        except ValueError as error:
-            raise DeciderError(f"claude -p gave no JSON: {done.stderr[:300]}") from error
+        events = []
+        for raw in done.stdout.splitlines():
+            try:
+                events.append(json.loads(raw))
+            except ValueError:
+                continue
+        result = next((e for e in reversed(events) if e.get("type") == "result"
+                       or "structured_output" in e or "is_error" in e), None)
+        if result is None:
+            raise DeciderError(f"claude -p gave no JSON: {done.stderr[:300]}")
         answer = result.get("structured_output")
         if result.get("is_error") or not isinstance(answer, dict):
             raise DeciderError(f"claude -p failed: {str(result.get('result'))[:300]}")
-        return answer
+        return answer, _claude_searches(events)
+
+
+def _json_in(text: str) -> dict[str, Any] | None:
+    """The first JSON object in a model's text, fenced in ``` or not."""
+    decoder = json.JSONDecoder()
+    for start in [i for i, char in enumerate(text) if char == "{"]:
+        try:
+            found, _ = decoder.raw_decode(text[start:])
+        except ValueError:
+            continue
+        if isinstance(found, dict):
+            return found
+    return None
 
 
 class SearchBudgetExceeded(DeciderError):
@@ -504,7 +567,17 @@ class GeminiDecider:
     Searches cost money, so they are counted (what each call searched is kept
     in its cache file) and a run stops at `max_searches` rather than spend
     past what the shopper put in (Parham charged 5 EUR, 2026-10-01).
+
+    Gemini does not search while it is asked for JSON, by a schema or in
+    words (2026-10-02: the same request searched five times with no format
+    and never with one; the v6 comparison's "Gemini with search" searched 2
+    lines in 154 for this reason). So a decider that searches makes two
+    calls: the search, answered in free text, then the same model without
+    search copying that report into the schema (`COPY_INTO_FORMAT`).
     """
+
+    COPY_INTO_FORMAT = ("Copy the report below into the JSON format you are given. Add "
+                        "nothing that is not in the report, and leave out nothing it found.")
 
     URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
@@ -520,58 +593,84 @@ class GeminiDecider:
         self.searched = 0
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
         self.timeout_s = timeout_s
+        self.last_search = Searched()
 
     def __call__(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
-        key = hashlib.sha256(json.dumps([self.model, self.searches, system, prompt, schema],
+        key = hashlib.sha256(json.dumps([self.model, self.searches, system, prompt, schema]
+                                        + (["free-text-then-copy"] if self.searches else []),
                                         sort_keys=True).encode()).hexdigest()[:24]
         path = self.cache / f"{key}.json"
         if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))["answer"]
+            saved = json.loads(path.read_text(encoding="utf-8"))
+            self.last_search = Searched(saved.get("searched") or [], saved.get("titles") or [])
+            return saved["answer"]
         if self.searched >= self.max_searches:
             raise SearchBudgetExceeded(f"{self.searched} searches made; the limit is "
                                        f"{self.max_searches}")
-        answer, queries, usage = self._ask(system, prompt, schema)
-        self.searched += len(queries)
+        answer, searched, usage = self._ask(system, prompt, schema)
+        self.searched += len(searched.queries)
+        self.last_search = searched
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"prompt": prompt, "answer": answer, "searched": queries,
+        path.write_text(json.dumps({"prompt": prompt, "answer": answer,
+                                    "searched": searched.queries, "titles": searched.titles,
                                     "usage": usage}, ensure_ascii=False, indent=2),
                         encoding="utf-8")
         return answer
 
     def _ask(self, system: str, prompt: str,
-             schema: dict[str, Any]) -> tuple[dict[str, Any], list[str], dict[str, Any]]:
+             schema: dict[str, Any]) -> tuple[dict[str, Any], Searched, dict[str, Any]]:
+        if not self.api_key:
+            raise DeciderError("GEMINI_API_KEY is not set")
+        if not self.searches:
+            data = self._post({"systemInstruction": {"parts": [{"text": system}]},
+                               "contents": [{"parts": [{"text": prompt}]}],
+                               "generationConfig": {"responseMimeType": "application/json",
+                                                    "responseJsonSchema": schema}})
+            return self._answer(data), Searched(), data.get("usageMetadata") or {}
+        found = self._post({"systemInstruction": {"parts": [{"text": system}]},
+                            "contents": [{"parts": [{"text": prompt}]}],
+                            "tools": [{"google_search": {}}]})
+        candidate = (found.get("candidates") or [{}])[0]
+        grounding = candidate.get("groundingMetadata") or {}
+        titles = [str((chunk.get("web") or {}).get("title") or "")
+                  for chunk in grounding.get("groundingChunks") or []]
+        searched = Searched(list(grounding.get("webSearchQueries") or []),
+                            [title for title in titles if title])
+        copied = self._post({"systemInstruction": {"parts": [{"text": self.COPY_INTO_FORMAT}]},
+                             "contents": [{"parts": [{"text": self._text(found)}]}],
+                             "generationConfig": {"responseMimeType": "application/json",
+                                                  "responseJsonSchema": schema}})
+        usage = {"search": found.get("usageMetadata") or {},
+                 "copy": copied.get("usageMetadata") or {}}
+        return self._answer(copied), searched, usage
+
+    def _post(self, body: dict[str, Any]) -> dict[str, Any]:
         import urllib.error
         import urllib.request
 
-        if not self.api_key:
-            raise DeciderError("GEMINI_API_KEY is not set")
-        body: dict[str, Any] = {
-            "systemInstruction": {"parts": [{"text": system}]},
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"responseMimeType": "application/json",
-                                 "responseJsonSchema": schema},
-        }
-        if self.searches:
-            body["tools"] = [{"google_search": {}}]
         request = urllib.request.Request(
             self.URL.format(model=self.model), data=json.dumps(body).encode(),
-            headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"})
+            headers={"x-goog-api-key": self.api_key or "", "Content-Type": "application/json"})
         for attempt in (1, 2):
             try:
                 with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
-                    data = json.load(response)
-                break
+                    return json.load(response)
             except urllib.error.HTTPError as error:
                 detail = error.read()[:300].decode(errors="replace")
                 if attempt == 2 or error.code not in (429, 500, 503):
                     raise DeciderError(f"Gemini {error.code}: {detail}") from error
                 time.sleep(20)
+        raise DeciderError("unreachable")
+
+    @staticmethod
+    def _text(data: dict[str, Any]) -> str:
         candidate = (data.get("candidates") or [{}])[0]
-        text = "".join(part.get("text", "") for part in
+        return "".join(part.get("text", "") for part in
                        (candidate.get("content") or {}).get("parts", []))
-        try:
-            answer = json.loads(text)
-        except ValueError as error:
-            raise DeciderError(f"Gemini gave no JSON: {text[:300]}") from error
-        queries = (candidate.get("groundingMetadata") or {}).get("webSearchQueries") or []
-        return answer, list(queries), data.get("usageMetadata") or {}
+
+    def _answer(self, data: dict[str, Any]) -> dict[str, Any]:
+        text = self._text(data)
+        answer = _json_in(text)
+        if answer is None:
+            raise DeciderError(f"Gemini gave no JSON: {text[:300]}")
+        return answer

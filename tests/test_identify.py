@@ -68,7 +68,7 @@ def test_each_line_gets_the_outcome_the_judge_gives_or_asked():
                        sheet("MU Wraps", "Muster tortilla wraps", 1),
                        sheet("Kekse", "biscuits", 2), sheet("DESTAN", "unknown", 3),
                        sheet("Kartoffeln F.K.", "waxy potatoes", 4)]}
-    report = evaluate_identify(truth, lambda raw, store, others, paid: said[raw], judge)
+    report = evaluate_identify(truth, lambda raw, store, others, paid, place=None: said[raw], judge)
     assert report["totals"] == {"right": 1, "missing": 1, "false_detail": 1, "wrong": 1,
                                 "asked": 1}
     assert report["mistakes"] == 2, "a false detail is a mistake; a missing one is not"
@@ -111,7 +111,7 @@ def test_the_rest_of_the_receipt_is_context():
 def test_the_scorer_gives_each_line_its_receipt():
     seen = {}
 
-    def identifier(raw, store, others, paid):
+    def identifier(raw, store, others, paid, place=None):
         from grocery_app.identify import Identity
         seen[raw] = others
         return Identity(raw, None, None, None, None, False, ".")
@@ -233,7 +233,7 @@ def test_the_prompt_carries_the_price_and_only_the_abbreviations_on_the_line():
 def test_the_scorer_gives_each_line_what_its_reading_says_was_paid():
     seen = {}
 
-    def identifier(raw, store, others, paid):
+    def identifier(raw, store, others, paid, place=None):
         from grocery_app.identify import Identity
         seen[raw] = paid
         return Identity(raw, None, None, None, None, False, ".")
@@ -301,18 +301,123 @@ def test_the_shoppers_description_goes_in_the_lines_prompt_not_the_system_prompt
 
 # --- readers that can search ------------------------------------------------------
 
-def test_a_reader_that_can_search_is_told_how_and_one_that_cannot_is_not():
-    from grocery_app.identify import SEARCH_HINT
+class Searching:
+    """A fake searcher: answers `products` and says it searched `queries`."""
 
-    plain = answering()
-    identify("Erdbeeren 400g", "Musterladen", plain)
-    assert plain.asked[0][0] == SYSTEM_PROMPT
+    def __init__(self, queries, titles=(), products=(), note="fits"):
+        from grocery_app.matcher import Searched
 
-    searching = answering()
-    searching.searches = True
-    identify("Erdbeeren 400g", "Musterladen", searching)
-    assert searching.asked[0][0] == SYSTEM_PROMPT + SEARCH_HINT
-    assert "search for the whole printed line" in SEARCH_HINT
+        self.queries, self.titles = list(queries), list(titles)
+        self.products, self.note = list(products), note
+        self.asked = []
+        self.last_search = Searched()
+
+    def __call__(self, system, prompt, schema):
+        from grocery_app.matcher import Searched
+
+        self.asked.append((system, prompt, schema))
+        self.last_search = Searched(list(self.queries), list(self.titles))
+        return {"products": self.products, "note": self.note}
+
+
+def test_every_line_is_searched_then_read_again_with_what_the_pages_said():
+    from grocery_app.identify import SEARCH_SCHEMA, SEARCH_SYSTEM, read_line
+
+    reader = answering(parts=[{"printed": "MU", "means": "Muster"},
+                              {"printed": "Ult.Nacht", "means": "Ultra Nacht"},
+                              {"printed": "12St", "means": "size"}],
+                       name="Binden", category=None, can_tell=True)
+    searcher = Searching(["MU Ult.Nacht 12St Musterladen", "Muster Ultimate Nacht Binden"],
+                         titles=["Muster Ultimate Nacht Binden 12 Stück - Musterdrogerie"],
+                         products=[{"product": "Ultimate Nacht Binden", "brand": "Muster",
+                                    "size": "12 Stück", "price": "3,49 €",
+                                    "seen_at": "musterdrogerie.de"}])
+    identity = read_line("MU Ult.Nacht 12St", "Musterladen", reader, searcher,
+                         paid_text="Paid: 3,41 € for 1, VAT 19 %",
+                         place="Musterweg 1, 12345 Musterstadt")
+
+    (system, prompt, schema), = searcher.asked
+    assert (system, schema) == (SEARCH_SYSTEM, SEARCH_SCHEMA)
+    assert prompt.startswith("Query to search first: MU Ult.Nacht 12St Musterladen"), \
+        "the query is the whole printed line and the shop, built by the code"
+    assert "The shop is at: Musterweg 1, 12345 Musterstadt, Germany" in prompt, \
+        "the searcher is told where the shop is, so it searches in that country"
+    first, second = reader.asked
+    assert "web search" not in first[1], "the first reading has no findings"
+    assert "Muster Ultimate Nacht Binden 12 Stück - Musterdrogerie" in second[1], \
+        "the reader sees the page titles exactly as they came back"
+    assert "Ultimate Nacht Binden | Muster | 12 Stück | 3,49 €" in second[1]
+    assert identity.searched == ["MU Ult.Nacht 12St Musterladen",
+                                 "Muster Ultimate Nacht Binden"]
+
+
+def test_a_sure_first_reading_is_searched_all_the_same():
+    from grocery_app.identify import read_line
+
+    searcher = Searching(["Erdbeeren 400g Musterladen"])
+    read_line("Erdbeeren 400g", "Musterladen", answering(can_tell=True), searcher)
+    assert len(searcher.asked) == 1, "the model's confidence does not decide the search"
+
+
+def test_a_line_that_is_not_groceries_is_neither_searched_nor_asked_about():
+    from grocery_app.identify import read_line
+
+    for printed, category in (("MILCHKAFFEE", "cafe-imbiss"), ("Muster Foto Sofort", "foto-karten"),
+                              ("Tragetasche", "taschen-tueten")):
+        reader = answering(parts=[{"printed": w, "means": "?"} for w in printed.split()],
+                           name=printed.title(), category=category, can_tell=False,
+                           choices=["one kind", "another kind"])
+        searcher = Searching([f"{printed} Musterladen"])
+        identity = read_line(printed, "Musterladen", reader, searcher)
+        assert searcher.asked == [] and len(reader.asked) == 1, printed
+        assert (identity.can_tell, identity.choices, identity.searched) == (True, [], []), \
+            "which photo print it was does not matter: nothing to ask"
+
+
+def test_groceries_and_lines_of_no_known_category_are_searched():
+    from grocery_app.identify import read_line
+
+    for category in ("beeren", None):
+        searcher = Searching(["x"])
+        read_line("Erdbeeren 400g", "Musterladen", answering(category=category), searcher)
+        assert len(searcher.asked) == 1, category
+
+
+def test_a_searcher_that_does_not_search_is_told_once_more_then_reported():
+    from grocery_app.identify import read_line
+
+    reader = answering()
+    searcher = Searching([], products=[{"product": "what it already believed", "brand": None,
+                                        "size": None, "price": None, "seen_at": None}])
+    identity = read_line("Erdbeeren 400g", "Musterladen", reader, searcher)
+    assert len(searcher.asked) == 2
+    assert "You have not searched yet" in searcher.asked[1][1]
+    assert identity.searched == [], "a line nobody searched is never passed off as searched"
+    assert len(reader.asked) == 1, "and what the model already believed is not evidence"
+    assert (identity.unsearched, identity.can_tell) == (True, False), \
+        "an answer nobody checked is not saved"
+
+
+def test_a_line_still_unclear_after_the_search_comes_with_the_choices_it_left():
+    from grocery_app.identify import read_line
+
+    reader = answering(parts=[{"printed": "MUSTRA", "means": "Mustra (brand)"}],
+                       name="Mustra", category=None, can_tell=False,
+                       choices=["Geflügelwurst, Mustra", "Schafskäse, Mustra"])
+    identity = read_line("MUSTRA", "Musterladen", reader, Searching(["MUSTRA Musterladen"]))
+    assert identity.can_tell is False
+    assert identity.choices == ["Geflügelwurst, Mustra", "Schafskäse, Mustra"]
+    sure = identify("Erdbeeren 400g", None, answering(choices=["something"]))
+    assert sure.choices == [], "a line it can tell has no choices"
+
+
+def test_the_shoppers_own_words_need_no_search():
+    from grocery_app.identify import read_line
+
+    searcher = Searching(["Pamir Musterladen"])
+    read_line("Pamir", "Musterladen", answering(), searcher,
+              description="salted pickled cucumbers")
+    assert searcher.asked == []
 
 
 def test_claude_with_search_may_search_the_web_and_nothing_else(monkeypatch, tmp_path):
@@ -330,11 +435,48 @@ def test_claude_with_search_may_search_the_web_and_nothing_else(monkeypatch, tmp
     ClaudeCodeDecider("sonnet", tmp_path, version="t", search=True)("s", "p", {})
     ClaudeCodeDecider("sonnet", tmp_path, version="t")("s", "p", {})
     searching, plain = ran
+    assert searching[searching.index("--output-format") + 1] == "stream-json"
     assert searching[searching.index("--tools") + 1] == "WebSearch"
     assert searching[searching.index("--allowedTools") + 1] == "WebSearch"
     assert plain[plain.index("--tools") + 1] == ""
     assert {p.parent.parent.name for p in tmp_path.rglob("*.json")} == \
         {"claude-code-sonnet-search", "claude-code-sonnet"}, "answers never cross setups"
+
+
+def test_claude_search_records_what_it_searched_and_the_titles_that_came_back(
+        monkeypatch, tmp_path):
+    import json
+    import subprocess
+
+    from grocery_app.matcher import ClaudeCodeDecider
+
+    links = [{"title": "Muster Ultimate Nacht 12 Stück", "url": "https://example.org/a"}]
+    stream = [
+        {"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "WebSearch",
+             "input": {"query": "MU Ult.Nacht 12St Musterladen"}}]}},
+        {"type": "user", "message": {"content": [
+            {"type": "tool_result", "content": "Web search results for query: x\n\n"
+                                               f"Links: {json.dumps(links)}\n\nSummary."}]}},
+        {"type": "result", "is_error": False, "structured_output": {"products": []}},
+    ]
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0,
+                                           "\n".join(json.dumps(e) for e in stream), "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    searcher = ClaudeCodeDecider("sonnet", tmp_path, version="t", search=True)
+    assert searcher("s", "p", {}) == {"products": []}
+    assert searcher.last_search.queries == ["MU Ult.Nacht 12St Musterladen"]
+    assert searcher.last_search.titles == ["Muster Ultimate Nacht 12 Stück"]
+
+    again = ClaudeCodeDecider("sonnet", tmp_path, version="t", search=True)
+    again("s", "p", {})
+    assert len(calls) == 1 and again.last_search.queries == ["MU Ult.Nacht 12St Musterladen"], \
+        "a cached answer still says what was searched"
 
 
 class FakeGemini:
@@ -350,7 +492,9 @@ class FakeGemini:
 
         self.bodies.append(json.loads(request.data))
         payload = {"candidates": [{"content": {"parts": [{"text": '{"name": "Kaffeepads"}'}]},
-                                   "groundingMetadata": {"webSearchQueries": self.queries}}],
+                                   "groundingMetadata": {
+                                       "webSearchQueries": self.queries,
+                                       "groundingChunks": [{"web": {"title": "example.org"}}]}}],
                    "usageMetadata": {"totalTokenCount": 10}}
         response = io.BytesIO(json.dumps(payload).encode())
         response.__enter__ = lambda *a: response
@@ -372,18 +516,108 @@ def test_gemini_searches_with_google_and_stops_at_its_search_budget(monkeypatch,
     assert gemini.searches is True
 
     assert gemini("system", "line one", {"type": "object"}) == {"name": "Kaffeepads"}
-    body = fake.bodies[0]
-    assert body["tools"] == [{"google_search": {}}]
-    assert body["systemInstruction"]["parts"][0]["text"] == "system"
-    assert body["generationConfig"]["responseJsonSchema"] == {"type": "object"}
+    search, copy = fake.bodies
+    assert search["tools"] == [{"google_search": {}}]
+    assert "generationConfig" not in search, "asked for JSON, Gemini does not search"
+    assert search["systemInstruction"]["parts"][0]["text"] == "system"
+    assert "tools" not in copy and copy["generationConfig"]["responseJsonSchema"] == \
+        {"type": "object"}, "a second call copies the free report into the format"
+    assert copy["contents"][0]["parts"][0]["text"] == '{"name": "Kaffeepads"}'
     (cached,) = tmp_path.rglob("*.json")
     assert json.loads(cached.read_text())["searched"] == ["TC Pads 36er GLOBUS",
                                                          "Tchibo Kaffeepads 36"]
+    assert gemini.last_search.titles == ["example.org"]
 
     assert gemini("system", "line one", {"type": "object"}) == {"name": "Kaffeepads"}
-    assert len(fake.bodies) == 1, "a cached answer costs nothing"
+    assert len(fake.bodies) == 2, "a cached answer costs nothing"
     gemini("system", "line two", {"type": "object"})
     assert gemini.searched == 4
     with pytest.raises(SearchBudgetExceeded):
         gemini("system", "line three", {"type": "object"})
-    assert len(fake.bodies) == 2, "no call once the budget is spent"
+    assert len(fake.bodies) == 4, "no call once the budget is spent"
+
+
+def test_a_run_with_a_searcher_lists_the_lines_it_did_not_search_before_any_number():
+    from grocery_app.identify import Identity
+
+    said = {"Erdbeeren 400g": Identity("Erdbeeren", "beeren", None, None, None, True, ".",
+                                       searched=["Erdbeeren 400g Musterladen"]),
+            "MU Wraps": Identity("Wraps", None, None, None, None, True, "."),
+            "MILCHKAFFEE": Identity("Milchkaffee", "cafe-imbiss", None, None, None, True, ".")}
+    truth = {"lines": [sheet("Erdbeeren 400g", "strawberries", 0),
+                       sheet("MU Wraps", "wraps", 1), sheet("MILCHKAFFEE", "café", 2)]}
+    report = evaluate_identify(truth, lambda raw, store, others, paid, place=None: said[raw],
+                               lambda *a: {"verdict": "right", "reason": "."}, searching=True)
+    assert report["search"] == {"due": 2, "searched": 1, "not_searched": ["MU Wraps"],
+                                "not_groceries": 1}
+    text = format_report(report)
+    assert text.index("NOT SEARCHED") < text.index("mistakes"), "said before the numbers"
+    assert "searched: Erdbeeren 400g Musterladen" not in text, "right lines are not listed"
+
+
+def test_only_the_chosen_lines_are_scored_and_the_others_stay_evidence():
+    from grocery_app.identify import Identity
+
+    seen = []
+
+    def identifier(raw, store, others, paid, place=None):
+        seen.append((raw, others))
+        return Identity(raw, None, None, None, None, True, ".")
+
+    truth = {"lines": [sheet("Erdbeeren 400g", "strawberries", 0), sheet("MU Wraps", "wraps", 1)],
+             "score_only": {"MU Wraps"}}
+    report = evaluate_identify(truth, identifier, lambda *a: {"verdict": "right", "reason": "."})
+    assert [line["raw_name"] for line in report["lines"]] == ["MU Wraps"]
+    assert seen == [("MU Wraps", ["Erdbeeren 400g", "MU Wraps"])], \
+        "the other lines of the receipt are still shown to the reader"
+
+
+def test_gemini_without_search_is_held_to_the_schema_and_json_is_read_from_text(
+        monkeypatch, tmp_path):
+    import urllib.request
+
+    from grocery_app.matcher import GeminiDecider, _json_in
+
+    fake = FakeGemini([])
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    GeminiDecider("gemini-test", tmp_path, "t", search=False, api_key="k")("s", "p", {"a": 1})
+    assert fake.bodies[0]["generationConfig"]["responseJsonSchema"] == {"a": 1}
+    assert "tools" not in fake.bodies[0]
+    assert _json_in('Here it is:\n```json\n{"products": [], "note": "x"}\n```') == \
+        {"products": [], "note": "x"}
+    assert _json_in("no json at all") is None
+
+
+def test_a_search_that_fails_is_no_search_and_the_line_waits():
+    from grocery_app.identify import read_line
+    from grocery_app.matcher import SearchBudgetExceeded
+
+    def spent(system, prompt, schema):
+        raise SearchBudgetExceeded("150 searches made; the limit is 150")
+
+    identity = read_line("Erdbeeren 400g", "Musterladen", answering(), spent)
+    assert (identity.unsearched, identity.can_tell) == (True, False)
+
+
+def test_identify_reads_with_gemini_unless_told_otherwise_and_never_without_a_key(monkeypatch):
+    import pytest
+
+    from grocery_app.api.app import identify_decider, identify_searcher
+    from grocery_app.matcher import ClaudeCodeDecider, GeminiDecider
+
+    monkeypatch.delenv("GROCERY_IDENTIFY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(SystemExit, match="GEMINI_API_KEY"):
+        identify_decider()
+
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    monkeypatch.setenv("GROCERY_MAX_SEARCHES", "7")
+    reader, searcher = identify_decider(), identify_searcher()
+    assert isinstance(reader, GeminiDecider) and reader.searches is False
+    assert isinstance(searcher, GeminiDecider) and searcher.searches is True
+    assert searcher.max_searches == 7
+
+    monkeypatch.setenv("GROCERY_IDENTIFY", "claude-code")
+    assert isinstance(identify_searcher(), ClaudeCodeDecider)
+    with pytest.raises(SystemExit, match="unknown identify reader"):
+        identify_decider("gpt")
