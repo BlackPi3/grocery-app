@@ -294,3 +294,28 @@ def test_a_photo_gets_its_spot_checks_before_its_job_is_done(engine, session, tm
     (check,) = client.get("/v1/checks").json()["checks"]
     assert (check["receipt_id"], check["raw_name"], check["decided_by"]) == \
         (done["receipt_id"], "MU Butter", "matcher")
+
+
+def test_the_phone_page_finds_what_it_reads_after_an_upload(uploads):
+    """The page's Add tab and Insights tab, as the page walks them: the photo
+    as the multipart field `file`, the job polled until it names a receipt,
+    then the insights. Each field asserted here is one the page reads; a
+    renamed field would leave a blank card rather than an error."""
+    client, _, _, _ = uploads
+    job = client.post("/v1/receipts", files={"file": ("receipt.jpg", a_photo(), "image/jpeg")}
+                      ).json()
+    job = client.get(f"/v1/jobs/{job['job_id']}").json()
+    assert (job["status"], job["error"]) == ("done", None) and job["receipt_id"] is not None
+    assert client.get(f"/v1/receipts/{job['receipt_id']}").json()["lines"][0]["raw_name"] == \
+        "MU Butter"
+
+    insights = client.get("/v1/insights").json()
+    coverage = insights["coverage"]
+    assert coverage["receipts"] >= 1 and coverage["date_range"][1] == "2026-03-05"
+    for key in ("resolved_share_of_spend", "resolved_spend", "spend"):
+        assert key in coverage, key
+    for key in ("budget_share_of_known", "budget", "name_brand", "unbranded", "unknown",
+                "unresolved"):
+        assert key in insights["budget_brand"]["overall"], key
+    assert isinstance(insights["repurchase"], list)
+    assert isinstance(insights["price_changes"], list)
