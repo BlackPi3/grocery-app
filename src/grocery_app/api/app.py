@@ -308,9 +308,14 @@ def default_app() -> FastAPI:
     """
     from grocery_app import matcher as matching
 
+    repository = default_repository()
     matcher = line_matcher(matching.ClaudeCodeDecider(), matching.default_shops())
-    return create_app(default_repository(), default_image_store(), configured_extractor(),
-                      matcher, line_identifier(identify_decider(), identify_searcher()))
+    # Identify runs only on uploads, which need PostgreSQL: a server that only
+    # serves purchases.json needs no reader and no key.
+    identifier = (line_identifier(identify_decider(), identify_searcher())
+                  if type(repository).__name__ == "PostgresRepository" else None)
+    return create_app(repository, default_image_store(), configured_extractor(), matcher,
+                      identifier)
 
 
 # Who reads and searches a line nothing else could place. Gemini through
