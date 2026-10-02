@@ -1,6 +1,7 @@
 # A comparison that did not happen: Claude and Gemini with web search
 
-2026-10-01 · **Status: invalid. Do not use its numbers.** Kept as a record of
+2026-10-01 · **Status: invalid. Do not use its numbers.** The valid comparison is
+`2026-10-02-search-as-a-step.md`. Kept as a record of
 what went wrong, so the next comparison does not repeat it.
 
 ## What it set out to do

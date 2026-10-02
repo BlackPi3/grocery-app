@@ -130,3 +130,15 @@ error rate stays known.
   `4x100 g`, `10er`, `22St`; only with an explicit unit, and a weight or
   volume only for food), so an identified line has a price per kilo, litre or
   piece. A product's own size still wins where it has one.
+- **Search is a step, not an option** (Parham, 2026-10-02; identify v7,
+  search s2; `identify.read_line`). A line is read once; a line that is not
+  groceries stops there, saved with its category and never searched or asked
+  about. Every other line is searched by the code, for the whole printed line,
+  the shop and the shop's printed address, however sure the first reading was
+  (the v6 mistakes were the confident ones), and read again with what the
+  pages said. What was searched is recorded per line; a line whose search did
+  not happen waits, neither saved nor asked. A line still unclear after the
+  search is asked with the choices the search left, never as a bare name: the
+  shopper confirms, the app finds out. Reader and searcher are Gemini through
+  Google's API (`GROCERY_IDENTIFY`), chosen on the comparison in
+  `docs/evaluations/2026-10-02-search-as-a-step.md`.
