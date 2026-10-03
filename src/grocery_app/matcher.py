@@ -42,6 +42,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from grocery_app import gemini
 from grocery_app.resolver import expand_abbreviations, fold, store_key
 
 PROMPT_VERSION = "v2"
@@ -579,8 +580,6 @@ class GeminiDecider:
     COPY_INTO_FORMAT = ("Copy the report below into the JSON format you are given. Add "
                         "nothing that is not in the report, and leave out nothing it found.")
 
-    URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-
     def __init__(self, model: str, cache_dir: str | Path, version: str, search: bool = True,
                  max_searches: int = 150, api_key: str | None = None, timeout_s: int = 180):
         import os
@@ -619,8 +618,6 @@ class GeminiDecider:
 
     def _ask(self, system: str, prompt: str,
              schema: dict[str, Any]) -> tuple[dict[str, Any], Searched, dict[str, Any]]:
-        if not self.api_key:
-            raise DeciderError("GEMINI_API_KEY is not set")
         if not self.searches:
             data = self._post({"systemInstruction": {"parts": [{"text": system}]},
                                "contents": [{"parts": [{"text": prompt}]}],
@@ -645,28 +642,12 @@ class GeminiDecider:
         return self._answer(copied), searched, usage
 
     def _post(self, body: dict[str, Any]) -> dict[str, Any]:
-        import urllib.error
-        import urllib.request
+        try:
+            return gemini.generate(self.model, body, self.api_key, self.timeout_s)
+        except gemini.GeminiError as error:
+            raise DeciderError(str(error)) from error
 
-        request = urllib.request.Request(
-            self.URL.format(model=self.model), data=json.dumps(body).encode(),
-            headers={"x-goog-api-key": self.api_key or "", "Content-Type": "application/json"})
-        for attempt in (1, 2):
-            try:
-                with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
-                    return json.load(response)
-            except urllib.error.HTTPError as error:
-                detail = error.read()[:300].decode(errors="replace")
-                if attempt == 2 or error.code not in (429, 500, 503):
-                    raise DeciderError(f"Gemini {error.code}: {detail}") from error
-                time.sleep(20)
-        raise DeciderError("unreachable")
-
-    @staticmethod
-    def _text(data: dict[str, Any]) -> str:
-        candidate = (data.get("candidates") or [{}])[0]
-        return "".join(part.get("text", "") for part in
-                       (candidate.get("content") or {}).get("parts", []))
+    _text = staticmethod(gemini.text_of)
 
     def _answer(self, data: dict[str, Any]) -> dict[str, Any]:
         text = self._text(data)

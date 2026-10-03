@@ -74,7 +74,7 @@ No test may call a paid model: `create_app` takes the extractor as an argument w
 no default, so forgetting it is a 503 rather than a charge. The one test that does
 make a real call is marked `paid` and deselected by default. Run it before merging
 any change to `extract.py`, the receipt schema, or the upload route, with the
-reader the server uses (`GROCERY_READER`: `api` or `claude-code`, the subscription;
+reader the server uses (`GROCERY_READER`: `api`, `claude-code`, the subscription, or `gemini`;
 decided 2026-09-26, when the API account had no credit and was not to be topped up):
 
 ```

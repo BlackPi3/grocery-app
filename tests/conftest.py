@@ -12,6 +12,19 @@ import pytest
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+
+@pytest.fixture(autouse=True)
+def no_paid_keys(request, monkeypatch):
+    """No test but a `paid` one can reach a paid model: the keys are taken away.
+
+    A shell that exports `GEMINI_API_KEY` would otherwise hand it to any
+    reader built without one, and a test that forgot to fake the call would
+    spend money and pass.
+    """
+    if request.node.get_closest_marker("paid") is None:
+        for key in ("GEMINI_API_KEY", "ANTHROPIC_API_KEY"):
+            monkeypatch.delenv(key, raising=False)
+
 RECEIPTS = [
     {
         "source_image": "IMG_1.jpeg", "transcribed_by": "hand", "store": "Musterladen",

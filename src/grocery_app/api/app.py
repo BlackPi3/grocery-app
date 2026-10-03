@@ -305,14 +305,15 @@ def default_app() -> FastAPI:
     `DATABASE_URL` selects PostgreSQL; otherwise `GROCERY_PURCHASES` names the
     purchases.json to serve. This is the one place the real, paid extractor is
     wired in: `GROCERY_READER` picks the API (default) or `claude -p` on the
-    subscription. `GROCERY_IMAGES` says where uploaded photos are kept. The
-    matcher asks the model through `claude -p`, on the subscription; identify
-    reads and searches with `GROCERY_IDENTIFY` (`identify_decider`).
+    subscription, or `gemini`. `GROCERY_IMAGES` says where uploaded photos are
+    kept. The matcher asks the model `GROCERY_MATCHER` names
+    (`matcher_decider`); identify reads and searches with `GROCERY_IDENTIFY`
+    (`identify_decider`).
     """
     from grocery_app import matcher as matching
 
     repository = default_repository()
-    matcher = line_matcher(matching.ClaudeCodeDecider(), matching.default_shops())
+    matcher = line_matcher(matcher_decider(), matching.default_shops())
     # Identify runs only on uploads, which need PostgreSQL: a server that only
     # serves purchases.json needs no reader and no key.
     identifier = (line_identifier(identify_decider(), identify_searcher())
@@ -344,6 +345,38 @@ def identify_reader_kind(kind: str | None = None) -> str:
         raise SystemExit("identify reads with Gemini, and GEMINI_API_KEY is not set: set it, "
                          "or GROCERY_IDENTIFY=claude-code to read on the subscription")
     return kind
+
+
+# Who picks among the candidates the matcher gathered for a line. `claude -p`
+# on the subscription is what every matcher score so far was measured with;
+# Gemini is for a server, where `claude -p` cannot run.
+MATCHERS = ("claude-code", "gemini")
+
+
+def matcher_kind(kind: str | None = None) -> str:
+    """`kind`, else `GROCERY_MATCHER`, else `claude-code`; refuses anything
+    else, and Gemini without `GEMINI_API_KEY`, before a server starts."""
+    import os
+
+    kind = kind or os.environ.get("GROCERY_MATCHER", "claude-code")
+    if kind not in MATCHERS:
+        raise SystemExit(f"unknown matcher {kind!r}: expected {', '.join(MATCHERS)}")
+    if kind == "gemini" and not os.environ.get("GEMINI_API_KEY"):
+        raise SystemExit("the matcher asks Gemini, and GEMINI_API_KEY is not set: set it, "
+                         "or GROCERY_MATCHER=claude-code to ask on the subscription")
+    return kind
+
+
+def matcher_decider(kind: str | None = None,
+                    model: str = "sonnet") -> ClaudeCodeDecider | GeminiDecider:
+    """The matcher's model, cached under data/matched/ as `eval-matching`
+    caches it; `model` is the Claude model and does not apply to Gemini."""
+    from grocery_app import matcher as matching
+
+    if matcher_kind(kind) == "gemini":
+        return GeminiDecider(GEMINI_MODEL, "data/matched", matching.PROMPT_VERSION,
+                             search=False)
+    return ClaudeCodeDecider(model)
 
 
 def identify_decider(kind: str | None = None) -> ClaudeCodeDecider | GeminiDecider:

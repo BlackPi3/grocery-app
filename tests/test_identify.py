@@ -621,3 +621,23 @@ def test_identify_reads_with_gemini_unless_told_otherwise_and_never_without_a_ke
     assert isinstance(identify_searcher(), ClaudeCodeDecider)
     with pytest.raises(SystemExit, match="unknown identify reader"):
         identify_decider("gpt")
+
+
+def test_the_matcher_asks_the_model_it_is_told_to_and_claude_stays_the_default(monkeypatch):
+    import pytest
+
+    from grocery_app import matcher as matching
+    from grocery_app.api.app import matcher_decider
+    from grocery_app.matcher import ClaudeCodeDecider, GeminiDecider
+
+    monkeypatch.delenv("GROCERY_MATCHER", raising=False)
+    assert isinstance(matcher_decider(), ClaudeCodeDecider)
+    monkeypatch.setenv("GROCERY_MATCHER", "gemini")
+    with pytest.raises(SystemExit, match="GEMINI_API_KEY"):
+        matcher_decider()
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    decider = matcher_decider()
+    assert isinstance(decider, GeminiDecider) and decider.searches is False
+    assert decider.cache.parts[-2:] == ("gemini-gemini-3.8-flash", matching.PROMPT_VERSION)
+    with pytest.raises(SystemExit, match="unknown matcher"):
+        matcher_decider("gpt")

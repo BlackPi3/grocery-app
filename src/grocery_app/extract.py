@@ -34,7 +34,9 @@ from PIL import Image, ImageOps
 # into dictionary words, suffixes dropped), which is wrong for transcription.
 # See docs/designs/receipt-ingestion-pipeline.md.
 DEFAULT_MODEL = "claude-sonnet-5"
-PROMPT_VERSION = "v1"
+# v2 (2026-10-03): the article-number column, the two-digit year and the logo
+# store name, after Gemini's first run on the 27 hand-verified receipts.
+PROMPT_VERSION = "v2"
 
 # Server-side refusal fallbacks are only accepted on these models; Sonnet and
 # Haiku reject the parameter with a 400.
@@ -64,6 +66,9 @@ Rules, in priority order:
    capitalisation, abbreviations, and lowercase starts exactly as printed. Some
    printers render umlauts as `?` (`SAATENBR?TCHEN`) — keep the `?`; do not
    restore the umlaut. Never expand, correct, or normalise a name.
+   Some receipts print an article number in its own column before the name
+   (`211635 Tragetasche Altp`); it is not part of the name, so leave it out
+   (`Tragetasche Altp`).
 
 2. Include only what was actually bought. Some receipts print an item that was
    scanned and then immediately reversed (a "Storno"/"Sofortstorno" line, or a
@@ -99,9 +104,12 @@ Rules, in priority order:
    it from the VAT summary or from what kind of product it is.
 
 8. Header and totals:
-   - `store`: the chain name as printed at the top (e.g. `Lidl`, `ALDI SÜD`).
+   - `store`: the chain name as printed at the top (e.g. `Lidl`, `ALDI SÜD`),
+     even when it is printed only as a large logo (`GLOBUS`). Never leave it
+     empty.
    - `store_location`: the address line(s) as printed, joined with ", ".
-   - `date` as YYYY-MM-DD, `time` as HH:MM (24h), `currency` "EUR".
+   - `date` as YYYY-MM-DD, `time` as HH:MM (24h), `currency` "EUR". A
+     two-digit year is in this century: `09.07.26` is 2026-07-09.
    - `printed_total`: the amount actually paid ("Summe", "zu zahlen", "Total").
    - `tax_buckets`: the VAT summary as a list of {rate, amount} with the gross
      amount per rate (e.g. [{"rate": "7%", "amount": 21.43}]). If the receipt
@@ -405,6 +413,82 @@ def claude_code_reader(model: str = DEFAULT_MODEL, timeout_s: int = 900):
             "seconds": round(time.monotonic() - started, 1),
             "note": "read through `claude -p` on the subscription, the photo in two "
                     "overlapping pieces; same model, system prompt and schema as the API reader",
+        }
+        return Extraction(receipt=receipt, meta=meta)
+
+    return read
+
+
+# Gemini reads photos on a server, where `claude -p` cannot run and the
+# Claude API account has no credit (Parham, 2026-10-03).
+GEMINI_MODEL = "gemini-3.8-flash"
+
+# USD per million tokens; thinking is billed as output. Introductory rates
+# until 2026-12-31, doubling on 2027-01-01 (third-party price pages,
+# 2026-10-03; not checked against Google's own page).
+GEMINI_PRICES_PER_MTOK: dict[str, dict[str, float]] = {
+    "gemini-3.8-flash": {"input": 0.75, "output": 3.75},
+}
+
+
+def gemini_cost(model: str, usage: dict[str, Any]) -> float | None:
+    prices = GEMINI_PRICES_PER_MTOK.get(model)
+    if prices is None:
+        return None
+    output = usage.get("candidatesTokenCount", 0) + usage.get("thoughtsTokenCount", 0)
+    return round(usage.get("promptTokenCount", 0) * prices["input"] / 1e6
+                 + output * prices["output"] / 1e6, 5)
+
+
+def gemini_reader(model: str = GEMINI_MODEL, api_key: str | None = None,
+                  timeout_s: int = 300):
+    """The same reading through Gemini, on Google's API, paid per photo.
+
+    What decides the reading is shared with `extract_receipt`: the photo is
+    prepared by `prepare_image`, the model gets `SYSTEM_PROMPT` and must
+    answer in `RECEIPT_SCHEMA`, and `parse_model_output` turns the answer into
+    a receipt. Only the transport differs. The key is `GEMINI_API_KEY`.
+    """
+    import os
+
+    from grocery_app import gemini
+
+    key = api_key or os.environ.get("GEMINI_API_KEY")
+
+    def read(image_path: str | Path) -> Extraction:
+        image_path = Path(image_path)
+        image_bytes = prepare_image(image_path)
+        started = time.monotonic()
+        body = {
+            "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "contents": [{"parts": [
+                {"inlineData": {"mimeType": "image/jpeg",
+                                "data": base64.standard_b64encode(image_bytes).decode("ascii")}},
+                {"text": "Transcribe this receipt."},
+            ]}],
+            "generationConfig": {"responseMimeType": "application/json",
+                                 "responseJsonSchema": RECEIPT_SCHEMA},
+        }
+        try:
+            data = gemini.generate(model, body, key, timeout_s)
+        except gemini.GeminiError as exc:
+            raise ExtractionError(str(exc)) from exc
+        finish = gemini.finish_reason(data)
+        if finish == "MAX_TOKENS":
+            raise ExtractionError("model output was cut off at max_tokens")
+        text = gemini.text_of(data)
+        if not text:
+            raise ExtractionError(f"no text in Gemini's answer (finishReason={finish})")
+        receipt = parse_model_output(text, image_path.name)
+        usage = {k: v for k, v in (data.get("usageMetadata") or {}).items()
+                 if isinstance(v, int)}
+        meta = {
+            "source_image": image_path.name, "model": data.get("modelVersion") or model,
+            "requested_model": model, "prompt_version": PROMPT_VERSION, "reader": "gemini",
+            "response_id": data.get("responseId"), "finish_reason": finish,
+            "usage": usage, "cost_usd": gemini_cost(model, usage),
+            "seconds": round(time.monotonic() - started, 1),
+            "image_bytes_sent": len(image_bytes),
         }
         return Extraction(receipt=receipt, meta=meta)
 
