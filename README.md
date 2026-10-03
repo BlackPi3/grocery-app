@@ -113,7 +113,9 @@ curl http://127.0.0.1:8000/v1/jobs/<job-id>
 grocery-app serve --host 0.0.0.0 --reader claude-code
 ```
 
-Extraction calls the Claude API and reads `ANTHROPIC_API_KEY` from the environment.
+Extraction calls the Claude API and reads `ANTHROPIC_API_KEY` from the environment;
+`--reader gemini` (or `GROCERY_READER=gemini`) reads with Gemini instead, and
+`GROCERY_MATCHER=gemini` matches with it, both on `GEMINI_API_KEY`.
 
 ## Development
 

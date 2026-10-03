@@ -255,6 +255,42 @@ Item-name exactness is the metric to improve, because its failures are what the
 normalizer must absorb. These numbers come from 180 lines and one prompt; treat
 a difference of a few errors as directional, not settled.
 
+### Gemini reads for the server (2026-10-03)
+
+A server cannot read through `claude -p`, and the Claude API account has no
+credit, so the photo is also read by `gemini-3.8-flash` through Google's API
+(`extract.gemini_reader`, `GROCERY_READER=gemini`): same system prompt, same
+schema, same parsing, only the transport differs. Scored on all 27
+hand-verified receipts (247 lines), against Sonnet's cached prompt-v1 reading:
+
+| metric | sonnet-5, v1 | gemini-3.8-flash, v1 | gemini-3.8-flash, v2 |
+|---|---|---|---|
+| receipts fully correct | 21/27 | 16/27 | **22/27** |
+| lines missed / invented | 0 / 0 | 1 / 0 | 0 / 0 |
+| quantity / net / tax class | 99.6 / 98.4 / 97.2% | 100 / 100 / 100% | **100 / 100 / 100%** |
+| item name exact | **99.2%** | 91.1% | 96.0% |
+| store / date | 24 / 27 | 24 / 23 | **27 / 27** |
+| cost for the 27 | — | $0.67 | $0.47 |
+
+Prompt v2 adds three rules after Gemini's first run: an ALDI article-number
+column is not part of the name (the answer key leaves it out; Gemini wrote
+`211635 Tragetasche Altp` on one receipt, 15 errors), a two-digit year is
+this century (`09.07.26` came back as 2024 four times), and a store printed
+only as a logo is still the store (`GLOBUS` came back empty three times, as it
+does for Sonnet). Sonnet has not been run on v2.
+
+What is left is all names: case (`jT` for `JT`, `walnusskerne`), runs of
+spaces closed up, one letter (`Wein.` for `Weih.`, `Jl` for `JT`). The
+matcher folds case and spaces, so most of these cost nothing downstream.
+Two of them are a question for the answer key rather than the reader:
+IMG_5388 prints `Retoure` on its own line above each of two empties returns;
+Gemini joins it to the name and the key does not, while IMG_5575's key does.
+
+The matcher's model is chosen the same way (`GROCERY_MATCHER=gemini`). On the
+135 lines of the answer sheet Gemini was right on 72 and wrong on none, asking
+on 58; `claude -p` was right on 68, wrong on none, asking on 63. Cost: $0.17
+for 80 calls.
+
 ### Evaluation Methodology
 
 Comparing parser output to the held-out set's ground truth needs explicit

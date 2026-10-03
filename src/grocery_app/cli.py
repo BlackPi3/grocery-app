@@ -20,7 +20,7 @@ from grocery_app.evaluate_matching import (
     format_matching_report,
     load_readings,
 )
-from grocery_app.extract import DEFAULT_MODEL, PROMPT_VERSION, extract_directory
+from grocery_app.extract import DEFAULT_MODEL, GEMINI_MODEL, PROMPT_VERSION, extract_directory
 from grocery_app.insights import build_insights, load_purchases
 from grocery_app.normalizer import (
     build_purchases,
@@ -44,6 +44,11 @@ from grocery_app.resolver import (
 from grocery_app.resolver import (
     DEFAULT_OUTPUT as PROPOSALS_OUTPUT,
 )
+
+# The model readings the history and the matcher scores were built from:
+# Claude Sonnet on prompt v1. Pinned, so a new prompt version does not point
+# these defaults at a directory nothing has been read into.
+READINGS = f"data/extracted/{DEFAULT_MODEL}/v1"
 
 
 def main() -> None:
@@ -84,16 +89,17 @@ def main() -> None:
         help="Score how receipt lines are matched to products, against the shopper's answers",
     )
     em.add_argument("--truth", default="data/receipts/product_truth.json")
-    em.add_argument("--readings", default=f"data/extracted/{DEFAULT_MODEL}/{PROMPT_VERSION}",
+    em.add_argument("--readings", default=READINGS,
                     help="Directory of the parser's readings, one <photo stem>.json each")
     em.add_argument("--products", default="data/products/products.json")
     em.add_argument("--resolution", default="data/products/resolution.json")
     em.add_argument("--products-dir", default="data/products")
-    em.add_argument("--matcher", choices=["claude-code"], default=None,
+    em.add_argument("--matcher", choices=["claude-code", "gemini"], default=None,
                     help="Also run the matcher (step 4b) on lines the memory leaves open. "
                          "claude-code asks the model through `claude -p`, on the "
-                         "subscription; answers are cached under data/matched/")
-    em.add_argument("--matcher-model", default="sonnet")
+                         "subscription; gemini asks Google's API, paid per call "
+                         "(GEMINI_API_KEY); answers are cached under data/matched/")
+    em.add_argument("--matcher-model", default="sonnet", help="The Claude model (claude-code)")
     em.add_argument("--json", action="store_true", help="Emit the raw report as JSON")
 
     ei = subparsers.add_parser(
@@ -130,13 +136,15 @@ def main() -> None:
     x.add_argument("--images", default="data/receipts/images", help="Directory of receipt photos")
     x.add_argument("--out", default="data/extracted",
                    help="Base output dir; results land in <out>/<model>/<prompt version>/")
-    x.add_argument("--model", default=DEFAULT_MODEL)
+    x.add_argument("--model", default=None,
+                   help=f"Defaults to {DEFAULT_MODEL}, or {GEMINI_MODEL} with --reader gemini")
     x.add_argument("--force", action="store_true", help="Re-extract even if a cached result exists")
     x.add_argument("--limit", type=int, default=None, help="Only process the first N images")
-    x.add_argument("--reader", choices=["api", "claude-code"], default="api",
+    x.add_argument("--reader", choices=["api", "claude-code", "gemini"], default="api",
                    help="api: a paid API call per photo; claude-code: the same model, prompt "
                         "and schema through `claude -p`, on the subscription (reads worse: "
-                        "see docs/designs/catalog-growth.md, step 6)")
+                        "see docs/designs/catalog-growth.md, step 6); gemini: the same prompt "
+                        "and schema through Google's API, paid per photo (GEMINI_API_KEY)")
 
     c = subparsers.add_parser(
         "catalog",
@@ -263,8 +271,11 @@ def main() -> None:
     s.add_argument("--purchases", default="data/purchases.json")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)
-    s.add_argument("--reader", choices=["api", "claude-code"], default=None,
+    s.add_argument("--reader", choices=["api", "claude-code", "gemini"], default=None,
                    help="How uploaded photos are read; defaults to GROCERY_READER, then api")
+    s.add_argument("--matcher", choices=["claude-code", "gemini"], default=None,
+                   help="Who picks a line's product among the matcher's candidates; defaults "
+                        "to GROCERY_MATCHER, then claude-code (claude -p, on the subscription)")
     s.add_argument("--identify", choices=["gemini", "claude-code"], default=None,
                    help="Who reads and searches a line nothing else could place; defaults to "
                         "GROCERY_IDENTIFY, then gemini (Google's API, paid per search; "
@@ -291,7 +302,7 @@ def main() -> None:
     d.add_argument("--resolution", default="data/products/resolution.json")
     d.add_argument("--line-resolutions", default="data/receipts/line_resolutions.json")
     d.add_argument("--products-dir", default="data/products")
-    d.add_argument("--readings", default=f"data/extracted/{DEFAULT_MODEL}/{PROMPT_VERSION}")
+    d.add_argument("--readings", default=READINGS)
     d.add_argument("--photos", default="data/receipts/fresh",
                    help="add-readings: only the readings of the photos in this directory")
     d.add_argument("--truth", default="data/receipts/product_truth.json")
@@ -318,9 +329,12 @@ def main() -> None:
             print(f"  ambiguous:      {meta['ambiguous_items']}")
 
     if args.command == "extract":
-        from grocery_app.extract import claude_code_reader
+        from grocery_app.extract import claude_code_reader, gemini_reader
 
-        reader = claude_code_reader(args.model) if args.reader == "claude-code" else None
+        if args.model is None:
+            args.model = GEMINI_MODEL if args.reader == "gemini" else DEFAULT_MODEL
+        reader = (claude_code_reader(args.model) if args.reader == "claude-code"
+                  else gemini_reader(args.model) if args.reader == "gemini" else None)
         print(f"Extracting with {args.model} (prompt {PROMPT_VERSION}, reader {args.reader}) "
               f"-> {args.out}")
         summary = extract_directory(
@@ -577,7 +591,13 @@ def main() -> None:
         try:
             import uvicorn
 
-            from grocery_app.api.app import create_app, identify_decider, identify_searcher
+            from grocery_app.api.app import (
+                create_app,
+                identify_decider,
+                identify_searcher,
+                matcher_decider,
+                matcher_kind,
+            )
             from grocery_app.api.images import default_image_store
             from grocery_app.api.jobs import READERS, configured_extractor
             from grocery_app.api.matching import line_identifier, line_matcher
@@ -610,10 +630,10 @@ def main() -> None:
 
             kind = identify_reader_kind(args.identify)
             identifier = line_identifier(identify_decider(kind), identify_searcher(kind))
-            print(f"  reader:   {reader}; matcher: claude -p (subscription); identify: "
+            print(f"  reader:   {reader}; matcher: {matcher_kind(args.matcher)}; identify: "
                   + ("Gemini with Google Search (paid per search)" if kind == "gemini"
                      else "claude -p with web search (subscription)"))
-        match = line_matcher(matching.ClaudeCodeDecider(),
+        match = line_matcher(matcher_decider(args.matcher),
                              matching.default_shops(args.products_dir))
         uvicorn.run(create_app(repository, store, configured_extractor(reader), match,
                                identifier),
@@ -681,12 +701,11 @@ def main() -> None:
             from sqlalchemy import select
 
             from grocery_app import matcher as matching
-            from grocery_app.api.app import identify_decider, identify_searcher
+            from grocery_app.api.app import identify_decider, identify_searcher, matcher_decider
             from grocery_app.api.matching import line_identifier, line_matcher, match_receipt
             from grocery_app.db.models import Receipt
 
-            match = line_matcher(matching.ClaudeCodeDecider(),
-                                 matching.default_shops(args.products_dir))
+            match = line_matcher(matcher_decider(), matching.default_shops(args.products_dir))
             identify = line_identifier(identify_decider(), identify_searcher())
             totals: dict[str, int] = {}
             with factory() as session:
@@ -777,8 +796,9 @@ def main() -> None:
         matcher = None
         if args.matcher:
             from grocery_app import matcher as matching
+            from grocery_app.api.app import matcher_decider
 
-            decider = matching.ClaudeCodeDecider(args.matcher_model)
+            decider = matcher_decider(args.matcher, args.matcher_model)
             shops = matching.default_shops(args.products_dir)
 
             def matcher(line, receipt):

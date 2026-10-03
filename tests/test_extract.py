@@ -155,5 +155,69 @@ def test_the_server_reads_photos_with_the_reader_it_is_told_to_use(monkeypatch):
     monkeypatch.delenv(jobs.READER_ENV)
     assert jobs.configured_extractor().__qualname__.startswith("anthropic_extractor"), \
         "the API stays the default"
-    with pytest.raises(ValueError, match="expected one of api, claude-code"):
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    assert jobs.configured_extractor("gemini").__qualname__.startswith("gemini_reader")
+    monkeypatch.delenv("GEMINI_API_KEY")
+    with pytest.raises(ValueError, match="needs GEMINI_API_KEY"):
         jobs.configured_extractor("gemini")
+    with pytest.raises(ValueError, match="expected one of api, claude-code, gemini"):
+        jobs.configured_extractor("tesseract")
+
+
+GEMINI_ANSWER = {"store": "Musterladen", "store_location": "Musterstr. 1", "date": "2026-03-01",
+                 "time": "10:00", "currency": "EUR", "printed_total": 1.09,
+                 "printed_savings": None, "tax_buckets": None,
+                 "lines": [{"type": "product", "raw_name": "MU Milch", "qty": 1,
+                            "sold_by_weight": False, "weight_kg": None, "unit_price": None,
+                            "unit_price_basis": None, "unit_gross": None, "gross": 1.09,
+                            "discount": 0.0, "net": 1.09, "tax_class": "A"}]}
+
+
+def fake_gemini(payload, seen):
+    def urlopen(request, timeout=None):
+        seen.append(json.loads(request.data))
+        return io.BytesIO(json.dumps(payload).encode())
+    return urlopen
+
+
+def test_gemini_reads_the_photo_with_the_same_prompt_and_schema(tmp_path, monkeypatch):
+    import base64
+    import urllib.request
+
+    from grocery_app import extract
+
+    photo = tmp_path / "IMG_9.jpeg"
+    Image.new("RGB", (40, 100), "white").save(photo, format="JPEG")
+    seen = []
+    monkeypatch.setattr(urllib.request, "urlopen", fake_gemini({
+        "candidates": [{"content": {"parts": [{"text": json.dumps(GEMINI_ANSWER)}]},
+                        "finishReason": "STOP"}],
+        "usageMetadata": {"promptTokenCount": 1_000_000, "candidatesTokenCount": 100_000,
+                          "thoughtsTokenCount": 100_000}}, seen))
+    result = extract.gemini_reader("gemini-3.8-flash", api_key="k")(photo)
+
+    assert result.receipt["lines"][0]["raw_name"] == "MU Milch"
+    assert result.receipt["reconciled"] is True
+    (body,) = seen
+    assert body["systemInstruction"]["parts"][0]["text"] == extract.SYSTEM_PROMPT
+    assert body["generationConfig"]["responseJsonSchema"] == extract.RECEIPT_SCHEMA
+    sent = base64.b64decode(body["contents"][0]["parts"][0]["inlineData"]["data"])
+    assert sent == extract.prepare_image(photo), "the photo is prepared as for every reader"
+    assert result.meta["reader"] == "gemini"
+    assert result.meta["cost_usd"] == pytest.approx(0.75 + 0.2 * 3.75), \
+        "thinking is billed as output"
+
+
+def test_a_failed_gemini_read_is_an_extraction_error(tmp_path, monkeypatch):
+    import urllib.request
+
+    from grocery_app import extract
+
+    photo = tmp_path / "IMG_9.jpeg"
+    Image.new("RGB", (40, 60), "white").save(photo, format="JPEG")
+    monkeypatch.setattr(urllib.request, "urlopen", fake_gemini(
+        {"candidates": [{"content": {"parts": []}, "finishReason": "MAX_TOKENS"}]}, []))
+    with pytest.raises(ExtractionError, match="GEMINI_API_KEY"):
+        extract.gemini_reader()(photo)
+    with pytest.raises(ExtractionError, match="cut off"):
+        extract.gemini_reader(api_key="k")(photo)

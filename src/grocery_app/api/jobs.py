@@ -72,17 +72,19 @@ def anthropic_extractor(model: str | None = None) -> Extractor:
 
 
 READER_ENV = "GROCERY_READER"
-READERS = ("api", "claude-code")
+READERS = ("api", "claude-code", "gemini")
 
 
 def configured_extractor(reader: str | None = None) -> Extractor:
-    """The extractor `GROCERY_READER` names: `api` (the default) or `claude-code`.
+    """The extractor `GROCERY_READER` names: `api` (the default), `claude-code`
+    or `gemini`.
 
     `claude-code` reads through `claude -p` on the subscription, for a server
     running where `claude` is logged in. It is measurably less accurate than
     the API (docs/designs/catalog-growth.md, step 6), so it is a choice, not
     a fallback: a server whose API calls fail says so rather than quietly
-    reading worse.
+    reading worse. `gemini` reads through Google's API, paid per photo: the
+    reader for a server, where neither of the others is available.
     """
     import os
 
@@ -93,6 +95,14 @@ def configured_extractor(reader: str | None = None) -> Extractor:
         from grocery_app.extract import claude_code_reader
 
         return claude_code_reader()
+    if reader == "gemini":
+        from grocery_app.extract import gemini_reader
+
+        # The key is read once, here: a server without it refuses to start
+        # reading rather than failing every upload.
+        if not os.environ.get("GEMINI_API_KEY"):
+            raise ValueError(f"{READER_ENV}=gemini needs GEMINI_API_KEY")
+        return gemini_reader()
     return anthropic_extractor()
 
 
