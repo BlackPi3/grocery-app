@@ -635,8 +635,10 @@ def main() -> None:
                      else "claude -p with web search (subscription)"))
         match = line_matcher(matcher_decider(args.matcher),
                              matching.default_shops(args.products_dir))
+        token = os.environ.get("GROCERY_TOKEN") or None
+        print("  password: " + ("GROCERY_TOKEN, on every /v1 route" if token else "none"))
         uvicorn.run(create_app(repository, store, configured_extractor(reader), match,
-                               identifier),
+                               identifier, token=token),
                     host=args.host, port=args.port)
 
     if args.command == "db":

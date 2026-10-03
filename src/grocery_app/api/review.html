@@ -137,8 +137,23 @@ function toast(text) {
   toast.timer = setTimeout(() => { box.style.display = "none"; }, 3500);
 }
 
+// The server's password (GROCERY_TOKEN), typed once into the page and kept
+// on this phone. A server without one never answers 401, so nothing is asked.
+// A form, not prompt(): Safari and in-app browsers may never show a prompt.
+function savedToken() {
+  try { return localStorage.getItem("grocery-token") || ""; } catch (_) { return ""; }
+}
+
 async function api(path, options) {
-  const response = await fetch(path, options);
+  const opts = { ...(options || {}) };
+  const token = savedToken();
+  if (token) opts.headers = { ...(opts.headers || {}), Authorization: "Bearer " + token };
+  const response = await fetch(path, opts);
+  if (response.status === 401) {
+    const error = new Error(token ? "wrong password" : "password needed");
+    error.locked = true;
+    throw error;
+  }
   if (!response.ok) {
     let detail = response.statusText;
     try { detail = (await response.json()).detail || detail; } catch (_) { /* not JSON */ }
@@ -457,8 +472,28 @@ async function load() {
     }
     render();
   } catch (error) {
+    if (error.locked) return askPassword(error.message);
     document.getElementById("stats").textContent = "Cannot load: " + error.message;
   }
+}
+
+function askPassword(why) {
+  document.getElementById("stats").textContent = why === "wrong password"
+    ? "That password is wrong." : "This server needs its password.";
+  const field = el("input", { type: "password", autocomplete: "current-password",
+                              placeholder: "Password", autocapitalize: "off",
+                              autocorrect: "off", spellcheck: "false" });
+  const unlock = () => {
+    try { localStorage.setItem("grocery-token", field.value.trim()); } catch (_) { /* private mode */ }
+    document.getElementById("stats").textContent = "Loading…";
+    load();
+  };
+  field.addEventListener("keydown", e => { if (e.key === "Enter") unlock(); });
+  document.getElementById("view").replaceChildren(
+    el("div", { class: "card" }, field,
+       el("div", { class: "row", style: "margin-top: 10px" },
+          el("button", { class: "primary", onclick: unlock }, "Unlock"))));
+  field.focus();
 }
 
 for (const tab of TABS) {
