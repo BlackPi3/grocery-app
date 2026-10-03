@@ -210,6 +210,10 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
   is mounted as the `data/` folder, so `DiskImageStore` and the model caches work
   unchanged and an `ImageStore` for object storage was not needed.
   `scripts/deploy.sh` builds and rolls out; why each flag is there is in the script.
+  It runs on its own after every merge to `main` whose tests pass
+  (`.github/workflows/deploy.yml`), signed in to Google through Workload Identity
+  Federation as `github-deployer`, so no Google key is stored in GitHub;
+  `scripts/setup-deploy-from-github.sh` sets that up once.
   Gemini runs through Vertex AI as the server's own account (`GEMINI_VERTEX_PROJECT`,
   `gemini.py`), not with an AI Studio key: Vertex is billed to the project, so the
   trial credit pays for it, and no key exists to leak. The project's org policy
