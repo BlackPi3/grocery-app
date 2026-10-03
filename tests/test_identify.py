@@ -607,7 +607,7 @@ def test_identify_reads_with_gemini_unless_told_otherwise_and_never_without_a_ke
 
     monkeypatch.delenv("GROCERY_IDENTIFY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    with pytest.raises(SystemExit, match="GEMINI_API_KEY"):
+    with pytest.raises(SystemExit, match="neither GEMINI_VERTEX_PROJECT nor GEMINI_API_KEY"):
         identify_decider()
 
     monkeypatch.setenv("GEMINI_API_KEY", "k")

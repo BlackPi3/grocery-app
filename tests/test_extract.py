@@ -158,7 +158,7 @@ def test_the_server_reads_photos_with_the_reader_it_is_told_to_use(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "k")
     assert jobs.configured_extractor("gemini").__qualname__.startswith("gemini_reader")
     monkeypatch.delenv("GEMINI_API_KEY")
-    with pytest.raises(ValueError, match="needs GEMINI_API_KEY"):
+    with pytest.raises(ValueError, match="needs GEMINI_VERTEX_PROJECT or GEMINI_API_KEY"):
         jobs.configured_extractor("gemini")
     with pytest.raises(ValueError, match="expected one of api, claude-code, gemini"):
         jobs.configured_extractor("tesseract")
@@ -200,6 +200,7 @@ def test_gemini_reads_the_photo_with_the_same_prompt_and_schema(tmp_path, monkey
     assert result.receipt["reconciled"] is True
     (body,) = seen
     assert body["systemInstruction"]["parts"][0]["text"] == extract.SYSTEM_PROMPT
+    assert body["contents"][0]["role"] == "user", "Vertex refuses a message with no role"
     assert body["generationConfig"]["responseJsonSchema"] == extract.RECEIPT_SCHEMA
     sent = base64.b64decode(body["contents"][0]["parts"][0]["inlineData"]["data"])
     assert sent == extract.prepare_image(photo), "the photo is prepared as for every reader"
@@ -217,7 +218,42 @@ def test_a_failed_gemini_read_is_an_extraction_error(tmp_path, monkeypatch):
     Image.new("RGB", (40, 60), "white").save(photo, format="JPEG")
     monkeypatch.setattr(urllib.request, "urlopen", fake_gemini(
         {"candidates": [{"content": {"parts": []}, "finishReason": "MAX_TOKENS"}]}, []))
-    with pytest.raises(ExtractionError, match="GEMINI_API_KEY"):
+    with pytest.raises(ExtractionError, match="neither GEMINI_VERTEX_PROJECT nor GEMINI_API_KEY"):
         extract.gemini_reader()(photo)
     with pytest.raises(ExtractionError, match="cut off"):
         extract.gemini_reader(api_key="k")(photo)
+
+
+def test_gemini_goes_through_vertex_when_a_project_is_named(monkeypatch):
+    """Vertex AI when GEMINI_VERTEX_PROJECT is set, signed with a token and no
+    key; an explicit key always means the Gemini API; nothing set is an error,
+    not a call."""
+    from grocery_app import gemini
+
+    monkeypatch.setattr(gemini, "vertex_token", lambda: "tok")
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    url, auth = gemini.endpoint("gemini-x")
+    assert url.startswith("https://generativelanguage.googleapis.com/")
+    assert auth == {"x-goog-api-key": "k"}
+
+    monkeypatch.setenv("GEMINI_VERTEX_PROJECT", "my-proj")
+    url, auth = gemini.endpoint("gemini-x")
+    assert url == ("https://aiplatform.googleapis.com/v1/projects/my-proj/locations/global/"
+                   "publishers/google/models/gemini-x:generateContent")
+    assert auth == {"Authorization": "Bearer tok"}, "Vertex is preferred over the key"
+
+    url, auth = gemini.endpoint("gemini-x", api_key="explicit")
+    assert auth == {"x-goog-api-key": "explicit"} and "generativelanguage" in url
+
+    monkeypatch.delenv("GEMINI_VERTEX_PROJECT")
+    monkeypatch.delenv("GEMINI_API_KEY")
+    assert not gemini.configured()
+    with pytest.raises(gemini.GeminiError, match="neither GEMINI_VERTEX_PROJECT nor"):
+        gemini.endpoint("gemini-x")
+
+
+def test_a_server_on_vertex_needs_no_key(monkeypatch):
+    from grocery_app.api import jobs
+
+    monkeypatch.setenv("GEMINI_VERTEX_PROJECT", "my-proj")
+    assert jobs.configured_extractor("gemini").__qualname__.startswith("gemini_reader")
