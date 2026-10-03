@@ -2,8 +2,9 @@
 # Build the server image from this checkout and roll it out to Cloud Run.
 #
 # One-time setup (the database, the bucket, the secrets) is in
-# docs/designs/backend-api.md, "Phase 3". This script is the part that repeats:
-# run it from the repo root after a merge to main.
+# docs/designs/backend-api.md, "Phase 3". This script is the part that repeats.
+# GitHub Actions runs it after every green merge to main
+# (.github/workflows/deploy.yml); by hand, run it from the repo root.
 #
 #   GROCERY_PROJECT=<gcp project id> scripts/deploy.sh
 set -eu
@@ -23,7 +24,7 @@ REGION=${GROCERY_REGION:-europe-west3}
 # The bucket is mounted where the code expects data/: photos in data/uploads,
 #   the ALDI crawl in data/products, the model caches in data/matched and
 #   data/identified. uid 1000 is the image's user.
-gcloud run deploy grocery \
+gcloud run deploy grocery --quiet \
   --source . \
   --project "$PROJECT" --region "$REGION" \
   --allow-unauthenticated \
