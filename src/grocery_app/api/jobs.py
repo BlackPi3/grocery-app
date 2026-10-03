@@ -96,12 +96,13 @@ def configured_extractor(reader: str | None = None) -> Extractor:
 
         return claude_code_reader()
     if reader == "gemini":
+        from grocery_app import gemini
         from grocery_app.extract import gemini_reader
 
-        # The key is read once, here: a server without it refuses to start
-        # reading rather than failing every upload.
-        if not os.environ.get("GEMINI_API_KEY"):
-            raise ValueError(f"{READER_ENV}=gemini needs GEMINI_API_KEY")
+        # Checked once, here: a server with no way in to Gemini refuses to
+        # start reading rather than failing every upload.
+        if not gemini.configured():
+            raise ValueError(f"{READER_ENV}=gemini needs GEMINI_VERTEX_PROJECT or GEMINI_API_KEY")
         return gemini_reader()
     return anthropic_extractor()
 

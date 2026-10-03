@@ -6,7 +6,8 @@
 # code only, so it is safe to build from the public repo.
 #
 # Configuration is environment only: DATABASE_URL, GROCERY_TOKEN (the
-# password), GEMINI_API_KEY, GROCERY_READER/GROCERY_MATCHER/GROCERY_IDENTIFY.
+# password), GEMINI_VERTEX_PROJECT (or GEMINI_API_KEY),
+# GROCERY_READER/GROCERY_MATCHER/GROCERY_IDENTIFY.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1

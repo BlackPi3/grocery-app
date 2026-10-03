@@ -3,7 +3,9 @@ name = "grocery-app"
 version = "0.1.0"
 description = "Grocery receipt extraction, normalization, and purchase-history insights"
 requires-python = ">=3.11"
-dependencies = ["anthropic>=1.4", "pillow>=10", "beautifulsoup4>=4.12"]
+# google-auth signs Gemini calls through Vertex AI (gemini.py); requests is its transport.
+dependencies = ["anthropic>=1.4", "pillow>=10", "beautifulsoup4>=4.12", "google-auth>=2.30",
+                "requests>=2.31"]
 
 [project.scripts]
 grocery-app = "grocery_app.cli:main"

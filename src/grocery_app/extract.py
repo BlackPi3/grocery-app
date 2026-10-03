@@ -447,13 +447,12 @@ def gemini_reader(model: str = GEMINI_MODEL, api_key: str | None = None,
     What decides the reading is shared with `extract_receipt`: the photo is
     prepared by `prepare_image`, the model gets `SYSTEM_PROMPT` and must
     answer in `RECEIPT_SCHEMA`, and `parse_model_output` turns the answer into
-    a receipt. Only the transport differs. The key is `GEMINI_API_KEY`.
+    a receipt. Only the transport differs: Vertex AI or the Gemini API, as
+    `gemini.endpoint` decides.
     """
-    import os
-
     from grocery_app import gemini
 
-    key = api_key or os.environ.get("GEMINI_API_KEY")
+    key = api_key
 
     def read(image_path: str | Path) -> Extraction:
         image_path = Path(image_path)

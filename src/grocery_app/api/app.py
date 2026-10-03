@@ -356,7 +356,7 @@ GEMINI_MODEL = "gemini-3.8-flash"
 
 def identify_reader_kind(kind: str | None = None) -> str:
     """`kind`, else `GROCERY_IDENTIFY`, else Gemini; refuses anything else, and
-    Gemini without `GEMINI_API_KEY`, before a server starts rather than on the
+    Gemini with no way in (`gemini.configured`), before a server starts rather than on the
     first upload."""
     import os
 
@@ -364,8 +364,10 @@ def identify_reader_kind(kind: str | None = None) -> str:
     if kind not in IDENTIFY_READERS:
         raise SystemExit(f"unknown identify reader {kind!r}: expected "
                          f"{', '.join(IDENTIFY_READERS)}")
-    if kind == "gemini" and not os.environ.get("GEMINI_API_KEY"):
-        raise SystemExit("identify reads with Gemini, and GEMINI_API_KEY is not set: set it, "
+    from grocery_app import gemini
+
+    if kind == "gemini" and not gemini.configured():
+        raise SystemExit(f"identify reads with Gemini, and {gemini.NOT_CONFIGURED}: set one, "
                          "or GROCERY_IDENTIFY=claude-code to read on the subscription")
     return kind
 
@@ -378,14 +380,16 @@ MATCHERS = ("claude-code", "gemini")
 
 def matcher_kind(kind: str | None = None) -> str:
     """`kind`, else `GROCERY_MATCHER`, else `claude-code`; refuses anything
-    else, and Gemini without `GEMINI_API_KEY`, before a server starts."""
+    else, and Gemini with no way in (`gemini.configured`), before a server starts."""
     import os
 
     kind = kind or os.environ.get("GROCERY_MATCHER", "claude-code")
     if kind not in MATCHERS:
         raise SystemExit(f"unknown matcher {kind!r}: expected {', '.join(MATCHERS)}")
-    if kind == "gemini" and not os.environ.get("GEMINI_API_KEY"):
-        raise SystemExit("the matcher asks Gemini, and GEMINI_API_KEY is not set: set it, "
+    from grocery_app import gemini
+
+    if kind == "gemini" and not gemini.configured():
+        raise SystemExit(f"the matcher asks Gemini, and {gemini.NOT_CONFIGURED}: set one, "
                          "or GROCERY_MATCHER=claude-code to ask on the subscription")
     return kind
 

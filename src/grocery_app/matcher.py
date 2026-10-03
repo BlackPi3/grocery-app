@@ -563,7 +563,8 @@ class GeminiDecider:
 
     The same contract as `ClaudeCodeDecider`: (system, prompt, schema) -> the
     structured answer, cached under `<cache_dir>/gemini-<model>[-search]/
-    <version>/`, so re-scoring costs nothing. The key is `GEMINI_API_KEY`.
+    <version>/`, so re-scoring costs nothing. Vertex AI or the Gemini API,
+    as `gemini.endpoint` decides.
 
     Searches cost money, so they are counted (what each call searched is kept
     in its cache file) and a run stops at `max_searches` rather than spend
@@ -582,15 +583,13 @@ class GeminiDecider:
 
     def __init__(self, model: str, cache_dir: str | Path, version: str, search: bool = True,
                  max_searches: int = 150, api_key: str | None = None, timeout_s: int = 180):
-        import os
-
         self.model = model
         self.cache = (Path(cache_dir) / f"gemini-{model}{'-search' if search else ''}"
                       / version)
         self.searches = search
         self.max_searches = max_searches
         self.searched = 0
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        self.api_key = api_key
         self.timeout_s = timeout_s
         self.last_search = Searched()
 

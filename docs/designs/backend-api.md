@@ -210,6 +210,10 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
   is mounted as the `data/` folder, so `DiskImageStore` and the model caches work
   unchanged and an `ImageStore` for object storage was not needed.
   `scripts/deploy.sh` builds and rolls out; why each flag is there is in the script.
+  Gemini runs through Vertex AI as the server's own account (`GEMINI_VERTEX_PROJECT`,
+  `gemini.py`), not with an AI Studio key: Vertex is billed to the project, so the
+  trial credit pays for it, and no key exists to leak. The project's org policy
+  forbids API keys bound to a service account, which is why it is a token, not a key.
   Known limits: a job runs in the server process, so a restart mid-read leaves it
   `running` (as on the laptop); the GLOBUS search cache starts empty and refills.
 
@@ -223,11 +227,13 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
   gcloud sql databases create grocery --instance=grocery
   gcloud sql users create grocery --instance=grocery --password=<db password>
   gcloud storage buckets create gs://<project>-grocery-data --location=europe-west3
-  # secrets: database-url, grocery-token, gemini-api-key; the database URL is
+  gcloud services enable aiplatform.googleapis.com
+  # secrets: database-url, grocery-token; the database URL is
   # postgresql+psycopg://grocery:<db password>@/grocery?host=/cloudsql/<project>:europe-west3:grocery
   gcloud iam service-accounts create grocery-server
-  # grocery-server gets roles/secretmanager.secretAccessor on the three secrets,
-  # roles/cloudsql.client, and roles/storage.objectAdmin on the bucket only
+  # grocery-server gets roles/secretmanager.secretAccessor on the two secrets,
+  # roles/cloudsql.client, roles/aiplatform.user, and roles/storage.objectAdmin
+  # on the bucket only
   # a new project's builds run as <number>-compute@developer.gserviceaccount.com,
   # which has no rights until it gets roles/cloudbuild.builds.builder
   ```
