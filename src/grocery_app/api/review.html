@@ -137,8 +137,23 @@ function toast(text) {
   toast.timer = setTimeout(() => { box.style.display = "none"; }, 3500);
 }
 
+// The server's password (GROCERY_TOKEN), typed once into the page and kept
+// on this phone. A server without one never answers 401, so nothing is asked.
+// A form, not prompt(): Safari and in-app browsers may never show a prompt.
+function savedToken() {
+  try { return localStorage.getItem("grocery-token") || ""; } catch (_) { return ""; }
+}
+
 async function api(path, options) {
-  const response = await fetch(path, options);
+  const opts = { ...(options || {}) };
+  const token = savedToken();
+  if (token) opts.headers = { ...(opts.headers || {}), Authorization: "Bearer " + token };
+  const response = await fetch(path, opts);
+  if (response.status === 401) {
+    const error = new Error(token ? "wrong password" : "password needed");
+    error.locked = true;
+    throw error;
+  }
   if (!response.ok) {
     let detail = response.statusText;
     try { detail = (await response.json()).detail || detail; } catch (_) { /* not JSON */ }
@@ -320,6 +335,21 @@ function receiptCard(summary) {
 // --- adding a receipt -----------------------------------------------------
 
 // Photo up, job id back, poll until it is read; then the receipt opens.
+// The job is kept on the phone while it runs: the server carries on whatever
+// the page does, so a reload or a closed tab picks the waiting up again.
+const JOB_KEY = "grocery-job";
+
+function savedJob() {
+  try { return JSON.parse(localStorage.getItem(JOB_KEY) || "null"); } catch (_) { return null; }
+}
+
+function keepJob(job) {
+  try {
+    if (job) localStorage.setItem(JOB_KEY, JSON.stringify(job));
+    else localStorage.removeItem(JOB_KEY);
+  } catch (_) { /* private mode: no resuming, nothing else lost */ }
+}
+
 async function upload(file) {
   if (!file) return;
   state.upload = { status: "uploading", name: file.name };
@@ -327,36 +357,72 @@ async function upload(file) {
   try {
     const body = new FormData();
     body.append("file", file);
-    let job = await api("/v1/receipts", { method: "POST", body });
-    while (job.status === "queued" || job.status === "running") {
-      state.upload = { status: "reading", name: file.name };
-      render();
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      job = await api(`/v1/jobs/${job.job_id}`);
-    }
-    if (job.status === "failed" || job.receipt_id == null) {
-      state.upload = { status: "failed", name: file.name, error: job.error || "not read" };
-      render();
-      return;
-    }
-    state.upload = null;
-    if (job.error) toast("Read, but matching failed: " + job.error);
-    await load();
-    state.tab = "receipts";
-    state.open = null;
-    await openReceipt(job.receipt_id);
+    const job = await api("/v1/receipts", { method: "POST", body });
+    await follow(job, file.name);
   } catch (error) {
     state.upload = { status: "failed", name: file.name, error: error.message };
     render();
   }
 }
 
+async function follow(job, name) {
+  // Timed from the server's clock, so a resumed wait shows the real time.
+  const started = Date.parse(job.created_at) || Date.now();
+  keepJob({ job_id: job.job_id, name });
+  try {
+    while (job.status === "queued" || job.status === "running") {
+      state.upload = { status: "reading", name, started };
+      render();
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      job = await api(`/v1/jobs/${job.job_id}`);
+    }
+  } catch (error) {
+    if (!error.locked) keepJob(null);  // a locked page resumes once unlocked
+    throw error;
+  }
+  keepJob(null);
+  if (job.status === "failed" || job.receipt_id == null) {
+    state.upload = { status: "failed", name, error: job.error || "not read" };
+    render();
+    return;
+  }
+  state.upload = null;
+  if (job.error) toast("Read, but matching failed: " + job.error);
+  await load();
+  state.tab = "receipts";
+  state.open = null;
+  await openReceipt(job.receipt_id);
+}
+
+// A receipt this phone sent and stopped watching (a reload, a closed tab).
+async function resumeJob() {
+  const kept = savedJob();
+  if (!kept) return;
+  state.tab = "add";
+  try {
+    const job = await api(`/v1/jobs/${kept.job_id}`);
+    await follow(job, kept.name);
+  } catch (error) {
+    if (error.locked) return;
+    state.upload = { status: "failed", name: kept.name, error: error.message };
+    render();
+  }
+}
+
+function elapsed(since) {
+  const seconds = Math.max(0, Math.round((Date.now() - since) / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
 function addView() {
   const u = state.upload;
   if (u && (u.status === "uploading" || u.status === "reading")) {
     return [el("div", { class: "card" },
-      el("h2", {}, u.status === "uploading" ? "Sending the photo…" : "Reading the receipt…"),
-      el("div", { class: "why" }, "This takes about half a minute. Keep this page open."))];
+      el("h2", {}, u.status === "uploading" ? "Sending the photo…"
+                                            : `Reading the receipt… ${elapsed(u.started)}`),
+      el("div", { class: "why" },
+        "Usually 1 to 2 minutes: the app reads the photo, then looks up the lines it " +
+        "does not know. You can leave this page; it picks up here when you come back."))];
   }
   const input = el("input", { type: "file", accept: "image/*" });
   input.addEventListener("change", () => upload(input.files[0]));
@@ -456,9 +522,30 @@ async function load() {
       state.receiptLines[state.open] = doc.lines;
     }
     render();
+    if (!state.upload) resumeJob();
   } catch (error) {
+    if (error.locked) return askPassword(error.message);
     document.getElementById("stats").textContent = "Cannot load: " + error.message;
   }
+}
+
+function askPassword(why) {
+  document.getElementById("stats").textContent = why === "wrong password"
+    ? "That password is wrong." : "This server needs its password.";
+  const field = el("input", { type: "password", autocomplete: "current-password",
+                              placeholder: "Password", autocapitalize: "off",
+                              autocorrect: "off", spellcheck: "false" });
+  const unlock = () => {
+    try { localStorage.setItem("grocery-token", field.value.trim()); } catch (_) { /* private mode */ }
+    document.getElementById("stats").textContent = "Loading…";
+    load();
+  };
+  field.addEventListener("keydown", e => { if (e.key === "Enter") unlock(); });
+  document.getElementById("view").replaceChildren(
+    el("div", { class: "card" }, field,
+       el("div", { class: "row", style: "margin-top: 10px" },
+          el("button", { class: "primary", onclick: unlock }, "Unlock"))));
+  field.focus();
 }
 
 for (const tab of TABS) {

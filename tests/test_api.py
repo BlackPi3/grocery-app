@@ -168,3 +168,31 @@ def test_the_repository_is_chosen_by_the_environment(tmp_path, monkeypatch):
 
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody@localhost:1/nothing")
     assert isinstance(default_repository(), PostgresRepository)
+
+
+# --- the password -------------------------------------------------------------
+
+def test_a_token_locks_every_v1_route_and_nothing_else():
+    locked = TestClient(create_app(InMemoryRepository(PURCHASES), token="s3cret"))
+
+    for path in ("/v1/purchases", "/v1/insights", "/v1/receipts", "/v1/questions"):
+        response = locked.get(path)
+        assert response.status_code == 401, path
+        assert response.json() == {"detail": "wrong or no token"}
+    assert locked.get("/v1/purchases",
+                      headers={"Authorization": "Bearer wrong"}).status_code == 401
+    assert locked.post("/v1/receipts", files={"file": ("r.jpg", b"x")}).status_code == 401, \
+        "an upload is refused before anything is read or stored"
+
+    allowed = locked.get("/v1/purchases", headers={"Authorization": "Bearer s3cret"})
+    assert allowed.status_code == 200
+    assert allowed.json()["meta"]["receipts"] == 2
+
+    # The page, the health check and the schema hold no history.
+    assert locked.get("/").status_code == 200
+    assert locked.get("/health").json()["receipts"] == 2
+    assert locked.get("/openapi.json").status_code == 200
+
+
+def test_without_a_token_the_routes_stay_open(client):
+    assert client.get("/v1/purchases").status_code == 200

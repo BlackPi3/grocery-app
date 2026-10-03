@@ -1,0 +1,7 @@
+# The image is built from code only; data/ never enters it.
+*
+!pyproject.toml
+!README.md
+!LICENSE
+!src/
+src/**/__pycache__

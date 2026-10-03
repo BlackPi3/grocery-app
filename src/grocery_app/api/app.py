@@ -13,15 +13,20 @@ do that" — rather than a route that half works.
 
 `extractor` has no default on purpose. A model call costs real money, so
 there is no argument a test can forget that would make one happen.
+
+`token` locks the `/v1` routes behind `Authorization: Bearer <token>`: one
+shopper, one password, from `GROCERY_TOKEN` (backend-api.md, phase 3). The
+page at `/`, `/health` and the schema stay open; they hold no history.
 """
 
 from __future__ import annotations
 
+import hmac
 from datetime import date
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Response, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from grocery_app.api.images import (
     ImageStore,
@@ -73,12 +78,27 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 def create_app(repository: Repository, image_store: ImageStore | None = None,
                extractor: Extractor | None = None,
                matcher: LineMatcher | None = None,
-               identify: LineIdentifier | None = None) -> FastAPI:
+               identify: LineIdentifier | None = None,
+               token: str | None = None) -> FastAPI:
     app = FastAPI(
         title="Grocery App API",
         version="0.1.0",
         summary="Item-level grocery purchase history and the insights computed from it.",
     )
+
+    if token:
+        expected = f"Bearer {token}".encode()
+
+        # A middleware rather than a dependency per route, so a route added
+        # later under /v1 cannot be added unlocked.
+        @app.middleware("http")
+        async def require_token(request: Request, call_next):
+            if request.url.path.startswith("/v1"):
+                given = request.headers.get("authorization", "").encode()
+                if not hmac.compare_digest(given, expected):
+                    return JSONResponse(status_code=401, content={"detail": "wrong or no token"},
+                                        headers={"WWW-Authenticate": "Bearer"})
+            return await call_next(request)
 
     # Corrections need a database. A photo needs that and somewhere to put the
     # bytes and something that can read them, so uploads are the stricter test.
@@ -305,11 +325,14 @@ def default_app() -> FastAPI:
     `DATABASE_URL` selects PostgreSQL; otherwise `GROCERY_PURCHASES` names the
     purchases.json to serve. This is the one place the real, paid extractor is
     wired in: `GROCERY_READER` picks the API (default) or `claude -p` on the
-    subscription, or `gemini`. `GROCERY_IMAGES` says where uploaded photos are
+    subscription, or `gemini`. `GROCERY_TOKEN`, when set, is the password the
+    `/v1` routes ask for. `GROCERY_IMAGES` says where uploaded photos are
     kept. The matcher asks the model `GROCERY_MATCHER` names
     (`matcher_decider`); identify reads and searches with `GROCERY_IDENTIFY`
     (`identify_decider`).
     """
+    import os
+
     from grocery_app import matcher as matching
 
     repository = default_repository()
@@ -319,7 +342,7 @@ def default_app() -> FastAPI:
     identifier = (line_identifier(identify_decider(), identify_searcher())
                   if type(repository).__name__ == "PostgresRepository" else None)
     return create_app(repository, default_image_store(), configured_extractor(), matcher,
-                      identifier)
+                      identifier, token=os.environ.get("GROCERY_TOKEN") or None)
 
 
 # Who reads and searches a line nothing else could place. Gemini through

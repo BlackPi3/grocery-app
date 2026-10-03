@@ -1,6 +1,7 @@
 # Design: The Backend
 
-Status: phases 0, 1 and 2 built (2026-09-20). Phase 3 is specified and not started.
+Status: phases 0, 1 and 2 built (2026-09-20). Phase 3: the password and the image built
+(2026-10-03); the server runs on Google Cloud.
 This is the document a future session picks up from; the checklist at the end says where.
 
 ## Why a backend
@@ -196,11 +197,44 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
 
 ### Phase 3: identity and deployment
 
-- **Auth**: one user, one bearer token from the environment, checked by a dependency
-  on every `/v1` route. Sign in with Apple comes with the iOS app, and a `users` table
-  with it; every table above gains a `user_id` then, not before.
-- **Deployment**: a `Dockerfile` (python:3.12-slim, `pip install .[api]`, uvicorn) and a
-  managed PostgreSQL. Fly.io or Railway both fit; the choice is cost, not architecture.
+- **Auth**: one user, one bearer token from `GROCERY_TOKEN`, checked by a middleware
+  on every `/v1` path (a middleware, so a new route cannot be added unlocked). The page
+  at `/`, `/health` and the schema stay open; the page asks for the password on the
+  first 401 and keeps it in the phone's `localStorage`. Without `GROCERY_TOKEN` the
+  routes are open, as on the laptop. Sign in with Apple comes with the iOS app, and a
+  `users` table with it; every table above gains a `user_id` then, not before.
+- **Deployment**: a `Dockerfile` (python:3.12-slim, `pip install .[api]`, uvicorn,
+  `db upgrade` before serving) on **Google Cloud** (decided 2026-10-03): Cloud Run,
+  Cloud SQL PostgreSQL, and a Cloud Storage bucket, in `europe-west3` (Frankfurt).
+  Nothing Google-only is in the code: the database is plain PostgreSQL, and the bucket
+  is mounted as the `data/` folder, so `DiskImageStore` and the model caches work
+  unchanged and an `ImageStore` for object storage was not needed.
+  `scripts/deploy.sh` builds and rolls out; why each flag is there is in the script.
+  Known limits: a job runs in the server process, so a restart mid-read leaves it
+  `running` (as on the laptop); the GLOBUS search cache starts empty and refills.
+
+  One-time setup, done once per project (`gcloud` logged in, project selected):
+
+  ```
+  gcloud services enable run.googleapis.com sqladmin.googleapis.com \
+      secretmanager.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+  gcloud sql instances create grocery --database-version=POSTGRES_16 \
+      --edition=enterprise --tier=db-f1-micro --region=europe-west3
+  gcloud sql databases create grocery --instance=grocery
+  gcloud sql users create grocery --instance=grocery --password=<db password>
+  gcloud storage buckets create gs://<project>-grocery-data --location=europe-west3
+  # secrets: database-url, grocery-token, gemini-api-key; the database URL is
+  # postgresql+psycopg://grocery:<db password>@/grocery?host=/cloudsql/<project>:europe-west3:grocery
+  gcloud iam service-accounts create grocery-server
+  # grocery-server gets roles/secretmanager.secretAccessor on the three secrets,
+  # roles/cloudsql.client, and roles/storage.objectAdmin on the bucket only
+  # a new project's builds run as <number>-compute@developer.gserviceaccount.com,
+  # which has no rights until it gets roles/cloudbuild.builds.builder
+  ```
+
+  Moving the laptop's data up: `pg_dump --no-owner --no-acl` of the local database,
+  restored through `cloud-sql-proxy`; and to the bucket, `data/uploads/`,
+  `data/products/aldi-sued/crawl.json`, `data/matched/` and `data/identified/`.
 - **The demo page**: keeps reading static JSON, with an optional `?api=` origin that
   fetches `/v1/purchases` and `/v1/insights` instead. Same documents, so no page
   change beyond the fetch URLs. The static copy remains the fallback for the
