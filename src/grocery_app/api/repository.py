@@ -24,6 +24,7 @@ from grocery_app.db.models import (
     Check,
     Correction,
     Job,
+    LineGuess,
     LineResolution,
     Product,
     Question,
@@ -195,8 +196,19 @@ class PostgresRepository:
         records = normalize_receipt(doc, inputs["resolution"], inputs["products"],
                                     inputs["line_resolutions"], inputs["shelf_prices"],
                                     inputs["authors"])
-        return {"receipt_id": row.id, "receipt": doc,
-                "lines": [{**record, "position": i} for i, record in enumerate(records)]}
+        guesses = {g.position: g for g in session.scalars(
+            select(LineGuess).where(LineGuess.receipt_id == row.id))}
+        lines = []
+        for i, record in enumerate(records):
+            line = {**record, "position": i}
+            guess = guesses.get(i)
+            if guess is not None:
+                line["first_guess"] = {
+                    "name": guess.name, "category": guess.category,
+                    "category_path": (list(categories.path(guess.category))
+                                      if guess.category in categories.CATEGORIES else None)}
+            lines.append(line)
+        return {"receipt_id": row.id, "receipt": doc, "lines": lines}
 
     def _get(self, session: Session, receipt_id: int) -> Receipt:
         row = session.get(Receipt, receipt_id)

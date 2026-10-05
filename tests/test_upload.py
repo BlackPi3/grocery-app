@@ -16,6 +16,7 @@ import io
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
+from sqlalchemy import select
 
 from grocery_app.api.app import MAX_UPLOAD_BYTES, create_app
 from grocery_app.api.images import DiskImageStore, sha256_of
@@ -294,6 +295,69 @@ def test_a_photo_gets_its_spot_checks_before_its_job_is_done(engine, session, tm
     (check,) = client.get("/v1/checks").json()["checks"]
     assert (check["receipt_id"], check["raw_name"], check["decided_by"]) == \
         (done["receipt_id"], "MU Butter", "matcher")
+
+
+# Two lines with the reading's first guesses, as `parse_model_output` leaves them.
+GUESSED = {
+    **RECEIPT, "printed_total": 4.29, "computed_total": 4.29,
+    "lines": [*RECEIPT["lines"],
+              {"type": "product", "raw_name": "MU BLUETENHONIG", "qty": 1, "gross": 3.0,
+               "discount": 0.0, "net": 3.0, "tax_class": "A"}],
+    "first_guesses": [{"name": "Butter", "category": "butter"},
+                      {"name": "Blütenhonig", "category": "honig"}],
+}
+
+
+def test_a_receipt_shows_with_its_guesses_while_its_lines_are_still_placed(
+        engine, session, tmp_path):
+    """The phone waited minutes for the whole job. Now the receipt is
+    committed, with a guess per line, as soon as the photo is read, and each
+    line as soon as it is placed. The matcher looks from outside the job's
+    transaction, the way the phone's poll does."""
+    from grocery_app.db.models import Job
+
+    repository = PostgresRepository(make_session_factory(engine))
+    session.add(Product(id="p-0001", name="Butter", brand="Muster"))
+    session.commit()
+    seen = []
+
+    def matcher(line, store, inputs):
+        with make_session_factory(engine)() as outside:
+            (receipt_id,) = outside.scalars(select(Job.receipt_id)).all()
+        assert receipt_id is not None, "the job names its receipt before matching"
+        lines = repository.receipt(receipt_id)["lines"]
+        seen.append([(x["first_guess"]["name"], x["resolution"]) for x in lines])
+        return {"verdict": "accept", "pick": {"product_id": "p-0001"}, "versions": [],
+                "candidates": [], "creates": []}
+
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path),
+                                   FakeExtractor(GUESSED), matcher))
+    job = client.post("/v1/receipts", files={"file": ("image.jpg", a_photo(), "image/jpeg")})
+    done = client.get(f"/v1/jobs/{job.json()['job_id']}").json()
+
+    assert (done["status"], done["error"]) == ("done", None)
+    assert seen == [[("Butter", "none"), ("Blütenhonig", "none")],
+                    [("Butter", "exact"), ("Blütenhonig", "none")]], \
+        "the first line is visible as placed while the second is matched"
+
+
+def test_a_guess_is_shown_but_never_counted(engine, tmp_path):
+    """A line nothing placed shows the guess on its receipt; the history and
+    the insights rest only on what was placed."""
+    repository = PostgresRepository(make_session_factory(engine))
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path),
+                                   FakeExtractor(GUESSED)))
+    job = client.post("/v1/receipts", files={"file": ("image.jpg", a_photo(), "image/jpeg")})
+    receipt_id = client.get(f"/v1/jobs/{job.json()['job_id']}").json()["receipt_id"]
+
+    honey = client.get(f"/v1/receipts/{receipt_id}").json()["lines"][1]
+    assert honey["resolution"] == "none"
+    assert honey["first_guess"] == {
+        "name": "Blütenhonig", "category": "honig",
+        "category_path": ["Brot, Aufstriche & Cerealien", "Aufstriche", "Honig & Sirup"]}
+
+    served = client.get("/v1/purchases").json()["purchases"]
+    assert all("first_guess" not in p and p.get("category_path") is None for p in served)
 
 
 def test_the_phone_page_finds_what_it_reads_after_an_upload(uploads):

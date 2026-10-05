@@ -31,15 +31,16 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app.api.images import ImageStore
 from grocery_app.db.io import receipt_from_dict
-from grocery_app.db.models import Job
+from grocery_app.db.models import Job, LineGuess
 
 __all__ = ["Extractor", "anthropic_extractor", "configured_extractor", "job_to_dict",
            "run_job"]
 
 # Derived at extraction time from the lines and the printed total. The receipt
-# tables hold what the paper says; these two are a reading of it, recomputable,
-# and there is no column for them on purpose.
-DERIVED_KEYS = ("computed_total", "reconciled")
+# tables hold what the paper says; these are a reading of it, and there is no
+# column for them on purpose. The first guesses are stored, but apart
+# (`LineGuess`).
+DERIVED_KEYS = ("computed_total", "reconciled", "first_guesses")
 
 
 class Extraction(Protocol):
@@ -142,12 +143,21 @@ def _store_receipt(session: Session, job: Job, extraction: Extraction) -> None:
     session.add(receipt)
     session.flush()
     job.receipt_id = receipt.id
+    reading = f"{job.model} {job.prompt_version}"
+    for position, guess in enumerate(extraction.receipt.get("first_guesses") or []):
+        session.add(LineGuess(receipt_id=receipt.id, position=position, name=guess.get("name"),
+                              category=guess.get("category"), reading=reading))
 
 
 def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
             extractor: Extractor, job_id: str, matcher: Any | None = None,
             identify: Any | None = None) -> None:
     """Extract one photo and record what happened, whatever happens.
+
+    The receipt is committed, with its first guesses, as soon as the photo is
+    read, and each line as soon as it is placed: a client polling the job sees
+    `receipt_id` while the job still runs, and can show the receipt filling in
+    rather than wait minutes for all of it.
 
     With a `matcher` (`api.matching.line_matcher`), the lines the memory cannot
     place are matched before the job is `done`, so a client polling the job
@@ -201,7 +211,8 @@ def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
             from grocery_app.api.matching import match_receipt
 
             try:
-                match_receipt(session, job.receipt_id, matcher, identify)
+                match_receipt(session, job.receipt_id, matcher, identify,
+                              checkpoint=session.commit)
                 session.commit()
             except Exception as exc:  # noqa: BLE001 - the receipt stands without matching
                 session.rollback()

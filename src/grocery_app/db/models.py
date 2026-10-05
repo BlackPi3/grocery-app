@@ -177,6 +177,26 @@ class LineResolution(Base):
     shopper_words: Mapped[str | None] = mapped_column(String)
 
 
+class LineGuess(Base):
+    """What the photo reading guessed a line is, before anything placed it.
+
+    Shown while the lines are still being placed, and after that for a line
+    nothing placed. Never read by the normalizer: a guess is not a product,
+    and the history and the insights rest only on what was placed. Kept out
+    of `receipt_lines` because those columns hold what the paper prints.
+    """
+
+    __tablename__ = "line_guesses"
+    __table_args__ = (UniqueConstraint("receipt_id", "position"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    receipt_id: Mapped[int] = mapped_column(ForeignKey("receipts.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str | None] = mapped_column(String)
+    category: Mapped[str | None] = mapped_column(String)  # a categories.CATEGORIES key
+    reading: Mapped[str | None] = mapped_column(String)  # model and prompt version
+
+
 class Correction(Base):
     """A machine's answer for a line that the shopper overruled.
 

@@ -29,6 +29,8 @@ from typing import Any
 import anthropic
 from PIL import Image, ImageOps
 
+from grocery_app import categories
+
 # Measured on the held-out set: Sonnet 5 made 1 error in 180 lines to Opus 5's 6,
 # at half the cost. Opus tends to "repair" what it reads (brand names corrected
 # into dictionary words, suffixes dropped), which is wrong for transcription.
@@ -36,7 +38,9 @@ from PIL import Image, ImageOps
 DEFAULT_MODEL = "claude-sonnet-5"
 # v2 (2026-10-03): the article-number column, the two-digit year and the logo
 # store name, after Gemini's first run on the 27 hand-verified receipts.
-PROMPT_VERSION = "v2"
+# v3 (2026-10-05): a first guess per line (plain name, category), so the phone
+# shows a readable receipt while the lines are still being placed.
+PROMPT_VERSION = "v3"
 
 # Server-side refusal fallbacks are only accepted on these models; Sonnet and
 # Haiku reject the parameter with a 400.
@@ -54,6 +58,15 @@ PRICES_PER_MTOK: dict[str, dict[str, float]] = {
     "claude-sonnet-5": {"input": 2.0, "output": 10.0, "cache_write": 2.5, "cache_read": 0.2},
     "claude-haiku-4-5": {"input": 1.0, "output": 5.0, "cache_write": 1.25, "cache_read": 0.1},
 }
+
+# The closed vocabulary (`categories.CATEGORIES`), one line per key, for rule 9.
+# Written into the prompt rather than left to the schema's enum alone: the
+# keys are ascii (`kaltgetraenke`) and the German label is what makes them
+# readable.
+CATEGORY_LINES = "\n".join(f"   {key}: {label}"
+                           for key, (label, _section, _aliases) in categories.CATEGORIES.items())
+# The category a line's name does not tell; stored as no category.
+UNKNOWN_CATEGORY = "unknown"
 
 SYSTEM_PROMPT = """\
 You transcribe photographed German grocery receipts into structured JSON. The
@@ -116,10 +129,26 @@ Rules, in priority order:
      prints net and VAT separately, add them. Omit rates not printed. Null if
      there is no summary.
 
+9. Two fields per line are your reading of the item, not a transcription:
+   the shopper sees them while the app is still working out each line. They
+   never change what you write in `raw_name`.
+   - `guess_name`: what the item most likely is, in plain German, as a
+     shopping list would say it: `BIO BLÜTENHONIG` -> `Bio-Blütenhonig`,
+     `SAATENBR?TCHEN` -> `Saatenbrötchen`, `Tragetasche Altp` ->
+     `Tragetasche`. Two or three words. Add a brand only when the line prints
+     one. If you cannot tell what it is, write the printed name tidied up
+     rather than invent something.
+   - `guess_category`: the one category below that fits, or `unknown` when
+     the name does not say. Deposit lines: `guess_name` "Pfand",
+     `guess_category` `unknown`.
+
+   Categories (key, then what it means):
+{categories}
+
 Numbers use a decimal point, never a comma, and carry two decimals. Ignore
 everything that is not an item line, the header, or the totals: cashier names,
 loyalty programme text, payment method, footer messages.
-"""
+""".replace("{categories}", CATEGORY_LINES)
 
 LINE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -136,10 +165,14 @@ LINE_SCHEMA: dict[str, Any] = {
         "discount": {"type": "number"},
         "net": {"type": "number"},
         "tax_class": {"type": ["string", "null"]},
+        "guess_name": {"type": "string"},
+        "guess_category": {"type": "string",
+                           "enum": [*categories.CATEGORIES, UNKNOWN_CATEGORY]},
     },
     "required": [
         "type", "raw_name", "qty", "sold_by_weight", "weight_kg", "unit_price",
         "unit_price_basis", "unit_gross", "gross", "discount", "net", "tax_class",
+        "guess_name", "guess_category",
     ],
     "additionalProperties": False,
 }
@@ -230,8 +263,25 @@ def _tidy_line(line: dict[str, Any]) -> dict[str, Any]:
     return tidy
 
 
+def _first_guess(line: dict[str, Any]) -> dict[str, Any]:
+    """Rule 9's two fields, kept apart from the truth-shaped line.
+
+    A category outside the vocabulary is dropped rather than kept: the schema
+    forbids one, but `claude -p` is only asked to follow it.
+    """
+    category = line.get("guess_category")
+    return {"name": (line.get("guess_name") or "").strip() or None,
+            "category": category if category in categories.CATEGORIES else None}
+
+
 def parse_model_output(text: str, source_image: str) -> dict[str, Any]:
-    """Turn the model's JSON text into a receipt in the truth shape."""
+    """Turn the model's JSON text into a receipt in the truth shape.
+
+    Beside it, under `first_guesses` (one per line, in order), the model's
+    plain name and category for each line. Like `computed_total`, that is a
+    reading of the paper and not part of it, so nothing that stores the
+    receipt as truth keeps it.
+    """
     try:
         raw = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -253,6 +303,8 @@ def parse_model_output(text: str, source_image: str) -> dict[str, Any]:
         }
     if raw.get("printed_savings") is not None:
         receipt["printed_savings"] = round(raw["printed_savings"], 2)
+
+    receipt["first_guesses"] = [_first_guess(line) for line in raw["lines"]]
 
     computed = round(sum(line["net"] for line in receipt["lines"]), 2)
     receipt["computed_total"] = computed

@@ -142,15 +142,30 @@ class InsightsDocument(BaseModel):
     cross_store: dict[str, Any]
 
 
+class FirstGuess(BaseModel):
+    """What the photo reading guessed a line is, before anything placed it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None
+    category: str | None
+    category_path: list[str] | None
+
+
 class ReceiptLineView(Purchase):
     """A normalized line, with the position the correction routes address it by.
 
     `position` is not part of the purchases contract — it is how a client
     names one line of one receipt, and `normalize_receipt` emits exactly one
     record per printed line, in order, so the index is the position.
+
+    `first_guess` is not part of it either, on purpose: it is the reading's
+    guess, shown while a line is not placed, and the history never counts it.
+    Only receipts read since prompt v3 have one.
     """
 
     position: int
+    first_guess: FirstGuess | None = None
 
 
 class ReceiptDocument(BaseModel):
@@ -335,7 +350,9 @@ class JobDocument(BaseModel):
     status: Literal["queued", "running", "done", "failed"]
     image_sha256: str
     original_filename: str | None
-    receipt_id: int | None = Field(description="The receipt, once the job is done")
+    receipt_id: int | None = Field(
+        description="The receipt, as soon as the photo is read: lines are still being "
+                    "placed until the job is done")
     model: str | None
     prompt_version: str | None
     cost_usd: float | None
