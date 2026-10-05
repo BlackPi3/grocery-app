@@ -13,14 +13,20 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 
 ## Current state (work in progress)
 
+**Stage, 4 October 2026: first real use.** The server is online on Google Cloud, behind a password, and
+every merge to `main` deploys it. From my phone I photograph a receipt, Gemini reads it, and the app
+matches each line to a product or asks me when it is not sure. Now I use it for every shop; what goes
+wrong in real use decides the next fixes. The iOS app comes after.
+
 - **Receipts**: `data/receipts/` holds the photos, one verified transcription per receipt (`truth/`, the schema everything downstream reads), and the hand-typed sources those were converted from (`transcripts/`). All gitignored: it is my own shopping.
-- **Extraction**: `grocery-app extract` reads a photo with a vision model into the same schema; results are cached under `data/extracted/<model>/<prompt version>/` with their cost.
+- **Extraction**: `grocery-app extract` reads a photo with a vision model (Claude or Gemini) into the same schema; results are cached under `data/extracted/<model>/<prompt version>/` with their cost. The server reads with Gemini: on the verified receipts it got 22 of 27 fully right, with every price right.
 - **Catalog**: `grocery-app catalog` fetches real products from the retailer (GLOBUS's category listings; ALDI Süd's JSON API, per branch), so the catalog comes from the store instead of being guessed from receipt abbreviations. Output is gitignored.
 - **Normalization**: a Python layer that resolves raw receipt lines to products, split across `data/products/`: `products.json` (what a product is), `resolution.json` (which receipt text means which product — or which *family* of products, when the till prints one name for several — store-scoped and with provenance), `<store>/listings.json` (what one store sells it as, with price history), and `data/receipts/line_resolutions.json` (the shopper's own answer for a line the receipt could not pin down). The full tree is in `docs/data-layout.md`.
 - **Enrichment**: `grocery-app enrich` fills what a store listing never says (category, organic label, Nutri-Score, NOVA group) from [Open Food Facts](https://openfoodfacts.org) by barcode, only where the product has no confirmed value. Open Food Facts data is licensed under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/).
 - **Purchase history**: `purchases.json`, built from the extracted receipts by the normalization layer.
 - **Insights**: `grocery-app insights` reads purchases.json and writes `insights.json`: repurchase cadence with an expected next date, price over time per product, a personal basket index (last month's repeat basket priced at this month's prices), budget vs name brand share, and the same item across stores. Every figure carries the coverage it rests on.
 - **API**: `grocery-app serve` exposes the same two documents over HTTP (`/v1/purchases`, `/v1/insights`, OpenAPI at `/docs`), from the JSON files or from PostgreSQL (`grocery-app db upgrade`, `db import`, `db export`); the same normalizer runs either way, and a test proves the two agree. With PostgreSQL it also takes photos: `POST /v1/receipts` stores the image, returns a job id, and extracts in the background; `GET /v1/jobs/{id}` reports `queued` / `running` / `done` / `failed` with the model's cost. One photo is never extracted twice. A shopper can read a receipt back (`GET /v1/receipts/{id}`), say what a line actually was (`PUT .../lines/{position}/resolution`), and mark a receipt as a duplicate (`PATCH /v1/receipts/{id}`). Every line says who said what it is (`said_by`: you or the app), two random lines the app placed itself per uploaded receipt are put to the shopper as spot checks (`GET /v1/checks`, with the app's mistake rate), and a phone-sized review page at `/` shows both — the corrections land in `line_resolutions` and `db export` writes them back out for the catalog loop. The plan, and what is deliberately not done yet, is in `docs/designs/backend-api.md`.
+- **Deployment**: one Docker image on Cloud Run, with Cloud SQL (PostgreSQL) and the photos in Cloud Storage, all in Frankfurt. One password guards every route; there are no user accounts yet. GitHub Actions deploys `main` after its tests pass, signing in to Google without a stored key (Workload Identity Federation).
 - **Demo**: a self-contained static web page (`web/index.html`) presenting the history and the insights in a mobile-style layout, live at **https://blackpi3.github.io/grocery-app/**. The two JSON files it reads are my real shopping history, published deliberately.
 
 ## Produce
@@ -63,21 +69,18 @@ From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insig
 
 ## Next
 
-- **Done:** the extraction call is in the pipeline — `grocery-app extract` turns a photo into
-  structured JSON, scored by `grocery-app eval` against the verified receipts (17 of the 26
-  were hand-transcribed, across 6 chains). Measured at 1 error in 180 line items. See
-  `docs/designs/receipt-ingestion-pipeline.md` for the numbers and
-  `docs/receipt-quirks.md` for what real receipts turned out to require.
-- **In progress:** product normalization. Extraction produces raw receipt text; only 4 of 154 item
-  names resolve against the current catalog. The catalog is now sourced from the retailer rather
-  than derived from receipts; next is proposing matches and confirming them by hand to form the
-  resolution eval set. See `docs/designs/product-normalization.md`.
-- **In progress:** the backend. Phase 0 (a read-only FastAPI layer over the JSON files, with a
-  strict schema for the purchase record) is in; phases 1 to 3 (PostgreSQL, receipt upload and
-  line corrections, auth and deployment) are specified in `docs/designs/backend-api.md`.
-- Test suite around the normalization layer, then CI on every push.
-- **Done:** the first insights, computed from purchases.json alone (see "What it says today").
-- Next on the insights: roll spend and cadence up by category now that every resolved line carries one, and resolve the last stores so the cross-store comparison has more than eleven products.
+- **Done:** reading receipts. `grocery-app extract` turns a photo into structured JSON, scored by
+  `grocery-app eval` against the verified receipts. See `docs/designs/receipt-ingestion-pipeline.md`
+  for the numbers and `docs/receipt-quirks.md` for what real receipts turned out to require.
+- **Done:** a catalog that grows itself: a memory of confirmed answers, the produce vocabulary, and a
+  matcher that picks among real products and asks when it is not sure. See `docs/designs/catalog-growth.md`
+  and `docs/designs/what-a-line-is.md`.
+- **Done:** the backend, phases 0 to 3: PostgreSQL, photo upload, corrections, a password, and the
+  deployment above. See `docs/designs/backend-api.md`.
+- **Now:** real use. Every new receipt goes in from the phone, and real cases decide what to fix.
+- **After:** the iOS app, on the same API.
+- Later on the insights: roll spend and cadence up by category, and resolve the last stores so the
+  cross-store comparison has more than eleven products.
 
 ## Run locally
 
@@ -115,7 +118,8 @@ grocery-app serve --host 0.0.0.0 --reader claude-code
 
 Extraction calls the Claude API and reads `ANTHROPIC_API_KEY` from the environment;
 `--reader gemini` (or `GROCERY_READER=gemini`) reads with Gemini instead, and
-`GROCERY_MATCHER=gemini` matches with it, both on `GEMINI_API_KEY`.
+`GROCERY_MATCHER=gemini` matches with it, both on `GEMINI_API_KEY`, or through Vertex AI
+when `GEMINI_VERTEX_PROJECT` is set (that is how the server runs).
 
 ## Development
 
