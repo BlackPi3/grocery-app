@@ -177,6 +177,23 @@ class LineResolution(Base):
     shopper_words: Mapped[str | None] = mapped_column(String)
 
 
+class UncountedLine(Base):
+    """A line the shopper left out of their numbers, with one tap: a wine
+    bought for a friend, a mistake. No reason is asked (Parham, 2026-10-05).
+    It stays on the receipt and in the prices; `raw_name` binds the mark to
+    the line's text, as a line answer is bound."""
+
+    __tablename__ = "uncounted_lines"
+    __table_args__ = (UniqueConstraint("receipt_id", "position"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    receipt_id: Mapped[int] = mapped_column(ForeignKey("receipts.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(Integer)
+    raw_name: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 server_default=func.now())
+
+
 class LineGuess(Base):
     """What the photo reading guessed a line is, before anything placed it.
 

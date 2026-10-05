@@ -190,7 +190,7 @@ def test_a_job_outlives_the_receipt_it_produced(session):
 def _paths(root):
     return (root / "receipts" / "truth", root / "products" / "products.json",
             root / "products" / "resolution.json", root / "receipts" / "line_resolutions.json",
-            root / "products")
+            root / "products", root / "receipts" / "uncounted_lines.json")
 
 
 def test_import_then_serve_matches_the_files(engine, session, data):
@@ -202,7 +202,8 @@ def test_import_then_serve_matches_the_files(engine, session, data):
     summary = import_data(session, *_paths(data))
     session.commit()
     assert {k: v["added"] for k, v in summary.items() if isinstance(v, dict)} == {
-        "products": 2, "receipts": 2, "resolutions": 2, "listings": 1, "line_resolutions": 1}
+        "products": 2, "receipts": 2, "resolutions": 2, "listings": 1, "line_resolutions": 1,
+        "uncounted_lines": 1}
     assert summary["line_resolutions_skipped"] == []
 
     from_files = build_purchases(*_paths(data))
@@ -238,14 +239,14 @@ def test_export_reproduces_the_files(session, data, tmp_path):
 
     from grocery_app.db.io import export_data, import_data
     from grocery_app.normalizer import build_purchases, receipt_files
-    from tests.conftest import LINE_RESOLUTIONS, LISTINGS, PRODUCTS, RESOLUTION
+    from tests.conftest import LINE_RESOLUTIONS, LISTINGS, PRODUCTS, RESOLUTION, UNCOUNTED
 
     import_data(session, *_paths(data))
     session.commit()
     out = tmp_path / "export"
     counts = export_data(session, out)
     assert counts == {"receipts": 2, "products": 2, "resolutions": 2, "listings": 1,
-                      "line_resolutions": 1, "corrections": 0}
+                      "line_resolutions": 1, "uncounted_lines": 1, "corrections": 0}
 
     def load(path):
         return json.loads(path.read_text(encoding="utf-8"))
@@ -260,6 +261,7 @@ def test_export_reproduces_the_files(session, data, tmp_path):
         LISTINGS["listings"]
     assert load(out / "receipts" / "line_resolutions.json")["entries"] == \
         LINE_RESOLUTIONS["entries"]
+    assert load(out / "receipts" / "uncounted_lines.json")["entries"] == UNCOUNTED["entries"]
     assert build_purchases(*_paths(out)) == build_purchases(*_paths(data))
 
 
@@ -271,7 +273,7 @@ def test_purchases_are_derived_on_every_call_not_stored(engine, session, data):
 
     # Without the line answers, so the only thing that resolves Geheimnis here
     # is the catalog entry this test adds.
-    receipts, products, resolution, _, products_dir = _paths(data)
+    receipts, products, resolution, _, products_dir, _ = _paths(data)
     import_data(session, receipts, products, resolution, data / "absent.json", products_dir)
     session.commit()
     repository = PostgresRepository(make_session_factory(engine))
@@ -302,7 +304,7 @@ def test_an_answer_for_an_unknown_receipt_is_reported_not_applied(session, data,
         {"source_image": "IMG_404.jpeg", "line_index": 0, "raw_name": "Geheimnis",
          "product_id": "p-0001", "confirmed_by": "test", "confirmed_at": "2026-02-06",
          "basis": "memory"}]}), encoding="utf-8")
-    receipts, products, resolution, _, products_dir = _paths(data)
+    receipts, products, resolution, _, products_dir, _ = _paths(data)
 
     summary = import_data(session, receipts, products, resolution, answers, products_dir)
     session.commit()
@@ -318,11 +320,11 @@ def test_the_cli_imports_and_exports_the_same_data(data, tmp_path, monkeypatch, 
     from grocery_app.cli import main
     from grocery_app.normalizer import build_purchases
 
-    receipts, products, resolution, answers, products_dir = _paths(data)
+    receipts, products, resolution, answers, products_dir, uncounted = _paths(data)
     out = tmp_path / "exported"
     common = ["--url", URL, "--receipts-dir", str(receipts), "--products", str(products),
               "--resolution", str(resolution), "--line-resolutions", str(answers),
-              "--products-dir", str(products_dir)]
+              "--products-dir", str(products_dir), "--uncounted", str(uncounted)]
 
     monkeypatch.setattr(sys, "argv", ["grocery-app", "db", "import", *common])
     main()

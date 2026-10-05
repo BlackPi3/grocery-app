@@ -31,7 +31,9 @@ from pydantic import BaseModel, ConfigDict, Field
 # is, `you` or `app`, so a reader can tell a confirmed answer from a guess.
 # And to 6 on 2026-10-01: `sold_as` says how the line was sold, loose or a
 # pack of some size; the product stays one thing.
-PURCHASES_CONTRACT_VERSION = 6
+# And to 7 on 2026-10-05: `not_counted` marks a line the shopper left out of
+# their numbers with one tap.
+PURCHASES_CONTRACT_VERSION = 7
 #
 # Insights bumped to 3 on 2026-09-29: lines known not to be groceries (café,
 # flowers, cards) left every insight, so `coverage.spend` means grocery spend,
@@ -40,7 +42,11 @@ PURCHASES_CONTRACT_VERSION = 6
 # Insights bumped to 4 on 2026-10-01: price changes and the basket compare
 # like with like (loose with loose, packs with packs), so an entry carries
 # `sold_as` and the basket names product and form.
-INSIGHTS_CONTRACT_VERSION = 4
+#
+# Insights bumped to 5 on 2026-10-05: lines the shopper marked `not_counted`
+# leave spend, cadence, the basket and the budget-brand share (they still
+# count as prices), and `coverage.not_counted` says what was left out.
+INSIGHTS_CONTRACT_VERSION = 5
 
 
 class UnitPrice(BaseModel):
@@ -104,6 +110,11 @@ class Purchase(BaseModel):
     category_path: list[str] | None = None
     is_budget_brand: bool | None = None
     is_organic: bool | None = None
+    not_counted: bool | None = Field(
+        default=None,
+        description="Present and true when the shopper left this line out of their numbers "
+                    "(bought for someone else, a mistake): it stays on the receipt and in "
+                    "price comparisons, and leaves spend, habits and the basket")
 
 
 class PurchasesMeta(BaseModel):
@@ -280,7 +291,9 @@ class ReceiptSummary(BaseModel):
     product_lines: int
     said_by_you: int
     said_by_app: int
-    unplaced: int
+    unplaced: int = Field(description="Product lines nothing placed, not counting those the "
+                                      "shopper left out")
+    not_counted: int = Field(description="Product lines the shopper left out of their numbers")
 
 
 class ProductMatch(BaseModel):
@@ -323,6 +336,14 @@ class QuestionsDocument(BaseModel):
 
     meta: QuestionsMeta
     questions: list[Question]
+
+
+class LineCountedRequest(BaseModel):
+    """One tap on a line: leave it out of my numbers (`false`), or count it again."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    counted: bool
 
 
 class ReceiptPatch(BaseModel):

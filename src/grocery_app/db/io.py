@@ -31,6 +31,7 @@ from grocery_app.db.models import (
     ReceiptLine,
     Resolution,
     StoreListing,
+    UncountedLine,
 )
 from grocery_app.normalizer import load_json, receipt_files, save_json
 from grocery_app.resolver import store_key
@@ -236,7 +237,7 @@ def load_normalizer_inputs(session: Session) -> dict[str, Any]:
 
     The lookups are built the same way the file loaders build them
     (`load_resolution`, `load_line_resolutions`, `load_shelf_prices`,
-    `load_resolution_authors`).
+    `load_resolution_authors`, `load_uncounted_lines`).
     """
     receipts = [receipt_to_dict(r) for r in
                 session.scalars(select(Receipt).options(selectinload(Receipt.lines)))]
@@ -261,9 +262,12 @@ def load_normalizer_inputs(session: Session) -> dict[str, Any]:
         for observed in listing.prices or []:
             shelf_prices.setdefault(listing.product_id, set()).add(float(observed["price"]))
 
+    uncounted = {(source_image, u.position, u.raw_name) for u, source_image in
+                 session.execute(select(UncountedLine, Receipt.source_image).join(Receipt))}
+
     return {"receipts": receipts, "products": products, "resolution": resolution,
             "line_resolutions": line_resolutions, "shelf_prices": shelf_prices,
-            "authors": authors}
+            "authors": authors, "uncounted": uncounted}
 
 
 # --- import ------------------------------------------------------------------
@@ -304,7 +308,8 @@ def import_receipts(session: Session, paths: Any,
 
 def import_data(session: Session, receipts_dir: str | Path, products_path: str | Path,
                 resolution_path: str | Path, line_resolutions_path: str | Path | None = None,
-                products_dir: str | Path | None = None) -> dict[str, Any]:
+                products_dir: str | Path | None = None,
+                uncounted_path: str | Path | None = None) -> dict[str, Any]:
     """Load the files into the tables. Running it twice changes nothing.
 
     Rows are matched by their natural keys (`source_image`, `p-xxxx`,
@@ -315,7 +320,7 @@ def import_data(session: Session, receipts_dir: str | Path, products_path: str |
     """
     summary: dict[str, Any] = {kind: {"added": 0, "updated": 0} for kind in
                                ("products", "receipts", "resolutions", "listings",
-                                "line_resolutions")}
+                                "line_resolutions", "uncounted_lines")}
     summary["line_resolutions_skipped"] = []
 
     for product_id, d in load_json(products_path)["products"].items():
@@ -381,6 +386,24 @@ def import_data(session: Session, receipts_dir: str | Path, products_path: str |
             else:
                 session.add(new)
                 summary["line_resolutions"]["added"] += 1
+
+    if uncounted_path and Path(uncounted_path).exists():
+        for d in load_json(uncounted_path)["entries"]:
+            receipt = session.scalar(select(Receipt).where(
+                Receipt.source_image == d["source_image"]))
+            if receipt is None:
+                summary["line_resolutions_skipped"].append(d["source_image"])
+                continue
+            existing = session.scalar(select(UncountedLine).where(
+                UncountedLine.receipt_id == receipt.id,
+                UncountedLine.position == d["line_index"]))
+            if existing:
+                existing.raw_name = d["raw_name"]
+                summary["uncounted_lines"]["updated"] += 1
+            else:
+                session.add(UncountedLine(receipt_id=receipt.id, position=d["line_index"],
+                                          raw_name=d["raw_name"]))
+                summary["uncounted_lines"]["added"] += 1
     session.flush()
     return summary
 
@@ -394,7 +417,7 @@ def export_data(session: Session, out_dir: str | Path) -> dict[str, int]:
     out = Path(out_dir)
     truth = out / "receipts" / "truth"
     counts = {"receipts": 0, "products": 0, "resolutions": 0, "listings": 0,
-              "line_resolutions": 0, "corrections": 0}
+              "line_resolutions": 0, "uncounted_lines": 0, "corrections": 0}
 
     receipts = session.scalars(select(Receipt).options(selectinload(Receipt.lines))).all()
     for receipt in receipts:
@@ -428,6 +451,14 @@ def export_data(session: Session, out_dir: str | Path) -> dict[str, int]:
     save_json({"meta": {"schema": 1}, "entries": answers},
               out / "receipts" / "line_resolutions.json")
     counts["line_resolutions"] = len(answers)
+
+    uncounted = [{"source_image": source_image, "line_index": u.position, "raw_name": u.raw_name}
+                 for u, source_image in session.execute(
+                     select(UncountedLine, Receipt.source_image).join(Receipt)
+                     .order_by(Receipt.source_image, UncountedLine.position))]
+    save_json({"meta": {"schema": 1}, "entries": uncounted},
+              out / "receipts" / "uncounted_lines.json")
+    counts["uncounted_lines"] = len(uncounted)
 
     # Written by the server only, so there is nothing to import back: this is
     # the record of machine answers the shopper overruled, for reading.

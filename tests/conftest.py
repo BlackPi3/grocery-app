@@ -103,6 +103,13 @@ LINE_RESOLUTIONS = {
 }
 
 
+# The shopper left the January bananas out of their numbers (one tap).
+UNCOUNTED = {
+    "meta": {"schema": 1},
+    "entries": [{"source_image": "IMG_1.jpeg", "line_index": 1, "raw_name": "Bananen"}],
+}
+
+
 @pytest.fixture
 def data(tmp_path):
     truth = tmp_path / "receipts" / "truth"
@@ -121,6 +128,7 @@ def data(tmp_path):
     (store_dir / "listings.json").write_text(json.dumps(LISTINGS), encoding="utf-8")
     (truth.parent / "line_resolutions.json").write_text(
         json.dumps(LINE_RESOLUTIONS), encoding="utf-8")
+    (truth.parent / "uncounted_lines.json").write_text(json.dumps(UNCOUNTED), encoding="utf-8")
     return tmp_path
 
 

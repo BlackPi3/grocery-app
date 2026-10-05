@@ -53,6 +53,7 @@ from grocery_app.api.schemas import (
     Health,
     InsightsDocument,
     JobDocument,
+    LineCountedRequest,
     LineResolutionRequest,
     ProductMatch,
     PurchasesDocument,
@@ -312,6 +313,18 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                                 detail="nothing to change: send is_duplicate or store")
         try:
             updated = repo.update_receipt(receipt_id, patch.is_duplicate, patch.store)
+        except NotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return ReceiptDocument.model_validate(updated)
+
+    @app.put("/v1/receipts/{receipt_id}/lines/{position}/counted",
+             response_model=ReceiptDocument, response_model_exclude_unset=True)
+    def count_line(receipt_id: int, position: int,
+                   body: LineCountedRequest) -> ReceiptDocument:
+        """Leave one line out of the shopper's numbers (a wine bought for a
+        friend), or count it again. It stays on the receipt and in the prices."""
+        try:
+            updated = require_writes().set_counted(receipt_id, position, body.counted)
         except NotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return ReceiptDocument.model_validate(updated)

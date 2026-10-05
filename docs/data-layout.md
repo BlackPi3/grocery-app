@@ -21,6 +21,7 @@ data/
     truth/                      27 verified transcriptions, one schema, `transcribed_by` says how
     transcripts/                the 17 hand-typed sources; scripts/convert_transcripts.py -> truth/
     line_resolutions.json       the shopper's answer for a line the receipt could not pin down
+    uncounted_lines.json        lines the shopper left out of their numbers with one tap (kept for prices)
     fresh/                      22 photos from 31 Aug-24 Sep 2026, never used to build the catalog
     product_truth.json          which product each line of fresh/ was, answered by the shopper
     product_truth_review.csv    the pre-filled sheet those answers were given on

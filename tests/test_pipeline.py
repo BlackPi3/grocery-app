@@ -18,7 +18,7 @@ def test_receipts_become_purchases_become_insights(data):
                                 data / "products" / "products.json",
                                 data / "products" / "resolution.json",
                                 None, data / "products")
-    assert purchases["contract_version"] == 6
+    assert purchases["contract_version"] == 7
     assert purchases["meta"]["receipts"] == 2
     assert purchases["meta"]["product_lines"] == 5
     assert purchases["meta"]["unresolved_items"] == ["Geheimnis"]
@@ -40,7 +40,7 @@ def test_receipts_become_purchases_become_insights(data):
         "a line with no product gains no attributes, this one included"
 
     insights = build_insights(purchases)
-    assert insights["contract_version"] == 4
+    assert insights["contract_version"] == 5
     assert insights["as_of"] == "2026-02-05"
     assert insights["coverage"]["resolved_lines"] == 4
     (change,) = [c for c in insights["price_changes"] if c["product_id"] == "p-0001"]
@@ -266,3 +266,34 @@ def test_a_readings_first_guesses_stay_out_of_the_receipt_and_the_history():
     assert "first_guesses" not in stored
     (record,) = normalize_receipt(stored, {}, {})
     assert record["resolution"] == "none" and record.get("category_path") is None
+
+
+def test_a_line_left_out_by_the_shopper_crosses_every_seam(data):
+    """From the shopper's mark, through purchases.json, into the insights.
+
+    The fixture marks January's bananas. They stay in the history, carry
+    `not_counted`, and leave the spend; the server says the same.
+    """
+    from fastapi.testclient import TestClient
+
+    from grocery_app.api.app import create_app
+    from grocery_app.api.repository import InMemoryRepository
+    from grocery_app.api.schemas import PurchasesDocument
+
+    args = (data / "receipts" / "truth", data / "products" / "products.json",
+            data / "products" / "resolution.json", None, data / "products")
+    counted = build_purchases(*args)
+    marked = build_purchases(*args, data / "receipts" / "uncounted_lines.json")
+    PurchasesDocument.model_validate(marked)
+
+    left_out = [(p["source_image"], p["raw_name"]) for p in marked["purchases"]
+                if p.get("not_counted")]
+    assert left_out == [("IMG_1.jpeg", "Bananen")]
+    assert len(marked["purchases"]) == len(counted["purchases"]), "still in the history"
+
+    before, after = build_insights(counted)["coverage"], build_insights(marked)["coverage"]
+    assert after["not_counted"] == {"lines": 1, "spend": 1.75}
+    assert round(before["spend"] - after["spend"], 2) == 1.75
+
+    client = TestClient(create_app(InMemoryRepository(marked)))
+    assert client.get("/v1/purchases").json() == marked
