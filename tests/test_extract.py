@@ -77,6 +77,48 @@ def test_parse_model_output_matches_truth_shape():
     assert receipt["computed_total"] == 3.23 and receipt["reconciled"] is True
 
 
+def test_a_first_guess_is_kept_beside_the_line_and_never_in_it():
+    """Rule 9: a plain name and a category per line, for the phone to show
+    before anything placed the line. The truth-shaped line stays what the
+    paper prints; a category outside the vocabulary is no category."""
+    line = {"type": "product", "qty": 1, "sold_by_weight": False, "weight_kg": None,
+            "unit_price": None, "unit_price_basis": None, "unit_gross": None,
+            "discount": 0.0, "tax_class": "A"}
+    text = json.dumps({
+        "store": "Musterladen", "store_location": "Musterstadt", "date": "2026-03-05",
+        "time": "10:00", "currency": "EUR", "printed_total": 4.0, "printed_savings": None,
+        "tax_buckets": None,
+        "lines": [
+            {**line, "raw_name": "MU BLUETENHONIG", "gross": 3.0, "net": 3.0,
+             "guess_name": "Blütenhonig", "guess_category": "honig"},
+            {**line, "raw_name": "MU XQ 12", "gross": 0.5, "net": 0.5,
+             "guess_name": " ", "guess_category": "unknown"},
+            {**line, "raw_name": "MU Allerlei", "gross": 0.5, "net": 0.5,
+             "guess_name": "Allerlei", "guess_category": "not-a-category"},
+        ],
+    })
+    receipt = parse_model_output(text, "IMG_1.jpeg")
+
+    assert receipt["first_guesses"] == [
+        {"name": "Blütenhonig", "category": "honig"},
+        {"name": None, "category": None},
+        {"name": "Allerlei", "category": None},
+    ]
+    assert receipt["lines"][0]["raw_name"] == "MU BLUETENHONIG"
+    assert not any(k.startswith("guess") for line in receipt["lines"] for k in line)
+
+
+def test_the_reading_is_offered_every_category_and_must_guess_one():
+    from grocery_app.categories import CATEGORIES
+    from grocery_app.extract import LINE_SCHEMA, SYSTEM_PROMPT
+
+    assert {"guess_name", "guess_category"} <= set(LINE_SCHEMA["required"])
+    assert LINE_SCHEMA["properties"]["guess_category"]["enum"] == [*CATEGORIES, "unknown"]
+    for key, (label, _, _) in CATEGORIES.items():
+        assert f"   {key}: {label}\n" in SYSTEM_PROMPT + "\n", key
+    assert "{categories}" not in SYSTEM_PROMPT
+
+
 def test_parse_model_output_rejects_non_json():
     with pytest.raises(ExtractionError):
         parse_model_output("not json", "IMG_1.jpeg")

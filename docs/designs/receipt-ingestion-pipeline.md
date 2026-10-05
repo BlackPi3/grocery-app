@@ -291,6 +291,46 @@ The matcher's model is chosen the same way (`GROCERY_MATCHER=gemini`). On the
 on 58; `claude -p` was right on 68, wrong on none, asking on 63. Cost: $0.17
 for 80 calls.
 
+### A first guess per line, so the receipt shows early (2026-10-05)
+
+Parham's complaint from real use: four to five minutes after an upload before
+the phone showed anything, because the page waited for the whole job (read the
+photo, then place every line, searching for the unsure ones). Now the job
+commits the receipt as soon as the photo is read and each line as soon as it is
+placed, and the page opens the receipt at the first commit.
+
+Raw till text is not something to show a person (`INS.ZIMT GEM.100 G`), so
+prompt v3 (rule 9) asks the same call for a plain name and a category per line
+(`Zimt gemahlen`, `gewuerze`), from the closed vocabulary in `categories.py`.
+They are kept beside the receipt (`first_guesses`, the `line_guesses` table),
+never in the line, which holds what the paper prints. The page shows a guess,
+marked as one, only on a line nothing has placed; the history and the insights
+never read it.
+
+Scored twice on the 27 hand-verified receipts (the second run lost one photo
+to a failed call):
+
+| metric | v2 | v3, run 1 | v3, run 2 |
+|---|---|---|---|
+| receipts fully correct | 22/27 | 18/27 | 20/26 |
+| quantity / net / tax class | 100 / 100 / 100% | 100 / 100 / 100% | 100 / 100 / 100% |
+| item name exact | 96.0% | 96.4% | 97.1% |
+| store | 27/27 | 25/27 | 25/26 |
+| reading time, median (max) | 12 s (62 s) | 28 s (154 s) | — |
+| cost for the 27 | $0.47 | $0.54 | $0.52 |
+
+The store misses are two photos with the header cut off, where no store is
+printed and the model has to guess: IMG_5391 came back `tegut...` then
+`GLOBUS`, IMG_5398 `tegut...` then `HIT` (with the year read as 2024). Too few
+runs to say whether v3 guesses worse than v2 there. The other new misses are
+the `Retoure` key question above and one-letter readings that differ run to
+run. The guesses themselves: 232 of 237 product lines got a category.
+
+The cost is time: writing two more fields per line doubles the median reading,
+so the receipt opens after about half a minute rather than twelve seconds.
+Showing the printed lines first and the names a few seconds later is the next
+step if half a minute feels slow in use.
+
 ### Evaluation Methodology
 
 Comparing parser output to the held-out set's ground truth needs explicit

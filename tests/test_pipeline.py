@@ -231,3 +231,38 @@ def test_a_line_that_is_not_a_grocery_stays_in_the_history_and_out_of_the_insigh
 
     client = TestClient(create_app(InMemoryRepository(purchases)))
     assert client.get("/v1/insights").json() == insights
+
+
+def test_a_readings_first_guesses_stay_out_of_the_receipt_and_the_history():
+    """The seam between reading a photo and storing it as a receipt.
+
+    The reading carries a plain name and a category per line (prompt v3), for
+    the phone to show while the lines are placed. The receipt that is stored
+    and normalized must not carry them: the import refuses keys it has no
+    column for, and the normalizer must not see a guess as an answer.
+    """
+    import json as json_
+
+    from grocery_app.api.jobs import DERIVED_KEYS
+    from grocery_app.db.io import receipt_from_dict, receipt_to_dict
+    from grocery_app.extract import parse_model_output
+    from grocery_app.normalizer import normalize_receipt
+
+    text = json_.dumps({
+        "store": "Musterladen", "store_location": "Musterstadt", "date": "2026-03-05",
+        "time": "10:00", "currency": "EUR", "printed_total": 3.0, "printed_savings": None,
+        "tax_buckets": None,
+        "lines": [{"type": "product", "raw_name": "MU BLUETENHONIG", "qty": 1,
+                   "sold_by_weight": False, "weight_kg": None, "unit_price": None,
+                   "unit_price_basis": None, "unit_gross": None, "gross": 3.0,
+                   "discount": 0.0, "net": 3.0, "tax_class": "A",
+                   "guess_name": "Blütenhonig", "guess_category": "honig"}],
+    })
+    reading = parse_model_output(text, "IMG_1.jpeg")
+    assert reading["first_guesses"] == [{"name": "Blütenhonig", "category": "honig"}]
+
+    stored = receipt_to_dict(receipt_from_dict(
+        {k: v for k, v in reading.items() if k not in DERIVED_KEYS}))
+    assert "first_guesses" not in stored
+    (record,) = normalize_receipt(stored, {}, {})
+    assert record["resolution"] == "none" and record.get("category_path") is None

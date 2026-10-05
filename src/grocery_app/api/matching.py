@@ -236,12 +236,15 @@ def described_product(session: Session, receipt_id: int, position: int, descript
 
 
 def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
-                  identify: LineIdentifier | None = None) -> dict[str, int]:
+                  identify: LineIdentifier | None = None,
+                  checkpoint: Callable[[], None] | None = None) -> dict[str, int]:
     """Match every line of one receipt the memory cannot place. The caller commits.
 
     A printed name is matched once per receipt: the second `Bitter-Getränk`
     finds the first one's answer in the memory. A line that already has a
-    question is not asked about twice.
+    question is not asked about twice. `checkpoint`, when given, runs after
+    each line that was matched (a job passes `session.commit`, so the phone
+    sees lines placed one by one, and a failure later keeps them).
     """
     receipt = session.get(Receipt, receipt_id)
     counts = {"accepted": 0, "families": 0, "identified": 0, "questions": 0, "products": 0,
@@ -285,12 +288,16 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
                 inputs["resolution"][(store_key(receipt.store), line["raw_name"])] = \
                     [product_id]
                 counts["identified"] += 1
+                if checkpoint:
+                    checkpoint()
                 continue
             proposal = {**proposal, "identity": identity.as_dict()}
         if verdict == "ask":
             session.add(Question(receipt_id=receipt_id, position=position,
                                  raw_name=line["raw_name"], proposal=proposal))
             counts["questions"] += 1
+            if checkpoint:
+                checkpoint()
             continue
 
         chosen = [proposal["pick"]] if verdict == "accept" else proposal["versions"]
@@ -306,5 +313,7 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
             source=f"matcher {matching.PROMPT_VERSION}"))
         inputs["resolution"][(store_key(receipt.store), line["raw_name"])] = ids
         counts["families" if family else "accepted"] += 1
+        if checkpoint:
+            checkpoint()
     session.flush()
     return counts

@@ -71,6 +71,8 @@
   .badge.you { background: var(--accent-soft); color: var(--ink); }
   .badge.app { border: 1px solid var(--warn); color: var(--warn); }
   .badge.none { border: 1px solid var(--bad); color: var(--bad); }
+  .badge.guess { border: 1px dashed var(--muted); color: var(--muted); }
+  .guess { color: var(--ink2); font-style: italic; }
   .line { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0;
     border-top: 1px solid var(--grid); cursor: pointer; }
   .line:first-of-type { border-top: 0; }
@@ -291,6 +293,20 @@ function waitingView() {
   return cards;
 }
 
+// Open one receipt (never toggling it shut) with its lines as they are now.
+async function showReceipt(receiptId) {
+  state.open = receiptId;
+  await refreshReceipt(receiptId);
+}
+
+async function refreshReceipt(receiptId) {
+  try {
+    const doc = await api(`/v1/receipts/${receiptId}`);
+    state.receiptLines = { ...(state.receiptLines || {}), [receiptId]: doc.lines };
+  } catch (error) { toast(error.message); }
+  render();
+}
+
 async function openReceipt(receiptId) {
   state.open = state.open === receiptId ? null : receiptId;
   if (state.open !== null && !state.receiptLines?.[receiptId]) {
@@ -313,12 +329,25 @@ function receiptCard(summary) {
           summary.unplaced ? `, ${summary.unplaced} not placed` : "")),
     el("div", { class: "money" }, euro(summary.printed_total))));
   if (state.open === summary.receipt_id) {
+    const u = state.upload;
+    if (u && u.status === "placing" && u.receipt_id === summary.receipt_id) {
+      card.append(el("div", { class: "why" },
+        "First reading: the names in grey are guesses from the photo. The app is still " +
+        "placing each line; this receipt updates by itself."));
+    }
     for (const line of (state.receiptLines?.[summary.receipt_id] || [])) {
       if (line.type !== "product") continue;
+      // A line nothing placed shows the photo reading's guess, marked as one.
+      const guess = !line.product && line.first_guess;
+      const what = line.product ? [productText(line.product, line.brand), badge(line.said_by)]
+        : guess ? [el("span", { class: "guess" }, guess.name || line.raw_name),
+                   el("span", { class: "badge guess" }, "guess")]
+        : ["—", badge(line.said_by)];
       const row = el("div", { class: "line" },
         el("div", {},
-           el("div", { class: "what" }, line.product ? productText(line.product, line.brand)
-             : "—", badge(line.said_by)),
+           el("div", { class: "what" }, ...what),
+           guess && guess.category_path ? el("div", { class: "meta" },
+             guess.category_path.slice(1).join(" › ")) : null,
            el("div", { class: "printed" }, line.raw_name)),
         el("div", { class: "money" }, euro(line.net_paid)));
       row.addEventListener("click", () => {
@@ -334,7 +363,8 @@ function receiptCard(summary) {
 
 // --- adding a receipt -----------------------------------------------------
 
-// Photo up, job id back, poll until it is read; then the receipt opens.
+// Photo up, job id back, poll. The receipt opens as soon as the photo is
+// read, with a guess per line, and fills in while the app places the lines.
 // The job is kept on the phone while it runs: the server carries on whatever
 // the page does, so a reload or a closed tab picks the waiting up again.
 const JOB_KEY = "grocery-job";
@@ -369,11 +399,24 @@ async function follow(job, name) {
   // Timed from the server's clock, so a resumed wait shows the real time.
   const started = Date.parse(job.created_at) || Date.now();
   keepJob({ job_id: job.job_id, name });
+  let shown = false;
   try {
     while (job.status === "queued" || job.status === "running") {
-      state.upload = { status: "reading", name, started };
-      render();
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (job.receipt_id == null) {
+        state.upload = { status: "reading", name, started };
+        render();
+      } else if (!shown) {
+        shown = true;
+        state.upload = { status: "placing", name, started, receipt_id: job.receipt_id };
+        await load();
+        state.tab = "receipts";
+        await showReceipt(job.receipt_id);
+      } else if (state.open === job.receipt_id) {
+        await refreshReceipt(job.receipt_id);  // the lines placed so far
+      } else {
+        render();
+      }
+      await new Promise(resolve => setTimeout(resolve, shown ? 3000 : 2000));
       job = await api(`/v1/jobs/${job.job_id}`);
     }
   } catch (error) {
@@ -388,10 +431,11 @@ async function follow(job, name) {
   }
   state.upload = null;
   if (job.error) toast("Read, but matching failed: " + job.error);
-  await load();
-  state.tab = "receipts";
-  state.open = null;
-  await openReceipt(job.receipt_id);
+  await load();  // keeps an open receipt open, with its final lines
+  if (!shown) {
+    state.tab = "receipts";
+    await showReceipt(job.receipt_id);
+  }
 }
 
 // A receipt this phone sent and stopped watching (a reload, a closed tab).
@@ -419,10 +463,19 @@ function addView() {
   if (u && (u.status === "uploading" || u.status === "reading")) {
     return [el("div", { class: "card" },
       el("h2", {}, u.status === "uploading" ? "Sending the photo…"
-                                            : `Reading the receipt… ${elapsed(u.started)}`),
+                                            : `Reading the photo… ${elapsed(u.started)}`),
       el("div", { class: "why" },
-        "Usually 1 to 2 minutes: the app reads the photo, then looks up the lines it " +
-        "does not know. You can leave this page; it picks up here when you come back."))];
+        "The receipt opens as soon as the photo is read, with a first guess for each " +
+        "line; the app then places the lines one by one. You can leave this page; it " +
+        "picks up here when you come back."))];
+  }
+  if (u && u.status === "placing") {
+    return [el("div", { class: "card" },
+      el("h2", {}, `Read. Placing the lines… ${elapsed(u.started)}`),
+      el("div", { class: "row" }, el("button", { class: "primary", onclick: () => {
+        state.tab = "receipts";
+        showReceipt(u.receipt_id);
+      } }, "Open the receipt")))];
   }
   const input = el("input", { type: "file", accept: "image/*" });
   input.addEventListener("change", () => upload(input.files[0]));
