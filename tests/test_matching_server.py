@@ -195,30 +195,43 @@ def reads_as(**table):
                             choices=["Muster Ding rot", "Muster Ding blau"],
                             searched=[f"{raw_name} Musterladen"])
         return Identity(said.get("name"), said.get("category"), said.get("brand"),
-                        said.get("variant"), None, True, "test",
-                        product_line=said.get("product_line"))
+                        said.get("details"), None, True, "test")
     identify.calls = []
     return identify
 
 
-def test_a_product_line_identify_reads_is_kept_and_tells_products_apart(server):
-    """v8, 2026-10-08: a printed line (`SYS`, a brand's system range) was read
-    and lost. It is now on the product, and a product of the same name and
-    brand without that line is another product."""
+def test_details_identify_reads_are_kept_and_tell_products_apart(server):
+    """2026-10-08: a printed range was read and lost. Every printed detail is
+    on the product now (one list since 2026-10-09), and the same name and
+    brand without those details is another product."""
     client, session = server
     session.add(Product(id="p-0900", name="Zahnpasta", brand="Muster"))
     session.commit()
     receipt = add_receipt(session, "IMG_8.jpeg", ["MU KID Zahnp."])
     identify = reads_as(**{"MU KID Zahnp.": {"name": "Zahnpasta", "brand": "Muster",
-                                             "product_line": "Kids", "variant": "Erdbeere"}})
+                                             "details": ["Kids", "Erdbeere"]}})
     match_receipt(session, receipt, TableMatcher({}), identify)
     session.commit()
 
     (_, product_id, _), = reading(client, receipt)
     assert product_id != "p-0900"
     product = session.get(Product, product_id)
-    assert (product.name, product.brand, product.product_line, product.variant) == \
-        ("Zahnpasta", "Muster", "Kids", "Erdbeere")
+    assert (product.name, product.brand, product.details) == \
+        ("Zahnpasta", "Muster", ["Kids", "Erdbeere"])
+
+
+def test_the_same_details_in_another_order_are_the_same_product(server):
+    client, session = server
+    first = add_receipt(session, "IMG_12.jpeg", ["MU Mg CIT GRA"])
+    second = add_receipt(session, "IMG_13.jpeg", ["MU Magn. GRA CIT"])
+    identify = reads_as(**{"MU Mg CIT GRA": {"name": "Magnesium", "brand": "Muster",
+                                             "details": ["Citrat", "Granulat"]},
+                           "MU Magn. GRA CIT": {"name": "Magnesium", "brand": "Muster",
+                                                "details": ["granulat", "Citrat"]}})
+    for receipt in (first, second):
+        match_receipt(session, receipt, TableMatcher({}), identify)
+        session.commit()
+    assert reading(client, first)[0][1] == reading(client, second)[0][1]
 
 
 def test_a_line_identify_can_read_is_placed_on_a_new_level_one_product_not_asked(server):
@@ -627,7 +640,7 @@ def describing(engine, **table):
         if said is None:
             return Identity(description or "", None, None, None, None, False, "unreadable")
         return Identity(said["name"], said.get("category"), said.get("brand"),
-                        said.get("variant"), None, True, "test")
+                        said.get("details"), None, True, "test")
     identify.seen = []
     client = TestClient(create_app(PostgresRepository(make_session_factory(engine)),
                                    identify=identify))
@@ -738,14 +751,13 @@ def test_a_reread_fills_in_what_an_older_reading_dropped(server):
     # Worded differently this time: the same brand and category is the same product.
     new = reads_as(**{"MU Vit400 KID 20St": {"name": "Vitamin 400", "brand": "Muster",
                                              "category": "nahrungsergaenzung",
-                                             "product_line": "Kids", "variant": "Kautabletten"}})
+                                             "details": ["Kids", "Kautabletten"]}})
     said = reread_product(session, product_id, new)
     session.commit()
-    assert said["changed"] and said["after"] == {"name": "Vitamin 400", "product_line": "Kids",
-                                                 "variant": "Kautabletten"}
+    assert said["changed"] and said["after"] == {"name": "Vitamin 400",
+                                                 "details": ["Kids", "Kautabletten"]}
     product = session.get(Product, product_id)
-    assert (product.name, product.product_line, product.variant) == \
-        ("Vitamin 400", "Kids", "Kautabletten")
+    assert (product.name, product.details) == ("Vitamin 400", ["Kids", "Kautabletten"])
     assert reading(client, receipt)[0][1] == product_id, "the line stays on it"
 
 
@@ -762,9 +774,9 @@ def test_a_reread_never_swaps_in_another_product(server):
 
     said = reread_product(session, product_id, reads_as(
         **{"MU Vit400 KID 20St": {"name": "Zahnpasta", "brand": "Muster",
-                                  "category": "zahnpflege", "variant": "400 mg"}}))
+                                  "category": "zahnpflege", "details": ["400 mg"]}}))
     assert not said["changed"] and said["why"].startswith("the new reading is another product")
-    assert session.get(Product, product_id).variant is None
+    assert session.get(Product, product_id).details == []
 
 
 def test_a_reread_leaves_products_identify_did_not_make(server):
@@ -776,19 +788,23 @@ def test_a_reread_leaves_products_identify_did_not_make(server):
 
 
 def test_a_reread_does_not_keep_a_detail_twice(server):
-    """2026-10-08, live: the old variant was read again as the product line;
-    kept as well, the name showed it twice."""
+    """2026-10-08, live: a detail read again in other words was kept twice."""
     from grocery_app.api.matching import reread_product
 
     client, session = server
     receipt = add_receipt(session, "IMG_11.jpeg", ["MU Zig Orig"])
     match_receipt(session, receipt, TableMatcher({}), reads_as(
         **{"MU Zig Orig": {"name": "Zigaretten", "brand": "Muster",
-                           "variant": "Original"}}))
+                           "details": ["Original"]}}))
     session.commit()
     (_, product_id, _), = reading(client, receipt)
 
     said = reread_product(session, product_id, reads_as(
         **{"MU Zig Orig": {"name": "Zigaretten", "brand": "Muster",
-                           "product_line": "Original"}}))
-    assert said["after"] == {"name": "Zigaretten", "product_line": "Original", "variant": None}
+                           "details": ["original", "Blau"]}}))
+    assert said["after"] == {"name": "Zigaretten", "details": ["original", "Blau"]}
+
+    said = reread_product(session, product_id, reads_as(
+        **{"MU Zig Orig": {"name": "Zigaretten", "brand": "Muster", "details": ["Blau"]}}))
+    assert said["after"] == {"name": "Zigaretten", "details": ["Blau", "original"]}, \
+        "a detail only the old reading had stays, after the new ones"

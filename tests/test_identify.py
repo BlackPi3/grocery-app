@@ -12,7 +12,7 @@ from grocery_app.identify import SCHEMA, SYSTEM_PROMPT, identify
 def answering(**answer):
     base = {"parts": [{"printed": "Erdbeeren", "means": "strawberries (kind)"},
                       {"printed": "400g", "means": "size"}],
-            "name": "Erdbeeren", "category": "beeren", "brand": None, "variant": None,
+            "name": "Erdbeeren", "category": "beeren", "brand": None, "details": [],
             "size": "400g", "can_tell": True, "reason": "the line says strawberries"}
     asked = []
 
@@ -149,30 +149,31 @@ def test_every_word_accounted_for_keeps_the_answer():
 def test_a_part_read_into_an_empty_field_is_dropped_and_said():
     identity = identify("MU Vit400 KID 20St", "Musterladen", answering(
         parts=[{"printed": "MU", "means": "Muster", "into": "brand"},
-               {"printed": "Vit400", "means": "vitamin, 400 mg", "into": "variant"},
-               {"printed": "KID", "means": "the brand's children's line",
-                "into": "product_line"},
+               {"printed": "Vit400", "means": "vitamin, 400 mg", "into": "details"},
+               {"printed": "KID", "means": "the brand's children's range", "into": "details"},
                {"printed": "20St", "means": "20 pieces", "into": "size"}],
-        name="Vitamintabletten", brand="Muster", size="20St", can_tell=True))
+        name="Vitamintabletten", brand="Muster", details=[], size="20St", can_tell=True))
     assert identity.dropped == ["Vit400", "KID"]
     assert identity.reason.startswith("read but dropped `Vit400`, `KID`")
 
 
-def test_a_product_line_is_kept():
-    identity = identify("MU KID Zahnp.", "Musterladen", answering(
+def test_every_printed_detail_is_kept_as_a_list():
+    """2026-10-09: the range and the variant are one list, any length."""
+    identity = identify("MU KID Zahnp. Erdb.", "Musterladen", answering(
         parts=[{"printed": "MU", "means": "Muster", "into": "brand"},
-               {"printed": "KID", "means": "children's line", "into": "product_line"},
-               {"printed": "Zahnp.", "means": "toothpaste", "into": "name"}],
-        name="Zahnpasta", brand="Muster", product_line="Kids", can_tell=True))
-    assert (identity.product_line, identity.dropped) == ("Kids", [])
+               {"printed": "KID", "means": "children's range", "into": "details"},
+               {"printed": "Zahnp.", "means": "toothpaste", "into": "name"},
+               {"printed": "Erdb.", "means": "strawberry", "into": "details"}],
+        name="Zahnpasta", brand="Muster", details=["Kids", " Erdbeere "], can_tell=True))
+    assert (identity.details, identity.dropped) == (["Kids", "Erdbeere"], [])
 
 
 def test_every_part_says_where_it_goes():
     part = SCHEMA["properties"]["parts"]["items"]
     assert "into" in part["required"]
-    assert set(part["properties"]["into"]["enum"]) == {
-        "name", "brand", "product_line", "variant", "size", "none"}
-    assert "product_line" in SCHEMA["required"]
+    assert set(part["properties"]["into"]["enum"]) == {"name", "brand", "details", "size",
+                                                       "none"}
+    assert SCHEMA["properties"]["details"]["type"] == "array"
     assert "Nothing you read is dropped" in SYSTEM_PROMPT
 
 

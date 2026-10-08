@@ -18,6 +18,21 @@ PRODUCT_ID = re.compile(r"p-\d{4}")
 SIZE_SHAPE = {"count", "value", "unit"}
 
 
+def with_details(product: dict[str, Any]) -> dict[str, Any]:
+    """A product as it is written since 2026-10-09, from either shape.
+
+    The range (`product_line`) and the `variant` were two fixed slots; they are
+    one list of `details` now (migration 0011). A file written before keeps
+    working: the range comes first, then the variant split at its commas.
+    """
+    if "product_line" not in product and "variant" not in product:
+        return product
+    old = {k: v for k, v in product.items() if k not in ("product_line", "variant")}
+    parts = [product.get("product_line"), *(product.get("variant") or "").split(",")]
+    old.setdefault("details", [p.strip() for p in parts if p and p.strip()])
+    return old
+
+
 def problems(products_doc: dict[str, Any], resolution_doc: dict[str, Any]) -> list[str]:
     """Every way the two files disagree with the contract, in words. Empty is good."""
     found: list[str] = []

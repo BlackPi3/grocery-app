@@ -34,6 +34,7 @@ from grocery_app.db.models import (
     UncountedLine,
 )
 from grocery_app.normalizer import load_json, receipt_files, save_json
+from grocery_app.product_store import with_details
 from grocery_app.resolver import store_key
 
 # --- scalar conversions ------------------------------------------------------
@@ -154,7 +155,7 @@ def receipt_to_dict(receipt: Receipt) -> dict[str, Any]:
 # Written on every product. `is_budget_brand` is deliberately not here: it is a
 # fact about a brand and a shop, not about a product, so it is derived per
 # purchase line by the normalizer and never stored on the catalog row.
-PRODUCT_ALWAYS = ("label", "name", "brand", "product_line", "variant", "size", "category",
+PRODUCT_ALWAYS = ("label", "name", "brand", "details", "size", "category",
                   "is_organic", "eans", "open_questions", "provenance")
 # Written only when filled, by `enrich`.
 PRODUCT_OPTIONAL = ("nutrition", "enrichment", "extra")
@@ -162,8 +163,10 @@ PRODUCT_FIELDS = PRODUCT_ALWAYS + PRODUCT_OPTIONAL
 
 
 def product_from_dict(product_id: str, d: dict[str, Any]) -> Product:
+    d = with_details(d)
     _check_keys(f"product {product_id}", d, PRODUCT_FIELDS)
     values = {field: d.get(field) for field in PRODUCT_FIELDS}
+    values["details"] = list(values["details"] or [])
     values["eans"] = list(values["eans"] or [])
     values["open_questions"] = list(values["open_questions"] or [])
     return Product(id=product_id, **values)

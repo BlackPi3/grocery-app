@@ -102,8 +102,10 @@ class Product(Base):
     label: Mapped[str | None] = mapped_column(String)
     name: Mapped[str] = mapped_column(String)
     brand: Mapped[str | None] = mapped_column(String)
-    product_line: Mapped[str | None] = mapped_column(String)
-    variant: Mapped[str | None] = mapped_column(String)
+    # Everything the pack says besides name, brand, category and size: a range
+    # (`system`), a strength, a flavour. Any number, in the product's words.
+    details: Mapped[list[str]] = mapped_column(ARRAY(String), default=list,
+                                               server_default="{}")
     size: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     category: Mapped[str | None] = mapped_column(String)
     is_organic: Mapped[bool | None] = mapped_column(Boolean)

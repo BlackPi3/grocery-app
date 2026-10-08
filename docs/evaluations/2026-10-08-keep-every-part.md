@@ -30,6 +30,7 @@ every changed verdict read by hand.
 | v7 | 8 | 10 | 0 | 0 | 5 | not measured |
 | v8, first draft | 6 | 11 | 2 | 0 | 4 | 0 |
 | v8 | 8 | 10 | 0 | 0 | 5 | 0 |
+| v9 (2026-10-09, one list of details) | 7 | 10 | 2 | 0 | 4 | 0 |
 
 - **On the answer sheet v8 is no better and no worse than v7.** Its lines
   print few ranges or strengths, so the case v8 fixes barely occurs there.
@@ -43,3 +44,19 @@ every changed verdict read by hand.
 
 How often the fault happens. The answer sheet would need lines that print a
 range or a strength; the live spot checks will show it on new receipts.
+
+## v9: one list of details (2026-10-09)
+
+Parham's call: the range and the variant became one list of `details`, any
+length (migration 0011), because which of two slots a word belonged in was a
+guess the reader made differently on each run. Same 23 lines, same judge.
+
+- **Grocery lines: the same answers as v7 and v8.** One line moved from asked
+  to answered (a greeting card, read as such).
+- **The judge's two false details, read by hand:** one is a judge error (its
+  own reason says "missing, not false" for the greeting card); the other is
+  a household line whose last printed letter the reader took for the box
+  shape the search found. Plausible, not confirmed; the shopper would know.
+  Neither line is groceries.
+- **The two real lines** that started this come out complete, every printed
+  part kept, nothing dropped.

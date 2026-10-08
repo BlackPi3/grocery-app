@@ -177,14 +177,14 @@ function badge(saidBy) {
   return el("span", { class: "badge none" }, "not placed");
 }
 
-// Everything the app claims a thing is, in one line: "Senf mittelscharf ·
-// Löwensenf · 250 ml". Name and variant say what it is, brand and product
-// line who made it, then how it was sold. All of it, so that "Right" on a
+// Everything the app claims a thing is, in one line: "Magnesium · Doppelherz
+// · system, 400 mg, Citrat · 20 pcs". What it is, who made it, every other
+// detail the pack says, then how it was sold. All of it, so that "Right" on a
 // spot check judges the whole answer, not half of it (Parham, 2026-10-08).
 function productText(name, brand, more) {
-  const { variant, product_line: line, sold_as: soldAs } = more || {};
-  return [[name, variant].filter(Boolean).join(" "), [brand, line].filter(Boolean).join(" "),
-          sizeText(soldAs)].filter(Boolean).join(" · ");
+  const { details, sold_as: soldAs } = more || {};
+  return [name, brand, (details || []).join(", "), sizeText(soldAs)].filter(Boolean)
+    .join(" · ");
 }
 
 function sizeText(soldAs) {

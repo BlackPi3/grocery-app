@@ -597,8 +597,8 @@ def test_without_a_printed_time_the_lines_decide(engine, session, tmp_path):
 def test_a_spot_check_shows_everything_the_app_claims(engine, session, tmp_path):
     """2026-10-08: a check showed name and brand only, so `Right` judged half
     of the answer. Variant, product line and size come with it now."""
-    session.add(Product(id="p-0001", name="Butter", brand="Muster", product_line="Alm",
-                        variant="gesalzen", category="butter"))
+    session.add(Product(id="p-0001", name="Butter", brand="Muster",
+                        details=["Alm", "gesalzen"], category="butter"))
     session.commit()
     sized = {**RECEIPT, "lines": [{**RECEIPT["lines"][0], "raw_name": "MU Butter gesalz. 250g"}]}
     repository = PostgresRepository(make_session_factory(engine))
@@ -607,6 +607,6 @@ def test_a_spot_check_shows_everything_the_app_claims(engine, session, tmp_path)
     client.post("/v1/receipts", files={"file": ("a.jpg", a_photo(), "image/jpeg")})
 
     (check,) = client.get("/v1/checks").json()["checks"]
-    assert (check["app_product"], check["variant"], check["brand"], check["product_line"]) == \
-        ("Butter", "gesalzen", "Muster", "Alm")
+    assert (check["app_product"], check["brand"], check["details"]) == \
+        ("Butter", "Muster", ["Alm", "gesalzen"])
     assert check["sold_as"] == {"form": "pack", "size": {"count": 1, "value": 250.0, "unit": "g"}}

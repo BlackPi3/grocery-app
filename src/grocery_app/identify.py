@@ -10,7 +10,8 @@ The answer has one fixed format, level 1 of the design:
 - `name`: plain German, what you would write on a shopping list
   (`Erdbeeren`, `Kartoffelsalat mit Ei`). No size, no shop wording.
 - `category`: a key from `categories.py`, or none when none fits.
-- `brand`, `variant`: only when the line prints them.
+- `brand`, `details`: only when the line prints them. `details` is a list of
+  anything else the pack says, any number: a range, a strength, a flavour.
 - `size`: the pack size when the line prints it. It belongs to the purchase,
   not to the product, so strawberries in 400 g and 500 g packs stay one thing.
 
@@ -61,11 +62,14 @@ from grocery_app.normalizer import tax_rate
 # every printed part and then left some out of the product, because the format
 # had nowhere for them: a cigarette line lost its product line, a supplement
 # line its strength and its range. Each part now says
-# which field it goes into (`into`), there is a `product_line` field, and the
+# which field it goes into (`into`), there was a `product_line` field, and the
 # code lists any part whose field came back empty (`dropped`). Scored against
 # v7: the first draft cut a printed word in two to fill a variant (a greeting
 # card line), so a part is now a whole printed word.
-PROMPT_VERSION = "v8"
+# v9 (2026-10-09): the range and the variant are one list, `details` (Parham:
+# fixed slots are a presumption; which slot a word belongs in was a guess the
+# reader made differently each time, and each guess could make a duplicate).
+PROMPT_VERSION = "v9"
 # s2 (2026-10-02): the searcher is told where the shop is and searches there
 # (Parham: "at least search in that country").
 SEARCH_VERSION = "s2"
@@ -78,7 +82,7 @@ SHOP_COUNTRY = "Germany"
 
 
 # The answer's fields a printed part can go into (`into`), name first.
-FIELDS = ("name", "brand", "product_line", "variant", "size")
+FIELDS = ("name", "brand", "details", "size")
 
 
 def _category_list() -> str:
@@ -98,11 +102,11 @@ into its parts and say what each one means:
 - parts: every part of the printed line, in order, each with `printed` (the
   characters exactly as on the line), `means` (what it stands for), or null
   when you cannot say, and `into`: the field of your answer it goes into,
-  `name`, `brand`, `product_line`, `variant` or `size`, or `none` for shop
-  wording and codes that say nothing about the product. For
-  `MUSTR. Kids Zahnp. Erdb. 50ml`: `MUSTR.` Mustermann (brand), `Kids` the
-  brand's range for children (product_line), `Zahnp.` toothpaste (name),
-  `Erdb.` strawberry (variant), `50ml` (size). Leave nothing out. A part is a
+  `name`, `brand`, `details` or `size`, or `none` for shop wording and codes
+  that say nothing about the product. For `MUSTR. Kids Zahnp. Erdb. 50ml`:
+  `MUSTR.` Mustermann (brand), `Kids` the brand's range for children
+  (details), `Zahnp.` toothpaste (name), `Erdb.` strawberry (details), `50ml`
+  (size). Leave nothing out. A part is a
   whole printed word or abbreviation: never cut a word into pieces to fill a
   field (`Gemüsebrühe` is one part, the name).
 
@@ -121,11 +125,10 @@ Answer in this format:
 - category: the one key from the list below that fits, or null if none does.
 - brand: only when the line prints it or a known abbreviation of it. Never
   guess a brand from what is likely.
-- product_line: the range the brand sells it under, only when the line prints
-  it (a brand's `Kids`, `Pro` or `Classic` line); otherwise null.
-- variant: a flavour, colour, kind or strength only when the line prints it
-  (`Linsen rot`, `Senf mittelscharf`, `500 mg`); otherwise null. Several
-  printed details go in together (`Erdbeere, 500 mg`).
+- details: everything else the line prints about the product, one entry per
+  thing, as the brand would write it: a range (`Kids`, `Pro`), a flavour or
+  colour (`rot`, `mittelscharf`), a strength (`500 mg`). As many as the line
+  prints, in printed order; empty when it prints none.
 - size: the pack size exactly as printed (`125g`, `0,75l`, `6er`), or null.
 - can_tell: false when the printed words do not say what the product is: a
   brand or code alone (`MUSTRA`), a name a till prints for anything
@@ -234,15 +237,14 @@ SCHEMA: dict[str, Any] = {
         "name": {"type": "string"},
         "category": {"type": ["string", "null"]},
         "brand": {"type": ["string", "null"]},
-        "product_line": {"type": ["string", "null"]},
-        "variant": {"type": ["string", "null"]},
+        "details": {"type": "array", "items": {"type": "string"}},
         "size": {"type": ["string", "null"]},
         "can_tell": {"type": "boolean"},
         "choices": {"type": "array", "items": {"type": "string"}},
         "reason": {"type": "string"},
     },
-    "required": ["parts", "name", "category", "brand", "product_line", "variant", "size",
-                 "can_tell", "choices", "reason"],
+    "required": ["parts", "name", "category", "brand", "details", "size", "can_tell",
+                 "choices", "reason"],
     "additionalProperties": False,
 }
 
@@ -254,7 +256,9 @@ class Identity:
     name: str
     category: str | None
     brand: str | None
-    variant: str | None
+    # Everything else the line prints about the product, any number. Given as
+    # one text or None, it is made a list.
+    details: list[str] | str | None
     size: str | None
     can_tell: bool
     reason: str
@@ -266,10 +270,14 @@ class Identity:
     # The line was due a search and the searcher did not search, even when
     # told twice: it is neither saved nor asked about, and is read again later.
     unsearched: bool = False
-    product_line: str | None = None
     # Printed parts the reader put into a field that came back empty
     # (`dropped`): read, then left out of the product.
     dropped: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.details, list):
+            self.details = [self.details] if self.details else []
+        self.details = [d.strip() for d in self.details if d and d.strip()]
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -306,12 +314,18 @@ MAX_TITLES = 15
 def dropped(answer: dict[str, Any]) -> list[str]:
     """The printed parts the reader said go into a field that it left empty.
 
-    A part it read and placed, then lost: `Vit400` into the variant, with no
-    variant in the answer. The name is not checked: it is never empty on an
+    A part it read and placed, then lost: `Vit400` into the details, with no
+    details in the answer. The name is not checked: it is never empty on an
     answer that is used, and it is plain German, not the printed words.
     """
     return [str(part.get("printed") or "") for part in answer.get("parts") or []
-            if part.get("into") in FIELDS[1:] and not (answer.get(part["into"]) or "").strip()]
+            if part.get("into") in FIELDS[1:] and not _filled(answer.get(part["into"]))]
+
+
+def _filled(value: Any) -> bool:
+    if isinstance(value, list):
+        return any(str(v).strip() for v in value)
+    return bool((value or "").strip())
 
 
 def left_out(raw_name: str, parts: list[dict[str, Any]]) -> list[str]:
@@ -436,7 +450,7 @@ def build_prompt(raw_name: str, store: str | None,
         # its cached answers stay what they were.
         prompt += (f"\n\nThe shopper who bought it says what it is, in their own words:\n"
                    f"<<{description}>>\nThey are right about what it is: take the kind, brand "
-                   f"and variant from their words, read together with the printed line. Never "
+                   f"and details from their words, read together with the printed line. Never "
                    f"contradict them. Your job is only the format above, in German.")
     if paid_text:
         prompt += f"\n{paid_text}"
@@ -497,8 +511,7 @@ def identify(raw_name: str, store: str | None, decider: Decider,
         name=(answer.get("name") or "").strip(),
         category=category if category in categories.CATEGORIES else None,
         brand=answer.get("brand") or None,
-        product_line=answer.get("product_line") or None,
-        variant=answer.get("variant") or None,
+        details=[str(d) for d in answer.get("details") or []],
         size=answer.get("size") or None,
         can_tell=can_tell,
         reason=reason,

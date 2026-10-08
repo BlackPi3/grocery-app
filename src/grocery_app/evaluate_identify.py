@@ -79,8 +79,8 @@ Identifier = Callable[[str, str | None, list[str], str, str | None], Identity]
 def judge(identity: Identity, sheet: dict[str, Any], decider: Decider) -> dict[str, str]:
     said = ", ".join(f"{k}: {v}" for k, v in (("name", identity.name),
                                                ("brand", identity.brand),
-                                               ("product line", identity.product_line),
-                                               ("variant", identity.variant)) if v)
+                                               ("details", ", ".join(identity.details)))
+                     if v)
     words = sheet["product"] + (f" (note: {sheet['note']})" if sheet.get("note") else "")
     return decider(JUDGE_PROMPT, f"Receipt line: `{sheet['raw_name']}`\n"
                                  f"Answer: {said}\nShopper's description: {words}", JUDGE_SCHEMA)
@@ -179,8 +179,8 @@ def format_report(report: dict[str, Any]) -> str:
             out += ["", f"{outcome.replace('_', ' ').capitalize()}:"]
             for line in listed:
                 who = line["identity"]
-                said = " | ".join(str(who[k]) for k in ("name", "brand", "product_line",
-                                                         "variant") if who.get(k))
+                said = " | ".join([str(who[k]) for k in ("name", "brand") if who.get(k)]
+                                  + ([", ".join(who["details"])] if who.get("details") else []))
                 out.append(f"  {line['raw_name']:<28} said: {said:<40} sheet: {line['sheet']}")
                 out.append(f"  {'':<28} {line['why']}")
                 if who.get("parts"):

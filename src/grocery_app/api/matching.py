@@ -11,7 +11,7 @@ cannot place goes to `matcher.propose`, and its verdict is acted on here:
   the rest of the receipt, the shop's similar products). When it can tell
   what the line is, that is **saved to the memory** as identify's answer
   (`confirmed_by = "identify"`), pointing at a level-1 product: an existing
-  one with the same name, brand and variant, else a new one in that format
+  one with the same name, brand and details, else a new one in that format
   (`docs/designs/what-a-line-is.md`). Only when it cannot tell does the line
   become a **question**, with everything the matcher and identify saw, for
   the shopper to answer (5c lists them).
@@ -90,26 +90,30 @@ def line_identifier(decider: matching.Decider,
     return read
 
 
-def same_product_key(name: str | None, brand: str | None, variant: str | None = None,
-                     product_line: str | None = None) -> tuple[str, ...]:
-    """What makes two level-1 products the same: name, brand, variant and
-    product line, letter case and outer spaces aside."""
-    return tuple((v or "").strip().casefold() for v in (name, brand, variant, product_line))
+def _fold(text: str | None) -> str:
+    return (text or "").strip().casefold()
+
+
+def same_product_key(name: str | None, brand: str | None,
+                     details: list[str] | None = None) -> tuple[Any, ...]:
+    """What makes two level-1 products the same: name, brand and details,
+    letter case and outer spaces aside. The details in any order: a list read
+    `Citrat, Granulat` one day and `Granulat, Citrat` the next is one product."""
+    return (_fold(name), _fold(brand), tuple(sorted({_fold(d) for d in details or []})))
 
 
 def identified_product(session: Session, identity: identifying.Identity,
                        inputs: dict[str, Any], decided_by: str = "identify") -> str:
     """The level-1 product for what identify said a line is.
 
-    An existing product with the same name, brand, variant and line (letter
-    case aside) is that product; otherwise a new one is made from the identity and
+    An existing product with the same name, brand and details (letter case
+    and order aside) is that product; otherwise a new one is made from the identity and
     nothing else. No size: it belongs to the purchase, not the product. Organic
     only when the name says Bio; otherwise unknown, not false."""
-    wanted = same_product_key(identity.name, identity.brand, identity.variant,
-                              identity.product_line)
+    wanted = same_product_key(identity.name, identity.brand, identity.details)
     for product_id, product in inputs["products"].items():
         if same_product_key(product.get("name"), product.get("brand"),
-                            product.get("variant"), product.get("product_line")) == wanted:
+                            product.get("details")) == wanted:
             return product_id
 
     from grocery_app.categorize import CATEGORY_UNKNOWN
@@ -118,7 +122,7 @@ def identified_product(session: Session, identity: identifying.Identity,
     product_id = next_product_id(session)
     made = {
         "label": identity.name, "name": identity.name, "brand": identity.brand,
-        "product_line": identity.product_line, "variant": identity.variant,
+        "details": list(identity.details),
         "size": {"count": 1, "value": None, "unit": None}, "category": identity.category,
         "is_organic": True if "bio" in identity.name.casefold().split() else None,
         "eans": [],
@@ -184,7 +188,7 @@ def shopper_product(session: Session, name: str, brand: str | None) -> str:
     Kashk from a shop no catalog lists. Nothing else is known, and nothing is
     guessed: size, category and barcode stay empty, and `open_questions` says
     so. A barcode scanned at home later can fill in the rest. A product with
-    the same name and brand (and no variant) already is that product: typing
+    the same name and brand (and no details) already is that product: typing
     `Kashk` twice is one Kashk.
     """
     from grocery_app.categorize import CATEGORY_UNKNOWN
@@ -192,12 +196,11 @@ def shopper_product(session: Session, name: str, brand: str | None) -> str:
 
     wanted = same_product_key(name, brand)
     for product in session.scalars(select(Product)):
-        if same_product_key(product.name, product.brand, product.variant,
-                            product.product_line) == wanted:
+        if same_product_key(product.name, product.brand, product.details) == wanted:
             return product.id
     product_id = next_product_id(session)
     session.add(product_from_dict(product_id, {
-        "label": name, "name": name, "brand": brand, "product_line": None, "variant": None,
+        "label": name, "name": name, "brand": brand, "details": [],
         "size": {"count": 1, "value": None, "unit": None}, "category": None,
         "is_organic": None, "eans": [],
         "open_questions": brand_questions(brand) + [CATEGORY_UNKNOWN],
@@ -215,7 +218,7 @@ def described_product(session: Session, receipt_id: int, position: int, descript
     loosely as they like ("salted pickled cucumbers, the Pamir ones").
     identify reads the words with the printed line, the price and the rest of
     the receipt, and gives the level-1 product (`Salzgurken`, Pamir): an
-    existing one with that name, brand and variant, or a new one decided by
+    existing one with that name, brand and details, or a new one decided by
     the shopper. The meaning is the shopper's; only the wording is ours, so
     a change of format is a re-run, never a question back (Parham,
     2026-10-01). The words themselves are kept on the line's answer.
@@ -328,7 +331,7 @@ def reread_product(session: Session, product_id: str,
 
     2026-10-08: identify v7 read a supplement line's range and strength and
     left both out of the product. Its id stays, so every line and answer placed on
-    it stays; the name, `product_line` and `variant` change, and only when the
+    it stays; the name and the details change, and only when the
     new reading is the same product: the same brand in the same category (a
     name alone is too strict, the reader words `Magnesium Granulat` and
     `Magnesium 400` either way). Anything else is left as it was and said,
@@ -355,30 +358,22 @@ def reread_product(session: Session, product_id: str,
         return {**said, "why": f"no receipt prints `{entry.raw_name}`"}
     identity = identify(positions[0], doc, {}, load_normalizer_inputs(session))
     said |= {"raw_name": entry.raw_name,
-             "before": {"name": product.name, "product_line": product.product_line,
-                        "variant": product.variant}}
+             "before": {"name": product.name, "details": list(product.details or [])}}
     if not identity.can_tell:
         return {**said, "why": f"the new reading cannot tell: {identity.reason}"}
-    if (same_product_key(identity.brand, identity.category)
-            != same_product_key(product.brand, product.category)):
+    if (_fold(identity.brand), _fold(identity.category)) != (_fold(product.brand),
+                                                             _fold(product.category)):
         return {**said, "why": f"the new reading is another product: {identity.name}, "
                                f"{identity.brand}, {identity.category}"}
-    # Fills in, never empties: a detail only the old reading had stays. One the
-    # new reading says anywhere is not kept twice (the old variant `Authentic`
-    # read again as the product line would show twice).
-    said_now = " ".join(v for v in (identity.name, identity.product_line, identity.variant)
-                        if v).casefold()
-
-    def kept(new: str | None, old: str | None) -> str | None:
-        return new or (old if old and old.casefold() not in said_now else None)
-
+    # Fills in, never empties: a detail only the old reading had stays, after
+    # the new ones. One the new reading says anywhere is not kept twice.
+    said_now = " ".join([identity.name, *identity.details]).casefold()
     after = {"name": identity.name or product.name,
-             "product_line": kept(identity.product_line, product.product_line),
-             "variant": kept(identity.variant, product.variant)}
+             "details": [*identity.details,
+                         *(d for d in product.details or [] if d.casefold() not in said_now)]}
     if after == said["before"]:
         return {**said, "after": after, "why": "nothing to add"}
-    product.name, product.product_line, product.variant = (
-        after["name"], after["product_line"], after["variant"])
+    product.name, product.details = after["name"], after["details"]
     if product.label == said["before"]["name"]:
         product.label = product.name  # identify sets the label to the name
     product.provenance = {**(product.provenance or {}),

@@ -122,9 +122,8 @@ def confirm(reviewed_path: str | Path, products_path: str | Path,
                 "label": _label(name, brand or None),
                 "name": name,
                 "brand": brand or None,
-                "product_line": None,
-                # Left null on purpose: see the module docstring.
-                "variant": None,
+                # Left empty on purpose: see the module docstring.
+                "details": [],
                 "size": {"count": 1, "value": None, "unit": None},
                 "category": None,
                 "is_organic": None,

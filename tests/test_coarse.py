@@ -65,7 +65,7 @@ def test_an_unknown_variant_is_null_and_asked_about_never_guessed(catalog):
     confirm(reviewed, products, resolution)
 
     cola = next(p for p in read(products)["products"].values() if p["name"] == "Cola Classic")
-    assert cola["variant"] is None
+    assert cola["details"] == []
     assert cola["eans"] == [], "an invented barcode could never be told from a real one"
     assert "variant unknown" in cola["open_questions"], "the queue for asking later"
 
