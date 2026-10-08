@@ -6,9 +6,11 @@ FastAPI's `BackgroundTasks`.
 
 Two properties of that are worth stating rather than discovering:
 
-- **It dies with the process.** A restart mid-extraction leaves a `running`
-  row that nobody revives. For one user that is acceptable; the row is still
-  in PostgreSQL, so recovery is a startup scan whenever it is worth writing.
+- **It dies with the process.** A deploy replaces the process, and with it
+  any job half done: on 2026-10-08 a long receipt was read, then cut off
+  while its lines were placed, and the phone waited on a `running` job
+  forever. The row is still in PostgreSQL, so `resume_unfinished` is the
+  startup scan: a server that starts finishes what the last one left.
   Moving to a real queue later changes the line that schedules work, and
   nothing here.
 - **It cannot use the request's session.** That one is closed when the
@@ -27,6 +29,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Protocol
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app.api.images import ImageStore
@@ -34,13 +37,16 @@ from grocery_app.db.io import receipt_from_dict
 from grocery_app.db.models import Job, LineGuess
 
 __all__ = ["Extractor", "anthropic_extractor", "configured_extractor", "job_to_dict",
-           "run_job"]
+           "resume_job", "resume_unfinished", "run_job", "unfinished_jobs"]
 
 # Derived at extraction time from the lines and the printed total. The receipt
 # tables hold what the paper says; these are a reading of it, and there is no
 # column for them on purpose. The first guesses are stored, but apart
 # (`LineGuess`).
 DERIVED_KEYS = ("computed_total", "reconciled", "first_guesses")
+
+# A job in one of these was started and has not said how it ended.
+UNFINISHED = ("queued", "running")
 
 
 class Extraction(Protocol):
@@ -207,31 +213,88 @@ def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
             return
 
         session.commit()
-        if matcher is not None:
-            from grocery_app.api.matching import match_receipt
+        _place_lines(session, job_id, matcher, identify)
 
-            try:
-                match_receipt(session, job.receipt_id, matcher, identify,
-                              checkpoint=session.commit)
-                session.commit()
-            except Exception as exc:  # noqa: BLE001 - the receipt stands without matching
-                session.rollback()
-                job = session.get(Job, job_id)
-                job.error = f"matching failed: {type(exc).__name__}: {exc}"
 
-        # Chosen after matching, from what the app placed on its own. A
-        # receipt stands without its spot checks.
-        from grocery_app.api.checks import pick_checks
+def _place_lines(session: Session, job_id: str, matcher: Any | None,
+                 identify: Any | None) -> None:
+    """The second half of a job: its receipt is stored; place the lines, pick
+    the spot checks, and say `done`.
+
+    Safe to run again on a receipt that is partly placed: the matcher skips a
+    line the memory already places or that already has a question.
+    """
+    job = session.get(Job, job_id)
+    if matcher is not None:
+        from grocery_app.api.matching import match_receipt
 
         try:
-            pick_checks(session, job.receipt_id)
+            match_receipt(session, job.receipt_id, matcher, identify,
+                          checkpoint=session.commit)
             session.commit()
-        except Exception as exc:  # noqa: BLE001 - the receipt stands without checks
+        except Exception as exc:  # noqa: BLE001 - the receipt stands without matching
             session.rollback()
             job = session.get(Job, job_id)
-            failed = f"spot checks failed: {type(exc).__name__}: {exc}"
-            job.error = f"{job.error}; {failed}" if job.error else failed
+            job.error = f"matching failed: {type(exc).__name__}: {exc}"
 
-        job.status = "done"
-        job.finished_at = _now()
+    # Chosen after matching, from what the app placed on its own. A
+    # receipt stands without its spot checks.
+    from grocery_app.api.checks import pick_checks
+
+    try:
+        pick_checks(session, job.receipt_id)
         session.commit()
+    except Exception as exc:  # noqa: BLE001 - the receipt stands without checks
+        session.rollback()
+        job = session.get(Job, job_id)
+        failed = f"spot checks failed: {type(exc).__name__}: {exc}"
+        job.error = f"{job.error}; {failed}" if job.error else failed
+
+    job.status = "done"
+    job.finished_at = _now()
+    session.commit()
+
+
+def unfinished_jobs(session_factory: sessionmaker[Session]) -> list[str]:
+    """The jobs a stopped server left behind, oldest first."""
+    with session_factory() as session:
+        return [str(job_id) for job_id in session.scalars(
+            select(Job.id).where(Job.status.in_(UNFINISHED)).order_by(Job.created_at))]
+
+
+def resume_job(session_factory: sessionmaker[Session], image_store: ImageStore,
+               extractor: Extractor, job_id: str, matcher: Any | None = None,
+               identify: Any | None = None) -> None:
+    """Finish a job from the step where it stopped.
+
+    A job that has its receipt only needs its lines placed: the photo is not
+    read again. A job without one is read from the start, which pays for one
+    more reading if the process stopped between the model's answer and the
+    receipt being stored; that window is a second wide.
+    """
+    with session_factory() as session:
+        job = session.get(Job, job_id)
+        if job is None or job.status not in UNFINISHED:
+            return
+        if job.receipt_id is not None:
+            _place_lines(session, job_id, matcher, identify)
+            return
+        job.status = "queued"
+        session.commit()
+    run_job(session_factory, image_store, extractor, job_id, matcher, identify)
+
+
+def resume_unfinished(session_factory: sessionmaker[Session], image_store: ImageStore,
+                      extractor: Extractor, matcher: Any | None = None,
+                      identify: Any | None = None) -> list[str]:
+    """Finish every job a stopped server left behind; returns their ids.
+
+    Only one server may run this: two would place the same lines twice. Cloud
+    Run runs one instance (`--max-instances 1`), and during a deploy the old
+    one is stopped within ten seconds of the new one starting, so the caller
+    waits longer than that first (`create_app(resume_after=...)`).
+    """
+    ids = unfinished_jobs(session_factory)
+    for job_id in ids:
+        resume_job(session_factory, image_store, extractor, job_id, matcher, identify)
+    return ids

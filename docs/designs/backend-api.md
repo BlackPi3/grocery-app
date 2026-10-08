@@ -172,9 +172,11 @@ Four decisions the table encodes:
 
 - **The row is the record; the queue is a hint.** A queue forgets an item once a worker
   takes it, and `BackgroundTasks` is an in-process list that dies with the process. So
-  the row is written and committed *before* any work is scheduled. Recovery, if it is
-  ever needed, is a startup scan for `queued` rows; moving to Redis later changes the
-  line that schedules work and nothing else.
+  the row is written and committed *before* any work is scheduled. Recovery is a
+  startup scan for `queued` and `running` rows, 30 s after the server starts
+  (`jobs.resume_unfinished`; needed from 2026-10-08, when a deploy cut off a long
+  receipt mid-placing): a job with its receipt only has its lines placed, one without is
+  read again. Moving to Redis later changes the line that schedules work and nothing else.
 - **`jobs.image_sha256` is indexed, not unique.** It answers "have I already paid to
   read this photo?" before a model is called. Unique would forbid re-extracting one
   photo under a new `prompt_version`, which is deliberate work this project does.
