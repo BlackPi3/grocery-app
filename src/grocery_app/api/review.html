@@ -117,7 +117,7 @@
 "use strict";
 // All text from receipts and the model goes in with textContent, never as HTML.
 const state = { tab: "waiting", checks: null, questions: null, receipts: null, open: null,
-                insights: null, upload: null };
+                insights: null, jobs: null, sending: [], notSent: [], uploaded: new Set() };
 const TABS = ["waiting", "receipts", "add", "insights"];
 
 function el(tag, attrs, ...children) {
@@ -217,7 +217,8 @@ async function setCounted(receiptId, position, counted) {
 // loose as you like. The server reads a description into its own format.
 function picker(receiptId, position, extra) {
   const results = el("div", { class: "list" });
-  const search = el("input", { placeholder: "What was it? Search, or describe it" });
+  const search = el("input", { placeholder: "What was it? Search, or describe it",
+                               autocomplete: "off" });
   const create = el("button", { onclick: () => {
     const description = search.value.trim();
     if (!description) return;
@@ -230,16 +231,15 @@ function picker(receiptId, position, extra) {
     clearTimeout(timer);
     timer = setTimeout(async () => {
       const q = search.value.trim();
-      results.replaceChildren();
-      if (!q) return;
+      if (!q) return results.replaceChildren();
       try {
         const found = await api("/v1/products?q=" + encodeURIComponent(q));
-        for (const p of found) {
-          results.append(el("button", { onclick: () => answer(receiptId, position,
-            { product_id: p.product_id }) },
-            productText(p.name, p.brand),
-            p.category_path ? el("div", { class: "meta" }, p.category_path.join(" › ")) : null));
-        }
+        // Swapped in one go: emptied first, the list collapsed and the page
+        // jumped under the shopper's thumb.
+        results.replaceChildren(...found.map(p => el("button", { onclick: () => answer(
+          receiptId, position, { product_id: p.product_id }) },
+          productText(p.name, p.brand),
+          p.category_path ? el("div", { class: "meta" }, p.category_path.join(" › ")) : null)));
         if (!found.length) results.append(el("div", { class: "meta" }, "Nothing in the catalog."));
       } catch (error) { toast(error.message); }
     }, 250);
@@ -348,8 +348,7 @@ function receiptCard(summary) {
           summary.not_counted ? `, ${summary.not_counted} not counted` : "")),
     el("div", { class: "money" }, euro(summary.printed_total))));
   if (state.open === summary.receipt_id) {
-    const u = state.upload;
-    if (u && u.status === "placing" && u.receipt_id === summary.receipt_id) {
+    if (inProgress().some(job => job.receipt_id === summary.receipt_id)) {
       card.append(el("div", { class: "why" },
         "First reading: the names in grey are guesses from the photo. The app is still " +
         "placing each line; this receipt updates by itself."));
@@ -390,93 +389,81 @@ function receiptCard(summary) {
 
 // --- adding a receipt -----------------------------------------------------
 
-// Photo up, job id back, poll. The receipt opens as soon as the photo is
-// read, with a guess per line, and fills in while the app places the lines.
-// The job is kept on the phone while it runs: the server carries on whatever
-// the page does, so a reload or a closed tab picks the waiting up again.
-const JOB_KEY = "grocery-job";
+// Photos up, job ids back. What is still being read lives on the server
+// (`GET /v1/jobs`), not in the browser that sent it, so a phone and a laptop
+// show the same list (Parham, 2026-10-08) and a reload loses nothing. While
+// something is in progress the page asks again every few seconds; when a job
+// leaves the list its receipt is finished, and the history is loaded again.
+const POLL_MS = 3000;
+try { localStorage.removeItem("grocery-job"); } catch (_) { /* the old one-job memory */ }
 
-function savedJob() {
-  try { return JSON.parse(localStorage.getItem(JOB_KEY) || "null"); } catch (_) { return null; }
+function inProgress() {
+  return (state.jobs || []).filter(job => job.status === "queued" || job.status === "running");
 }
 
-function keepJob(job) {
-  try {
-    if (job) localStorage.setItem(JOB_KEY, JSON.stringify(job));
-    else localStorage.removeItem(JOB_KEY);
-  } catch (_) { /* private mode: no resuming, nothing else lost */ }
-}
-
-async function upload(file) {
-  if (!file) return;
-  state.upload = { status: "uploading", name: file.name };
-  render();
-  try {
-    const body = new FormData();
-    body.append("file", file);
-    const job = await api("/v1/receipts", { method: "POST", body });
-    await follow(job, file.name);
-  } catch (error) {
-    state.upload = { status: "failed", name: file.name, error: error.message };
+async function upload(files) {
+  for (const file of files) {
+    const sending = { name: file.name };
+    state.sending.push(sending);
     render();
-  }
-}
-
-async function follow(job, name) {
-  // Timed from the server's clock, so a resumed wait shows the real time.
-  const started = Date.parse(job.created_at) || Date.now();
-  keepJob({ job_id: job.job_id, name });
-  let shown = false;
-  try {
-    while (job.status === "queued" || job.status === "running") {
-      if (job.receipt_id == null) {
-        state.upload = { status: "reading", name, started };
-        render();
-      } else if (!shown) {
-        shown = true;
-        state.upload = { status: "placing", name, started, receipt_id: job.receipt_id };
-        await load();
-        state.tab = "receipts";
-        await showReceipt(job.receipt_id);
-      } else if (state.open === job.receipt_id) {
-        await refreshReceipt(job.receipt_id);  // the lines placed so far
-      } else {
-        render();
-      }
-      await new Promise(resolve => setTimeout(resolve, shown ? 3000 : 2000));
-      job = await api(`/v1/jobs/${job.job_id}`);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const job = await api("/v1/receipts", { method: "POST", body });
+      if (job.status === "done") toast("This photo is already in your receipts");
+      else state.uploaded.add(job.job_id);
+    } catch (error) {
+      state.notSent.push({ name: file.name, error: error.message });
     }
-  } catch (error) {
-    if (!error.locked) keepJob(null);  // a locked page resumes once unlocked
-    throw error;
+    state.sending = state.sending.filter(item => item !== sending);
+    await refreshJobs();
   }
-  keepJob(null);
-  if (job.status === "failed" || job.receipt_id == null) {
-    state.upload = { status: "failed", name, error: job.error || "not read" };
-    render();
+}
+
+// One at a time: an upload, the timer and a tab switch may all ask at once.
+async function refreshJobs() {
+  if (refreshJobs.busy) { refreshJobs.again = true; return; }
+  refreshJobs.busy = true;
+  try {
+    await refreshJobsOnce();
+  } finally {
+    refreshJobs.busy = false;
+    if (refreshJobs.again) { refreshJobs.again = false; refreshJobs(); }
+  }
+}
+
+async function refreshJobsOnce() {
+  clearTimeout(refreshJobs.timer);
+  let doc;
+  try {
+    doc = await api("/v1/jobs");
+  } catch (error) {
+    if (!error.locked) toast(error.message);
     return;
   }
-  state.upload = null;
-  if (job.error) toast("Read, but matching failed: " + job.error);
-  await load();  // keeps an open receipt open, with its final lines
-  if (!shown) {
+  const before = new Map((state.jobs || []).map(job => [job.job_id, job]));
+  state.jobs = doc.jobs;
+  const now = new Map(doc.jobs.map(job => [job.job_id, job]));
+  // A job that left the list, failed, or got its receipt changes the history.
+  const changed = [...before.values()].some(old => {
+    const job = now.get(old.job_id);
+    return !job || job.status !== old.status || job.receipt_id !== old.receipt_id;
+  });
+  // A receipt this browser sent opens as soon as it is read, if it is the
+  // only one in progress and the shopper is still looking at the Add tab.
+  const justRead = doc.jobs.find(job => job.receipt_id != null && state.uploaded.has(job.job_id)
+    && before.get(job.job_id) && before.get(job.job_id).receipt_id == null);
+  if (changed) await load({ jobs: false });
+  if (justRead && state.tab === "add" && inProgress().length <= 1) {
     state.tab = "receipts";
-    await showReceipt(job.receipt_id);
+    await showReceipt(justRead.receipt_id);
+  } else if (inProgress().some(job => job.receipt_id === state.open) && state.tab === "receipts") {
+    await refreshReceipt(state.open);  // the lines placed so far
+  } else if (changed || state.tab === "add") {
+    render();  // only when it shows something new: a redraw loses a text selection
   }
-}
-
-// A receipt this phone sent and stopped watching (a reload, a closed tab).
-async function resumeJob() {
-  const kept = savedJob();
-  if (!kept) return;
-  state.tab = "add";
-  try {
-    const job = await api(`/v1/jobs/${kept.job_id}`);
-    await follow(job, kept.name);
-  } catch (error) {
-    if (error.locked) return;
-    state.upload = { status: "failed", name: kept.name, error: error.message };
-    render();
+  if (state.sending.length || inProgress().length) {
+    refreshJobs.timer = setTimeout(refreshJobs, POLL_MS);
   }
 }
 
@@ -485,36 +472,50 @@ function elapsed(since) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+function clock(iso) {
+  const at = new Date(iso);
+  return isNaN(at) ? "" : at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function jobCard(job) {
+  const added = "Added " + clock(job.created_at);
+  if (job.status === "failed") {
+    return el("div", { class: "card" }, el("h2", {}, "Not read"),
+      el("div", { class: "meta" }, added), el("div", { class: "why" }, job.error || ""));
+  }
+  const since = Date.parse(job.created_at) || Date.now();
+  if (job.receipt_id == null) {
+    return el("div", { class: "card" }, el("h2", {}, `Reading the photo… ${elapsed(since)}`),
+      el("div", { class: "meta" }, added));
+  }
+  const summary = (state.receipts || []).find(r => r.receipt_id === job.receipt_id);
+  return el("div", { class: "card" },
+    el("h2", {}, `Read. Placing the lines… ${elapsed(since)}`),
+    el("div", { class: "meta" }, [summary && summary.store, summary && summary.date, added]
+      .filter(Boolean).join(" · ")),
+    el("div", { class: "row" }, el("button", { class: "primary", onclick: () => {
+      state.tab = "receipts";
+      showReceipt(job.receipt_id);
+    } }, "Open the receipt")));
+}
+
 function addView() {
-  const u = state.upload;
-  if (u && (u.status === "uploading" || u.status === "reading")) {
-    return [el("div", { class: "card" },
-      el("h2", {}, u.status === "uploading" ? "Sending the photo…"
-                                            : `Reading the photo… ${elapsed(u.started)}`),
-      el("div", { class: "why" },
-        "The receipt opens as soon as the photo is read, with a first guess for each " +
-        "line; the app then places the lines one by one. You can leave this page; it " +
-        "picks up here when you come back."))];
-  }
-  if (u && u.status === "placing") {
-    return [el("div", { class: "card" },
-      el("h2", {}, `Read. Placing the lines… ${elapsed(u.started)}`),
-      el("div", { class: "row" }, el("button", { class: "primary", onclick: () => {
-        state.tab = "receipts";
-        showReceipt(u.receipt_id);
-      } }, "Open the receipt")))];
-  }
-  const input = el("input", { type: "file", accept: "image/*" });
-  input.addEventListener("change", () => upload(input.files[0]));
+  const input = el("input", { type: "file", accept: "image/*", multiple: "" });
+  input.addEventListener("change", () => upload([...input.files]));
   return [
     el("div", { class: "card" },
-      el("label", { class: "photo" }, "Take or choose a photo of a receipt", input),
+      el("label", { class: "photo" }, "Take or choose photos of receipts", input),
       el("div", { class: "why" },
-        "The whole receipt, flat and in focus. The app reads it, places what it knows, " +
-        "and puts anything it cannot tell under Waiting for you.")),
-    u && u.status === "failed" ? el("div", { class: "card" },
-      el("h2", {}, "Not read"), el("div", { class: "why" }, u.error)) : null,
-  ].filter(Boolean);
+        "The whole receipt, flat and in focus. You can add the next one while others are " +
+        "read. Each receipt opens with a first guess per line, and the app places the " +
+        "lines one by one; this list is the same on all your devices.")),
+    ...state.sending.map(item => el("div", { class: "card" },
+      el("h2", {}, "Sending the photo…"), el("div", { class: "meta" }, item.name))),
+    ...state.notSent.map(item => el("div", { class: "card" },
+      el("h2", {}, "Not sent"), el("div", { class: "meta" }, item.name),
+      el("div", { class: "why" }, item.error))),
+    ...(state.jobs || []).map(jobCard),
+  ];
 }
 
 // --- insights -------------------------------------------------------------
@@ -577,6 +578,13 @@ function render() {
   }
   const view = document.getElementById("view");
   if (!state.checks) return;
+  // Never redraw under someone typing: it took the text box away mid-word and
+  // jumped the page (2026-10-08). Drawn once they leave the box.
+  if (view.contains(document.activeElement) && document.activeElement.tagName === "INPUT") {
+    render.pending = true;
+    return;
+  }
+  render.pending = false;
   const views = { waiting: waitingView, receipts: receiptsView, add: addView,
                   insights: insightsView };
   view.replaceChildren(...views[state.tab]());
@@ -588,7 +596,7 @@ function render() {
                 "no spot check answered yet");
 }
 
-async function load() {
+async function load({ jobs = true } = {}) {
   try {
     const [checks, questions, receipts] = await Promise.all([
       // Only searched questions: the shopper sees none a search could have answered.
@@ -602,7 +610,7 @@ async function load() {
       state.receiptLines[state.open] = doc.lines;
     }
     render();
-    if (!state.upload) resumeJob();
+    if (jobs) refreshJobs();
   } catch (error) {
     if (error.locked) return askPassword(error.message);
     document.getElementById("stats").textContent = "Cannot load: " + error.message;
@@ -631,8 +639,18 @@ function askPassword(why) {
 for (const tab of TABS) {
   document.getElementById("tab-" + tab).addEventListener("click", () => {
     state.tab = tab; render();
+    if (tab === "add") refreshJobs();
   });
 }
+// A redraw held back while the shopper typed. Later, not at once: leaving the
+// box by tapping a result must reach that button before it is redrawn away.
+document.getElementById("view").addEventListener("focusout", () => {
+  setTimeout(() => { if (render.pending) render(); }, 400);
+});
+// Back on the page: another device may have added a receipt meanwhile.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.checks) refreshJobs();
+});
 load();
 </script>
 </body>

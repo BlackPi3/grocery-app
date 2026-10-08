@@ -158,7 +158,7 @@ def test_a_failed_extraction_is_recorded_rather_than_raised(engine, session, tmp
     assert session.query(Receipt).all() == [], "a failed reading stores no receipt"
 
 
-def test_a_photo_may_be_retried_after_a_failure(engine, tmp_path):
+def test_a_photo_may_be_retried_after_a_failure(engine, session, tmp_path):
     """A failed job must not become a tombstone that blocks the same photo
     for ever, which is why the dedup lookup ignores failures."""
     repository = PostgresRepository(make_session_factory(engine))
@@ -220,7 +220,7 @@ def test_an_unknown_job_is_a_404(uploads):
     assert client.get("/v1/jobs/4f1c0e2a-0000-4000-8000-000000000000").status_code == 404
 
 
-def test_a_server_with_no_extractor_refuses_to_upload(engine, tmp_path):
+def test_a_server_with_no_extractor_refuses_to_upload(engine, session, tmp_path):
     """The money guard: `create_app` has no default extractor, so forgetting
     the argument cannot cause a paid call — it causes a 503."""
     repository = PostgresRepository(make_session_factory(engine))
@@ -264,7 +264,7 @@ def test_a_photo_is_matched_before_its_job_is_done(engine, session, tmp_path):
     assert (line["resolution"], line["product_id"]) == ("exact", "p-0001")
 
 
-def test_a_matcher_that_fails_leaves_the_receipt_stored(engine, tmp_path):
+def test_a_matcher_that_fails_leaves_the_receipt_stored(engine, session, tmp_path):
     def broken(line, store, inputs):
         raise RuntimeError("usage limit")
 
@@ -341,7 +341,7 @@ def test_a_receipt_shows_with_its_guesses_while_its_lines_are_still_placed(
         "the first line is visible as placed while the second is matched"
 
 
-def test_a_guess_is_shown_but_never_counted(engine, tmp_path):
+def test_a_guess_is_shown_but_never_counted(engine, session, tmp_path):
     """A line nothing placed shows the guess on its receipt; the history and
     the insights rest only on what was placed."""
     repository = PostgresRepository(make_session_factory(engine))
@@ -475,3 +475,120 @@ def test_a_server_resumes_nothing_unless_asked(uploads):
     client, *_ = uploads
     with client:
         assert not hasattr(client.app.state, "resuming")
+
+
+# --- the same list on every device -------------------------------------------
+# 2026-10-08: the phone showed a receipt reading for 19 minutes and the laptop
+# showed nothing, because only the phone that sent it knew. The Add tab is now
+# the server's list.
+
+def test_every_device_sees_the_photos_still_being_read(engine, session, tmp_path):
+    """Two clients stand for two devices: the one that did not send the photo
+    sees it as well, with the fields the page's Add tab reads."""
+    repository = PostgresRepository(make_session_factory(engine))
+    store = DiskImageStore(tmp_path)
+    phone = TestClient(create_app(repository, store, FakeExtractor()))
+    laptop = TestClient(create_app(repository, store, FakeExtractor()))
+    job_id = phone.post("/v1/receipts",
+                        files={"file": ("image.jpg", a_photo(), "image/jpeg")}).json()["job_id"]
+    assert laptop.get("/v1/jobs").json() == {"jobs": []}, "a finished job leaves the list"
+
+    cut_off(engine, job_id)
+    (job,) = laptop.get("/v1/jobs").json()["jobs"]
+    assert (job["job_id"], job["status"]) == (job_id, "running")
+    assert job["receipt_id"] is not None and job["created_at"]
+
+
+def test_a_failure_stays_on_the_list_for_an_hour(engine, session, tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    from grocery_app.db.models import Job
+
+    repository = PostgresRepository(make_session_factory(engine))
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path),
+                                   FakeExtractor(error=RuntimeError("blurred"))))
+    new = client.post("/v1/receipts", files={"file": ("a.jpg", a_photo("red"), "image/jpeg")})
+    old = client.post("/v1/receipts", files={"file": ("b.jpg", a_photo("blue"), "image/jpeg")})
+    with make_session_factory(engine)() as s:
+        s.get(Job, old.json()["job_id"]).finished_at = datetime.now(UTC) - timedelta(hours=2)
+        s.commit()
+
+    (job,) = client.get("/v1/jobs").json()["jobs"]
+    assert (job["job_id"], job["status"]) == (new.json()["job_id"], "failed")
+    assert job["error"] == "RuntimeError: blurred"
+
+
+def test_the_list_runs_oldest_first(engine, session, tmp_path):
+    """The order the photos were added in, so the list does not jump about."""
+    repository = PostgresRepository(make_session_factory(engine))
+    store = DiskImageStore(tmp_path)
+    first = repository.create_job("a" * 64, "a.jpg")["job_id"]
+    second = repository.create_job("b" * 64, "b.jpg")["job_id"]
+    client = TestClient(create_app(repository, store, FakeExtractor()))
+    assert [job["job_id"] for job in client.get("/v1/jobs").json()["jobs"]] == [first, second]
+
+
+def test_a_file_backed_server_has_no_job_list(tmp_path):
+    client = TestClient(create_app(InMemoryRepository([]), DiskImageStore(tmp_path),
+                                   FakeExtractor()))
+    assert client.get("/v1/jobs").status_code == 503
+
+
+# --- the same paper, photographed twice --------------------------------------
+# 2026-10-08: a second photo of one receipt became a second receipt, counted
+# twice and spot-checked twice. Different photos, so the hash never caught it.
+
+def test_a_second_photo_of_the_same_paper_is_a_duplicate(engine, session, tmp_path):
+    session.add(Product(id="p-0001", name="Butter", brand="Muster"))
+    session.commit()
+    calls = []
+
+    def matcher(line, store, inputs):
+        calls.append(line["raw_name"])
+        return butter_matcher(line, store, inputs)
+
+    repository = PostgresRepository(make_session_factory(engine))
+    timed = {**RECEIPT, "time": "11:30"}
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path), FakeExtractor(timed),
+                                   matcher))
+    first = client.post("/v1/receipts", files={"file": ("a.jpg", a_photo("red"), "image/jpeg")})
+    second = client.post("/v1/receipts",
+                         files={"file": ("b.jpg", a_photo("blue"), "image/jpeg")})
+    first, second = (client.get(f"/v1/jobs/{r.json()['job_id']}").json() for r in (first, second))
+
+    assert second["status"] == "done" and second["receipt_id"] != first["receipt_id"]
+    duplicates = {r["receipt_id"]: r["is_duplicate"] for r in client.get("/v1/receipts").json()}
+    assert duplicates == {first["receipt_id"]: False, second["receipt_id"]: True}
+    assert calls == ["MU Butter"], "the second photo's lines are not placed again"
+    checks = client.get("/v1/checks").json()["checks"]
+    assert [c["receipt_id"] for c in checks] == [first["receipt_id"]], "nor checked again"
+    assert client.get("/v1/insights").json()["coverage"]["receipts"] == 1
+
+
+def test_another_visit_with_the_same_total_is_not_a_duplicate(engine, session, tmp_path):
+    """Same shop, same day, same total, another minute: two shopping trips."""
+    repository = PostgresRepository(make_session_factory(engine))
+    store = DiskImageStore(tmp_path)
+    morning = TestClient(create_app(repository, store, FakeExtractor({**RECEIPT, "time": "09:05"})))
+    evening = TestClient(create_app(repository, store, FakeExtractor({**RECEIPT, "time": "18:40"})))
+    morning.post("/v1/receipts", files={"file": ("a.jpg", a_photo("red"), "image/jpeg")})
+    evening.post("/v1/receipts", files={"file": ("b.jpg", a_photo("blue"), "image/jpeg")})
+    assert [r["is_duplicate"] for r in evening.get("/v1/receipts").json()] == [False, False]
+
+
+def test_without_a_printed_time_the_lines_decide(engine, session, tmp_path):
+    from grocery_app.api.jobs import same_paper
+    from grocery_app.db.io import receipt_from_dict
+    from grocery_app.db.models import Receipt
+
+    untimed = {**RECEIPT, "time": None}
+    other_lines = {**untimed, "lines": [{**RECEIPT["lines"][0], "raw_name": "MU Margarine"}]}
+    for n, doc in enumerate((untimed, other_lines, untimed)):
+        receipt = receipt_from_dict({k: v for k, v in doc.items()
+                                     if k not in ("computed_total", "reconciled")}
+                                    | {"source_image": f"x{n}.jpg", "transcribed_by": "llm"})
+        session.add(receipt)
+    session.commit()
+    first, other, again = session.scalars(select(Receipt).order_by(Receipt.id)).all()
+    assert same_paper(session, other) is None
+    assert same_paper(session, again).id == first.id

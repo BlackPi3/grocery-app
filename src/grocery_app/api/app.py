@@ -60,6 +60,7 @@ from grocery_app.api.schemas import (
     Health,
     InsightsDocument,
     JobDocument,
+    JobsDocument,
     LineCountedRequest,
     LineResolutionRequest,
     ProductMatch,
@@ -219,6 +220,15 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         background.add_task(run_job, repo.session_factory, image_store, extractor,
                             job["job_id"], matcher, identify)
         return JobDocument.model_validate(job)
+
+    @app.get("/v1/jobs", response_model=JobsDocument)
+    def jobs() -> JobsDocument:
+        """Every photo still being read or placed, and those that failed in the
+        last hour, oldest first. The page's Add tab is this list, so every
+        device shows the same thing, whichever one sent the photo."""
+        repo = require_uploads()
+        return JobsDocument(jobs=[JobDocument.model_validate(job)
+                                  for job in repo.jobs_in_progress()])
 
     @app.get("/v1/jobs/{job_id}", response_model=JobDocument)
     def job(job_id: str) -> JobDocument:
