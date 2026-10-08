@@ -773,3 +773,22 @@ def test_a_reread_leaves_products_identify_did_not_make(server):
     _, session = server
     said = reread_product(session, "p-0001", reads_as())
     assert (said["changed"], said["why"]) == (False, "not a product identify made")
+
+
+def test_a_reread_does_not_keep_a_detail_twice(server):
+    """2026-10-08, live: the old variant was read again as the product line;
+    kept as well, the name showed it twice."""
+    from grocery_app.api.matching import reread_product
+
+    client, session = server
+    receipt = add_receipt(session, "IMG_11.jpeg", ["MU Zig Orig"])
+    match_receipt(session, receipt, TableMatcher({}), reads_as(
+        **{"MU Zig Orig": {"name": "Zigaretten", "brand": "Muster",
+                           "variant": "Original"}}))
+    session.commit()
+    (_, product_id, _), = reading(client, receipt)
+
+    said = reread_product(session, product_id, reads_as(
+        **{"MU Zig Orig": {"name": "Zigaretten", "brand": "Muster",
+                           "product_line": "Original"}}))
+    assert said["after"] == {"name": "Zigaretten", "product_line": "Original", "variant": None}
