@@ -425,7 +425,7 @@ def priced_like(line: dict[str, Any], ids: list[str],
 # `is_budget_brand` is deliberately absent: it is not an attribute of the product
 # but of this line's store and the product's brand together, so it is derived
 # in `normalize_line` rather than copied across from the catalog.
-_SHARED = ("brand", "product_line", "variant", "category", "is_organic")
+_SHARED = ("brand", "category", "is_organic")
 
 
 def shared_attributes(candidates: list[dict[str, Any]]) -> dict[str, Any]:
@@ -439,6 +439,10 @@ def shared_attributes(candidates: list[dict[str, Any]]) -> dict[str, Any]:
     for key in _SHARED:
         values = {json.dumps(c.get(key), sort_keys=True) for c in candidates}
         shared[key] = candidates[0].get(key) if len(values) == 1 else None
+    # The details every candidate has: a family of one range keeps its range,
+    # and loses the flavours that tell its members apart.
+    shared["details"] = [d for d in candidates[0].get("details") or []
+                         if all(d in (c.get("details") or []) for c in candidates[1:])]
     # `category` is the vocabulary key, which is an identity and not a word
     # anyone says. The three labels that go with it travel beside it, derived
     # here from the one table, so a reader of purchases.json — or the demo —
@@ -512,7 +516,9 @@ def load_resolution_authors(path: str | Path) -> dict[tuple[str, str], str | Non
 
 
 def load_products(path: str | Path) -> dict[str, dict[str, Any]]:
-    return load_json(path)["products"]
+    from grocery_app.product_store import with_details
+
+    return {pid: with_details(p) for pid, p in load_json(path)["products"].items()}
 
 
 def load_line_resolutions(path: str | Path | None) -> dict[tuple[str, int], dict[str, Any]]:
@@ -596,7 +602,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     dates = sorted({r["date"] for r in receipts if not r.get("is_duplicate")})
 
     return {
-        "contract_version": 7,
+        "contract_version": 8,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],

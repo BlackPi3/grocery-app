@@ -479,7 +479,8 @@ class PostgresRepository:
             found = [p for p in session.scalars(select(Product))
                      if all(w in f"{p.name or ''} {p.brand or ''}".casefold() for w in words)]
         found.sort(key=lambda p: (len(p.name or ""), p.name or "", p.id))
-        return [{"product_id": p.id, "name": p.name, "brand": p.brand, "variant": p.variant,
+        return [{"product_id": p.id, "name": p.name, "brand": p.brand,
+                 "details": list(p.details or []),
                  "category_path": (list(categories.path(p.category))
                                    if p.category in categories.CATEGORIES else None)}
                 for p in found[:limit]]
@@ -527,8 +528,8 @@ class PostgresRepository:
                     "raw_name": check.raw_name, "paid": matching.paid_price(line),
                     "app_product_id": check.app_product_id,
                     "app_product": product.get("name"), "brand": product.get("brand"),
-                    "product_line": product.get("product_line"),
-                    "variant": product.get("variant"), "sold_as": record.get("sold_as"),
+                    "details": list(product.get("details") or []),
+                    "sold_as": record.get("sold_as"),
                     "category_path": (list(categories.path(product["category"]))
                                       if product.get("category") in categories.CATEGORIES
                                       else None),

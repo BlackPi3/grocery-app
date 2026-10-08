@@ -70,3 +70,12 @@ def test_store_slug_matches_the_directory_names():
     assert store_slug("GLOBUS") == "globus"
     assert store_slug("ALDI SÜD") == "aldi-sued"
     assert store_slug("Musterladen") == "musterladen"
+
+
+def test_a_product_written_before_details_still_imports():
+    """Migration 0011 (2026-10-09): the range and the variant became one list.
+    A file written before keeps working: range first, then the variant split
+    at its commas."""
+    old = {k: v for k, v in PRODUCTS["products"]["p-0001"].items() if k != "details"}
+    old |= {"product_line": "Kids", "variant": "Erdbeere, 500 mg"}
+    assert product_from_dict("p-0001", old).details == ["Kids", "Erdbeere", "500 mg"]

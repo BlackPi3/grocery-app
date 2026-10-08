@@ -33,7 +33,9 @@ from pydantic import BaseModel, ConfigDict, Field
 # pack of some size; the product stays one thing.
 # And to 7 on 2026-10-05: `not_counted` marks a line the shopper left out of
 # their numbers with one tap.
-PURCHASES_CONTRACT_VERSION = 7
+# And to 8 on 2026-10-09: `product_line` and `variant` became one list,
+# `details` (migration 0011): two fixed slots the reader guessed between.
+PURCHASES_CONTRACT_VERSION = 8
 #
 # Insights bumped to 3 on 2026-09-29: lines known not to be groceries (café,
 # flowers, cards) left every insight, so `coverage.spend` means grocery spend,
@@ -102,8 +104,9 @@ class Purchase(BaseModel):
     # Present only when the line resolved to a product or a family of products.
     product: str | None = None
     brand: str | None = None
-    product_line: str | None = None
-    variant: str | None = None
+    details: list[str] | None = Field(
+        default=None, description="Everything the pack says besides name, brand, category "
+                                  "and size (a range, a strength, a flavour), any number")
     # The vocabulary key (`reibekaese`), and the three labels it stands for
     # (`["Molkereiprodukte & Eier", "Käse", "Reibekäse"]`), coarsest first.
     category: str | None = None
@@ -273,8 +276,7 @@ class SpotCheck(BaseModel):
     app_product_id: str = Field(description="What the app said the line is")
     app_product: str | None = Field(description="That product's name")
     brand: str | None
-    product_line: str | None
-    variant: str | None
+    details: list[str]
     sold_as: SoldAs | None = Field(
         description="Loose or a pack of what size: all the app claims is put to the shopper, "
                     "or 'right' could only judge half of it (Parham, 2026-10-08)")
@@ -307,7 +309,7 @@ class ProductMatch(BaseModel):
     product_id: str
     name: str | None
     brand: str | None
-    variant: str | None
+    details: list[str]
     category_path: list[str] | None
 
 

@@ -148,13 +148,13 @@ class Proposal:
 def _text(product: dict[str, Any]) -> str:
     """The words that say what a product *is*.
 
-    `variant` is deliberately left out. It is the flavour — which one it was,
+    The `details` are deliberately left out. A flavour says which one it was,
     not what it is — and reading it is how `Lay's Potato chips` in
     `Kräuterbutter` proposes butter, `Potato chips Peperoni` proposes chilli
     peppers and `Somat 5in1 Deo Perls` proposes deodorant. One field, one job:
     the head noun lives in `name`.
     """
-    parts = (product.get("brand"), product.get("name"), product.get("product_line"))
+    parts = (product.get("brand"), product.get("name"))
     return fold(" ".join(p for p in parts if p))
 
 

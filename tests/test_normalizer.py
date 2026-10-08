@@ -13,14 +13,14 @@ from grocery_app.normalizer import (
 )
 
 PRODUCTS = {
-    "p-1": {"name": "Dusche Sweet Treat", "brand": "Dove", "product_line": None,
-            "variant": "Sweet Treat", "category": "Body care",
+    "p-1": {"name": "Dusche Sweet Treat", "brand": "Dove",
+            "details": ["Sweet Treat"], "category": "Body care",
             "is_organic": False, "size": {"count": 1, "value": 250.0, "unit": "ml"}},
-    "p-2": {"name": "Dusche Fruchtig Leicht", "brand": "Dove", "product_line": None,
-            "variant": "Fruchtig Leicht", "category": "Body care",
+    "p-2": {"name": "Dusche Fruchtig Leicht", "brand": "Dove",
+            "details": ["Fruchtig Leicht"], "category": "Body care",
             "is_organic": False, "size": {"count": 1, "value": 250.0, "unit": "ml"}},
     # In the catalog, outside the Dove Dusche family: the shape of a stale note.
-    "p-3": {"name": "Zahnpasta", "brand": "Muster", "product_line": None, "variant": None,
+    "p-3": {"name": "Zahnpasta", "brand": "Muster", "details": [],
             "category": "Body care", "is_organic": False,
             "size": {"count": 1, "value": 75.0, "unit": "ml"}},
 }
@@ -36,7 +36,7 @@ def test_family_keeps_what_the_candidates_agree_on_and_nothing_else():
     # Dove is a manufacturer brand, so it is not GLOBUS's own label. The
     # catalog never says so: the answer is derived from this line's store.
     assert record["brand"] == "Dove" and record["is_budget_brand"] is False
-    assert record["variant"] is None
+    assert record["details"] == [], "only the details every candidate has"
     assert record["product"] == "2 candidates"
     # Pack sizes may differ across a family, so no unit price is derived.
     assert record["unit_price"] is None
@@ -46,7 +46,7 @@ def test_single_candidate_is_an_exact_resolution():
     record = normalize_line(LINE, RECEIPT, {("globus", "Dove Dusche"): ["p-1"]}, PRODUCTS)
     assert record["resolution"] == "exact" and record["product_id"] == "p-1"
     assert record["resolved"] is True and record["candidate_ids"] == []
-    assert record["variant"] == "Sweet Treat"
+    assert record["details"] == ["Sweet Treat"]
     assert record["unit_price"] == {"amount": 8.96, "per": "l"}
 
 
@@ -77,7 +77,7 @@ def test_a_pinpoint_narrows_a_family_and_is_labelled_as_the_shoppers():
                                       PRODUCTS, answers)
     assert first["resolution"] == "family" and first["product_id"] is None
     assert second["resolution"] == "user" and second["product_id"] == "p-2"
-    assert second["variant"] == "Fruchtig Leicht" and second["candidate_ids"] == []
+    assert second["details"] == ["Fruchtig Leicht"] and second["candidate_ids"] == []
     assert second["unit_price"] == {"amount": 8.96, "per": "l"}
 
 
@@ -248,8 +248,8 @@ def test_a_spelling_match_is_still_an_exact_resolution():
 # --- produce: known at one store, bought at another ---------------------------
 
 TOMATOES = {**PRODUCTS,
-            "p-4": {"name": "Rispentomaten", "brand": None, "product_line": None,
-                    "variant": None, "category": "tomaten", "is_organic": False,
+            "p-4": {"name": "Rispentomaten", "brand": None,
+                    "details": [], "category": "tomaten", "is_organic": False,
                     "size": None}}
 TOMATO_LINE = {"type": "product", "raw_name": "Rispentomaten lose", "qty": 1,
                "gross": 1.99, "net": 1.99}

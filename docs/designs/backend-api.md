@@ -108,8 +108,8 @@ receipts        id, source_image, transcribed_by, store, store_location, date, t
 receipt_lines   id, receipt_id, position, type, raw_name, qty, unit_gross, gross,
                 discount, net, tax_class, sold_by_weight, weight_kg, unit_price,
                 unit_price_basis
-products        id ('p-0001' stays the public id), label, name, brand, product_line,
-                variant, size jsonb, category, is_organic, is_own_brand, eans text[],
+products        id ('p-0001' stays the public id), label, name, brand, details text[],
+                size jsonb, category, is_organic, is_own_brand, eans text[],
                 open_questions text[], provenance jsonb
 resolutions     id, store, raw_name, line_type, product_id (nullable), family_ids
                 text[], confirmed_by, confirmed_at, source

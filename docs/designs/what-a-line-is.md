@@ -46,7 +46,13 @@ The thing all purchases of it share, whatever the shop or pack:
 - `category`: a key from `categories.py`.
 - `brand`: only when the receipt prints it (`JT` is Jeden Tag), or the shop
   listing says it. Otherwise empty, and the product says so.
-- `variant`: only when the receipt prints it (`Paprika rot`).
+- `details`: everything else the receipt prints about the product, as a list
+  of any length: a range (`system`), a strength (`400 mg`), a flavour or
+  colour (`rot`). Only what is printed. Until 2026-10-09 these were two fixed
+  slots, `product_line` and `variant`; the reader guessed which slot a word
+  belonged in and guessed differently each time, and neither slot did a job
+  of its own (Parham: fixed slots were a presumption). Name, brand,
+  category and size stay slots because each feeds an insight.
 
 The **size belongs to the purchase, not the product**: it is read from the
 line when printed (`400g`, `1,5l`) or from the exact item when known, and the
@@ -121,7 +127,7 @@ error rate stays known.
   is read by identify instead of becoming a question; its answer is saved as
   identify's (`confirmed_by = "identify"`, open to correction and counted
   when overruled, like the matcher's) and points at a level-1 product: one
-  with the same name, brand and variant, or a new one. Until the rewrite, a
+  with the same name, brand and details (in any order), or a new one. Until the rewrite, a
   new level-1 product can double an older one named another way; the rewrite
   merges them, and since the history points at product ids nothing is lost.
   The rewrite is a program, not hand edits, so a later change of style is a

@@ -18,7 +18,7 @@ from grocery_app.insights import build_insights
 from grocery_app.normalizer import save_json
 
 PURCHASES = {
-    "contract_version": 7,
+    "contract_version": 8,
     "meta": {
         "receipts": 2, "date_range": ["2026-01-05", "2026-02-05"], "product_lines": 3,
         "total_net_paid": 4.03, "unresolved_items": ["Geheimnis"], "ambiguous_items": [],
@@ -29,7 +29,7 @@ PURCHASES = {
          "resolved": True, "resolution": "exact", "said_by": "you", "candidate_ids": [],
          "qty": 1,
          "gross": 1.09, "discount": 0.0, "net_paid": 1.09, "tax_class": "A", "tax_rate": 0.07,
-         "product": "Milch 1,5%", "brand": "Muster", "product_line": None, "variant": None,
+         "product": "Milch 1,5%", "brand": "Muster", "details": [],
          "category": "milch",
          "category_path": ["Molkereiprodukte & Eier", "Milch & Joghurt", "Milch"],
          "is_budget_brand": True, "is_organic": False,
@@ -39,7 +39,7 @@ PURCHASES = {
          "resolved": True, "resolution": "exact", "said_by": "you", "candidate_ids": [],
          "qty": 1,
          "gross": 1.19, "discount": 0.0, "net_paid": 1.19, "tax_class": "A", "tax_rate": 0.07,
-         "product": "Milch 1,5%", "brand": "Muster", "product_line": None, "variant": None,
+         "product": "Milch 1,5%", "brand": "Muster", "details": [],
          "category": "milch",
          "category_path": ["Molkereiprodukte & Eier", "Milch & Joghurt", "Milch"],
          "is_budget_brand": True, "is_organic": False,
@@ -61,7 +61,7 @@ def client():
 
 def test_health_reports_contract_versions_and_receipts(client):
     body = client.get("/health").json()
-    assert body == {"status": "ok", "purchases_contract_version": 7,
+    assert body == {"status": "ok", "purchases_contract_version": 8,
                     "insights_contract_version": 5, "receipts": 2,
                     "uploads": False, "writes": False}
     assert (body["uploads"], body["writes"]) == (False, False), \
@@ -86,7 +86,7 @@ def test_an_unresolved_line_gains_no_attributes_on_the_wire(client):
     field at all, or it will report a product with no brand."""
     served = next(p for p in client.get("/v1/purchases").json()["purchases"]
                   if not p["resolved"])
-    for field in ("product", "brand", "product_line", "variant", "category",
+    for field in ("product", "brand", "details", "category",
                   "category_path", "is_budget_brand", "is_organic"):
         assert field not in served
     # A null the document does carry is still sent.
@@ -103,7 +103,7 @@ def test_a_resolved_line_keeps_its_attributes_on_the_wire(client):
     # The key is the identity; the path is what a reader is shown.
     assert served["category"] == "milch"
     assert served["category_path"][-1] == "Milch"
-    assert served["variant"] is None, "a known-empty attribute is still sent"
+    assert served["details"] == [], "a known-empty attribute is still sent"
 
 
 def test_insights_are_computed_from_the_served_history(client):
