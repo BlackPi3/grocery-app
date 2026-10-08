@@ -135,10 +135,45 @@ def test_an_answer_that_leaves_a_printed_word_out_cannot_tell():
 
 def test_every_word_accounted_for_keeps_the_answer():
     identity = identify("MU Pads 36er", "Musterladen", answering(
-        parts=[{"printed": "MU", "means": "Muster (brand)"}, {"printed": "Pads", "means": "pads"},
-               {"printed": "36er", "means": "36"}], name="Kaffeepads", can_tell=True))
-    assert identity.can_tell is True
-    assert identity.parts[0] == {"printed": "MU", "means": "Muster (brand)"}
+        parts=[{"printed": "MU", "means": "Muster", "into": "brand"},
+               {"printed": "Pads", "means": "pads", "into": "name"},
+               {"printed": "36er", "means": "36", "into": "size"}],
+        name="Kaffeepads", brand="Muster", size="36er", can_tell=True))
+    assert identity.can_tell is True and identity.dropped == []
+    assert identity.parts[0] == {"printed": "MU", "means": "Muster", "into": "brand"}
+
+
+# v8, 2026-10-08: in real use the reader explained `SYS` and `400` on a
+# supplement line and then left both out of the product.
+
+def test_a_part_read_into_an_empty_field_is_dropped_and_said():
+    identity = identify("MU Vit400 KID 20St", "Musterladen", answering(
+        parts=[{"printed": "MU", "means": "Muster", "into": "brand"},
+               {"printed": "Vit400", "means": "vitamin, 400 mg", "into": "variant"},
+               {"printed": "KID", "means": "the brand's children's line",
+                "into": "product_line"},
+               {"printed": "20St", "means": "20 pieces", "into": "size"}],
+        name="Vitamintabletten", brand="Muster", size="20St", can_tell=True))
+    assert identity.dropped == ["Vit400", "KID"]
+    assert identity.reason.startswith("read but dropped `Vit400`, `KID`")
+
+
+def test_a_product_line_is_kept():
+    identity = identify("MU KID Zahnp.", "Musterladen", answering(
+        parts=[{"printed": "MU", "means": "Muster", "into": "brand"},
+               {"printed": "KID", "means": "children's line", "into": "product_line"},
+               {"printed": "Zahnp.", "means": "toothpaste", "into": "name"}],
+        name="Zahnpasta", brand="Muster", product_line="Kids", can_tell=True))
+    assert (identity.product_line, identity.dropped) == ("Kids", [])
+
+
+def test_every_part_says_where_it_goes():
+    part = SCHEMA["properties"]["parts"]["items"]
+    assert "into" in part["required"]
+    assert set(part["properties"]["into"]["enum"]) == {
+        "name", "brand", "product_line", "variant", "size", "none"}
+    assert "product_line" in SCHEMA["required"]
+    assert "Nothing you read is dropped" in SYSTEM_PROMPT
 
 
 def test_a_word_split_across_parts_or_punctuation_dropped_still_counts():

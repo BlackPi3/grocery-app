@@ -17,6 +17,7 @@ from grocery_app.api.repository import PostgresRepository
 from grocery_app.db.io import receipt_from_dict
 from grocery_app.db.models import Correction, Product, Question, Resolution, StoreListing
 from grocery_app.db.session import make_session_factory
+from grocery_app.identify import PROMPT_VERSION
 from tests.conftest import DATABASE_URL as URL
 
 pytestmark = pytest.mark.skipif(not URL, reason="DATABASE_URL not set")
@@ -194,9 +195,30 @@ def reads_as(**table):
                             choices=["Muster Ding rot", "Muster Ding blau"],
                             searched=[f"{raw_name} Musterladen"])
         return Identity(said.get("name"), said.get("category"), said.get("brand"),
-                        said.get("variant"), None, True, "test")
+                        said.get("variant"), None, True, "test",
+                        product_line=said.get("product_line"))
     identify.calls = []
     return identify
+
+
+def test_a_product_line_identify_reads_is_kept_and_tells_products_apart(server):
+    """v8, 2026-10-08: a printed line (`SYS`, a brand's system range) was read
+    and lost. It is now on the product, and a product of the same name and
+    brand without that line is another product."""
+    client, session = server
+    session.add(Product(id="p-0900", name="Zahnpasta", brand="Muster"))
+    session.commit()
+    receipt = add_receipt(session, "IMG_8.jpeg", ["MU KID Zahnp."])
+    identify = reads_as(**{"MU KID Zahnp.": {"name": "Zahnpasta", "brand": "Muster",
+                                             "product_line": "Kids", "variant": "Erdbeere"}})
+    match_receipt(session, receipt, TableMatcher({}), identify)
+    session.commit()
+
+    (_, product_id, _), = reading(client, receipt)
+    assert product_id != "p-0900"
+    product = session.get(Product, product_id)
+    assert (product.name, product.brand, product.product_line, product.variant) == \
+        ("Zahnpasta", "Muster", "Kids", "Erdbeere")
 
 
 def test_a_line_identify_can_read_is_placed_on_a_new_level_one_product_not_asked(server):
@@ -215,7 +237,7 @@ def test_a_line_identify_can_read_is_placed_on_a_new_level_one_product_not_asked
     assert product.provenance["decided_by"] == "identify"
     entry = session.scalars(select(Resolution).where(
         Resolution.raw_name == "Himbeeren 250g")).one()
-    assert (entry.confirmed_by, entry.source) == ("identify", "identify v7")
+    assert (entry.confirmed_by, entry.source) == ("identify", f"identify {PROMPT_VERSION}")
     # The seam to the contract: purchases.json is strict, so an identified
     # line must fit it as any other line does.
     from grocery_app.api.schemas import PurchasesDocument
@@ -696,3 +718,58 @@ def test_answers_in_words_on_a_sheet_are_read_into_our_format_and_kept(server, e
     answer = session.scalars(select(LineResolution).where(
         LineResolution.receipt_id == receipt)).one()
     assert (answer.confirmed_by, answer.shopper_words) == ("parham", words)
+
+
+# --- reading an older product's line again -------------------------------------
+
+def test_a_reread_fills_in_what_an_older_reading_dropped(server):
+    """2026-10-08: v7 read a line's product line and strength, then dropped
+    them. Read again, they are filled in; the id stays, so the line stays."""
+    from grocery_app.api.matching import reread_product
+
+    client, session = server
+    receipt = add_receipt(session, "IMG_9.jpeg", ["MU Vit400 KID 20St"])
+    old = reads_as(**{"MU Vit400 KID 20St": {"name": "Vitamintabletten", "brand": "Muster",
+                                             "category": "nahrungsergaenzung"}})
+    match_receipt(session, receipt, TableMatcher({}), old)
+    session.commit()
+    (_, product_id, _), = reading(client, receipt)
+
+    # Worded differently this time: the same brand and category is the same product.
+    new = reads_as(**{"MU Vit400 KID 20St": {"name": "Vitamin 400", "brand": "Muster",
+                                             "category": "nahrungsergaenzung",
+                                             "product_line": "Kids", "variant": "Kautabletten"}})
+    said = reread_product(session, product_id, new)
+    session.commit()
+    assert said["changed"] and said["after"] == {"name": "Vitamin 400", "product_line": "Kids",
+                                                 "variant": "Kautabletten"}
+    product = session.get(Product, product_id)
+    assert (product.name, product.product_line, product.variant) == \
+        ("Vitamin 400", "Kids", "Kautabletten")
+    assert reading(client, receipt)[0][1] == product_id, "the line stays on it"
+
+
+def test_a_reread_never_swaps_in_another_product(server):
+    from grocery_app.api.matching import reread_product
+
+    client, session = server
+    receipt = add_receipt(session, "IMG_10.jpeg", ["MU Vit400 KID 20St"])
+    match_receipt(session, receipt, TableMatcher({}), reads_as(
+        **{"MU Vit400 KID 20St": {"name": "Vitamintabletten", "brand": "Muster",
+                                  "category": "nahrungsergaenzung"}}))
+    session.commit()
+    (_, product_id, _), = reading(client, receipt)
+
+    said = reread_product(session, product_id, reads_as(
+        **{"MU Vit400 KID 20St": {"name": "Zahnpasta", "brand": "Muster",
+                                  "category": "zahnpflege", "variant": "400 mg"}}))
+    assert not said["changed"] and said["why"].startswith("the new reading is another product")
+    assert session.get(Product, product_id).variant is None
+
+
+def test_a_reread_leaves_products_identify_did_not_make(server):
+    from grocery_app.api.matching import reread_product
+
+    _, session = server
+    said = reread_product(session, "p-0001", reads_as())
+    assert (said["changed"], said["why"]) == (False, "not a product identify made")
