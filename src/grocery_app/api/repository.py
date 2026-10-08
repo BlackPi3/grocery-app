@@ -527,6 +527,8 @@ class PostgresRepository:
                     "raw_name": check.raw_name, "paid": matching.paid_price(line),
                     "app_product_id": check.app_product_id,
                     "app_product": product.get("name"), "brand": product.get("brand"),
+                    "product_line": product.get("product_line"),
+                    "variant": product.get("variant"), "sold_as": record.get("sold_as"),
                     "category_path": (list(categories.path(product["category"]))
                                       if product.get("category") in categories.CATEGORIES
                                       else None),

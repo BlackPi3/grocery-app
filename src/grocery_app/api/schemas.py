@@ -273,6 +273,11 @@ class SpotCheck(BaseModel):
     app_product_id: str = Field(description="What the app said the line is")
     app_product: str | None = Field(description="That product's name")
     brand: str | None
+    product_line: str | None
+    variant: str | None
+    sold_as: SoldAs | None = Field(
+        description="Loose or a pack of what size: all the app claims is put to the shopper, "
+                    "or 'right' could only judge half of it (Parham, 2026-10-08)")
     category_path: list[str] | None
     decided_by: str | None = Field(
         description="Which part of the app said it: `matcher`, `identify`, `produce` (the "
