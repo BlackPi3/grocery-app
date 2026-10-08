@@ -383,3 +383,95 @@ def test_the_phone_page_finds_what_it_reads_after_an_upload(uploads):
         assert key in insights["budget_brand"]["overall"], key
     assert isinstance(insights["repurchase"], list)
     assert isinstance(insights["price_changes"], list)
+
+
+# --- a server that stops mid-job --------------------------------------------
+# 2026-10-08: a deploy replaced the server while a long receipt's lines were
+# being placed; the job stayed `running` and the phone waited on it forever.
+
+def butter_matcher(line, store, inputs):
+    return {"verdict": "accept", "pick": {"product_id": "p-0001"}, "versions": [],
+            "candidates": [], "creates": []}
+
+
+def cut_off(engine, job_id):
+    """What a stopped process leaves: the row still says `running`."""
+    from grocery_app.db.models import Job
+
+    with make_session_factory(engine)() as s:
+        job = s.get(Job, job_id)
+        job.status, job.finished_at = "running", None
+        s.commit()
+
+
+def test_a_job_cut_off_while_placing_is_finished_without_reading_again(
+        engine, session, tmp_path):
+    from grocery_app.api.jobs import resume_unfinished
+
+    session.add(Product(id="p-0001", name="Butter", brand="Muster"))
+    session.commit()
+    repository = PostgresRepository(make_session_factory(engine))
+    store, extractor = DiskImageStore(tmp_path), FakeExtractor()
+    # Read and stored, but no line placed: the matcher never got to run.
+    client = TestClient(create_app(repository, store, extractor))
+    job_id = client.post("/v1/receipts",
+                         files={"file": ("image.jpg", a_photo(), "image/jpeg")}).json()["job_id"]
+    cut_off(engine, job_id)
+
+    assert resume_unfinished(repository.session_factory, store, extractor,
+                             butter_matcher) == [job_id]
+
+    done = client.get(f"/v1/jobs/{job_id}").json()
+    assert (done["status"], done["error"]) == ("done", None)
+    (line,) = client.get(f"/v1/receipts/{done['receipt_id']}").json()["lines"]
+    assert line["product_id"] == "p-0001"
+    assert len(extractor.calls) == 1, "the photo was read once, not paid for twice"
+
+
+def test_a_job_cut_off_before_its_photo_was_read_is_read(engine, session, tmp_path):
+    from grocery_app.api.jobs import resume_unfinished
+
+    repository = PostgresRepository(make_session_factory(engine))
+    store, extractor = DiskImageStore(tmp_path), FakeExtractor()
+    photo = a_photo()
+    store.put(sha256_of(photo), photo)
+    job_id = repository.create_job(sha256_of(photo), "image.jpg")["job_id"]
+    cut_off(engine, job_id)
+
+    resume_unfinished(repository.session_factory, store, extractor)
+
+    done = repository.job(job_id)
+    assert done["status"] == "done" and done["receipt_id"] is not None
+    assert extractor.calls == [sha256_of(photo)]
+
+
+def test_finished_jobs_are_left_alone(uploads):
+    from grocery_app.api.jobs import resume_unfinished
+
+    client, extractor, store, repository = uploads
+    client.post("/v1/receipts", files={"file": ("image.jpg", a_photo(), "image/jpeg")})
+    assert resume_unfinished(repository.session_factory, store, extractor) == []
+    assert len(extractor.calls) == 1
+
+
+def test_a_starting_server_finishes_what_the_last_one_left(engine, session, tmp_path):
+    session.add(Product(id="p-0001", name="Butter", brand="Muster"))
+    session.commit()
+    repository = PostgresRepository(make_session_factory(engine))
+    store, extractor = DiskImageStore(tmp_path), FakeExtractor()
+    old = TestClient(create_app(repository, store, extractor))
+    job_id = old.post("/v1/receipts",
+                      files={"file": ("image.jpg", a_photo(), "image/jpeg")}).json()["job_id"]
+    cut_off(engine, job_id)
+
+    app = create_app(repository, store, extractor, butter_matcher, resume_after=0)
+    with TestClient(app) as new:  # `with` runs the startup
+        app.state.resuming.join(timeout=10)
+        assert new.get(f"/v1/jobs/{job_id}").json()["status"] == "done"
+
+
+def test_a_server_resumes_nothing_unless_asked(uploads):
+    """Tests build apps all the time; none of them may set work off alone."""
+    client, *_ = uploads
+    with client:
+        assert not hasattr(client.app.state, "resuming")

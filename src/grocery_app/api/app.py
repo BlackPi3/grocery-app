@@ -17,11 +17,18 @@ there is no argument a test can forget that would make one happen.
 `token` locks the `/v1` routes behind `Authorization: Bearer <token>`: one
 shopper, one password, from `GROCERY_TOKEN` (backend-api.md, phase 3). The
 page at `/`, `/health` and the schema stay open; they hold no history.
+
+`resume_after`, when set, makes a starting server finish the jobs the last
+one left half done, that many seconds after it starts (`jobs.resume_unfinished`).
+Off by default, so a test's app never sets work off on its own.
 """
 
 from __future__ import annotations
 
 import hmac
+import threading
+import time
+from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 
@@ -34,7 +41,7 @@ from grocery_app.api.images import (
     looks_like_an_image,
     sha256_of,
 )
-from grocery_app.api.jobs import Extractor, configured_extractor, run_job
+from grocery_app.api.jobs import Extractor, configured_extractor, resume_unfinished, run_job
 from grocery_app.api.matching import LineIdentifier, LineMatcher, line_identifier, line_matcher
 from grocery_app.api.repository import (
     DEFAULT_PURCHASES,
@@ -80,11 +87,26 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                extractor: Extractor | None = None,
                matcher: LineMatcher | None = None,
                identify: LineIdentifier | None = None,
-               token: str | None = None) -> FastAPI:
+               token: str | None = None, resume_after: float | None = None) -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        if resume_after is not None and uploads_available:
+            def resume() -> None:
+                time.sleep(resume_after)
+                resume_unfinished(repository.session_factory, image_store, extractor,
+                                  matcher, identify)
+
+            # A thread, so the server answers the phone while it catches up.
+            app.state.resuming = threading.Thread(target=resume, name="resume-jobs",
+                                                  daemon=True)
+            app.state.resuming.start()
+        yield
+
     app = FastAPI(
         title="Grocery App API",
         version="0.1.0",
         summary="Item-level grocery purchase history and the insights computed from it.",
+        lifespan=lifespan,
     )
 
     if token:
@@ -355,7 +377,14 @@ def default_app() -> FastAPI:
     identifier = (line_identifier(identify_decider(), identify_searcher())
                   if type(repository).__name__ == "PostgresRepository" else None)
     return create_app(repository, default_image_store(), configured_extractor(), matcher,
-                      identifier, token=os.environ.get("GROCERY_TOKEN") or None)
+                      identifier, token=os.environ.get("GROCERY_TOKEN") or None,
+                      resume_after=RESUME_AFTER_SECONDS)
+
+
+# A deploy stops the old server within ten seconds of starting the new one
+# (Cloud Run's default grace period); waiting longer means no job is ever
+# worked on by both.
+RESUME_AFTER_SECONDS = 30
 
 
 # Who reads and searches a line nothing else could place. Gemini through
