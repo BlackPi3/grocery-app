@@ -363,10 +363,18 @@ def reread_product(session: Session, product_id: str,
             != same_product_key(product.brand, product.category)):
         return {**said, "why": f"the new reading is another product: {identity.name}, "
                                f"{identity.brand}, {identity.category}"}
-    # Fills in, never empties: a detail only the old reading had stays.
+    # Fills in, never empties: a detail only the old reading had stays. One the
+    # new reading says anywhere is not kept twice (the old variant `Authentic`
+    # read again as the product line would show twice).
+    said_now = " ".join(v for v in (identity.name, identity.product_line, identity.variant)
+                        if v).casefold()
+
+    def kept(new: str | None, old: str | None) -> str | None:
+        return new or (old if old and old.casefold() not in said_now else None)
+
     after = {"name": identity.name or product.name,
-             "product_line": identity.product_line or product.product_line,
-             "variant": identity.variant or product.variant}
+             "product_line": kept(identity.product_line, product.product_line),
+             "variant": kept(identity.variant, product.variant)}
     if after == said["before"]:
         return {**said, "after": after, "why": "nothing to add"}
     product.name, product.product_line, product.variant = (
