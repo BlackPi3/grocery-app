@@ -177,8 +177,24 @@ function badge(saidBy) {
   return el("span", { class: "badge none" }, "not placed");
 }
 
-function productText(name, brand) {
-  return [name, brand].filter(Boolean).join(" · ");
+// Everything the app claims a thing is, in one line: "Senf mittelscharf ·
+// Löwensenf · 250 ml". Name and variant say what it is, brand and product
+// line who made it, then how it was sold. All of it, so that "Right" on a
+// spot check judges the whole answer, not half of it (Parham, 2026-10-08).
+function productText(name, brand, more) {
+  const { variant, product_line: line, sold_as: soldAs } = more || {};
+  return [[name, variant].filter(Boolean).join(" "), [brand, line].filter(Boolean).join(" "),
+          sizeText(soldAs)].filter(Boolean).join(" · ");
+}
+
+function sizeText(soldAs) {
+  if (!soldAs) return "";
+  if (soldAs.form === "loose") return "loose";
+  const size = soldAs.size;
+  if (!size || size.value == null) return "";
+  const unit = size.unit === "piece" ? "pcs" : size.unit || "";
+  const amount = `${String(size.value).replace(".", ",")} ${unit}`.trim();
+  return size.count > 1 ? `${size.count} × ${amount}` : amount;
 }
 
 // --- answering ------------------------------------------------------------
@@ -191,7 +207,8 @@ async function answer(receiptId, position, body) {
     });
     // Say what it was stored as: a description is read into the app's format.
     const line = (doc.lines || []).find(l => l.position === position);
-    toast(line && line.product ? "Saved as: " + productText(line.product, line.brand) : "Saved");
+    toast(line && line.product ? "Saved as: " + productText(line.product, line.brand, line)
+                                : "Saved");
     await load();
   } catch (error) {
     toast("Not saved: " + error.message);
@@ -238,7 +255,7 @@ function picker(receiptId, position, extra) {
         // jumped under the shopper's thumb.
         results.replaceChildren(...found.map(p => el("button", { onclick: () => answer(
           receiptId, position, { product_id: p.product_id }) },
-          productText(p.name, p.brand),
+          productText(p.name, p.brand, p),
           p.category_path ? el("div", { class: "meta" }, p.category_path.join(" › ")) : null)));
         if (!found.length) results.append(el("div", { class: "meta" }, "Nothing in the catalog."));
       } catch (error) { toast(error.message); }
@@ -260,7 +277,7 @@ function checkCard(check) {
        check.paid != null ? " · " + euro(check.paid) : ""),
     el("div", { class: "printed" }, check.raw_name),
     el("div", { class: "says" }, "The app says ", el("b", {}, productText(check.app_product,
-       check.brand) || check.app_product_id),
+       check.brand, check) || check.app_product_id),
        check.category_path ? el("div", { class: "meta" }, check.category_path.join(" › ")) : null),
     el("div", { class: "row" },
        el("button", { class: "good", onclick: () => answer(check.receipt_id, check.position,
@@ -357,7 +374,8 @@ function receiptCard(summary) {
       if (line.type !== "product") continue;
       // A line nothing placed shows the photo reading's guess, marked as one.
       const guess = !line.product && line.first_guess;
-      const what = line.product ? [productText(line.product, line.brand), badge(line.said_by)]
+      const what = line.product ? [productText(line.product, line.brand, line),
+                                   badge(line.said_by)]
         : guess ? [el("span", { class: "guess" }, guess.name || line.raw_name),
                    el("span", { class: "badge guess" }, "guess")]
         : ["—", line.not_counted ? null : badge(line.said_by)];  // nothing left to place
