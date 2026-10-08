@@ -207,6 +207,28 @@ def test_a_line_that_is_not_a_grocery_leaves_every_insight_but_is_counted():
                                               "by_category": {"Café & Imbiss": 26.0}}
 
 
+def test_a_line_the_shopper_does_not_count_leaves_their_numbers_but_not_the_prices():
+    """A wine bought for a friend, three times: not the shopper's spend, habit
+    or basket, but still what the shops charged for it."""
+    wine = [{**row("p-wine", d, net, unit=net, per="piece", store=store,
+                   category="rotwein", product="Rotwein"), "not_counted": True}
+            for d, net, store in (("2026-01-03", 6.0, "Musterladen"),
+                                  ("2026-02-03", 7.0, "Musterladen"),
+                                  ("2026-02-10", 6.5, "Beispielmarkt"))]
+    milk = [row("p-milk", d, 1.0, category="milch") for d in ("2026-01-03", "2026-02-03")]
+    out = build_insights({"meta": {}, "purchases": wine + milk})
+
+    for mine in ("repurchase", "basket_index", "budget_brand"):
+        assert "p-wine" not in str(out[mine]), mine
+    assert out["budget_brand"]["overall"]["unknown"] == 2.0, "only the milk's money"
+    assert out["coverage"]["spend"] == 2.0 and out["coverage"]["product_lines"] == 2
+    assert out["coverage"]["not_counted"] == {"lines": 3, "spend": 19.5}
+
+    assert "p-wine" in str(out["price_changes"])
+    (across,) = out["cross_store"]["products"]
+    assert across["product_id"] == "p-wine"
+
+
 def test_an_unknown_or_missing_category_still_counts_as_a_grocery():
     rows = [row(None, "2026-01-03", 2.0), row("p-1", "2026-01-03", 3.0, category="kein-key")]
     cov = build_insights({"meta": {}, "purchases": rows})["coverage"]

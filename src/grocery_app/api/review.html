@@ -73,6 +73,9 @@
   .badge.none { border: 1px solid var(--bad); color: var(--bad); }
   .badge.guess { border: 1px dashed var(--muted); color: var(--muted); }
   .guess { color: var(--ink2); font-style: italic; }
+  .line .side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .line button.count { font-size: 12px; padding: 4px 8px; border-radius: 8px; }
+  .line.off .what, .line.off .money { color: var(--muted); text-decoration: line-through; }
   .line { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0;
     border-top: 1px solid var(--grid); cursor: pointer; }
   .line:first-of-type { border-top: 0; }
@@ -189,6 +192,21 @@ async function answer(receiptId, position, body) {
     // Say what it was stored as: a description is read into the app's format.
     const line = (doc.lines || []).find(l => l.position === position);
     toast(line && line.product ? "Saved as: " + productText(line.product, line.brand) : "Saved");
+    await load();
+  } catch (error) {
+    toast("Not saved: " + error.message);
+  }
+}
+
+// One tap: leave a line out of my numbers (bought for someone else), or
+// count it again. No reason asked.
+async function setCounted(receiptId, position, counted) {
+  try {
+    await api(`/v1/receipts/${receiptId}/lines/${position}/counted`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ counted }),
+    });
+    toast(counted ? "Counted again" : "Not counted: it stays on the receipt only");
     await load();
   } catch (error) {
     toast("Not saved: " + error.message);
@@ -326,7 +344,8 @@ function receiptCard(summary) {
           summary.is_duplicate ? el("span", { class: "badge none" }, "duplicate") : null),
        el("div", { class: "meta" }, summary.date || "", " · ", summary.product_lines,
           " lines: ", summary.said_by_you, " you, ", summary.said_by_app, " app",
-          summary.unplaced ? `, ${summary.unplaced} not placed` : "")),
+          summary.unplaced ? `, ${summary.unplaced} not placed` : "",
+          summary.not_counted ? `, ${summary.not_counted} not counted` : "")),
     el("div", { class: "money" }, euro(summary.printed_total))));
   if (state.open === summary.receipt_id) {
     const u = state.upload;
@@ -342,14 +361,22 @@ function receiptCard(summary) {
       const what = line.product ? [productText(line.product, line.brand), badge(line.said_by)]
         : guess ? [el("span", { class: "guess" }, guess.name || line.raw_name),
                    el("span", { class: "badge guess" }, "guess")]
-        : ["—", badge(line.said_by)];
-      const row = el("div", { class: "line" },
+        : ["—", line.not_counted ? null : badge(line.said_by)];  // nothing left to place
+      const counted = !line.not_counted;
+      const toggle = el("button", { class: "count", onclick: event => {
+        event.stopPropagation();  // the row's own tap is for correcting it
+        toggle.disabled = true;
+        setCounted(summary.receipt_id, line.position, !counted);
+      } }, counted ? "Don't count" : "Count it");
+      const row = el("div", { class: counted ? "line" : "line off" },
         el("div", {},
-           el("div", { class: "what" }, ...what),
+           el("div", { class: "what" }, ...what,
+              counted ? null : el("span", { class: "badge none" }, "not counted")),
            guess && guess.category_path ? el("div", { class: "meta" },
              guess.category_path.slice(1).join(" › ")) : null,
            el("div", { class: "printed" }, line.raw_name)),
-        el("div", { class: "money" }, euro(line.net_paid)));
+        el("div", { class: "side" }, el("div", { class: "money" }, euro(line.net_paid)),
+           toggle));
       row.addEventListener("click", () => {
         if (row.nextSibling?.classList?.contains("picker")) return;
         row.after(picker(summary.receipt_id, line.position,

@@ -30,6 +30,7 @@ from grocery_app.db.models import (
     Question,
     Receipt,
     Resolution,
+    UncountedLine,
 )
 from grocery_app.db.session import database_url, make_engine, make_session_factory
 from grocery_app.normalizer import (
@@ -117,6 +118,9 @@ class WriteRepository(Protocol):
                        store: str | None) -> dict[str, Any]:
         ...
 
+    def set_counted(self, receipt_id: int, position: int, counted: bool) -> dict[str, Any]:
+        ...
+
 
 class JsonRepository:
     """Serves the `purchases.json` the CLI wrote.
@@ -195,7 +199,7 @@ class PostgresRepository:
         doc = receipt_to_dict(row)
         records = normalize_receipt(doc, inputs["resolution"], inputs["products"],
                                     inputs["line_resolutions"], inputs["shelf_prices"],
-                                    inputs["authors"])
+                                    inputs["authors"], inputs["uncounted"])
         guesses = {g.position: g for g in session.scalars(
             select(LineGuess).where(LineGuess.receipt_id == row.id))}
         lines = []
@@ -382,9 +386,11 @@ class PostgresRepository:
                 doc = receipt_to_dict(receipt)
                 records = normalize_receipt(doc, inputs["resolution"], inputs["products"],
                                             inputs["line_resolutions"], inputs["shelf_prices"],
-                                            inputs["authors"])
+                                            inputs["authors"], inputs["uncounted"])
                 for position, (line, record) in enumerate(zip(doc["lines"], records, strict=True)):
-                    if record["resolution"] != "none" or record["type"] != "product":
+                    # A line the shopper does not count is not worth a question.
+                    if record["resolution"] != "none" or record["type"] != "product" \
+                            or record.get("not_counted"):
                         continue
                     proposal = proposals.get((receipt.id, position)) or {}
                     if searched_only and not (proposal.get("identity") or {}).get("searched"):
@@ -423,7 +429,8 @@ class PostgresRepository:
                 doc = receipt_to_dict(row)
                 records = [r for r in normalize_receipt(
                     doc, inputs["resolution"], inputs["products"], inputs["line_resolutions"],
-                    inputs["shelf_prices"], inputs["authors"]) if r["type"] == "product"]
+                    inputs["shelf_prices"], inputs["authors"], inputs["uncounted"])
+                    if r["type"] == "product"]
                 out.append({
                     "receipt_id": row.id, "date": doc.get("date"), "store": row.store,
                     "source_image": row.source_image,
@@ -432,7 +439,9 @@ class PostgresRepository:
                     "product_lines": len(records),
                     "said_by_you": sum(r["said_by"] == "you" for r in records),
                     "said_by_app": sum(r["said_by"] == "app" for r in records),
-                    "unplaced": sum(r["said_by"] is None for r in records),
+                    "unplaced": sum(r["said_by"] is None and not r.get("not_counted")
+                                    for r in records),
+                    "not_counted": sum(bool(r.get("not_counted")) for r in records),
                 })
         out.sort(key=lambda r: (r["date"] or "", r["receipt_id"]), reverse=True)
         return out
@@ -478,6 +487,8 @@ class PostgresRepository:
                 receipt = session.get(Receipt, check.receipt_id)
                 doc = receipt_to_dict(receipt)
                 line = doc["lines"][check.position]
+                if (doc["source_image"], check.position, line["raw_name"]) in inputs["uncounted"]:
+                    continue  # nor a spot check on a line the shopper does not count
                 record = normalize_receipt(
                     {**doc, "lines": [line]}, inputs["resolution"], inputs["products"],
                     None, inputs["shelf_prices"], inputs["authors"])[0]
@@ -519,6 +530,31 @@ class PostgresRepository:
                 row.is_duplicate = is_duplicate
             if store is not None:
                 row.store = store
+            session.commit()
+            return self._receipt_view(session, self._get(session, receipt_id))
+
+    def set_counted(self, receipt_id: int, position: int, counted: bool) -> dict[str, Any]:
+        """Leave one line out of the shopper's numbers, or count it again.
+
+        One tap and no reason (Parham, 2026-10-05: the user scans, rarely
+        taps, never types). The mark is bound to the line's text, like a line
+        answer. It also takes the line out of the questions and spot checks:
+        what the shopper does not count is not worth asking about.
+        """
+        with self.session_factory() as session:
+            row = self._get(session, receipt_id)
+            line = next((x for x in row.lines if x.position == position), None)
+            if line is None:
+                raise NotFound(f"receipt {receipt_id} has no line {position}")
+            existing = session.scalar(select(UncountedLine).where(
+                UncountedLine.receipt_id == receipt_id, UncountedLine.position == position))
+            if counted and existing is not None:
+                session.delete(existing)
+            elif not counted and existing is None:
+                session.add(UncountedLine(receipt_id=receipt_id, position=position,
+                                          raw_name=line.raw_name))
+            elif not counted:
+                existing.raw_name = line.raw_name
             session.commit()
             return self._receipt_view(session, self._get(session, receipt_id))
 

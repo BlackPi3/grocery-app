@@ -326,3 +326,41 @@ def test_withdrawing_an_answer_keeps_what_the_name_was_learned_to_mean(correctio
     client.put(f"/v1/receipts/{receipt_id}/lines/2/resolution", json={"product_id": None})
 
     assert client.get(f"/v1/receipts/{later}").json()["lines"][0]["resolution"] == "exact"
+
+
+def test_one_tap_leaves_a_line_out_of_the_numbers_and_out_of_the_questions(corrections):
+    """A line bought for someone else: one tap, no reason. It stays on the
+    receipt, leaves the shopper's numbers, and is never asked about."""
+    client, _, receipt_id = corrections
+    url = f"/v1/receipts/{receipt_id}/lines/2/counted"
+
+    def asked():
+        return [(q["receipt_id"], q["position"])
+                for q in client.get("/v1/questions").json()["questions"]]
+
+    assert (receipt_id, 2) in asked(), "Geheimnis is unplaced, so it is a question"
+
+    body = client.put(url, json={"counted": False}).json()
+    assert body["lines"][2]["not_counted"] is True
+    assert "not_counted" not in body["lines"][0]
+    assert (receipt_id, 2) not in asked()
+    (geheimnis,) = [p for p in client.get("/v1/purchases").json()["purchases"]
+                    if p["raw_name"] == "Geheimnis"]
+    assert geheimnis["not_counted"] is True
+    summary = next(r for r in client.get("/v1/receipts").json()
+                   if r["receipt_id"] == receipt_id)
+    assert (summary["not_counted"], summary["unplaced"]) == (1, 0)
+    assert client.get("/v1/insights").json()["coverage"]["not_counted"] == \
+        {"lines": 1, "spend": 0.25}
+
+    again = client.put(url, json={"counted": True}).json()
+    assert "not_counted" not in again["lines"][2], "the second tap undoes the first"
+    assert (receipt_id, 2) in asked()
+
+
+def test_marking_a_line_that_does_not_exist_is_a_404(corrections):
+    client, _, receipt_id = corrections
+    assert client.put(f"/v1/receipts/{receipt_id}/lines/9/counted",
+                      json={"counted": False}).status_code == 404
+    assert client.put("/v1/receipts/999999/lines/0/counted",
+                      json={"counted": False}).status_code == 404

@@ -66,6 +66,8 @@ def main() -> None:
                    help="Per-line answers from the shopper; optional")
     p.add_argument("--products-dir", default="data/products",
                    help="Shelf prices, used to tell same-named products apart; optional")
+    p.add_argument("--uncounted", default="data/receipts/uncounted_lines.json",
+                   help="Lines the shopper left out of their numbers; optional")
     p.add_argument("--output", default="data/purchases.json")
 
     e = subparsers.add_parser(
@@ -302,6 +304,7 @@ def main() -> None:
     d.add_argument("--resolution", default="data/products/resolution.json")
     d.add_argument("--line-resolutions", default="data/receipts/line_resolutions.json")
     d.add_argument("--products-dir", default="data/products")
+    d.add_argument("--uncounted", default="data/receipts/uncounted_lines.json")
     d.add_argument("--readings", default=READINGS)
     d.add_argument("--photos", default="data/receipts/fresh",
                    help="add-readings: only the readings of the photos in this directory")
@@ -313,7 +316,7 @@ def main() -> None:
 
     if args.command == "purchases":
         data = build_purchases(args.receipts_dir, args.products, args.resolution,
-                               args.line_resolutions, args.products_dir)
+                               args.line_resolutions, args.products_dir, args.uncounted)
         save_json(data, args.output)
         meta = data["meta"]
         print(f"Wrote {args.output}")
@@ -659,9 +662,10 @@ def main() -> None:
         if args.action == "import":
             with factory() as session:
                 summary = import_data(session, args.receipts_dir, args.products, args.resolution,
-                                      args.line_resolutions, args.products_dir)
+                                      args.line_resolutions, args.products_dir, args.uncounted)
                 session.commit()
-            for kind in ("products", "receipts", "resolutions", "listings", "line_resolutions"):
+            for kind in ("products", "receipts", "resolutions", "listings", "line_resolutions",
+                         "uncounted_lines"):
                 print(f"  {kind + ':':<18}{summary[kind]['added']} added, "
                       f"{summary[kind]['updated']} updated")
             for image in summary["line_resolutions_skipped"]:

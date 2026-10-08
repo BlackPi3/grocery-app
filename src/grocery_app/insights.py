@@ -25,6 +25,11 @@ history, but a basket index or a budget-brand share that included them would
 answer a question nobody asked. `categories.is_grocery` is the one place that
 says what is not a grocery; coverage reports what was left out and how much
 money it was, so the exclusion is visible rather than silent.
+
+Only the shopper's own shopping counts towards spend and habits. A line they
+marked `not_counted` (a wine bought for a friend) leaves spend, cadence, the
+basket and the budget-brand share, and stays in the price watch and the
+cross-store comparison: who it was for does not change what the shop charged.
 """
 
 from __future__ import annotations
@@ -39,7 +44,7 @@ from typing import Any
 from grocery_app import categories
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 4
+CONTRACT_VERSION = 5
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -391,9 +396,13 @@ def _not_grocery(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def coverage(purchases: dict[str, Any], rows: list[dict[str, Any]],
-             left_out: list[dict[str, Any]]) -> dict[str, Any]:
-    """What the insights rest on. `rows` are the grocery lines; `left_out` the
-    lines known not to be groceries, reported here and nowhere else."""
+             left_out: list[dict[str, Any]],
+             not_counted: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """What the insights rest on. `rows` are the grocery lines the shopper
+    counts; `left_out` the lines known not to be groceries, and `not_counted`
+    the grocery lines the shopper left out, each reported here and nowhere
+    else."""
+    not_counted = not_counted or []
     resolved = [p for p in rows if p.get("product_id")]
     spend = sum(p.get("net_paid") or 0.0 for p in rows)
     resolved_spend = sum(p.get("net_paid") or 0.0 for p in resolved)
@@ -414,29 +423,37 @@ def coverage(purchases: dict[str, Any], rows: list[dict[str, Any]],
         "resolved_share_of_spend": round(resolved_spend / spend, 3) if spend else None,
         "by_store": dict(sorted(per_store.items())),
         "not_grocery": _not_grocery(left_out),
+        "not_counted": {"lines": len(not_counted),
+                        "spend": round(sum(p.get("net_paid") or 0.0 for p in not_counted), 2)},
         "note": "groceries only: lines known not to be groceries are counted under "
-                "not_grocery and left out of every insight; product-level insights use "
-                "resolved lines only; spend figures use every grocery line",
+                "not_grocery and left out of every insight; lines the shopper left out "
+                "are counted under not_counted and kept only for prices; product-level "
+                "insights use resolved lines only; spend figures use every counted "
+                "grocery line",
     }
 
 
 def build_insights(purchases: dict[str, Any], as_of: date | None = None) -> dict[str, Any]:
     """The insights contract, from a purchases.json document."""
     lines = _product_rows(purchases.get("purchases", []))
-    rows = [p for p in lines if categories.is_grocery(p.get("category"))]
+    groceries = [p for p in lines if categories.is_grocery(p.get("category"))]
     left_out = [p for p in lines if not categories.is_grocery(p.get("category"))]
+    # Prices are what the shop charged, whoever it was for; the rest is the
+    # shopper's own shopping.
+    rows = [p for p in groceries if not p.get("not_counted")]
+    not_counted = [p for p in groceries if p.get("not_counted")]
     dates = sorted(p["date"] for p in lines if p.get("date"))
     if as_of is None:
         as_of = _parse(dates[-1]) if dates else date.today()
     return {
         "contract_version": CONTRACT_VERSION,
         "as_of": as_of.isoformat(),
-        "coverage": coverage(purchases, rows, left_out),
+        "coverage": coverage(purchases, rows, left_out, not_counted),
         "repurchase": repurchase(rows, as_of),
-        "price_changes": price_changes(rows),
+        "price_changes": price_changes(groceries),
         "basket_index": basket_index(rows),
         "budget_brand": budget_brand(rows),
-        "cross_store": cross_store(rows),
+        "cross_store": cross_store(groceries),
     }
 
 

@@ -18,7 +18,7 @@ from grocery_app.insights import build_insights
 from grocery_app.normalizer import save_json
 
 PURCHASES = {
-    "contract_version": 6,
+    "contract_version": 7,
     "meta": {
         "receipts": 2, "date_range": ["2026-01-05", "2026-02-05"], "product_lines": 3,
         "total_net_paid": 4.03, "unresolved_items": ["Geheimnis"], "ambiguous_items": [],
@@ -61,8 +61,8 @@ def client():
 
 def test_health_reports_contract_versions_and_receipts(client):
     body = client.get("/health").json()
-    assert body == {"status": "ok", "purchases_contract_version": 6,
-                    "insights_contract_version": 4, "receipts": 2,
+    assert body == {"status": "ok", "purchases_contract_version": 7,
+                    "insights_contract_version": 5, "receipts": 2,
                     "uploads": False, "writes": False}
     assert (body["uploads"], body["writes"]) == (False, False), \
         "a file-backed server can do neither, and says so rather than 404ing later"

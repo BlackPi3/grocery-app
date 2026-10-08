@@ -460,7 +460,15 @@ def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str],
                       line_resolutions: dict[tuple[str, int], dict[str, Any]] | None = None,
                       shelf_prices: dict[str, set[float]] | None = None,
                       authors: dict[tuple[str, str], str | None] | None = None,
+                      uncounted: set[tuple[str, int, str]] | None = None,
                       ) -> list[dict[str, Any]]:
+    """Every line of one receipt, in printed order.
+
+    `uncounted` holds the lines the shopper left out of their numbers, as
+    (source_image, line_index, raw_name): bound to the text like a pinpoint,
+    so a re-transcribed receipt cannot move the mark onto another line. Such
+    a line is still read like any other and carries `not_counted`.
+    """
     image = receipt.get("source_image")
     records = []
     for index, line in enumerate(receipt.get("lines", [])):
@@ -469,8 +477,11 @@ def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str],
         # re-transcribed receipt cannot silently move it onto another product.
         if pinpoint and pinpoint.get("raw_name") != line.get("raw_name"):
             pinpoint = None
-        records.append(normalize_line(line, receipt, resolution, products,
-                                      pinpoint, shelf_prices, authors))
+        record = normalize_line(line, receipt, resolution, products,
+                                pinpoint, shelf_prices, authors)
+        if (image, index, line.get("raw_name")) in (uncounted or set()):
+            record["not_counted"] = True
+        records.append(record)
     return records
 
 
@@ -520,6 +531,17 @@ def load_line_resolutions(path: str | Path | None) -> dict[tuple[str, int], dict
     }
 
 
+def load_uncounted_lines(path: str | Path | None) -> set[tuple[str, int, str]]:
+    """(source_image, line_index, raw_name) of every line the shopper left out
+    of their numbers: a gift, something bought for someone else, a mistake.
+    One tap, no reason asked (Parham, 2026-10-05: the user scans, rarely
+    taps, never types). A missing file means none."""
+    if not path or not Path(path).exists():
+        return set()
+    return {(entry["source_image"], entry["line_index"], entry["raw_name"])
+            for entry in load_json(path)["entries"]}
+
+
 def load_shelf_prices(products_dir: str | Path | None) -> dict[str, set[float]]:
     """product_id -> every shelf price recorded for it, across all stores' listings.
 
@@ -543,6 +565,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
                        line_resolutions: dict[tuple[str, int], dict[str, Any]] | None = None,
                        shelf_prices: dict[str, set[float]] | None = None,
                        authors: dict[tuple[str, str], str | None] | None = None,
+                       uncounted: set[tuple[str, int, str]] | None = None,
                        ) -> dict[str, Any]:
     """The purchases.json contract from already-loaded inputs.
 
@@ -562,7 +585,8 @@ def assemble_purchases(receipts: list[dict[str, Any]],
             continue
         used_receipts += 1
         purchases.extend(normalize_receipt(receipt, resolution, products,
-                                           line_resolutions, shelf_prices, authors))
+                                           line_resolutions, shelf_prices, authors,
+                                           uncounted))
 
     product_lines = [p for p in purchases if p["type"] == "product"]
     unresolved = sorted({p["raw_name"] for p in product_lines if p["resolution"] == "none"})
@@ -572,7 +596,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     dates = sorted({r["date"] for r in receipts if not r.get("is_duplicate")})
 
     return {
-        "contract_version": 6,
+        "contract_version": 7,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],
@@ -588,7 +612,8 @@ def assemble_purchases(receipts: list[dict[str, Any]],
 def build_purchases(receipts_dir: str | Path, products_path: str | Path,
                     resolution_path: str | Path,
                     line_resolutions_path: str | Path | None = None,
-                    products_dir: str | Path | None = None) -> dict[str, Any]:
+                    products_dir: str | Path | None = None,
+                    uncounted_path: str | Path | None = None) -> dict[str, Any]:
     """Build the purchases.json contract from verified receipts + reference data on disk."""
     return assemble_purchases(
         load_receipts(receipts_dir),
@@ -597,6 +622,7 @@ def build_purchases(receipts_dir: str | Path, products_path: str | Path,
         load_line_resolutions(line_resolutions_path),
         load_shelf_prices(products_dir),
         load_resolution_authors(resolution_path),
+        load_uncounted_lines(uncounted_path),
     )
 
 
