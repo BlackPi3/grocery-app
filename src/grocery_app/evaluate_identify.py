@@ -79,6 +79,7 @@ Identifier = Callable[[str, str | None, list[str], str, str | None], Identity]
 def judge(identity: Identity, sheet: dict[str, Any], decider: Decider) -> dict[str, str]:
     said = ", ".join(f"{k}: {v}" for k, v in (("name", identity.name),
                                                ("brand", identity.brand),
+                                               ("product line", identity.product_line),
                                                ("variant", identity.variant)) if v)
     words = sheet["product"] + (f" (note: {sheet['note']})" if sheet.get("note") else "")
     return decider(JUDGE_PROMPT, f"Receipt line: `{sheet['raw_name']}`\n"
@@ -128,7 +129,11 @@ def evaluate_identify(truth_doc: dict[str, Any], identifier: Identifier,
                       "outcome": verdict["verdict"], "why": verdict.get("reason", "")})
     count = Counter(line["outcome"] for line in lines)
     report = {"totals": {o: count[o] for o in OUTCOMES},
-              "mistakes": sum(count[o] for o in MISTAKES), "lines": lines}
+              "mistakes": sum(count[o] for o in MISTAKES), "lines": lines,
+              # Lines whose answer lost a part the reader itself had read and
+              # placed (`identify.dropped`); counted by code, not by the judge.
+              "dropped": [line["raw_name"] for line in lines
+                          if line["identity"].get("dropped")]}
     if searching:
         due = [line for line in lines if is_grocery(line["identity"]["category"])]
         report["search"] = {
@@ -164,19 +169,25 @@ def format_report(report: dict[str, Any]) -> str:
                     + ", ".join(f"`{name}`" for name in search["not_searched"])]
         out += [""]
     out += ["  " + "  ".join(f"{o} {totals[o]} ({100 * totals[o] / n:.0f}%)" for o in OUTCOMES),
-            f"  mistakes (false_detail + wrong): {report['mistakes']}"]
+            f"  mistakes (false_detail + wrong): {report['mistakes']}",
+            f"  read but dropped a part: {len(report['dropped'])}"
+            + (": " + ", ".join(f"`{name}`" for name in report["dropped"])
+               if report["dropped"] else "")]
     for outcome in ("wrong", "false_detail", "missing", "asked"):
         listed = [line for line in report["lines"] if line["outcome"] == outcome]
         if listed:
             out += ["", f"{outcome.replace('_', ' ').capitalize()}:"]
             for line in listed:
                 who = line["identity"]
-                said = " | ".join(str(who[k]) for k in ("name", "brand", "variant") if who[k])
+                said = " | ".join(str(who[k]) for k in ("name", "brand", "product_line",
+                                                         "variant") if who.get(k))
                 out.append(f"  {line['raw_name']:<28} said: {said:<40} sheet: {line['sheet']}")
                 out.append(f"  {'':<28} {line['why']}")
                 if who.get("parts"):
                     out.append(f"  {'':<28} parts: " + "; ".join(
-                        f"{part['printed']} = {part['means'] or '?'}" for part in who["parts"]))
+                        f"{part['printed']} = {part['means'] or '?'}"
+                        + (f" -> {part['into']}" if part.get("into") else "")
+                        for part in who["parts"]))
                 if who.get("choices"):
                     out.append(f"  {'':<28} choices: " + "; ".join(who["choices"]))
                 if who.get("searched"):

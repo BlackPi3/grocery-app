@@ -290,13 +290,17 @@ def main() -> None:
         help="The PostgreSQL store behind `serve` (needs the 'api' extra and DATABASE_URL)",
     )
     d.add_argument("action", choices=["upgrade", "import", "export", "match", "add-readings",
-                                      "answer"],
+                                      "answer", "reread"],
                    help="upgrade: apply the migrations; import: load the data/ files into "
                         "the tables (idempotent); export: write the tables out as files; "
                         "match: run the matcher over stored receipts (claude -p, on the "
                         "subscription), saving its answers and questions; add-readings: add "
                         "model-read receipts (--readings) for the photos in --photos; answer: "
-                        "give the shopper's answers in --truth to the open questions")
+                        "give the shopper's answers in --truth to the open questions; reread: "
+                        "read the lines behind --product again with the current identify "
+                        "prompt and fill in the details an older reading dropped")
+    d.add_argument("--product", action="append", default=[], metavar="ID",
+                   help="reread: a product identify made (repeat for several)")
     d.add_argument("--url", default=None,
                    help="Database URL; defaults to the DATABASE_URL environment variable")
     d.add_argument("--receipts-dir", default="data/receipts/truth")
@@ -724,6 +728,20 @@ def main() -> None:
                     if any(counts.values()):
                         print(f"  {receipt.source_image}: {counts}", flush=True)
             print("Matched:", totals)
+        if args.action == "reread":
+            from grocery_app.api.app import identify_decider, identify_searcher
+            from grocery_app.api.matching import line_identifier, reread_product
+
+            if not args.product:
+                raise SystemExit("reread needs at least one --product ID")
+            identify = line_identifier(identify_decider(), identify_searcher())
+            with factory() as session:
+                for product_id in args.product:
+                    said = reread_product(session, product_id, identify)
+                    session.commit()
+                    print(f"  {product_id}: {said['why']}"
+                          + (f" {said['before']} -> {said['after']}" if said.get("after")
+                             else ""))
         if args.action == "export":
             if not args.out:
                 raise SystemExit("export needs --out DIR (it will not write into data/ unasked)")

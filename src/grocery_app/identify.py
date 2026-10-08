@@ -57,7 +57,15 @@ from grocery_app.normalizer import tax_rate
 # both models read `Ult.` and `SCHOKO` wrongly without checking. The reader now
 # sees what the search found, and a line it still cannot tell comes with the
 # choices the search left (`choices`), so a question is never a bare name.
-PROMPT_VERSION = "v7"
+# v8 (2026-10-08): nothing read is dropped. In real use the reader explained
+# every printed part and then left some out of the product, because the format
+# had nowhere for them: a cigarette line lost its product line, a supplement
+# line its strength and its range. Each part now says
+# which field it goes into (`into`), there is a `product_line` field, and the
+# code lists any part whose field came back empty (`dropped`). Scored against
+# v7: the first draft cut a printed word in two to fill a variant (a greeting
+# card line), so a part is now a whole printed word.
+PROMPT_VERSION = "v8"
 # s2 (2026-10-02): the searcher is told where the shop is and searches there
 # (Parham: "at least search in that country").
 SEARCH_VERSION = "s2"
@@ -67,6 +75,10 @@ SHOP_COUNTRY = "Germany"
 # `categories.is_grocery`) does not concern the insights: once a line reads as
 # one, it is neither searched nor asked about (Parham, 2026-10-02: "you should
 # know it isn't groceries. not just for cafe").
+
+
+# The answer's fields a printed part can go into (`into`), name first.
+FIELDS = ("name", "brand", "product_line", "variant", "size")
 
 
 def _category_list() -> str:
@@ -84,16 +96,22 @@ Tills print nothing by accident: every part of the line is there because it
 means something, a brand, a kind, a flavour, a size. So first split the line
 into its parts and say what each one means:
 - parts: every part of the printed line, in order, each with `printed` (the
-  characters exactly as on the line) and `means` (what it stands for, and
-  whether it is a brand, the kind of product, a variant or a size), or null
-  when you cannot say. For `WEIH. H-Milch 3,5% 1l`: `WEIH.` means Weihenstephan
-  (brand), `H-Milch` long-life milk (kind), `3,5%` fat content (variant), `1l`
-  the size. Leave nothing out.
+  characters exactly as on the line), `means` (what it stands for), or null
+  when you cannot say, and `into`: the field of your answer it goes into,
+  `name`, `brand`, `product_line`, `variant` or `size`, or `none` for shop
+  wording and codes that say nothing about the product. For
+  `MUSTR. Kids Zahnp. Erdb. 50ml`: `MUSTR.` Mustermann (brand), `Kids` the
+  brand's range for children (product_line), `Zahnp.` toothpaste (name),
+  `Erdb.` strawberry (variant), `50ml` (size). Leave nothing out. A part is a
+  whole printed word or abbreviation: never cut a word into pieces to fill a
+  field (`Gemüsebrühe` is one part, the name).
 
-Then answer from the parts, and only from them. The answer must fit every
-part: a brand tells you what the rest of the name can be, so read the rest as
-a product that brand makes. If a part you cannot read could change what the
-product is, not only who made it, set can_tell to false.
+Then answer from the parts, and only from them. Nothing you read is dropped:
+every part goes into the field its `into` names, and that field shows it.
+The answer must fit every part: a brand tells you what the rest of the name
+can be, so read the rest as a product that brand makes. If a part you cannot
+read could change what the product is, not only who made it, set can_tell to
+false.
 
 Answer in this format:
 - name: what the product is, in plain German, as you would write it on a
@@ -103,8 +121,11 @@ Answer in this format:
 - category: the one key from the list below that fits, or null if none does.
 - brand: only when the line prints it or a known abbreviation of it. Never
   guess a brand from what is likely.
-- variant: a flavour, colour or kind only when the line prints it
-  (`Linsen rot`, `Senf mittelscharf`); otherwise null.
+- product_line: the range the brand sells it under, only when the line prints
+  it (a brand's `Kids`, `Pro` or `Classic` line); otherwise null.
+- variant: a flavour, colour, kind or strength only when the line prints it
+  (`Linsen rot`, `Senf mittelscharf`, `500 mg`); otherwise null. Several
+  printed details go in together (`Erdbeere, 500 mg`).
 - size: the pack size exactly as printed (`125g`, `0,75l`, `6er`), or null.
 - can_tell: false when the printed words do not say what the product is: a
   brand or code alone (`MUSTRA`), a name a till prints for anything
@@ -204,22 +225,24 @@ SCHEMA: dict[str, Any] = {
             "items": {
                 "type": "object",
                 "properties": {"printed": {"type": "string"},
-                               "means": {"type": ["string", "null"]}},
-                "required": ["printed", "means"],
+                               "means": {"type": ["string", "null"]},
+                               "into": {"type": "string", "enum": [*FIELDS, "none"]}},
+                "required": ["printed", "means", "into"],
                 "additionalProperties": False,
             },
         },
         "name": {"type": "string"},
         "category": {"type": ["string", "null"]},
         "brand": {"type": ["string", "null"]},
+        "product_line": {"type": ["string", "null"]},
         "variant": {"type": ["string", "null"]},
         "size": {"type": ["string", "null"]},
         "can_tell": {"type": "boolean"},
         "choices": {"type": "array", "items": {"type": "string"}},
         "reason": {"type": "string"},
     },
-    "required": ["parts", "name", "category", "brand", "variant", "size", "can_tell",
-                 "choices", "reason"],
+    "required": ["parts", "name", "category", "brand", "product_line", "variant", "size",
+                 "can_tell", "choices", "reason"],
     "additionalProperties": False,
 }
 
@@ -243,6 +266,10 @@ class Identity:
     # The line was due a search and the searcher did not search, even when
     # told twice: it is neither saved nor asked about, and is read again later.
     unsearched: bool = False
+    product_line: str | None = None
+    # Printed parts the reader put into a field that came back empty
+    # (`dropped`): read, then left out of the product.
+    dropped: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -274,6 +301,17 @@ class Findings:
 
 
 MAX_TITLES = 15
+
+
+def dropped(answer: dict[str, Any]) -> list[str]:
+    """The printed parts the reader said go into a field that it left empty.
+
+    A part it read and placed, then lost: `Vit400` into the variant, with no
+    variant in the answer. The name is not checked: it is never empty on an
+    answer that is used, and it is plain German, not the printed words.
+    """
+    return [str(part.get("printed") or "") for part in answer.get("parts") or []
+            if part.get("into") in FIELDS[1:] and not (answer.get(part["into"]) or "").strip()]
 
 
 def left_out(raw_name: str, parts: list[dict[str, Any]]) -> list[str]:
@@ -444,18 +482,22 @@ def identify(raw_name: str, store: str | None, decider: Decider,
                                   known_abbreviations(raw_name, learned), description,
                                   findings), SCHEMA)
     category = answer.get("category")
-    parts = [{"printed": str(p.get("printed") or ""), "means": p.get("means") or None}
-             for p in answer.get("parts") or []]
+    parts = [{"printed": str(p.get("printed") or ""), "means": p.get("means") or None,
+              "into": p.get("into")} for p in answer.get("parts") or []]
     missing = left_out(raw_name, parts)
+    lost = dropped(answer)
     reason = answer.get("reason") or ""
     if missing:
         reason = f"left out {', '.join(f'`{w}`' for w in missing)}: {reason}"
+    if lost:
+        reason = f"read but dropped {', '.join(f'`{w}`' for w in lost)}: {reason}"
     can_tell = (bool(answer.get("can_tell")) and bool((answer.get("name") or "").strip())
                 and not missing)
     return Identity(
         name=(answer.get("name") or "").strip(),
         category=category if category in categories.CATEGORIES else None,
         brand=answer.get("brand") or None,
+        product_line=answer.get("product_line") or None,
         variant=answer.get("variant") or None,
         size=answer.get("size") or None,
         can_tell=can_tell,
@@ -463,6 +505,7 @@ def identify(raw_name: str, store: str | None, decider: Decider,
         parts=parts,
         choices=[] if can_tell else [str(c) for c in answer.get("choices") or [] if c],
         searched=list(findings.queries) if findings else [],
+        dropped=lost,
     )
 
 
