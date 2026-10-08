@@ -383,6 +383,15 @@ class JobDocument(BaseModel):
     finished_at: str | None
 
 
+class JobsDocument(BaseModel):
+    """The photos still being read or placed, and the ones that failed in the
+    last hour: the same list on every device."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    jobs: list[JobDocument]
+
+
 class Health(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

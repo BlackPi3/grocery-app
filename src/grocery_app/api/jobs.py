@@ -29,12 +29,12 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Protocol
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app.api.images import ImageStore
 from grocery_app.db.io import receipt_from_dict
-from grocery_app.db.models import Job, LineGuess
+from grocery_app.db.models import Job, LineGuess, Receipt
 
 __all__ = ["Extractor", "anthropic_extractor", "configured_extractor", "job_to_dict",
            "resume_job", "resume_unfinished", "run_job", "unfinished_jobs"]
@@ -212,8 +212,36 @@ def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
             session.commit()
             return
 
+        receipt = session.get(Receipt, job.receipt_id)
+        if same_paper(session, receipt) is not None:
+            receipt.is_duplicate = True
         session.commit()
         _place_lines(session, job_id, matcher, identify)
+
+
+def same_paper(session: Session, receipt: Receipt) -> Receipt | None:
+    """The earlier receipt this one is a second photo of, if any.
+
+    Real use, 2026-10-08: the same GLOBUS receipt photographed twice became two
+    receipts, counted twice and spot-checked twice. A till prints the minute,
+    so the same shop, day, minute and total is the same paper. Without a
+    printed time the lines must read the same as well. The photos differ, so
+    their hashes never catch this.
+    """
+    if receipt.store is None or receipt.date is None or receipt.printed_total is None:
+        return None
+    earlier = session.scalars(select(Receipt).where(
+        Receipt.id != receipt.id, Receipt.is_duplicate.is_(False),
+        func.lower(Receipt.store) == receipt.store.lower(), Receipt.date == receipt.date,
+        Receipt.printed_total == receipt.printed_total).order_by(Receipt.id))
+    names = [line.raw_name for line in receipt.lines]
+    for other in earlier:
+        if receipt.time and other.time:
+            if receipt.time == other.time:
+                return other
+        elif [line.raw_name for line in other.lines] == names:
+            return other
+    return None
 
 
 def _place_lines(session: Session, job_id: str, matcher: Any | None,
@@ -225,6 +253,13 @@ def _place_lines(session: Session, job_id: str, matcher: Any | None,
     line the memory already places or that already has a question.
     """
     job = session.get(Job, job_id)
+    if session.get(Receipt, job.receipt_id).is_duplicate:
+        # A second photo of a paper already in the history: nothing to place
+        # and nothing to ask, the first one has it all.
+        job.status = "done"
+        job.finished_at = _now()
+        session.commit()
+        return
     if matcher is not None:
         from grocery_app.api.matching import match_receipt
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app import categories, memory
-from grocery_app.api.jobs import job_to_dict
+from grocery_app.api.jobs import UNFINISHED, job_to_dict
 from grocery_app.api.matching import article_index
 from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict
 from grocery_app.db.models import (
@@ -42,6 +42,10 @@ from grocery_app.normalizer import (
 from grocery_app.resolver import store_key
 
 DEFAULT_PURCHASES = "data/purchases.json"
+
+# Long enough to see why a photo was not read, short enough that the Add tab
+# does not fill up with old failures nobody can dismiss.
+FAILED_JOBS_SHOWN_FOR = timedelta(hours=1)
 
 
 class Repository(Protocol):
@@ -87,6 +91,9 @@ class WriteRepository(Protocol):
         ...
 
     def job_for_image(self, image_sha256: str) -> dict[str, Any] | None:
+        ...
+
+    def jobs_in_progress(self) -> list[dict[str, Any]]:
         ...
 
     def receipt(self, receipt_id: int) -> dict[str, Any] | None:
@@ -182,6 +189,21 @@ class PostgresRepository:
         with self.session_factory() as session:
             job = session.get(Job, job_id)
             return job_to_dict(job) if job else None
+
+    def jobs_in_progress(self) -> list[dict[str, Any]]:
+        """What every device's Add tab shows: the photos still being read or
+        placed, and the ones that failed in the last hour, oldest first.
+
+        Kept on the server, not in the browser that sent the photo, so a
+        phone and a laptop show the same thing (Parham, 2026-10-08).
+        """
+        since = datetime.now(UTC) - FAILED_JOBS_SHOWN_FOR
+        with self.session_factory() as session:
+            jobs = session.scalars(select(Job).where(
+                Job.status.in_(UNFINISHED)
+                | ((Job.status == "failed") & (Job.finished_at >= since))
+            ).order_by(Job.created_at))
+            return [job_to_dict(job) for job in jobs]
 
     # --- the shopper's corrections -------------------------------------------
 
@@ -485,6 +507,8 @@ class PostgresRepository:
             views = []
             for check in open_checks:
                 receipt = session.get(Receipt, check.receipt_id)
+                if receipt.is_duplicate:
+                    continue  # its lines are asked about on the first photo, if at all
                 doc = receipt_to_dict(receipt)
                 line = doc["lines"][check.position]
                 if (doc["source_image"], check.position, line["raw_name"]) in inputs["uncounted"]:
