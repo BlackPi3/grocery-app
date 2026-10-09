@@ -677,3 +677,24 @@ def test_the_matcher_asks_the_model_it_is_told_to_and_claude_stays_the_default(m
     assert decider.cache.parts[-2:] == ("gemini-gemini-3.8-flash", matching.PROMPT_VERSION)
     with pytest.raises(SystemExit, match="unknown matcher"):
         matcher_decider("gpt")
+
+
+def test_a_gemini_call_that_times_out_is_tried_again_then_fails_cleanly(monkeypatch):
+    """2026-10-09: a timed-out read ended a whole batch run as a bare TimeoutError."""
+    import urllib.request
+
+    import pytest
+
+    from grocery_app import gemini
+
+    calls = []
+
+    def slow(request, timeout=None):
+        calls.append(timeout)
+        raise TimeoutError("The read operation timed out")
+
+    monkeypatch.setattr(urllib.request, "urlopen", slow)
+    monkeypatch.setattr(gemini, "RETRY_AFTER_S", 0)
+    with pytest.raises(gemini.GeminiError, match="did not answer"):
+        gemini.generate("gemini-test", {"contents": []}, api_key="k")
+    assert len(calls) == 2

@@ -301,6 +301,9 @@ def main() -> None:
                         "prompt and fill in the details an older reading dropped; "
                         "categorize: sort every product with no category by its shop "
                         "shelf and its name (Gemini), shown only unless --write")
+    d.add_argument("--retry-unsearched", action="store_true",
+                   help="match: first drop the open questions no search narrowed down, "
+                        "then match only their receipts again")
     d.add_argument("--write", action="store_true",
                    help="categorize: save the categories rather than only show them")
     d.add_argument("--product", action="append", default=[], metavar="ID",
@@ -716,16 +719,34 @@ def main() -> None:
 
             from grocery_app import matcher as matching
             from grocery_app.api.app import identify_decider, identify_searcher, matcher_decider
-            from grocery_app.api.matching import line_identifier, line_matcher, match_receipt
+            from grocery_app.api.matching import (
+                drop_unsearched_questions,
+                line_identifier,
+                line_matcher,
+                match_receipt,
+            )
             from grocery_app.db.models import Receipt
 
             match = line_matcher(matcher_decider(), matching.default_shops(args.products_dir))
             identify = line_identifier(identify_decider(), identify_searcher())
             totals: dict[str, int] = {}
             with factory() as session:
+                only = None
+                if args.retry_unsearched:
+                    only = drop_unsearched_questions(session)
+                    session.commit()
+                    print(f"Dropped the unsearched questions on {len(only)} receipts")
                 for receipt in session.scalars(select(Receipt).order_by(Receipt.date,
                                                                         Receipt.id)).all():
-                    counts = match_receipt(session, receipt.id, match, identify)
+                    if only is not None and receipt.id not in only:
+                        continue
+                    try:
+                        counts = match_receipt(session, receipt.id, match, identify)
+                    except Exception as error:  # noqa: BLE001 - one receipt, not the run
+                        session.rollback()
+                        print(f"  {receipt.source_image}: failed, {type(error).__name__}: "
+                              f"{error}", flush=True)
+                        continue
                     session.commit()  # each receipt's answers stand on their own
                     for kind, n in counts.items():
                         totals[kind] = totals.get(kind, 0) + n

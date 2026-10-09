@@ -421,3 +421,22 @@ def sort_products(session: Session, decider: Any,
                                       if q != categorize.CATEGORY_UNKNOWN]
             product.provenance = {**(product.provenance or {}), "category_from": how}
     return report
+
+
+def drop_unsearched_questions(session: Session) -> set[int]:
+    """Delete the open questions no web search narrowed down, and say which
+    receipts they were on. The caller commits, then matches those receipts.
+
+    2026-10-09: 25 questions from before search was a step were held back
+    from the shopper for being unsearched, and their lines stayed unplaced.
+    Matching their receipts again gives each line what a new line gets: the
+    shops' products, then a search and a reading, and only then a question. An
+    answered question is the shopper's and is never touched.
+    """
+    receipt_ids = set()
+    for question in session.scalars(select(Question).where(Question.answered_at.is_(None))):
+        if not ((question.proposal or {}).get("identity") or {}).get("searched"):
+            receipt_ids.add(question.receipt_id)
+            session.delete(question)
+    session.flush()
+    return receipt_ids

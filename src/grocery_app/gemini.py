@@ -102,6 +102,13 @@ def generate(model: str, body: dict[str, Any], api_key: str | None = None,
             if attempt == 2 or error.code not in RETRY_CODES:
                 raise GeminiError(f"Gemini {error.code}: {detail}") from error
             time.sleep(RETRY_AFTER_S)
+        except (TimeoutError, urllib.error.URLError) as error:
+            # 2026-10-09: a read that timed out escaped as a bare TimeoutError
+            # and ended a whole batch run, twice in one day. It is tried once
+            # more, then it is a Gemini failure like any other.
+            if attempt == 2:
+                raise GeminiError(f"Gemini did not answer: {error}") from error
+            time.sleep(RETRY_AFTER_S)
     raise GeminiError("unreachable")
 
 
