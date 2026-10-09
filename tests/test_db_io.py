@@ -23,7 +23,7 @@ def test_a_receipt_round_trips(receipt):
 
 def test_optional_header_fields_round_trip_when_present():
     receipt = dict(RECEIPTS[0], store_location="Musterstraße 1", tax_buckets={"7%": 0.2},
-                   printed_savings=0.5, is_duplicate=True)
+                   printed_savings=0.5)
     assert receipt_to_dict(receipt_from_dict(receipt)) == receipt
 
 

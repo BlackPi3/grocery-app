@@ -103,8 +103,7 @@ async database access at this scale, so the sync engine is fine.
 
 ```
 receipts        id, source_image, transcribed_by, store, store_location, date, time,
-                currency, printed_total, printed_savings, tax_buckets jsonb,
-                is_duplicate bool, created_at
+                currency, printed_total, printed_savings, tax_buckets jsonb, created_at
 receipt_lines   id, receipt_id, position, type, raw_name, qty, unit_gross, gross,
                 discount, net, tax_class, sold_by_weight, weight_kg, unit_price,
                 unit_price_basis
@@ -160,7 +159,7 @@ the product is about; nothing else gets a write endpoint until they work.
 | `GET /v1/jobs/{id}` | Built. `queued` / `running` / `done` / `failed`, with the receipt id when done and the cost when it is known |
 | `GET /v1/receipts/{id}` | Built. The receipt in the truth schema, plus the normalizer's reading of every line, addressed by `position` |
 | `PUT /v1/receipts/{id}/lines/{position}/resolution` | Built. The shopper's answer for one line: a `product_id`, or `null` to withdraw it. Writes `line_resolutions`; returns the whole receipt, because one answer can change more than one line's reading |
-| `PATCH /v1/receipts/{id}` | Built. `is_duplicate`, `store` correction, nothing else |
+| `PATCH /v1/receipts/{id}` | Built. `store` correction, nothing else |
 
 **Jobs** (built, `db/models.py`): a `jobs` table and a worker loop in the same process
 (FastAPI `BackgroundTasks` is enough for one user; a queue is a later problem).
@@ -180,8 +179,10 @@ Four decisions the table encodes:
 - **`jobs.image_sha256` is indexed, not unique.** It answers "have I already paid to
   read this photo?" before a model is called. Unique would forbid re-extracting one
   photo under a new `prompt_version`, which is deliberate work this project does.
-  `receipts.image_sha256` is likewise not unique: two photos of one paper are a
-  duplicate receipt (`is_duplicate`), a judgement rather than a constraint.
+  `receipts.image_sha256` is likewise not unique. A second photo of one paper
+  has other bytes; it is caught by what it prints (shop, day, minute, total) and
+  not kept: its job points at the receipt already there, `already_added`
+  (2026-10-09, migration 0012).
 - **The id is a uuid.** It is the one id a client holds and quotes back.
 - **`cost_usd` is `Numeric(10, 5)` and stays in dollars.** The provider bills in
   dollars and one extraction costs fractions of a cent; converting to euros would mean
@@ -371,8 +372,7 @@ Phase 1 is complete. Phase 2, in order:
      `normalize_receipt` emits exactly one record per line, in order.
    - An answer is bound to the line's **text** as well as its position, so
      re-extracting a photo cannot move it onto whatever now sits in that slot.
-   - `is_duplicate` is not a label: the normalizer drops such a receipt, so the
-     `PATCH` changes the money. `store` exists for the cropped-header photos.
+   - `store` exists for the cropped-header photos.
    - An answer does two jobs (`normalize_line`): it narrows a family, and it places
      a line the catalog cannot place at all. The second is how one product becomes
      reachable from a *second store*, which is what `cross_store` in the insights

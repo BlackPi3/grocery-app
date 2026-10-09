@@ -51,7 +51,6 @@ def test_a_receipt_round_trips_with_its_lines(session):
     assert [line.raw_name for line in loaded.lines] == ["MU Milch 1,5%", "Pfand"]
     assert loaded.lines[0].net == Decimal("1.09")
     assert loaded.lines[0].tax_class == "A", "as printed, never a rate"
-    assert loaded.is_duplicate is False
 
 
 def test_a_receipt_line_cannot_carry_a_product_id():

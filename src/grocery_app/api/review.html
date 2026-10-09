@@ -357,8 +357,7 @@ function receiptCard(summary) {
   const card = el("div", { class: "card" });
   card.append(el("div", { class: "line", onclick: () => openReceipt(summary.receipt_id) },
     el("div", {},
-       el("div", { class: "what" }, summary.store || "Unknown shop",
-          summary.is_duplicate ? el("span", { class: "badge none" }, "duplicate") : null),
+       el("div", { class: "what" }, summary.store || "Unknown shop"),
        el("div", { class: "meta" }, summary.date || "", " · ", summary.product_lines,
           " lines: ", summary.said_by_you, " you, ", summary.said_by_app, " app",
           summary.unplaced ? `, ${summary.unplaced} not placed` : "",
@@ -472,6 +471,7 @@ async function refreshJobsOnce() {
   const justRead = doc.jobs.find(job => job.receipt_id != null && state.uploaded.has(job.job_id)
     && before.get(job.job_id) && before.get(job.job_id).receipt_id == null);
   if (changed) await load({ jobs: false });
+  if (justRead && justRead.already_added) toast("Already in your receipts");
   if (justRead && state.tab === "add" && inProgress().length <= 1) {
     state.tab = "receipts";
     await showReceipt(justRead.receipt_id);
@@ -501,12 +501,23 @@ function jobCard(job) {
     return el("div", { class: "card" }, el("h2", {}, "Not read"),
       el("div", { class: "meta" }, added), el("div", { class: "why" }, job.error || ""));
   }
+  const summary = (state.receipts || []).find(r => r.receipt_id === job.receipt_id);
+  if (job.already_added) {
+    return el("div", { class: "card" }, el("h2", {}, "Already added"),
+      el("div", { class: "meta" }, [summary && summary.store, summary && summary.date, added]
+        .filter(Boolean).join(" · ")),
+      el("div", { class: "why" }, "This receipt is already in your history, so nothing new " +
+        "was saved."),
+      el("div", { class: "row" }, el("button", { onclick: () => {
+        state.tab = "receipts";
+        showReceipt(job.receipt_id);
+      } }, "Open the receipt")));
+  }
   const since = Date.parse(job.created_at) || Date.now();
   if (job.receipt_id == null) {
     return el("div", { class: "card" }, el("h2", {}, `Reading the photo… ${elapsed(since)}`),
       el("div", { class: "meta" }, added));
   }
-  const summary = (state.receipts || []).find(r => r.receipt_id === job.receipt_id);
   return el("div", { class: "card" },
     el("h2", {}, `Read. Placing the lines… ${elapsed(since)}`),
     el("div", { class: "meta" }, [summary && summary.store, summary && summary.date, added]

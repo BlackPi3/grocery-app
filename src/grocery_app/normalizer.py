@@ -586,9 +586,6 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     purchases: list[dict[str, Any]] = []
     used_receipts = 0
     for receipt in receipts:
-        # Skip any receipt flagged as a duplicate photo of another transaction.
-        if receipt.get("is_duplicate"):
-            continue
         used_receipts += 1
         purchases.extend(normalize_receipt(receipt, resolution, products,
                                            line_resolutions, shelf_prices, authors,
@@ -599,7 +596,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     # A family is not unresolved: brand and category are known, the variant is
     # not. It is listed separately so neither number lies.
     ambiguous = sorted({p["raw_name"] for p in product_lines if p["resolution"] == "family"})
-    dates = sorted({r["date"] for r in receipts if not r.get("is_duplicate")})
+    dates = sorted({r["date"] for r in receipts})
 
     return {
         "contract_version": 8,

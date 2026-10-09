@@ -338,13 +338,12 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
     @app.patch("/v1/receipts/{receipt_id}", response_model=ReceiptDocument,
                response_model_exclude_unset=True)
     def correct_receipt(receipt_id: int, patch: ReceiptPatch) -> ReceiptDocument:
-        """Correct the store, or mark the receipt as a duplicate of another."""
+        """Correct the store."""
         repo = require_writes()
-        if patch.is_duplicate is None and patch.store is None:
-            raise HTTPException(status_code=422,
-                                detail="nothing to change: send is_duplicate or store")
+        if patch.store is None:
+            raise HTTPException(status_code=422, detail="nothing to change: send store")
         try:
-            updated = repo.update_receipt(receipt_id, patch.is_duplicate, patch.store)
+            updated = repo.update_receipt(receipt_id, patch.store)
         except NotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return ReceiptDocument.model_validate(updated)

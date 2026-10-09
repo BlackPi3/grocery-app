@@ -47,8 +47,8 @@ class Receipt(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     source_image: Mapped[str] = mapped_column(String, unique=True)
     # Set when the photo arrived over HTTP; null for the files transcribed on
-    # the laptop. Not unique: two photos of one paper are a duplicate receipt
-    # (`is_duplicate`), which is a judgement, not a constraint.
+    # the laptop. Not unique: a second photo of one paper has other bytes, and
+    # is caught by what it prints (`api.jobs.same_paper`), not by its hash.
     image_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
     transcribed_by: Mapped[str] = mapped_column(String)  # hand | llm-verified | llm
     store: Mapped[str | None] = mapped_column(String)
@@ -59,7 +59,6 @@ class Receipt(Base):
     printed_total: Mapped[Decimal | None] = mapped_column(Money)
     printed_savings: Mapped[Decimal | None] = mapped_column(Money)
     tax_buckets: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  server_default=func.now())
 
@@ -322,6 +321,10 @@ class Job(Base):
     usage: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # tokens, as the API reports
     cost_usd: Mapped[Decimal | None] = mapped_column(Cost)
     error: Mapped[str | None] = mapped_column(String)
+    # The photo was of a receipt already in the history: `receipt_id` is that
+    # receipt, and nothing new was stored (Parham, 2026-10-09).
+    already_added: Mapped[bool] = mapped_column(Boolean, default=False,
+                                                server_default="false")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  server_default=func.now())

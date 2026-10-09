@@ -73,8 +73,7 @@ def store_slug(store: str) -> str:
 # --- receipts ----------------------------------------------------------------
 
 RECEIPT_FIELDS = ("source_image", "transcribed_by", "store", "store_location", "date", "time",
-                  "currency", "printed_total", "printed_savings", "tax_buckets",
-                  "is_duplicate", "lines")
+                  "currency", "printed_total", "printed_savings", "tax_buckets", "lines")
 LINE_FIELDS = ("type", "raw_name", "qty", "unit_gross", "gross", "discount", "net", "tax_class",
                "sold_by_weight", "weight_kg", "unit_price", "unit_price_basis")
 
@@ -122,7 +121,6 @@ def receipt_from_dict(d: dict[str, Any]) -> Receipt:
         date=_date(d.get("date")), time=d.get("time"), currency=d.get("currency"),
         printed_total=_decimal(d.get("printed_total")),
         printed_savings=_decimal(d.get("printed_savings")), tax_buckets=d.get("tax_buckets"),
-        is_duplicate=bool(d.get("is_duplicate", False)),
         lines=[line_from_dict(i, line) for i, line in enumerate(d.get("lines", []))],
     )
 
@@ -144,8 +142,6 @@ def receipt_to_dict(receipt: Receipt) -> dict[str, Any]:
         d["printed_savings"] = _money(receipt.printed_savings)
     if receipt.tax_buckets is not None:
         d["tax_buckets"] = receipt.tax_buckets
-    if receipt.is_duplicate:
-        d["is_duplicate"] = True
     d["lines"] = [line_to_dict(line) for line in sorted(receipt.lines, key=lambda x: x.position)]
     return d
 

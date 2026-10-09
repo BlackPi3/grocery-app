@@ -537,8 +537,9 @@ def test_a_file_backed_server_has_no_job_list(tmp_path):
 # --- the same paper, photographed twice --------------------------------------
 # 2026-10-08: a second photo of one receipt became a second receipt, counted
 # twice and spot-checked twice. Different photos, so the hash never caught it.
+# 2026-10-09: and it is not kept at all, not even flagged.
 
-def test_a_second_photo_of_the_same_paper_is_a_duplicate(engine, session, tmp_path):
+def test_a_second_photo_of_the_same_paper_is_not_kept(engine, session, tmp_path):
     session.add(Product(id="p-0001", name="Butter", brand="Muster"))
     session.commit()
     calls = []
@@ -556,9 +557,12 @@ def test_a_second_photo_of_the_same_paper_is_a_duplicate(engine, session, tmp_pa
                          files={"file": ("b.jpg", a_photo("blue"), "image/jpeg")})
     first, second = (client.get(f"/v1/jobs/{r.json()['job_id']}").json() for r in (first, second))
 
-    assert second["status"] == "done" and second["receipt_id"] != first["receipt_id"]
-    duplicates = {r["receipt_id"]: r["is_duplicate"] for r in client.get("/v1/receipts").json()}
-    assert duplicates == {first["receipt_id"]: False, second["receipt_id"]: True}
+    assert second["status"] == "done" and second["already_added"]
+    assert second["receipt_id"] == first["receipt_id"], "the job points at the receipt there"
+    assert not first["already_added"]
+    assert [r["receipt_id"] for r in client.get("/v1/receipts").json()] == [first["receipt_id"]]
+    shown = client.get("/v1/jobs").json()["jobs"]
+    assert [j["job_id"] for j in shown] == [second["job_id"]], "the Add tab says so"
     assert calls == ["MU Butter"], "the second photo's lines are not placed again"
     checks = client.get("/v1/checks").json()["checks"]
     assert [c["receipt_id"] for c in checks] == [first["receipt_id"]], "nor checked again"
@@ -573,7 +577,7 @@ def test_another_visit_with_the_same_total_is_not_a_duplicate(engine, session, t
     evening = TestClient(create_app(repository, store, FakeExtractor({**RECEIPT, "time": "18:40"})))
     morning.post("/v1/receipts", files={"file": ("a.jpg", a_photo("red"), "image/jpeg")})
     evening.post("/v1/receipts", files={"file": ("b.jpg", a_photo("blue"), "image/jpeg")})
-    assert [r["is_duplicate"] for r in evening.get("/v1/receipts").json()] == [False, False]
+    assert len(evening.get("/v1/receipts").json()) == 2
 
 
 def test_without_a_printed_time_the_lines_decide(engine, session, tmp_path):
