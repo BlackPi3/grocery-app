@@ -740,7 +740,13 @@ def main() -> None:
                                                                         Receipt.id)).all():
                     if only is not None and receipt.id not in only:
                         continue
-                    counts = match_receipt(session, receipt.id, match, identify)
+                    try:
+                        counts = match_receipt(session, receipt.id, match, identify)
+                    except Exception as error:  # noqa: BLE001 - one receipt, not the run
+                        session.rollback()
+                        print(f"  {receipt.source_image}: failed, {type(error).__name__}: "
+                              f"{error}", flush=True)
+                        continue
                     session.commit()  # each receipt's answers stand on their own
                     for kind, n in counts.items():
                         totals[kind] = totals.get(kind, 0) + n
