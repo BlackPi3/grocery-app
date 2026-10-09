@@ -294,7 +294,6 @@ class ReceiptSummary(BaseModel):
     store: str | None
     source_image: str
     printed_total: float | None
-    is_duplicate: bool
     product_lines: int
     said_by_you: int
     said_by_app: int
@@ -354,13 +353,10 @@ class LineCountedRequest(BaseModel):
 
 
 class ReceiptPatch(BaseModel):
-    """The two header facts a shopper can correct. Nothing else is writable."""
+    """The header fact a shopper can correct. Nothing else is writable."""
 
     model_config = ConfigDict(extra="forbid")
 
-    is_duplicate: bool | None = Field(
-        default=None,
-        description="The same paper photographed twice; a duplicate leaves the history")
     store: str | None = Field(
         default=None, description="The store, for a photo whose header was cropped off")
 
@@ -385,6 +381,9 @@ class JobDocument(BaseModel):
     prompt_version: str | None
     cost_usd: float | None
     error: str | None
+    already_added: bool = Field(
+        description="The photo was of a receipt already in the history: `receipt_id` is "
+                    "that receipt, and nothing new was stored")
     created_at: str | None
     started_at: str | None
     finished_at: str | None

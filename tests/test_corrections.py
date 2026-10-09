@@ -181,22 +181,7 @@ def test_a_line_or_receipt_that_does_not_exist_is_a_404(corrections):
     assert client.get("/v1/receipts/424242").status_code == 404
     assert client.put(f"/v1/receipts/{receipt_id}/lines/99/resolution",
                       json={"product_id": "p-0001"}).status_code == 404
-    assert client.patch("/v1/receipts/424242", json={"is_duplicate": True}).status_code == 404
-
-
-def test_marking_a_receipt_duplicate_takes_it_out_of_the_history(corrections):
-    """Not a label: the normalizer drops a duplicate, so this changes the money."""
-    client, _, receipt_id = corrections
-    before = client.get("/v1/purchases").json()["meta"]
-
-    patched = client.patch(f"/v1/receipts/{receipt_id}", json={"is_duplicate": True})
-    assert patched.status_code == 200
-    assert patched.json()["receipt"]["is_duplicate"] is True
-
-    after = client.get("/v1/purchases").json()
-    assert after["meta"]["receipts"] == before["receipts"] - 1
-    assert after["meta"]["total_net_paid"] < before["total_net_paid"]
-    assert [p for p in after["purchases"] if p["source_image"] == "IMG_2.jpeg"] == []
+    assert client.patch("/v1/receipts/424242", json={"store": "X"}).status_code == 404
 
 
 def test_correcting_the_store_changes_what_resolves(corrections):
@@ -217,11 +202,11 @@ def test_a_patch_that_changes_nothing_is_refused(corrections):
     client, _, receipt_id = corrections
     response = client.patch(f"/v1/receipts/{receipt_id}", json={})
     assert response.status_code == 422
-    assert "is_duplicate" in response.json()["detail"]
+    assert "store" in response.json()["detail"]
 
 
 def test_a_patch_may_not_rewrite_the_receipt(corrections):
-    """Only two header facts are writable. The paper is not editable over HTTP."""
+    """Only the store is writable. The paper is not editable over HTTP."""
     client, _, receipt_id = corrections
     response = client.patch(f"/v1/receipts/{receipt_id}", json={"printed_total": 0.01})
     assert response.status_code == 422
@@ -235,7 +220,7 @@ def test_a_file_backed_server_cannot_record_corrections():
     assert client.get("/v1/receipts/1").status_code == 503
     assert client.put("/v1/receipts/1/lines/0/resolution",
                       json={"product_id": "p-0001"}).status_code == 503
-    assert client.patch("/v1/receipts/1", json={"is_duplicate": True}).status_code == 503
+    assert client.patch("/v1/receipts/1", json={"store": "X"}).status_code == 503
 
 
 # --- the memory learns from answers (catalog growth, step 5) -------------------

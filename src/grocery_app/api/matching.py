@@ -346,8 +346,7 @@ def reread_product(session: Session, product_id: str,
                             .order_by(Resolution.id)).first()
     if entry is None:
         return {**said, "why": "no line in the memory points at it"}
-    for receipt in session.scalars(select(Receipt).where(Receipt.is_duplicate.is_(False))
-                                   .order_by(Receipt.id)):
+    for receipt in session.scalars(select(Receipt).order_by(Receipt.id)):
         if store_key(receipt.store) != store_key(entry.store):
             continue
         doc = receipt_to_dict(receipt)

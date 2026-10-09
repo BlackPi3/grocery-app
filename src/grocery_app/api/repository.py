@@ -121,8 +121,7 @@ class WriteRepository(Protocol):
     def search_products(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
         ...
 
-    def update_receipt(self, receipt_id: int, is_duplicate: bool | None,
-                       store: str | None) -> dict[str, Any]:
+    def update_receipt(self, receipt_id: int, store: str) -> dict[str, Any]:
         ...
 
     def set_counted(self, receipt_id: int, position: int, counted: bool) -> dict[str, Any]:
@@ -192,7 +191,8 @@ class PostgresRepository:
 
     def jobs_in_progress(self) -> list[dict[str, Any]]:
         """What every device's Add tab shows: the photos still being read or
-        placed, and the ones that failed in the last hour, oldest first.
+        placed, and the ones that failed or were already added in the last
+        hour, oldest first.
 
         Kept on the server, not in the browser that sent the photo, so a
         phone and a laptop show the same thing (Parham, 2026-10-08).
@@ -201,7 +201,7 @@ class PostgresRepository:
         with self.session_factory() as session:
             jobs = session.scalars(select(Job).where(
                 Job.status.in_(UNFINISHED)
-                | ((Job.status == "failed") & (Job.finished_at >= since))
+                | (((Job.status == "failed") | Job.already_added) & (Job.finished_at >= since))
             ).order_by(Job.created_at))
             return [job_to_dict(job) for job in jobs]
 
@@ -400,8 +400,7 @@ class PostgresRepository:
             inputs = load_normalizer_inputs(session)
             proposals = {(q.receipt_id, q.position): q.proposal
                          for q in session.scalars(select(Question))}
-            receipts = session.scalars(select(Receipt).where(
-                Receipt.is_duplicate.is_(False)).order_by(Receipt.date, Receipt.id)).all()
+            receipts = session.scalars(select(Receipt).order_by(Receipt.date, Receipt.id)).all()
             questions = []
             held_back = 0
             for receipt in receipts:
@@ -457,7 +456,6 @@ class PostgresRepository:
                     "receipt_id": row.id, "date": doc.get("date"), "store": row.store,
                     "source_image": row.source_image,
                     "printed_total": doc.get("printed_total"),
-                    "is_duplicate": bool(row.is_duplicate),
                     "product_lines": len(records),
                     "said_by_you": sum(r["said_by"] == "you" for r in records),
                     "said_by_app": sum(r["said_by"] == "app" for r in records),
@@ -508,8 +506,6 @@ class PostgresRepository:
             views = []
             for check in open_checks:
                 receipt = session.get(Receipt, check.receipt_id)
-                if receipt.is_duplicate:
-                    continue  # its lines are asked about on the first photo, if at all
                 doc = receipt_to_dict(receipt)
                 line = doc["lines"][check.position]
                 if (doc["source_image"], check.position, line["raw_name"]) in inputs["uncounted"]:
@@ -541,22 +537,15 @@ class PostgresRepository:
                          "error_rate": round(corrected / answered, 3) if answered else None},
                 "checks": views}
 
-    def update_receipt(self, receipt_id: int, is_duplicate: bool | None = None,
-                       store: str | None = None) -> dict[str, Any]:
-        """The two header facts a shopper can correct from a phone.
-
-        `is_duplicate` is the answer to the same paper photographed twice: the
-        normalizer drops such a receipt from the history entirely, so this is
-        not a label, it changes the numbers. `store` is for a photo whose
-        header was cropped off, which leaves every line unresolvable because
-        resolution is store-scoped.
+    def update_receipt(self, receipt_id: int, store: str) -> dict[str, Any]:
+        """The header fact a shopper can correct from a phone: the store, for a
+        photo whose header was cropped off, which leaves every line
+        unresolvable because resolution is store-scoped. (A second photo of a
+        receipt is not kept at all: `api.jobs.same_paper`.)
         """
         with self.session_factory() as session:
             row = self._get(session, receipt_id)
-            if is_duplicate is not None:
-                row.is_duplicate = is_duplicate
-            if store is not None:
-                row.store = store
+            row.store = store
             session.commit()
             return self._receipt_view(session, self._get(session, receipt_id))
 

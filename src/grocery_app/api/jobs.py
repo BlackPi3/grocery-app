@@ -125,6 +125,7 @@ def job_to_dict(job: Job) -> dict[str, Any]:
         "prompt_version": job.prompt_version,
         "cost_usd": float(job.cost_usd) if job.cost_usd is not None else None,
         "error": job.error,
+        "already_added": bool(job.already_added),
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "started_at": job.started_at.isoformat() if job.started_at else None,
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
@@ -148,6 +149,14 @@ def _store_receipt(session: Session, job: Job, extraction: Extraction) -> None:
     receipt.image_sha256 = job.image_sha256
     session.add(receipt)
     session.flush()
+    earlier = same_paper(session, receipt)
+    if earlier is not None:
+        # Already in the history: the job points there and this copy goes
+        # (Parham, 2026-10-09: "a duplicate receipt shouldn't even be there").
+        session.delete(receipt)
+        job.receipt_id = earlier.id
+        job.already_added = True
+        return
     job.receipt_id = receipt.id
     reading = f"{job.model} {job.prompt_version}"
     for position, guess in enumerate(extraction.receipt.get("first_guesses") or []):
@@ -212,9 +221,6 @@ def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
             session.commit()
             return
 
-        receipt = session.get(Receipt, job.receipt_id)
-        if same_paper(session, receipt) is not None:
-            receipt.is_duplicate = True
         session.commit()
         _place_lines(session, job_id, matcher, identify)
 
@@ -231,7 +237,7 @@ def same_paper(session: Session, receipt: Receipt) -> Receipt | None:
     if receipt.store is None or receipt.date is None or receipt.printed_total is None:
         return None
     earlier = session.scalars(select(Receipt).where(
-        Receipt.id != receipt.id, Receipt.is_duplicate.is_(False),
+        Receipt.id != receipt.id,
         func.lower(Receipt.store) == receipt.store.lower(), Receipt.date == receipt.date,
         Receipt.printed_total == receipt.printed_total).order_by(Receipt.id))
     names = [line.raw_name for line in receipt.lines]
@@ -253,7 +259,7 @@ def _place_lines(session: Session, job_id: str, matcher: Any | None,
     line the memory already places or that already has a question.
     """
     job = session.get(Job, job_id)
-    if session.get(Receipt, job.receipt_id).is_duplicate:
+    if job.already_added:
         # A second photo of a paper already in the history: nothing to place
         # and nothing to ask, the first one has it all.
         job.status = "done"
