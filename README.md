@@ -1,6 +1,7 @@
 # Grocery App
 
 [![ci](https://github.com/BlackPi3/grocery-app/actions/workflows/ci.yml/badge.svg)](https://github.com/BlackPi3/grocery-app/actions/workflows/ci.yml)
+[![deploy](https://github.com/BlackPi3/grocery-app/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/BlackPi3/grocery-app/actions/workflows/deploy.yml)
 
 Turns grocery receipts into an item-level purchase history with spending insights.
 
