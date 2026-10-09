@@ -206,16 +206,20 @@ def off_hits(product: dict[str, Any]) -> list[str]:
     return found
 
 
-def shop_hint(product_id: str, product: dict[str, Any],
-              listings: dict[str, Any] | None = None) -> str | None:
-    """What the shop's own shelf says: a category key, `@section`, or nothing.
+def shop_shelf(product_id: str, product: dict[str, Any],
+               listings: dict[str, Any] | None = None) -> tuple[str, str] | None:
+    """Where the shop shelves this product: ("globus", "frisches-obst/aepfel")
+    or ("aldi", "Käse / Reibekäse"), or None when no shop page says.
 
-    Two places record the same fact — `listings.json` for products matched
-    through the catalogue loop, and `provenance.source` for the ones confirmed
-    from a product page by hand. Both are a URL and the URL is the shelf.
+    A GLOBUS URL is the shelf: `listings.json` for products matched through
+    the catalogue loop, `provenance.source` for the rest. An ALDI URL is not,
+    so an ALDI product carries its crawl category in `provenance.shelf`.
     """
-    url = ((listings or {}).get(product_id) or {}).get("url") \
-        or (product.get("provenance") or {}).get("source") or ""
+    provenance = product.get("provenance") or {}
+    if provenance.get("shelf"):
+        shop, _, shelf = provenance["shelf"].partition(":")
+        return shop, shelf
+    url = ((listings or {}).get(product_id) or {}).get("url") or provenance.get("source") or ""
     if not url.startswith("http") or "globus.de" not in url:
         return None
     parts = [part for part in url.split("globus.de/", 1)[1].split("/") if part]
@@ -223,7 +227,26 @@ def shop_hint(product_id: str, product: dict[str, Any],
     # page is not. Either way the last two segments are the article number and
     # its name-slug, and the two before them are the shelf.
     parts = parts[:-2]
-    return SHOP_PATHS.get("/".join(parts[-2:]))
+    return "globus", "/".join(parts[-2:])
+
+
+def shelf_meaning(shop: str, shelf: str) -> str | None:
+    """A shop shelf in our vocabulary: a category key, `@section`, or None
+    (not mapped, or not a kind of product). The hand-mapped GLOBUS shelves win."""
+    from grocery_app import shop_shelves
+
+    if shop == "globus":
+        return SHOP_PATHS.get(shelf) or shop_shelves.GLOBUS.get(shelf)
+    if shop == "aldi":
+        return shop_shelves.ALDI.get(shelf)
+    return None
+
+
+def shop_hint(product_id: str, product: dict[str, Any],
+              listings: dict[str, Any] | None = None) -> str | None:
+    """What the shop's own shelf says: a category key, `@section`, or nothing."""
+    found = shop_shelf(product_id, product, listings)
+    return shelf_meaning(*found) if found else None
 
 
 def propose(product_id: str, product: dict[str, Any],
@@ -383,3 +406,63 @@ def confirm(reviewed_path: str | Path, products_path: str | Path) -> dict[str, A
     Path(products_path).write_text(
         json.dumps(products_doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return summary
+
+
+# --- sorting a product: the shop's shelf and the product's name ---------------
+# Parham, 2026-10-09: products that were never sorted get sorted, by the shop's
+# shelf and a model reading the name, and a disagreement is not filed. The
+# name is read by a model here, not by the aliases: the aliases reach too
+# little of the catalog to be the second source.
+
+NAME_SYSTEM = (
+    "You file supermarket products into a fixed category list. For each product you get "
+    "its name, brand and details. Answer with the category key from the list that a "
+    "shopping list would use for it, judging by what the product is (the head noun), not "
+    "by a flavour or an ingredient. Answer unknown when the name does not say what the "
+    "product is. Never invent keys.\n\nCategories:\n")
+
+NAME_SCHEMA = {"type": "object", "properties": {"products": {"type": "array", "items": {
+    "type": "object", "properties": {"id": {"type": "string"}, "category": {"type": "string"}},
+    "required": ["id", "category"]}}}, "required": ["products"]}
+
+
+def read_names(products: dict[str, dict[str, Any]], decider: Any,
+               batch: int = 25) -> dict[str, str | None]:
+    """product id -> the category key its name points at, or None. One model
+    call per `batch` products; the shelf is not shown, so the two sources stay
+    independent."""
+    system = NAME_SYSTEM + "\n".join(f"{key} = {' / '.join(categories.path(key))}"
+                                     for key in categories.CATEGORIES)
+    ids = sorted(products)
+    out: dict[str, str | None] = {}
+    for start in range(0, len(ids), batch):
+        lines = []
+        for product_id in ids[start:start + batch]:
+            p = products[product_id]
+            lines.append(f"- {product_id}: {p.get('name')}"
+                         + (f" | brand {p['brand']}" if p.get("brand") else "")
+                         + (f" | {', '.join(p['details'])}" if p.get("details") else ""))
+        answer = decider(system, "\n".join(lines), NAME_SCHEMA)
+        for row in answer.get("products") or []:
+            if row.get("id") in products:
+                key = row.get("category")
+                out[row["id"]] = key if key in categories.CATEGORIES else None
+    return out
+
+
+def sort(hint: str | None, named: str | None) -> tuple[str | None, str]:
+    """The category the shelf and the name support together, and how.
+
+    `hint` is the shelf's meaning (a key, `@section`, or None); `named` is what
+    the name was read as. Agreement files the product; a disagreement does
+    not, and comes back as `conflict` for a person to look at.
+    """
+    if hint and not hint.startswith("@"):
+        if named in (None, hint):
+            return hint, "shop" if named is None else "agreed"
+        return None, "conflict"
+    if hint:
+        if named and categories.CATEGORIES[named][1] == hint[1:]:
+            return named, "shop+name"
+        return None, "conflict" if named else "section"
+    return (named, "name") if named else (None, "unknown")

@@ -290,7 +290,7 @@ def main() -> None:
         help="The PostgreSQL store behind `serve` (needs the 'api' extra and DATABASE_URL)",
     )
     d.add_argument("action", choices=["upgrade", "import", "export", "match", "add-readings",
-                                      "answer", "reread"],
+                                      "answer", "reread", "categorize"],
                    help="upgrade: apply the migrations; import: load the data/ files into "
                         "the tables (idempotent); export: write the tables out as files; "
                         "match: run the matcher over stored receipts (claude -p, on the "
@@ -298,7 +298,11 @@ def main() -> None:
                         "model-read receipts (--readings) for the photos in --photos; answer: "
                         "give the shopper's answers in --truth to the open questions; reread: "
                         "read the lines behind --product again with the current identify "
-                        "prompt and fill in the details an older reading dropped")
+                        "prompt and fill in the details an older reading dropped; "
+                        "categorize: sort every product with no category by its shop "
+                        "shelf and its name (Gemini), shown only unless --write")
+    d.add_argument("--write", action="store_true",
+                   help="categorize: save the categories rather than only show them")
     d.add_argument("--product", action="append", default=[], metavar="ID",
                    help="reread: a product identify made (repeat for several)")
     d.add_argument("--url", default=None,
@@ -742,6 +746,25 @@ def main() -> None:
                     print(f"  {product_id}: {said['why']}"
                           + (f" {said['before']} -> {said['after']}" if said.get("after")
                              else ""))
+        if args.action == "categorize":
+            from grocery_app.api.app import GEMINI_MODEL as SORTING_MODEL
+            from grocery_app.api.matching import sort_products
+            from grocery_app.matcher import GeminiDecider
+
+            aldi_crawl = Path(args.products_dir) / "aldi-sued" / "crawl.json"
+            aldi = ({article: row["category"] for article, row in
+                     json.loads(aldi_crawl.read_text(encoding="utf-8")).items()
+                     if row.get("category")} if aldi_crawl.exists() else {})
+            decider = GeminiDecider(SORTING_MODEL, "data/categorized", "names-v1", search=False)
+            with factory() as session:
+                report = sort_products(session, decider, aldi)
+                for row in report:
+                    print(json.dumps(row, ensure_ascii=False))
+                filed = sum(1 for row in report if row["category"])
+                print(f"{filed} of {len(report)} products sorted"
+                      + ("" if args.write else " (not saved: --write saves them)"))
+                if args.write:
+                    session.commit()
         if args.action == "export":
             if not args.out:
                 raise SystemExit("export needs --out DIR (it will not write into data/ unasked)")

@@ -378,3 +378,46 @@ def reread_product(session: Session, product_id: str,
     product.provenance = {**(product.provenance or {}),
                           "source": f"identify {identifying.PROMPT_VERSION}"}
     return {**said, "after": after, "changed": True, "why": "filled in"}
+
+
+def sort_products(session: Session, decider: Any,
+                  aldi_shelves: dict[str, str] | None = None) -> list[dict[str, Any]]:
+    """Give every product with no category one, where the shop's shelf and a
+    model reading the name agree (`categorize.sort`). The caller commits.
+
+    Parham, 2026-10-09: products made from a shop page before the shelf
+    tables existed, and products from answers, were never sorted, and 195 EUR
+    of the month view sat under "Not sorted yet". `aldi_shelves` is the ALDI
+    crawl's article number -> category path: an ALDI URL carries no shelf, so
+    the shelf is looked up and recorded on the product (`provenance.shelf`).
+    A product whose shelf and name disagree keeps no category and is reported.
+    """
+    from grocery_app import categories, categorize
+
+    listings = {listing.product_id: {"url": listing.url}
+                for listing in session.scalars(select(StoreListing)) if listing.url}
+    unsorted = [p for p in session.scalars(select(Product).order_by(Product.id))
+                if p.category not in categories.CATEGORIES]
+    for product in unsorted:
+        provenance = product.provenance or {}
+        url = provenance.get("source") or ""
+        article = url.rsplit("-", 1)[-1] if "aldi-sued.de/produkt/" in url else ""
+        if article and not provenance.get("shelf") and (aldi_shelves or {}).get(article):
+            product.provenance = {**provenance, "shelf": f"aldi:{aldi_shelves[article]}"}
+    as_dicts = {p.id: {"name": p.name, "brand": p.brand, "details": list(p.details or []),
+                       "provenance": p.provenance or {}} for p in unsorted}
+    named = categorize.read_names(as_dicts, decider)
+    report = []
+    for product in unsorted:
+        shelf = categorize.shop_shelf(product.id, as_dicts[product.id], listings)
+        hint = categorize.shelf_meaning(*shelf) if shelf else None
+        key, how = categorize.sort(hint, named.get(product.id))
+        report.append({"product_id": product.id, "name": product.name, "brand": product.brand,
+                       "shelf": ":".join(shelf) if shelf else None, "shelf_says": hint,
+                       "name_says": named.get(product.id), "category": key, "how": how})
+        if key:
+            product.category = key
+            product.open_questions = [q for q in product.open_questions or []
+                                      if q != categorize.CATEGORY_UNKNOWN]
+            product.provenance = {**(product.provenance or {}), "category_from": how}
+    return report

@@ -261,6 +261,18 @@ def test_its_category_is_set_only_when_shelf_and_name_agree():
     assert odd["category"] is None and "category unknown" in odd["open_questions"]
 
 
+def test_a_new_aldi_product_keeps_its_shelf_and_is_sorted_by_it():
+    """ALDI's URLs carry no shelf; the crawl's category is recorded instead
+    (2026-10-09), and the shelf files the product."""
+    grated = {"source": "aldi süd", "name": "Gouda gerieben", "brand": "MILSANI",
+              "pack_size": "0,25 kg", "article": "000000000000000001",
+              "url": "https://www.aldi-sued.de/produkt/milsani-gouda-000000000000000001",
+              "shelf": "Käse / Reibekäse", "product_id": None, "prices": [1.99]}
+    product = new_product(grated, "matcher")
+    assert product["provenance"]["shelf"] == "aldi:Käse / Reibekäse"
+    assert product["category"] == "reibekaese"
+
+
 def test_a_listing_without_a_brand_says_so():
     product = new_product(dict(PASTA, brand=None), "shopper")
     assert product["brand"] is None and "brand unknown" in product["open_questions"]

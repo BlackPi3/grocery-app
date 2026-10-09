@@ -424,6 +424,8 @@ CATEGORIES: dict[str, tuple[str, str, tuple[str, ...]]] = {
                 ("lippenstift", "mascara", "nagellack", "haarspangen")),
     "medizinprodukte": ("Medizinprodukte & Tests", "sonstiger-einkauf",
                         ("schwangerschaftstest",)),
+    # GLOBUS has a Tabakwaren department; cigarettes had nowhere to go (2026-10-09).
+    "tabak": ("Tabakwaren", "sonstiger-einkauf", ("zigaretten", "tabak")),
 }
 
 # The sections where a null brand is the final answer rather than a gap. You

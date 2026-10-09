@@ -70,6 +70,8 @@ class Candidate:
     product_id: str | None = None
     article: str | None = None
     url: str | None = None
+    # The shop's own shelf, as its crawl names it: ALDI's URLs carry none.
+    shelf: str | None = None
     prices: list[float] = field(default_factory=list)
     printed_as: list[str] = field(default_factory=list)
 
@@ -167,7 +169,8 @@ def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]]
             candidate = Candidate(source=shop, name=listing.get("name") or "",
                                   brand=listing.get("brand"),
                                   pack_size=listing.get("pack_size"),
-                                  article=article, url=listing.get("url"))
+                                  article=article, url=listing.get("url"),
+                                  shelf=listing.get("category"))
             found.append(candidate)
         if price is not None and float(price) not in candidate.prices:
             candidate.prices.append(float(price))
@@ -413,6 +416,8 @@ def new_product(pick: dict[str, Any], decided_by: str) -> dict[str, Any]:
         "provenance": {"attributes": f"{pick['source']}-listing",
                        "source": pick.get("url"), "decided_by": decided_by},
     }
+    if pick.get("shelf") and pick["source"].startswith("aldi"):
+        product["provenance"]["shelf"] = f"aldi:{pick['shelf']}"
     category = categorize.propose("new", product)
     if category.settled:
         product["category"] = category.key

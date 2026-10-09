@@ -300,3 +300,34 @@ def test_a_line_left_out_by_the_shopper_crosses_every_seam(data):
 
     client = TestClient(create_app(InMemoryRepository(marked)))
     assert client.get("/v1/purchases").json() == marked
+
+
+def test_a_product_never_sorted_is_sorted_by_its_shelf_and_name(session):
+    """2026-10-09: products made from shop pages before the shelf tables, and
+    from answers, sat under "Not sorted yet". Where shelf and name agree the
+    product is filed; where they disagree it is not, and says why."""
+    from grocery_app.api.matching import sort_products
+    from grocery_app.db.models import Product
+
+    page = "https://produkte.globus.de/dudweiler/getraenke/milch-molkereiprodukte/h-milch/1/x"
+    session.add_all([
+        Product(id="p-0001", name="Vollmilch", category=None,
+                open_questions=["category unknown"], provenance={"source": page}),
+        Product(id="p-0002", name="Haferdrink", category=None, provenance={"source": page}),
+        Product(id="p-0003", name="Lavash", category=None, provenance={"attributes": "shopper"}),
+        Product(id="p-0004", name="Butter", category="butter"),
+    ])
+    session.flush()
+    said = {"p-0001": "milch", "p-0002": "pflanzendrink", "p-0003": "brot"}
+
+    def decider(system, prompt, schema):
+        ids = [line.split(":")[0][2:] for line in prompt.splitlines()]
+        return {"products": [{"id": i, "category": said[i]} for i in ids]}
+
+    report = {row["product_id"]: row for row in sort_products(session, decider)}
+    assert set(report) == {"p-0001", "p-0002", "p-0003"}, "a sorted product is left alone"
+    milk, oat, lavash = (session.get(Product, i) for i in ("p-0001", "p-0002", "p-0003"))
+    assert (milk.category, report["p-0001"]["how"]) == ("milch", "agreed")
+    assert milk.open_questions == [] and milk.provenance["category_from"] == "agreed"
+    assert (oat.category, report["p-0002"]["how"]) == (None, "conflict")
+    assert (lavash.category, report["p-0003"]["how"]) == ("brot", "name")
