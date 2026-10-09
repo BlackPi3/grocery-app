@@ -331,3 +331,38 @@ def test_a_product_never_sorted_is_sorted_by_its_shelf_and_name(session):
     assert milk.open_questions == [] and milk.provenance["category_from"] == "agreed"
     assert (oat.category, report["p-0002"]["how"]) == (None, "conflict")
     assert (lavash.category, report["p-0003"]["how"]) == ("brot", "name")
+
+
+def test_only_unsearched_open_questions_are_dropped_for_a_retry(session):
+    """2026-10-09: questions from before search was a step are matched again;
+    a searched question and anything the shopper answered stay."""
+    from datetime import UTC, datetime
+
+    from sqlalchemy import select
+
+    from grocery_app.api.matching import drop_unsearched_questions
+    from grocery_app.db.io import receipt_from_dict
+    from grocery_app.db.models import Question
+
+    receipts = []
+    for n in range(3):
+        receipt = receipt_from_dict({
+            "source_image": f"r{n}.jpg", "transcribed_by": "llm", "store": "Musterladen",
+            "date": "2026-09-01",
+            "lines": [{"type": "product", "raw_name": "XY Ding", "qty": 1, "net": 1.0}]})
+        session.add(receipt)
+        receipts.append(receipt)
+    session.flush()
+    old, searched, answered = receipts
+    session.add_all([
+        Question(receipt_id=old.id, position=0, raw_name="XY Ding", proposal={}),
+        Question(receipt_id=searched.id, position=0, raw_name="XY Ding",
+                 proposal={"identity": {"searched": ["xy ding"]}}),
+        Question(receipt_id=answered.id, position=0, raw_name="XY Ding", proposal={},
+                 answered_at=datetime.now(UTC)),
+    ])
+    session.flush()
+
+    assert drop_unsearched_questions(session) == {old.id}
+    left = {q.receipt_id for q in session.scalars(select(Question))}
+    assert left == {searched.id, answered.id}
