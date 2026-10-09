@@ -234,3 +234,68 @@ def test_a_recorded_gap_is_not_asked_again(catalog, tmp_path):
     (row,) = categorize.proposals(products)
 
     assert (row["decision"], row["proposed"]) == ("n", "")
+
+
+# --- sorting by the shop's shelf and the name (2026-10-09) -------------------
+
+def test_shelf_and_name_agreeing_files_the_product():
+    assert categorize.sort("butter", "butter") == ("butter", "agreed")
+    assert categorize.sort("butter", None) == ("butter", "shop")
+
+
+def test_a_section_shelf_lets_the_name_pick_inside_it():
+    assert categorize.sort("@kaese", "reibekaese") == ("reibekaese", "shop+name")
+    assert categorize.sort("@kaese", None) == (None, "section")
+
+
+def test_a_disagreement_files_nothing():
+    """An oat drink on a milk shelf: one of the two is wrong, and no rule can
+    say which. It stays unsorted and is reported."""
+    assert categorize.sort("milch", "pflanzendrink") == (None, "conflict")
+    assert categorize.sort("@kaese", "butter") == (None, "conflict")
+
+
+def test_with_no_shelf_the_name_decides():
+    assert categorize.sort(None, "brot") == ("brot", "name")
+    assert categorize.sort(None, None) == (None, "unknown")
+
+
+def test_an_aldi_shelf_is_read_from_the_product_and_mapped():
+    p = product(provenance={"source": "https://www.aldi-sued.de/produkt/x-000000000000000001",
+                            "shelf": "aldi:Käse / Reibekäse"})
+    assert categorize.shop_shelf("p-1", p) == ("aldi", "Käse / Reibekäse")
+    assert categorize.shop_hint("p-1", p) == "reibekaese"
+
+
+def test_a_globus_shelf_comes_from_the_url_and_the_hand_table_wins():
+    p = product(provenance={"source": f"{GLOBUS}/dudweiler/milchprodukte-eier/kaese/"
+                                      "kaesescheiben/1/x"})
+    assert categorize.shop_shelf("p-1", p) == ("globus", "kaese/kaesescheiben")
+    assert categorize.shop_hint("p-1", p) == "@kaese", "SHOP_PATHS, not the drafted table"
+
+
+def test_an_offer_page_is_not_a_shelf():
+    assert categorize.shelf_meaning("aldi", "Wochenangebote / Frischeprodukte im Angebot") is None
+
+
+def test_every_mapped_shelf_names_a_real_category_or_section():
+    from grocery_app import shop_shelves
+
+    valid = set(categories.CATEGORIES) | {"@" + key for key in categories.SECTIONS} | {None}
+    assert set(shop_shelves.GLOBUS.values()) <= valid
+    assert set(shop_shelves.ALDI.values()) <= valid
+
+
+def test_names_are_read_in_batches_and_an_invented_key_is_dropped():
+    calls = []
+
+    def decider(system, prompt, schema):
+        calls.append(prompt)
+        ids = [line.split(":")[0][2:] for line in prompt.splitlines()]
+        return {"products": [{"id": i, "category": "brot" if i != "p-3" else "erfunden"}
+                             for i in ids]}
+
+    named = categorize.read_names({f"p-{n}": {"name": "x"} for n in range(1, 4)}, decider,
+                                  batch=2)
+    assert named == {"p-1": "brot", "p-2": "brot", "p-3": None}
+    assert len(calls) == 2
