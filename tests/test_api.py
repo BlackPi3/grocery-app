@@ -62,7 +62,7 @@ def client():
 def test_health_reports_contract_versions_and_receipts(client):
     body = client.get("/health").json()
     assert body == {"status": "ok", "purchases_contract_version": 8,
-                    "insights_contract_version": 5, "receipts": 2,
+                    "insights_contract_version": 6, "receipts": 2,
                     "uploads": False, "writes": False}
     assert (body["uploads"], body["writes"]) == (False, False), \
         "a file-backed server can do neither, and says so rather than 404ing later"

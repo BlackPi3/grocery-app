@@ -40,7 +40,7 @@ def test_receipts_become_purchases_become_insights(data):
         "a line with no product gains no attributes, this one included"
 
     insights = build_insights(purchases)
-    assert insights["contract_version"] == 5
+    assert insights["contract_version"] == 6
     assert insights["as_of"] == "2026-02-05"
     assert insights["coverage"]["resolved_lines"] == 4
     (change,) = [c for c in insights["price_changes"] if c["product_id"] == "p-0001"]
@@ -78,7 +78,8 @@ def test_the_cli_runs_the_same_path(data, monkeypatch, capsys):
     assert "repurchase:     2 products bought more than once" in printed
     written = json.loads(out_insights.read_text(encoding="utf-8"))
     assert set(written) == {"contract_version", "as_of", "coverage", "repurchase",
-                            "price_changes", "basket_index", "budget_brand", "cross_store"}
+                            "price_changes", "basket_index", "budget_brand", "cross_store",
+                            "months"}
 
 
 def test_the_server_serves_what_the_normalizer_built(data):
@@ -222,7 +223,9 @@ def test_a_line_that_is_not_a_grocery_stays_in_the_history_and_out_of_the_insigh
     assert insights["coverage"]["not_grocery"] == {
         "lines": 1, "spend": 7.5, "by_category": {"Café & Imbiss": 7.5}}
     assert insights["coverage"]["product_lines"] == 5, "the five grocery lines only"
-    assert "p-0003" not in json.dumps({k: v for k, v in insights.items() if k != "coverage"})
+    # The month view counts it on purpose: it asks what the money went on.
+    assert "p-0003" not in json.dumps({k: v for k, v in insights.items()
+                                       if k not in ("coverage", "months")})
 
     from fastapi.testclient import TestClient
 

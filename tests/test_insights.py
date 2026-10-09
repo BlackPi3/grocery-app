@@ -197,7 +197,8 @@ def test_a_line_that_is_not_a_grocery_leaves_every_insight_but_is_counted():
             for d, net in (("2026-01-03", 8.0), ("2026-02-03", 9.0), ("2026-02-10", 9.0))]
     milk = [row("p-milk", d, 1.0, category="milch-joghurt") for d in ("2026-01-03", "2026-02-03")]
     out = build_insights({"meta": {}, "purchases": cafe + milk})
-    everywhere = str({k: v for k, v in out.items() if k != "coverage"})
+    # The month view counts it on purpose: it asks what the money went on.
+    everywhere = str({k: v for k, v in out.items() if k not in ("coverage", "months")})
     assert "p-cafe" not in everywhere
     assert "p-milk" in everywhere
     assert out["budget_brand"]["overall"]["unknown"] == 2.0, "only the milk's money"
@@ -265,3 +266,37 @@ def test_the_basket_compares_a_product_in_the_same_form_and_unit():
     rows += [month("2026-07-01", "loose", 1.1)]
     (step,) = basket_index(rows)["series"]
     assert {"product_id": "p-1", "sold_as": "loose", "per": "kg"} in step["compared"]
+
+
+# --- the month view ------------------------------------------------------------
+# Parham, 2026-10-09: "what happened last month?" What the money went on, by
+# kind of thing, groceries or not.
+
+def test_a_month_is_split_by_branch_with_its_products_most_money_first():
+    rows = [row("p-1", "2026-09-02", 1.0, category="aepfel", product="Äpfel"),
+            row("p-1", "2026-09-20", 2.0, category="aepfel", product="Äpfel"),
+            row("p-2", "2026-09-05", 5.0, category="wasser", product="Wasser"),
+            row("p-3", "2026-09-05", 8.0, category="cafe-imbiss", product="Frühstück"),
+            row(None, "2026-09-06", 0.5, product=None) | {"raw_name": "XY Unklar"},
+            row("p-2", "2026-10-01", 9.0, category="wasser", product="Wasser")]
+    for r, image in zip(rows, ["a", "b", "c", "c", "c", "d"], strict=True):
+        r["source_image"] = image
+    october, september = build_insights({"meta": {}, "purchases": rows})["months"]
+
+    assert october["month"] == "2026-10" and october["spend"] == 9.0
+    assert september["month"] == "2026-09"
+    assert (september["spend"], september["receipts"], september["lines"]) == (16.5, 3, 5)
+    assert [(b["branch"], b["spend"]) for b in september["branches"]] == [
+        ("Kein Lebensmitteleinkauf", 8.0), ("Getränke", 5.0), ("Obst & Gemüse", 3.0),
+        (None, 0.5)], "a café breakfast is money spent; a line with no category comes last"
+    produce = september["branches"][2]
+    assert produce["items"] == [{"product_id": "p-1", "product": "Äpfel", "brand": "Marke",
+                                 "lines": 2, "spend": 3.0}]
+    assert september["branches"][3]["items"][0]["product"] == "XY Unklar"
+
+
+def test_a_line_the_shopper_left_out_is_not_in_the_month():
+    rows = [row("p-1", "2026-09-02", 1.0, category="aepfel"),
+            row("p-2", "2026-09-02", 7.0, category="wasser") | {"not_counted": True}]
+    (september,) = build_insights({"meta": {}, "purchases": rows})["months"]
+    assert september["spend"] == 1.0

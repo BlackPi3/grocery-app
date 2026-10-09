@@ -90,6 +90,15 @@
     background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
   .photo input { display: none; }
   .stat { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+  .months { display: flex; gap: 6px; overflow-x: auto; margin: 0 -2px 12px; padding: 0 2px; }
+  .months button { flex: 0 0 auto; padding: 6px 12px; font-size: 13px; }
+  .spend { margin-top: 10px; }
+  .spend-row { cursor: pointer; padding-bottom: 6px; }
+  .spend-row .line { padding-bottom: 4px; }
+  .bar { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  .items { padding: 2px 0 8px 12px; border-left: 2px solid var(--grid); margin: 4px 0 8px; }
+  .items .line { padding: 6px 0; }
   h2 { font-size: 15px; margin: 0 0 4px; }
   .up { color: var(--bad); } .down { color: var(--good); }
   .toast { position: fixed; left: 16px; right: 16px; bottom: 20px; max-width: 448px;
@@ -549,51 +558,62 @@ function addView() {
 
 // --- insights -------------------------------------------------------------
 
-function percent(share) {
-  return share == null ? "—" : Math.round(share * 100) + " %";
+// What happened last month? (Parham, 2026-10-09.) One month at a time: what
+// the money went on, by part of the shop, and the products in each. Opens on
+// last month when there are receipts from it, else on the newest month.
+function monthName(month) {
+  const [year, number] = month.split("-").map(Number);
+  return new Date(year, number - 1, 1).toLocaleDateString("en-GB",
+    { month: "long", year: "numeric" });
+}
+
+function defaultMonth(months) {
+  const now = new Date();
+  const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const key = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}`;
+  return months.some(m => m.month === key) ? key : months[0].month;
+}
+
+function branchRow(branch, biggest) {
+  const open = state.openBranch === branch.branch;
+  const share = biggest ? branch.spend / biggest : 0;
+  const row = el("div", { class: "spend-row", onclick: () => {
+    state.openBranch = open ? undefined : branch.branch;
+    render();
+  } },
+    el("div", { class: "line" },
+      el("div", {}, el("div", { class: "what" }, branch.branch || "Not sorted yet"),
+         el("div", { class: "meta" }, `${branch.lines} ${branch.lines === 1 ? "line" : "lines"}`,
+            branch.branch ? "" : " with no category yet")),
+      el("div", { class: "money" }, euro(branch.spend))),
+    el("div", { class: "bar" }, el("i", { style: `width: ${Math.max(2, share * 100)}%` })));
+  if (!open) return row;
+  return el("div", {}, row, el("div", { class: "items" }, branch.items.map(item =>
+    el("div", { class: "line" },
+      el("div", { class: "what" }, productText(item.product, item.brand)),
+      el("div", { class: "money" }, (item.lines > 1 ? `${item.lines}× · ` : "") +
+         euro(item.spend))))));
 }
 
 function insightsView() {
   const d = state.insights;
   if (!d) return [el("div", { class: "empty" }, "Loading insights…")];
-  const c = d.coverage;
-  const cards = [el("div", { class: "card" },
-    el("h2", {}, "What this rests on"),
-    el("div", { class: "why" }, `${c.receipts} receipts`,
-      c.date_range && c.date_range.length ? `, ${c.date_range[0]} to ${c.date_range[1]}. ` : ". ",
-      `The app knows what ${percent(c.resolved_share_of_spend)} of the money went on `,
-      `(${euro(c.resolved_spend)} of ${euro(c.spend)}); the rest is left out below.`))];
-
-  const due = d.repurchase.filter(r => r.status === "due").slice(0, 8);
-  cards.push(el("div", { class: "card" },
-    el("h2", {}, "Due to buy again"),
-    due.length ? due.map(r => el("div", { class: "line" },
-      el("div", {}, el("div", { class: "what" }, productText(r.product, r.brand)),
-         el("div", { class: "meta" }, `usually every ${r.typical_interval_days} days · last `,
-            r.last_bought, " · ", r.store)),
-      el("div", { class: "money" }, r.days_overdue ? `${r.days_overdue} d late` : "today")))
-      : el("div", { class: "meta" }, "Nothing is due.")));
-
-  const moved = [...d.price_changes].sort((a, b) => Math.abs(b.change_pct) - Math.abs(a.change_pct))
-    .slice(0, 8);
-  cards.push(el("div", { class: "card" },
-    el("h2", {}, "Prices that moved"),
-    moved.length ? moved.map(r => el("div", { class: "line" },
-      el("div", {}, el("div", { class: "what" }, productText(r.product, r.brand)),
-         el("div", { class: "meta" }, `${euro(r.first.price)} → ${euro(r.last.price)} per ${r.per}`,
-            ` · ${r.first.date} to ${r.last.date} · ${r.store}`)),
-      el("div", { class: "money " + (r.change_pct > 0 ? "up" : "down") },
-         (r.change_pct > 0 ? "+" : "") + r.change_pct.toFixed(0) + " %")))
-      : el("div", { class: "meta" }, "No product bought twice at a comparable size yet.")));
-
-  const b = d.budget_brand.overall;
-  cards.push(el("div", { class: "card" },
-    el("h2", {}, "Budget brands"),
-    el("div", { class: "stat" }, percent(b.budget_share_of_known)),
-    el("div", { class: "why" }, `of the branded spend went on budget lines (${euro(b.budget)} `,
-      `against ${euro(b.name_brand)} on name brands). Not counted: ${euro(b.unbranded)} `,
-      `unbranded, ${euro(b.unknown)} brand unknown, ${euro(b.unresolved)} not placed.`)));
-  return cards;
+  if (!d.months.length) return [el("div", { class: "empty" }, "No receipts yet.")];
+  if (!d.months.some(m => m.month === state.month)) state.month = defaultMonth(d.months);
+  const month = d.months.find(m => m.month === state.month);
+  const choose = el("div", { class: "months" }, [...d.months].reverse().map(m =>
+    el("button", { class: m.month === state.month ? "on" : "", onclick: () => {
+      state.month = m.month;
+      state.openBranch = undefined;
+      render();
+    } }, monthName(m.month).replace(/ \d+$/, ""))));
+  return [el("div", { class: "card" }, choose,
+    el("h2", {}, monthName(month.month)),
+    el("div", { class: "stat" }, euro(month.spend)),
+    el("div", { class: "meta" }, `${month.receipts} ${month.receipts === 1 ? "receipt" : "receipts"}`,
+       " · lines you left out are not counted"),
+    el("div", { class: "spend" }, month.branches.map(b =>
+      branchRow(b, Math.max(...month.branches.map(x => x.spend))))))];
 }
 
 function receiptsView() {
