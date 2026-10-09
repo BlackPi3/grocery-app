@@ -18,13 +18,18 @@ The four insights promised in CLAUDE.md, in the order they are computed:
 4. budget-brand vs name-brand share of spend,
 
 plus the same-item comparison across stores, which is honest about having no
-data until a product resolves at two stores.
+data until a product resolves at two stores, and the month view (`months`):
+what the money went on, by kind of thing.
 
 Only groceries count. A café breakfast, flowers or a birthday card stays in the
 history, but a basket index or a budget-brand share that included them would
 answer a question nobody asked. `categories.is_grocery` is the one place that
 says what is not a grocery; coverage reports what was left out and how much
 money it was, so the exclusion is visible rather than silent.
+
+The month view is the exception: it counts everything the shopper bought,
+groceries or not, because its question is "what did I spend it on last month?"
+(Parham, 2026-10-09) and a café breakfast is part of that answer.
 
 Only the shopper's own shopping counts towards spend and habits. A line they
 marked `not_counted` (a wine bought for a friend) leaves spend, cadence, the
@@ -44,7 +49,7 @@ from typing import Any
 from grocery_app import categories
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 5
+CONTRACT_VERSION = 6
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -383,6 +388,55 @@ def cross_store(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return {"products": out, "note": note}
 
 
+# --- the month view ------------------------------------------------------------
+
+def _spend(rows: list[dict[str, Any]]) -> float:
+    return round(sum(p.get("net_paid") or 0.0 for p in rows), 2)
+
+
+def _items(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One entry per product (or per printed name, for a line nothing placed),
+    most money first."""
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for p in rows:
+        groups[p.get("product_id") or "raw:" + (p.get("raw_name") or "?")].append(p)
+    items = [{"product_id": group[0].get("product_id"), "product": _name(group),
+              "brand": group[-1].get("brand"), "lines": len(group), "spend": _spend(group)}
+             for group in groups.values()]
+    return sorted(items, key=lambda item: -item["spend"])
+
+
+def months(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """What the money went on, month by month, newest first: spend per branch
+    of the category tree (Obst & Gemüse, Getränke, ...) and the products in it.
+
+    `rows` are every product line the shopper counts, groceries or not. A line
+    with no category yet is its own group (`branch` null), so the total is all
+    the money and nothing is quietly dropped (the page calls it "Not sorted
+    yet"). Deposits are not product lines
+    and are not in it.
+    """
+    by_month: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for p in rows:
+        if p.get("date"):
+            by_month[p["date"][:7]].append(p)
+    out = []
+    for month in sorted(by_month, reverse=True):
+        lines = by_month[month]
+        by_branch: dict[str | None, list[dict[str, Any]]] = defaultdict(list)
+        for p in lines:
+            key = p.get("category")
+            by_branch[categories.BRANCHES[categories.branch_of(key)]
+                      if key in categories.CATEGORIES else None].append(p)
+        branches = [{"branch": branch, "lines": len(group), "spend": _spend(group),
+                     "items": _items(group)} for branch, group in by_branch.items()]
+        branches.sort(key=lambda b: (b["branch"] is None, -b["spend"]))
+        out.append({"month": month,
+                    "receipts": len({p.get("source_image") for p in lines}),
+                    "lines": len(lines), "spend": _spend(lines), "branches": branches})
+    return out
+
+
 # --- coverage and assembly ---------------------------------------------------
 
 def _not_grocery(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -454,6 +508,7 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None) -> dict
         "basket_index": basket_index(rows),
         "budget_brand": budget_brand(rows),
         "cross_store": cross_store(groceries),
+        "months": months([p for p in lines if not p.get("not_counted")]),
     }
 
 

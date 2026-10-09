@@ -48,7 +48,7 @@ PURCHASES_CONTRACT_VERSION = 8
 # Insights bumped to 5 on 2026-10-05: lines the shopper marked `not_counted`
 # leave spend, cadence, the basket and the budget-brand share (they still
 # count as prices), and `coverage.not_counted` says what was left out.
-INSIGHTS_CONTRACT_VERSION = 5
+INSIGHTS_CONTRACT_VERSION = 6
 
 
 class UnitPrice(BaseModel):
@@ -154,6 +154,7 @@ class InsightsDocument(BaseModel):
     basket_index: dict[str, Any]
     budget_brand: dict[str, Any]
     cross_store: dict[str, Any]
+    months: list[dict[str, Any]]
 
 
 class FirstGuess(BaseModel):
