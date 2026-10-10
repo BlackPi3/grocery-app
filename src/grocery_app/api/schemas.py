@@ -268,8 +268,10 @@ class Question(BaseModel):
 class Picture(BaseModel):
     """A photo of the pack, where the app found it (`grocery_app.pictures`)."""
 
-    url: str
-    from_: str = Field(alias="from", description="The shop, or `Open Food Facts`")
+    url: str = Field(description="The app's own copy, under /pictures (no token needed)")
+    from_: str = Field(alias="from",
+                       description="The shop, `Open Food Facts`, or the site a web "
+                                   "search found it on")
     page: str | None = Field(description="The page it is on, to look closer")
 
 
