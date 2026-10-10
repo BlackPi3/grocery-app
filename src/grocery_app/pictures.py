@@ -16,7 +16,11 @@ built around his shops):
    (`image_url` in its `crawl.json`).
 2. Open Food Facts, by the product's barcode.
 3. A web search for the product, for one with a brand but neither of the
-   above (what `identify` found on the web). Only pages the search returned
+   above, whose name was read from a receipt line (`SEARCHED_KINDS`: what
+   `identify` found on the web, or what the shopper described). The first
+   catalog's English names ("Plant-based drink") and the coarse,
+   category-level products would match no German page, or one variant
+   passed off as the product, so they are not searched. Only pages the search returned
    are read, never an address a model wrote, and a page's photo is taken only
    when the product it describes has our product's brand and most of its
    name (`same_product`).
@@ -40,6 +44,7 @@ from grocery_app.resolver import fold
 
 PICTURE_FROM_OFF = "Open Food Facts"
 PICTURE_FROM_SEARCH = "web search"
+SEARCHED_KINDS = {"identify", "shopper"}  # `provenance.attributes`
 OFF_PRODUCT_URL = ("https://world.openfoodfacts.org/api/v2/product/{ean}.json"
                    "?fields=image_front_url")
 OFF_PAGE_URL = "https://world.openfoodfacts.org/product/{ean}"
@@ -101,6 +106,12 @@ def same_product(product: dict[str, Any], page: dict[str, str | None]) -> bool:
     return not name or sum(w in on_page for w in name) * 2 >= len(name)
 
 
+def searchable(product: dict[str, Any], listings: list[dict[str, Any]]) -> bool:
+    """Whether a web search is the way to this product's picture (see above)."""
+    return (not listings and not product.get("eans") and bool(product.get("brand"))
+            and (product.get("provenance") or {}).get("attributes") in SEARCHED_KINDS)
+
+
 def search_text(product: dict[str, Any]) -> str:
     """What a person would type to find the product."""
     size = product.get("size") or {}
@@ -143,7 +154,7 @@ def find_picture(product: dict[str, Any], listings: list[dict[str, Any]], *,
             url = None
         if url:
             return {"url": url, "from": PICTURE_FROM_OFF, "page": OFF_PAGE_URL.format(ean=ean)}
-    if search is None or listings or product.get("eans") or not product.get("brand"):
+    if search is None or not searchable(product, listings):
         return None
     try:
         pages = search(search_text(product))

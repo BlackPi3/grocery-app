@@ -583,6 +583,19 @@ def test_every_product_gets_a_picture_kept_by_the_app_checked_products_first(ser
     assert client.get("/pictures/" + "0" * 64).status_code == 404
 
 
+def test_a_product_a_shop_lists_is_looked_up_before_one_that_needs_a_search(server):
+    from grocery_app.api.pictures import products_wanting_pictures
+
+    _, session = server
+    session.add(Product(id="p-0901", name="Ding", brand="Muster"))
+    session.add(Product(id="p-0902", name="Ding", brand="Muster"))
+    session.add(StoreListing(store="Musterladen", article_number="7", product_id="p-0902",
+                             url="https://laden.example/p/7"))
+    session.commit()
+    order = products_wanting_pictures(session)
+    assert order.index("p-0902") < order.index("p-0901")
+
+
 def test_a_picture_is_looked_up_again_after_six_months(server, tmp_path):
     from datetime import UTC, datetime, timedelta
 

@@ -76,18 +76,21 @@ def media_type(data: bytes) -> str:
 def products_wanting_pictures(session: Session, now: datetime | None = None) -> list[str]:
     """Products whose picture is due: never looked up, looked up longer than
     `REFRESH_AFTER` ago, or found before the app kept copies. Those on open
-    spot checks first."""
+    spot checks first, then those a shop or a barcode gives a picture for in
+    a second; a web search takes half a minute, so those come last."""
     now = now or datetime.now(UTC)
     answered = select(LineResolution.id).where(
         and_(LineResolution.receipt_id == Check.receipt_id,
              LineResolution.position == Check.position))
     on_checks = set(session.scalars(select(Check.app_product_id).where(~answered.exists())))
-    due = session.scalars(select(Product.id).where(or_(
+    listed = set(session.scalars(select(StoreListing.product_id)))
+    due = session.execute(select(Product.id, Product.eans).where(or_(
         Product.picture_checked_at.is_(None),
         Product.picture_checked_at < now - REFRESH_AFTER,
         and_(Product.picture.is_not(None), Product.picture["file"].astext.is_(None)),
-    )).order_by(Product.id))
-    return sorted(due, key=lambda product_id: product_id not in on_checks)
+    )).order_by(Product.id)).all()
+    return [product_id for product_id, eans in sorted(due, key=lambda row: (
+        row[0] not in on_checks, row[0] not in listed and not row[1]))]
 
 
 def fill_pictures(session_factory: sessionmaker[Session], service: Pictures,
