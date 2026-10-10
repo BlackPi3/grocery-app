@@ -43,6 +43,7 @@ from grocery_app.api.images import (
 )
 from grocery_app.api.jobs import Extractor, configured_extractor, resume_unfinished, run_job
 from grocery_app.api.matching import LineIdentifier, LineMatcher, line_identifier, line_matcher
+from grocery_app.api.pictures import PictureFinder, default_finder, keep_filling
 from grocery_app.api.repository import (
     DEFAULT_PURCHASES,
     NoSuchCandidate,
@@ -88,9 +89,16 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                extractor: Extractor | None = None,
                matcher: LineMatcher | None = None,
                identify: LineIdentifier | None = None,
-               token: str | None = None, resume_after: float | None = None) -> FastAPI:
+               token: str | None = None, resume_after: float | None = None,
+               pictures: PictureFinder | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        if pictures is not None and writes_available:
+            # Pictures for spot checks read web pages: a thread of their own.
+            app.state.pictures = threading.Thread(
+                target=keep_filling, args=(repository.session_factory, pictures),
+                name="pictures", daemon=True)
+            app.state.pictures.start()
         if resume_after is not None and uploads_available:
             def resume() -> None:
                 time.sleep(resume_after)
@@ -387,7 +395,9 @@ def default_app() -> FastAPI:
                   if type(repository).__name__ == "PostgresRepository" else None)
     return create_app(repository, default_image_store(), configured_extractor(), matcher,
                       identifier, token=os.environ.get("GROCERY_TOKEN") or None,
-                      resume_after=RESUME_AFTER_SECONDS)
+                      resume_after=RESUME_AFTER_SECONDS,
+                      pictures=default_finder()
+                      if type(repository).__name__ == "PostgresRepository" else None)
 
 
 # A deploy stops the old server within ten seconds of starting the new one
