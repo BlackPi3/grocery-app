@@ -494,14 +494,56 @@ def test_readings_are_added_only_for_the_named_photos(server, tmp_path, monkeypa
 
 # --- spot checks -----------------------------------------------------------------------
 
-def identified_receipt(session, names, known=()):
+def identified_receipt(session, names, known=(), brand="Muster"):
     """A receipt whose `names` identify places, beside `known` ones the fixture's
-    memory holds on a person's word."""
+    memory holds on a person's word. The brand is the app's own claim, not on
+    the paper, so the line is worth a check."""
     receipt = add_receipt(session, "IMG_9.jpeg", list(known) + list(names))
     match_receipt(session, receipt, TableMatcher({}),
-                  reads_as(**{n: {"name": n.split()[0]} for n in names}))
+                  reads_as(**{n: {"name": n.split()[0], "brand": brand} for n in names}))
     session.commit()
     return receipt
+
+
+def test_a_line_where_the_app_says_only_what_the_paper_prints_is_not_checked(server):
+    """Parham, 2026-10-08: the receipt says `Sandkuchen`, the app says
+    Sandkuchen, and nobody can tell what is being asked."""
+    from grocery_app.api.checks import pick_checks
+
+    _, session = server
+    receipt = identified_receipt(session, ["Sandkuchen", "Himbeeren 250g"], brand=None)
+    assert pick_checks(session, receipt) == 0
+
+
+def test_a_pointless_check_picked_earlier_is_not_shown(server):
+    from grocery_app.db.models import Check
+
+    client, session = server
+    receipt = identified_receipt(session, ["Sandkuchen"], brand=None)
+    product = client.get(f"/v1/receipts/{receipt}").json()["lines"][0]["product_id"]
+    session.add(Check(receipt_id=receipt, position=0, raw_name="Sandkuchen",
+                      app_product_id=product))
+    session.commit()
+    assert client.get("/v1/checks").json()["checks"] == []
+
+
+def test_says_more_than_print():
+    from grocery_app.api.checks import says_more_than_print as more
+
+    assert not more("Sandkuchen", {"name": "Sandkuchen"})
+    assert more("LUCKY STRIKE AUTHENT", {"name": "Zigaretten", "brand": "Lucky Strike",
+                                         "details": ["Authentic"]}), "a word not on the paper"
+    assert not more("LUCKY STRIKE AUTHENT", {"name": "Lucky", "brand": "Strike",
+                                             "details": ["Authentic"]}), "a word cut short"
+    assert more("Bio Blütenhonig", {"name": "Blütenhonig", "brand": "Alnatura"}), "a brand"
+    assert more("Spaghetti", {"name": "Spaghetti", "size": {"count": 1, "value": 500,
+                                                            "unit": "g"}}), "a size"
+    assert not more("Cola 1,5l", {"name": "Cola", "size": {"count": 1, "value": 1500,
+                                                           "unit": "ml"}}), "same size"
+    assert more("Cola 1,5l", {"name": "Cola", "size": {"count": 1, "value": 1,
+                                                       "unit": "l"}}), "another size"
+    assert not more("Sandkuchen", {"name": "Sandkuchen", "category": "kuchen"}), \
+        "the category is not a claim"
 
 
 def test_spot_checks_are_two_lines_the_app_placed_itself_chosen_once(server):
