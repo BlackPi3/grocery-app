@@ -132,8 +132,22 @@ def parse_products(doc: dict[str, Any]) -> list[dict[str, Any]]:
             "url": f"{SITE_BASE}/produkt/{item.get('urlSlugText')}-{sku}",
             # An in-house number, not a barcode.
             "ean": None,
+            "image_url": _front_picture(item),
         })
     return products
+
+
+def _front_picture(item: dict[str, Any], width: int = 400) -> str | None:
+    """The pack's front photo (asset type `FR01`), else its first, at `width`
+    pixels. ALDI's site turns away a program asking for the product page, so
+    the crawl is where the app gets the photo from."""
+    assets = [a for a in item.get("assets") or [] if a.get("url")]
+    front = next((a for a in assets if a.get("assetType") == "FR01"), None)
+    chosen = front or (assets[0] if assets else None)
+    if chosen is None:
+        return None
+    return (chosen["url"].replace("{width}", str(width))
+            .replace("{slug}", item.get("urlSlugText") or "product"))
 
 
 def total_count(doc: dict[str, Any]) -> int | None:

@@ -575,6 +575,8 @@ class PostgresRepository:
                                       if product.get("category") in categories.CATEGORIES
                                       else None),
                     "decided_by": decided_by,
+                    "picture": (session.get(Product, check.app_product_id).picture
+                                if check.app_product_id in inputs["products"] else None),
                 })
         views.sort(key=lambda v: (v["date"] or "", v["receipt_id"], v["position"]))
         answered = right + corrected

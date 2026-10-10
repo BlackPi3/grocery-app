@@ -28,7 +28,11 @@ LISTING = {
          "brandName": "GOLDEN BRIDGE", "urlSlugText": "golden-bridge-premium-muesli",
          "sellingSize": "0,5 kg", "discontinued": False,
          "price": {"amount": 279, "amountRelevant": 279, "bottleDeposit": 0,
-                   "comparisonDisplay": "5,58 €/1 kg"}},
+                   "comparisonDisplay": "5,58 €/1 kg"},
+         "assets": [{"url": "https://bilder.example/scaleWidth/{width}/back/{slug}",
+                     "assetType": "BA01"},
+                    {"url": "https://bilder.example/scaleWidth/{width}/front/{slug}",
+                     "assetType": "FR01"}]},
         {"sku": "000000000000001234", "name": "Mineralwasser 1,5 l", "brandName": "",
          "urlSlugText": "mineralwasser", "sellingSize": "1,5 l", "discontinued": True,
          "price": {"amount": 19, "amountRelevant": 19, "bottleDeposit": 25,
@@ -56,6 +60,13 @@ def test_products_carry_the_fields_the_resolver_ranks_on():
     assert muesli["url"].endswith("/produkt/golden-bridge-premium-muesli-000000000510935002")
     assert muesli["ean"] is None
     assert water["brand"] is None and water["deposit"] == 0.25 and water["discontinued"]
+
+
+def test_the_front_photo_is_kept_at_a_phone_size():
+    muesli, water = parse_products(LISTING)
+    assert muesli["image_url"] == \
+        "https://bilder.example/scaleWidth/400/front/golden-bridge-premium-muesli"
+    assert water["image_url"] is None
 
 
 def test_pagination_reads_the_reported_total():

@@ -61,6 +61,9 @@
     background: var(--page); border-radius: 8px; padding: 6px 8px; margin: 6px 0;
     overflow-wrap: anywhere; }
   .says { font-size: 15px; margin: 6px 0 10px; }
+  .picture { display: flex; align-items: flex-end; gap: 10px; margin: 8px 0; text-decoration: none; }
+  .picture img { width: 120px; height: 120px; object-fit: contain; border-radius: 10px;
+    background: #fff; border: 1px solid var(--border); }
   .says b { font-weight: 650; }
   .why { color: var(--ink2); font-size: 13px; margin: 4px 0 10px; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -311,6 +314,12 @@ function checkCard(check) {
     el("div", { class: "meta" }, "Spot check · ", check.store || "", " · ", check.date || "",
        check.paid != null ? " · " + euro(check.paid) : ""),
     el("div", { class: "printed" }, check.raw_name),
+    // A photo of the pack settles it at a glance (2026-10-08); a tap opens
+    // the page it is from, to look closer.
+    check.picture ? el("a", { class: "picture", href: check.picture.page || check.picture.url,
+                              target: "_blank", rel: "noopener" },
+      el("img", { src: check.picture.url, alt: "", loading: "lazy" }),
+      el("span", { class: "meta" }, "Photo: ", check.picture.from)) : null,
     el("div", { class: "says" }, "The app says ", el("b", {}, productText(check.app_product,
        check.brand, check) || check.app_product_id),
        check.category_path ? el("div", { class: "meta" }, check.category_path.join(" › ")) : null),

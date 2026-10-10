@@ -265,6 +265,14 @@ class Question(BaseModel):
                                           "down to, when identify could not tell; best first")
 
 
+class Picture(BaseModel):
+    """A photo of the pack, where the app found it (`grocery_app.pictures`)."""
+
+    url: str
+    from_: str = Field(alias="from", description="The shop, or `Open Food Facts`")
+    page: str | None = Field(description="The page it is on, to look closer")
+
+
 class SpotCheck(BaseModel):
     """A line the app placed on its own, put to the shopper at random."""
 
@@ -285,6 +293,9 @@ class SpotCheck(BaseModel):
     decided_by: str | None = Field(
         description="Which part of the app said it: `matcher`, `identify`, `produce` (the "
                     "produce vocabulary) or `price` (a price narrowing a family)")
+    picture: Picture | None = Field(
+        default=None, description="A photo of the pack, once the server has found one; "
+                                  "none for a product known only as a kind of thing")
 
 
 class ReceiptSummary(BaseModel):

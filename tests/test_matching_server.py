@@ -527,6 +527,38 @@ def test_a_pointless_check_picked_earlier_is_not_shown(server):
     assert client.get("/v1/checks").json()["checks"] == []
 
 
+def test_products_on_open_checks_get_a_picture_once(server):
+    from grocery_app.api.checks import pick_checks
+    from grocery_app.api.pictures import fill_pictures, products_wanting_pictures
+    from grocery_app.db.session import make_session_factory
+
+    client, session = server
+    receipt = identified_receipt(session, ["Himbeeren 250g", "Schmand 200g"])
+    pick_checks(session, receipt)
+    session.commit()
+    first, second = client.get("/v1/checks").json()["checks"]
+    assert first.get("picture") is None, "no picture before the server has looked"
+    client.put(f"/v1/receipts/{receipt}/lines/{second['position']}/resolution",
+               json={"product_id": second["app_product_id"]})
+
+    asked = []
+
+    def find(product, listings):
+        asked.append(product["name"])
+        return {"url": "https://laden.example/media/1.jpg", "from": "Musterladen",
+                "page": "https://laden.example/p/1"}
+
+    factory = make_session_factory(session.get_bind())
+    assert fill_pictures(factory, find) == 1, "only the open check's product"
+    assert fill_pictures(factory, find) == 0, "looked up once"
+    assert asked == [first["app_product"]]
+    session.expire_all()
+    assert products_wanting_pictures(session) == []
+    (shown,) = client.get("/v1/checks").json()["checks"]
+    assert shown["picture"] == {"url": "https://laden.example/media/1.jpg",
+                                "from": "Musterladen", "page": "https://laden.example/p/1"}
+
+
 def test_says_more_than_print():
     from grocery_app.api.checks import says_more_than_print as more
 

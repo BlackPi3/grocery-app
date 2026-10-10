@@ -117,6 +117,10 @@ class Product(Base):
     nutrition: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     enrichment: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     extra: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # A photo of the pack for spot checks (`grocery_app.pictures`), found by
+    # the server, not part of what the product is: not exported.
+    picture: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    picture_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Resolution(Base):
