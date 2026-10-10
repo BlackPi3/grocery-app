@@ -304,10 +304,63 @@ def test_a_name_a_till_prints_for_anything_is_answered_per_line(corrections):
         Resolution.raw_name == "Diverse Lebensmittel")).all() == []
 
 
-def test_withdrawing_an_answer_keeps_what_the_name_was_learned_to_mean(corrections):
+def test_taking_an_answer_back_takes_back_what_it_taught(corrections):
+    """Parham, 2026-10-08: a Right pressed by accident had no undo. Taking it
+    back must also take back what the memory learned from it."""
     client, session, receipt_id = corrections
     later = add_receipt(session, "IMG_3.jpeg", "Musterladen", ["Geheimnis"])
     client.put(f"/v1/receipts/{receipt_id}/lines/2/resolution", json={"product_id": "p-0001"})
+    assert client.get(f"/v1/receipts/{later}").json()["lines"][0]["resolution"] == "exact"
+
+    client.put(f"/v1/receipts/{receipt_id}/lines/2/resolution", json={"product_id": None})
+
+    assert client.get(f"/v1/receipts/{later}").json()["lines"][0].get("product_id") is None
+    assert session.scalars(select(Resolution).where(
+        Resolution.raw_name == "Geheimnis")).all() == []
+
+
+def test_a_new_answer_over_an_old_one_is_not_mixed_into_a_family(corrections):
+    client, session, receipt_id = corrections
+    url = f"/v1/receipts/{receipt_id}/lines/2/resolution"
+    client.put(url, json={"product_id": "p-0001"})
+    client.put(url, json={"product_id": "p-0002"})
+
+    (entry,) = session.scalars(select(Resolution).where(
+        Resolution.raw_name == "Geheimnis")).all()
+    session.refresh(entry)
+    assert (entry.product_id, list(entry.product_ids or [])) == ("p-0002", [])
+
+
+def test_taking_back_a_correction_restores_the_machines_answer(corrections):
+    from grocery_app.db.models import Correction
+
+    client, session, receipt_id = corrections
+    session.add(Product(id="p-0003", name="Bananen Bio", brand=None))
+    row = session.scalars(select(Resolution).where(Resolution.raw_name == "Bananen")).one()
+    row.confirmed_by = "matcher"
+    session.commit()
+    url = f"/v1/receipts/{receipt_id}/lines/1/resolution"
+
+    client.put(url, json={"product_id": "p-0003"})
+    client.put(url, json={"product_id": None})
+
+    session.expire_all()
+    assert session.scalars(select(Correction)).all() == [], "no mistake is counted"
+    row = session.scalars(select(Resolution).where(Resolution.raw_name == "Bananen")).one()
+    assert (row.product_id, row.confirmed_by) == ("p-0002", "matcher")
+    line = client.get(f"/v1/receipts/{receipt_id}").json()["lines"][1]
+    assert line["product_id"] == "p-0002"
+
+
+def test_an_answer_from_before_the_undo_leaves_the_memory_alone(corrections):
+    from grocery_app.db.models import LineResolution
+
+    client, session, receipt_id = corrections
+    later = add_receipt(session, "IMG_3.jpeg", "Musterladen", ["Geheimnis"])
+    client.put(f"/v1/receipts/{receipt_id}/lines/2/resolution", json={"product_id": "p-0001"})
+    session.scalars(select(LineResolution)).one().memory_before = None
+    session.commit()
+
     client.put(f"/v1/receipts/{receipt_id}/lines/2/resolution", json={"product_id": None})
 
     assert client.get(f"/v1/receipts/{later}").json()["lines"][0]["resolution"] == "exact"

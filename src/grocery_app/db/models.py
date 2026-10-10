@@ -176,6 +176,10 @@ class LineResolution(Base):
     # the product holds the app's reading of it, and a bad reading can be
     # traced back to the words (Parham, 2026-10-01).
     shopper_words: Mapped[str | None] = mapped_column(String)
+    # The memory's row for this printed name as it was before this answer
+    # taught it, so taking the answer back undoes that too: `{"held": null}`
+    # when there was none. None for answers from before 2026-10-10.
+    memory_before: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class UncountedLine(Base):
