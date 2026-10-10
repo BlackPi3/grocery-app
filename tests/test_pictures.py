@@ -89,7 +89,8 @@ def searching(pages, results):
 
 
 FOUND = {"name": "Magnesium Citrat Granulat", "brand": "Musterherz",
-         "details": ["System"], "size": {"count": 1, "value": 20, "unit": "piece"}}
+         "details": ["System"], "size": {"count": 1, "value": 20, "unit": "piece"},
+         "provenance": {"attributes": "identify"}}
 
 
 def test_a_product_found_on_the_web_gets_the_photo_of_a_page_that_describes_it():
@@ -109,6 +110,8 @@ def test_no_search_for_a_kind_of_thing_or_a_product_a_shop_lists():
     find, searched = searching({}, [])
     assert find({"name": "Sandkuchen", "brand": None}, []) is None
     assert find(FOUND, [LADEN]) is None, "the shop's page failed; the shop is the source"
+    english = {**FOUND, "name": "Plant-based drink", "provenance": {"attributes": "model-proposed"}}
+    assert find(english, []) is None, "a name not read from a receipt is not searched"
     assert searched == []
 
 
