@@ -491,6 +491,7 @@ class PostgresRepository:
         `right`, any other is `corrected`. Nothing about it is stored twice.
         """
         from grocery_app import matcher as matching
+        from grocery_app.api.checks import says_more_than_print
         from grocery_app.normalizer import entry_key
 
         with self.session_factory() as session:
@@ -510,6 +511,9 @@ class PostgresRepository:
                 line = doc["lines"][check.position]
                 if (doc["source_image"], check.position, line["raw_name"]) in inputs["uncounted"]:
                     continue  # nor a spot check on a line the shopper does not count
+                product = inputs["products"].get(check.app_product_id, {})
+                if not says_more_than_print(check.raw_name, product):
+                    continue  # picked before 2026-10-10: nothing to ask
                 record = normalize_receipt(
                     {**doc, "lines": [line]}, inputs["resolution"], inputs["products"],
                     None, inputs["shelf_prices"], inputs["authors"])[0]
@@ -517,7 +521,6 @@ class PostgresRepository:
                 if decided_by in ("exact", "family"):
                     decided_by = inputs["authors"].get(
                         entry_key(inputs["resolution"], receipt.store, line["raw_name"]))
-                product = inputs["products"].get(check.app_product_id, {})
                 views.append({
                     "receipt_id": check.receipt_id, "position": check.position,
                     "store": receipt.store, "date": doc.get("date"),
