@@ -73,8 +73,22 @@
   .badge.none { border: 1px solid var(--bad); color: var(--bad); }
   .badge.guess { border: 1px dashed var(--muted); color: var(--muted); }
   .guess { color: var(--ink2); font-style: italic; }
-  .line .side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-  .line button.count { font-size: 12px; padding: 4px 8px; border-radius: 8px; }
+  /* A receipt line slides left to show its one action, the iPhone way
+     (Parham, 2026-10-08); Edit shows it on every line, for a computer. */
+  .swipe { position: relative; overflow: hidden; border-top: 1px solid var(--grid); }
+  .swipe > .line { position: relative; background: var(--card); border-top: 0;
+    transition: transform 0.2s; touch-action: pan-y; }
+  .swipe > .act { position: absolute; top: 0; right: 0; bottom: 0; width: 96px; border: 0;
+    border-radius: 0; background: var(--bad); color: #fff; font-size: 13px; font-weight: 600; }
+  .swipe.out > .act { background: var(--accent); }
+  .swipe.open > .line { transform: translateX(-96px); }
+  .editing .swipe { display: flex; align-items: center; gap: 8px; }
+  .editing .swipe > .line { flex: 1; min-width: 0; }
+  .editing .swipe > .act { position: static; order: 2; width: auto; border-radius: 8px;
+    padding: 6px 10px; font-size: 12px; }
+  .edit-row { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    margin: 4px 0 6px; }
+  .edit-row button { font-size: 12px; padding: 4px 12px; }
   .line.off .what, .line.off .money { color: var(--muted); text-decoration: line-through; }
   .line { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0;
     border-top: 1px solid var(--grid); cursor: pointer; }
@@ -236,14 +250,15 @@ async function answer(receiptId, position, body) {
 }
 
 // One tap: leave a line out of my numbers (bought for someone else), or
-// count it again. No reason asked.
+// count it again. No reason asked. Reached by swiping the line left.
 async function setCounted(receiptId, position, counted) {
   try {
     await api(`/v1/receipts/${receiptId}/lines/${position}/counted`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ counted }),
     });
-    toast(counted ? "Counted again" : "Not counted: it stays on the receipt only");
+    toast(counted ? "Counted again" : "Left out of your numbers; it stays on the receipt",
+          () => setCounted(receiptId, position, !counted));
     await load();
   } catch (error) {
     toast("Not saved: " + error.message);
@@ -381,7 +396,7 @@ function receiptCard(summary) {
        el("div", { class: "meta" }, summary.date || "", " · ", summary.product_lines,
           " lines: ", summary.said_by_you, " you, ", summary.said_by_app, " app",
           summary.unplaced ? `, ${summary.unplaced} not placed` : "",
-          summary.not_counted ? `, ${summary.not_counted} not counted` : "")),
+          summary.not_counted ? `, ${summary.not_counted} left out` : "")),
     el("div", { class: "money" }, euro(summary.printed_total))));
   if (state.open === summary.receipt_id) {
     if (inProgress().some(job => job.receipt_id === summary.receipt_id)) {
@@ -389,6 +404,14 @@ function receiptCard(summary) {
         "First reading: the names in grey are guesses from the photo. The app is still " +
         "placing each line; this receipt updates by itself."));
     }
+    const editing = state.editing === summary.receipt_id;
+    card.classList.toggle("editing", editing);
+    card.append(el("div", { class: "edit-row" },
+      el("div", { class: "meta" }, "Swipe a line left to leave it out of your numbers"),
+      el("button", { onclick: () => {
+        state.editing = editing ? null : summary.receipt_id;
+        render();
+      } }, editing ? "Done" : "Edit")));
     for (const line of (state.receiptLines?.[summary.receipt_id] || [])) {
       if (line.type !== "product") continue;
       // A line nothing placed shows the photo reading's guess, marked as one.
@@ -399,33 +422,70 @@ function receiptCard(summary) {
                    el("span", { class: "badge guess" }, "guess")]
         : ["—", line.not_counted ? null : badge(line.said_by)];  // nothing left to place
       const counted = !line.not_counted;
-      const toggle = el("button", { class: "count", onclick: event => {
-        event.stopPropagation();  // the row's own tap is for correcting it
-        toggle.disabled = true;
+      const act = el("button", { class: "act", onclick: () => {
+        act.disabled = true;
         setCounted(summary.receipt_id, line.position, !counted);
-      } }, counted ? "Don't count" : "Count it");
+      } }, counted ? "Leave out" : "Count again");
       const row = el("div", { class: counted ? "line" : "line off" },
         el("div", {},
            el("div", { class: "what" }, ...what,
-              counted ? null : el("span", { class: "badge none" }, "not counted")),
+              counted ? null : el("span", { class: "badge none" }, "left out")),
            guess && guess.category_path ? el("div", { class: "meta" },
              guess.category_path.slice(1).join(" › ")) : null,
            el("div", { class: "printed" }, line.raw_name)),
-        el("div", { class: "side" }, el("div", { class: "money" }, euro(line.net_paid)),
-           toggle));
+        el("div", { class: "money" }, euro(line.net_paid)));
+      const wrap = el("div", { class: counted ? "swipe" : "swipe out" }, act, row);
+      swipeable(wrap, row);
       row.addEventListener("click", () => {
-        if (row.nextSibling?.classList?.contains("picker")) return;
+        if (wrap.classList.contains("open") || editing) {  // a tap closes it, as on iOS
+          wrap.classList.remove("open");
+          return;
+        }
+        if (wrap.nextSibling?.classList?.contains("picker")) return;
         // A line answered here can be taken back, to what the app says without it.
         const takeBack = line.resolution === "user" ? el("button", { onclick: () =>
           answer(summary.receipt_id, line.position, { product_id: null }) },
           "Take back my answer") : null;
-        row.after(picker(summary.receipt_id, line.position,
+        wrap.after(picker(summary.receipt_id, line.position,
           el("div", {}, takeBack, el("div", { class: "meta" }, "Correct what this line is:"))));
       });
-      card.append(row);
+      card.append(wrap);
     }
   }
   return card;
+}
+
+// Follow a finger sideways on a line: past half the action's width it stays
+// open, else it slides back. An up-and-down move is left to the page scroll.
+const ACTION_WIDTH = 96;
+function swipeable(wrap, row) {
+  let start = null, moved = 0, sideways = false;
+  row.addEventListener("touchstart", event => {
+    const touch = event.touches[0];
+    start = { x: touch.clientX, y: touch.clientY };
+    moved = 0;
+    sideways = false;
+  }, { passive: true });
+  row.addEventListener("touchmove", event => {
+    if (!start) return;
+    const dx = event.touches[0].clientX - start.x, dy = event.touches[0].clientY - start.y;
+    if (!sideways && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) sideways = true;
+    if (!sideways) return;
+    const from = wrap.classList.contains("open") ? -ACTION_WIDTH : 0;
+    moved = Math.min(0, Math.max(-ACTION_WIDTH, from + dx));
+    row.style.transition = "none";
+    row.style.transform = `translateX(${moved}px)`;
+  }, { passive: true });
+  row.addEventListener("touchend", () => {
+    start = null;
+    row.style.transition = "";
+    row.style.transform = "";
+    if (!sideways) return;
+    for (const other of document.querySelectorAll(".swipe.open")) {
+      if (other !== wrap) other.classList.remove("open");
+    }
+    wrap.classList.toggle("open", moved < -ACTION_WIDTH / 2);
+  });
 }
 
 // --- adding a receipt -----------------------------------------------------
