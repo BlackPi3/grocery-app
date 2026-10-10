@@ -26,6 +26,7 @@ Off by default, so a test's app never sets work off on its own.
 from __future__ import annotations
 
 import hmac
+import re
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -43,7 +44,7 @@ from grocery_app.api.images import (
 )
 from grocery_app.api.jobs import Extractor, configured_extractor, resume_unfinished, run_job
 from grocery_app.api.matching import LineIdentifier, LineMatcher, line_identifier, line_matcher
-from grocery_app.api.pictures import PictureFinder, default_finder, keep_filling
+from grocery_app.api.pictures import Pictures, default_pictures, keep_filling, media_type
 from grocery_app.api.repository import (
     DEFAULT_PURCHASES,
     NoSuchCandidate,
@@ -90,11 +91,11 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                matcher: LineMatcher | None = None,
                identify: LineIdentifier | None = None,
                token: str | None = None, resume_after: float | None = None,
-               pictures: PictureFinder | None = None) -> FastAPI:
+               pictures: Pictures | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if pictures is not None and writes_available:
-            # Pictures for spot checks read web pages: a thread of their own.
+            # Finding pictures reads web pages: a thread of its own.
             app.state.pictures = threading.Thread(
                 target=keep_filling, args=(repository.session_factory, pictures),
                 name="pictures", daemon=True)
@@ -319,6 +320,20 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         routes above, nothing else."""
         return HTMLResponse(REVIEW_PAGE.read_text(encoding="utf-8"))
 
+    @app.get("/pictures/{file}", include_in_schema=False)
+    def picture(file: str) -> Response:
+        """A product's photo, the app's own copy (`api.pictures`). Outside
+        /v1, with no token: an <img> cannot send one, and these are the
+        shops' public pack photos, named by the hash of their bytes."""
+        if pictures is None or not re.fullmatch(r"[0-9a-f]{64}", file):
+            raise HTTPException(status_code=404, detail="no such picture")
+        path = pictures.store.path(file)
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="no such picture")
+        data = path.read_bytes()
+        return Response(data, media_type=media_type(data),
+                        headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
     @app.get("/v1/checks", response_model=ChecksDocument)
     def checks() -> ChecksDocument:
         """Spot checks: lines the app placed on its own, put to the shopper at
@@ -396,7 +411,7 @@ def default_app() -> FastAPI:
     return create_app(repository, default_image_store(), configured_extractor(), matcher,
                       identifier, token=os.environ.get("GROCERY_TOKEN") or None,
                       resume_after=RESUME_AFTER_SECONDS,
-                      pictures=default_finder()
+                      pictures=default_pictures(model=GEMINI_MODEL)
                       if type(repository).__name__ == "PostgresRepository" else None)
 
 

@@ -527,7 +527,29 @@ def test_a_pointless_check_picked_earlier_is_not_shown(server):
     assert client.get("/v1/checks").json()["checks"] == []
 
 
-def test_products_on_open_checks_get_a_picture_once(server):
+def photo_bytes(colour="red"):
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (4, 4), colour).save(buffer, "JPEG")
+    return buffer.getvalue()
+
+
+def picture_service(tmp_path, found, asked):
+    from grocery_app.api.images import DiskImageStore
+    from grocery_app.api.pictures import Pictures
+
+    def find(product, listings):
+        asked.append(product["name"])
+        return found(product)
+
+    return Pictures(find=find, download=lambda url: photo_bytes(url.rsplit("/", 1)[-1]),
+                    store=DiskImageStore(tmp_path / "pictures"))
+
+
+def test_every_product_gets_a_picture_kept_by_the_app_checked_products_first(server, tmp_path):
     from grocery_app.api.checks import pick_checks
     from grocery_app.api.pictures import fill_pictures, products_wanting_pictures
     from grocery_app.db.session import make_session_factory
@@ -538,25 +560,60 @@ def test_products_on_open_checks_get_a_picture_once(server):
     session.commit()
     first, second = client.get("/v1/checks").json()["checks"]
     assert first.get("picture") is None, "no picture before the server has looked"
-    client.put(f"/v1/receipts/{receipt}/lines/{second['position']}/resolution",
-               json={"product_id": second["app_product_id"]})
+
+    on_checks = {first["app_product_id"], second["app_product_id"]}
+    assert set(products_wanting_pictures(session)[:2]) == on_checks, "checked products first"
 
     asked = []
-
-    def find(product, listings):
-        asked.append(product["name"])
-        return {"url": "https://laden.example/media/1.jpg", "from": "Musterladen",
-                "page": "https://laden.example/p/1"}
-
+    service = picture_service(tmp_path, lambda product: {
+        "url": "https://laden.example/media/red", "from": "Musterladen",
+        "page": "https://laden.example/p/1"}, asked)
     factory = make_session_factory(session.get_bind())
-    assert fill_pictures(factory, find) == 1, "only the open check's product"
-    assert fill_pictures(factory, find) == 0, "looked up once"
-    assert asked == [first["app_product"]]
-    session.expire_all()
-    assert products_wanting_pictures(session) == []
-    (shown,) = client.get("/v1/checks").json()["checks"]
-    assert shown["picture"] == {"url": "https://laden.example/media/1.jpg",
-                                "from": "Musterladen", "page": "https://laden.example/p/1"}
+    every = len(products_wanting_pictures(session))
+    assert fill_pictures(factory, service, limit=100) == every, "every product, not only checks"
+    assert fill_pictures(factory, service, limit=100) == 0, "looked up once"
+    assert len(asked) == every
+
+    shown = client.get("/v1/checks").json()["checks"][0]["picture"]
+    assert shown["from"] == "Musterladen" and shown["url"].startswith("/pictures/")
+    client = TestClient(create_app(PostgresRepository(factory), pictures=service))
+    served = client.get(shown["url"])
+    assert served.status_code == 200 and served.headers["content-type"] == "image/jpeg"
+    assert served.content == photo_bytes("red"), "the app's own copy"
+    assert client.get("/pictures/" + "0" * 64).status_code == 404
+
+
+def test_a_picture_is_looked_up_again_after_six_months(server, tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    from grocery_app.api.pictures import fill_pictures, products_wanting_pictures
+    from grocery_app.db.session import make_session_factory
+
+    _, session = server
+    factory = make_session_factory(session.get_bind())
+    found = {"url": "https://laden.example/media/red", "from": "Musterladen", "page": None}
+    asked = []
+    fill_pictures(factory, picture_service(tmp_path, lambda p: found, asked), limit=100)
+    product = session.get(Product, "p-0001")
+    session.refresh(product)
+    old_file = product.picture["file"]
+
+    soon = datetime.now(UTC) + timedelta(days=90)
+    assert products_wanting_pictures(session, soon) == []
+    later = datetime.now(UTC) + timedelta(days=200)
+    assert "p-0001" in products_wanting_pictures(session, later)
+
+    nothing_now = picture_service(tmp_path, lambda p: None, [])
+    fill_pictures(factory, nothing_now, limit=100, now=later)
+    session.refresh(product)
+    assert product.picture["file"] == old_file, "an old pack beats no pack"
+
+    even_later = later + timedelta(days=200)
+    new_pack = {**found, "url": "https://laden.example/media/blue"}
+    fill_pictures(factory, picture_service(tmp_path, lambda p: new_pack, []), limit=100,
+                  now=even_later)
+    session.refresh(product)
+    assert product.picture["file"] != old_file, "a new pack replaces the old"
 
 
 def test_says_more_than_print():

@@ -534,6 +534,7 @@ class PostgresRepository:
         """
         from grocery_app import matcher as matching
         from grocery_app.api.checks import says_more_than_print
+        from grocery_app.api.pictures import shown
         from grocery_app.normalizer import entry_key
 
         with self.session_factory() as session:
@@ -575,7 +576,7 @@ class PostgresRepository:
                                       if product.get("category") in categories.CATEGORIES
                                       else None),
                     "decided_by": decided_by,
-                    "picture": (session.get(Product, check.app_product_id).picture
+                    "picture": (shown(session.get(Product, check.app_product_id).picture)
                                 if check.app_product_id in inputs["products"] else None),
                 })
         views.sort(key=lambda v: (v["date"] or "", v["receipt_id"], v["position"]))
