@@ -265,9 +265,13 @@ class PostgresRepository:
 
         The answer also teaches the memory what the printed name means at this
         store (`memory.learn`), so the next receipt needs no question. A
-        machine's answer it overrules is logged in `corrections`. Withdrawing
-        an answer takes back the line's answer only; what the name was learned
-        to mean stays.
+        machine's answer it overrules is logged in `corrections`.
+
+        Withdrawing an answer takes all of that back (Parham, 2026-10-08: a
+        Right pressed by accident had no undo): the memory row goes back to
+        what it was, unless something else changed it since, and the
+        correction it logged is removed. A new answer over an old one first
+        takes the old one back, so the two are never mixed into a family.
         """
         with self.session_factory() as session:
             row = self._get(session, receipt_id)
@@ -278,21 +282,22 @@ class PostgresRepository:
             existing = session.scalars(
                 select(LineResolution).where(LineResolution.receipt_id == receipt_id,
                                              LineResolution.position == position)).first()
-            question = session.scalars(select(Question).where(
-                Question.receipt_id == receipt_id, Question.position == position)).first()
-            if question is not None:
-                question.answered_at = None if product_id is None else datetime.now(UTC)
-            if product_id is None:
-                if existing is not None:
-                    session.delete(existing)
-            else:
+            if product_id is not None:
                 if line.type != "product":
                     raise NotAProductLine(
                         f"line {position} is a {line.type} line, not a product")
                 if session.get(Product, product_id) is None:
                     raise UnknownProduct(f"no product {product_id}")
+            if existing is not None:
+                self._take_back(session, row, existing)
+                session.flush()
+            question = session.scalars(select(Question).where(
+                Question.receipt_id == receipt_id, Question.position == position)).first()
+            if question is not None:
+                question.answered_at = None if product_id is None else datetime.now(UTC)
+            if product_id is not None:
                 before = self._receipt_view(session, row)["lines"][position]
-                answer = existing or LineResolution(receipt_id=receipt_id, position=position)
+                answer = LineResolution(receipt_id=receipt_id, position=position)
                 answer.raw_name = line.raw_name
                 answer.product_id = product_id
                 answer.confirmed_by = confirmed_by or "shopper"
@@ -300,16 +305,19 @@ class PostgresRepository:
                 answer.basis = basis
                 answer.shopper_words = shopper_words
                 session.add(answer)
-                self._remember(session, row, line.raw_name, position, product_id,
-                               answer.confirmed_by, before)
+                answer.memory_before = self._remember(session, row, line.raw_name, position,
+                                                      product_id, answer.confirmed_by, before)
             session.commit()
             return self._receipt_view(session, self._get(session, receipt_id))
 
     def _remember(self, session: Session, receipt: Receipt, raw_name: str, position: int,
-                  product_id: str, confirmed_by: str, before: dict[str, Any]) -> None:
-        """Teach the memory what one answered line says about its printed name."""
+                  product_id: str, confirmed_by: str,
+                  before: dict[str, Any]) -> dict[str, Any] | None:
+        """Teach the memory what one answered line says about its printed name.
+        Returns the memory row as it was (`held`) and what this answer wrote
+        (`wrote`), or None when the memory was left alone."""
         if not receipt.store or never_remembered(receipt.store, raw_name):
-            return
+            return None
         entry = self._memory_entry(session, receipt.store, raw_name)
         held = ({"product_id": entry.product_id, "product_ids": list(entry.product_ids or []),
                  "confirmed_by": entry.confirmed_by} if entry else None)
@@ -324,7 +332,14 @@ class PostgresRepository:
 
         learned = memory.learn(held, product_id)
         if learned is None:
-            return
+            return None
+        snapshot = {"held": None if entry is None else {
+                        "product_id": entry.product_id,
+                        "product_ids": list(entry.product_ids or []),
+                        "status": entry.status, "confirmed_by": entry.confirmed_by,
+                        "confirmed_at": entry.confirmed_at and entry.confirmed_at.isoformat(),
+                        "source": entry.source},
+                    "wrote": learned}
         if entry is None:
             entry = Resolution(store=receipt.store, raw_name=raw_name, line_type="product")
             session.add(entry)
@@ -334,6 +349,33 @@ class PostgresRepository:
         entry.confirmed_by = confirmed_by
         entry.confirmed_at = date.today()
         entry.source = "shopper-answer"
+        return snapshot
+
+    def _take_back(self, session: Session, receipt: Receipt, answer: LineResolution) -> None:
+        """Remove one line answer and what it taught: its correction, and its
+        change to the memory if the memory still holds what it wrote."""
+        for logged in session.scalars(select(Correction).where(
+                Correction.receipt_id == receipt.id, Correction.position == answer.position,
+                Correction.shopper_product_id == answer.product_id)):
+            session.delete(logged)
+        snapshot = answer.memory_before
+        entry = (self._memory_entry(session, receipt.store, answer.raw_name)
+                 if snapshot and receipt.store else None)
+        if entry is not None and {"product_id": entry.product_id,
+                                  "product_ids": list(entry.product_ids or [])} \
+                == snapshot["wrote"]:
+            held = snapshot["held"]
+            if held is None:
+                session.delete(entry)
+            else:
+                entry.product_id = held["product_id"]
+                entry.product_ids = held["product_ids"]
+                entry.status = held["status"]
+                entry.confirmed_by = held["confirmed_by"]
+                entry.confirmed_at = (date.fromisoformat(held["confirmed_at"])
+                                      if held["confirmed_at"] else None)
+                entry.source = held["source"]
+        session.delete(answer)
 
     @staticmethod
     def _memory_entry(session: Session, store: str, raw_name: str) -> Resolution | None:

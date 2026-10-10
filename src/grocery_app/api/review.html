@@ -103,7 +103,10 @@
   .up { color: var(--bad); } .down { color: var(--good); }
   .toast { position: fixed; left: 16px; right: 16px; bottom: 20px; max-width: 448px;
     margin: 0 auto; background: var(--ink); color: var(--page); border-radius: 10px;
-    padding: 10px 14px; font-size: 14px; display: none; }
+    padding: 10px 14px; font-size: 14px; display: none; align-items: center; gap: 12px; }
+  .toast span { flex: 1; }
+  .toast button.undo { background: none; border: 0; color: var(--page); font-weight: 600;
+    padding: 4px 0; text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -143,12 +146,18 @@ function el(tag, attrs, ...children) {
   return node;
 }
 
-function toast(text) {
+// `undo`, when given, puts an Undo button in the message and keeps it up
+// longer: a tap by accident is taken back where it happened (2026-10-08).
+function toast(text, undo) {
   const box = document.getElementById("toast");
-  box.textContent = text;
-  box.style.display = "block";
+  box.replaceChildren(el("span", {}, text));
+  if (undo) box.append(el("button", { class: "undo", onclick: () => {
+    box.style.display = "none";
+    undo();
+  } }, "Undo"));
+  box.style.display = "flex";
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => { box.style.display = "none"; }, 3500);
+  toast.timer = setTimeout(() => { box.style.display = "none"; }, undo ? 8000 : 3500);
 }
 
 // The server's password (GROCERY_TOKEN), typed once into the page and kept
@@ -216,8 +225,10 @@ async function answer(receiptId, position, body) {
     });
     // Say what it was stored as: a description is read into the app's format.
     const line = (doc.lines || []).find(l => l.position === position);
-    toast(line && line.product ? "Saved as: " + productText(line.product, line.brand, line)
-                                : "Saved");
+    if (body.product_id === null) toast("Answer taken back");
+    else toast(line && line.product ? "Saved as: " + productText(line.product, line.brand, line)
+                                     : "Saved",
+               () => answer(receiptId, position, { product_id: null }));
     await load();
   } catch (error) {
     toast("Not saved: " + error.message);
@@ -404,8 +415,12 @@ function receiptCard(summary) {
            toggle));
       row.addEventListener("click", () => {
         if (row.nextSibling?.classList?.contains("picker")) return;
+        // A line answered here can be taken back, to what the app says without it.
+        const takeBack = line.resolution === "user" ? el("button", { onclick: () =>
+          answer(summary.receipt_id, line.position, { product_id: null }) },
+          "Take back my answer") : null;
         row.after(picker(summary.receipt_id, line.position,
-          el("div", { class: "meta" }, "Correct what this line is:")));
+          el("div", {}, takeBack, el("div", { class: "meta" }, "Correct what this line is:"))));
       });
       card.append(row);
     }
