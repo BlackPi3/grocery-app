@@ -14,10 +14,13 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 
 ## Current state (work in progress)
 
-**Stage, 4 October 2026: first real use.** The server is online on Google Cloud, behind a password, and
+**Stage, 10 October 2026: in daily use.** The server is online on Google Cloud, behind a password, and
 every merge to `main` deploys it. From my phone I photograph a receipt, Gemini reads it, and the app
-matches each line to a product or asks me when it is not sure. Now I use it for every shop; what goes
-wrong in real use decides the next fixes. The iOS app comes after.
+matches each line to a product, searching the web before it asks me. What real use showed has shaped the
+last weeks: products sorted by the shop's own shelves, a month view of where the money went, spot checks
+only where the app claims more than the receipt prints, each with a photo of the pack the app found and
+keeps, an undo for every answer, and swipe-to-leave-out for a line bought for someone else. The iOS app
+comes after.
 
 - **Receipts**: `data/receipts/` holds the photos, one verified transcription per receipt (`truth/`, the schema everything downstream reads), and the hand-typed sources those were converted from (`transcripts/`). All gitignored: it is my own shopping.
 - **Extraction**: `grocery-app extract` reads a photo with a vision model (Claude or Gemini) into the same schema; results are cached under `data/extracted/<model>/<prompt version>/` with their cost. The server reads with Gemini: on the verified receipts it got 22 of 27 fully right, with every price right.
@@ -78,6 +81,8 @@ From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insig
   and `docs/designs/what-a-line-is.md`.
 - **Done:** the backend, phases 0 to 3: PostgreSQL, photo upload, corrections, a password, and the
   deployment above. See `docs/designs/backend-api.md`.
+- **Done:** the first weeks of real use: duplicate photos not kept, categories from the shops' shelves,
+  a month view, fewer and clearer spot checks with product photos, undo, and leaving a line out.
 - **Now:** real use. Every new receipt goes in from the phone, and real cases decide what to fix.
 - **After:** the iOS app, on the same API.
 - Later on the insights: roll spend and cadence up by category, and resolve the last stores so the
