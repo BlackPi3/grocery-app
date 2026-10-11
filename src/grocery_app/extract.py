@@ -29,7 +29,8 @@ from typing import Any
 import anthropic
 from PIL import Image, ImageOps
 
-from grocery_app import categories
+from grocery_app import categories, spend
+from grocery_app.spend import gemini_cost
 
 # Measured on the held-out set: Sonnet 5 made 1 error in 180 lines to Opus 5's 6,
 # at half the cost. Opus tends to "repair" what it reads (brand names corrected
@@ -497,23 +498,6 @@ def claude_code_reader(model: str = DEFAULT_MODEL, timeout_s: int = 900):
 # Claude API account has no credit (Parham, 2026-10-03).
 GEMINI_MODEL = "gemini-3.8-flash"
 
-# USD per million tokens; thinking is billed as output. Introductory rates
-# until 2026-12-31, doubling on 2027-01-01 (third-party price pages,
-# 2026-10-03; not checked against Google's own page).
-GEMINI_PRICES_PER_MTOK: dict[str, dict[str, float]] = {
-    "gemini-3.8-flash": {"input": 0.75, "output": 3.75},
-}
-
-
-def gemini_cost(model: str, usage: dict[str, Any]) -> float | None:
-    prices = GEMINI_PRICES_PER_MTOK.get(model)
-    if prices is None:
-        return None
-    output = usage.get("candidatesTokenCount", 0) + usage.get("thoughtsTokenCount", 0)
-    return round(usage.get("promptTokenCount", 0) * prices["input"] / 1e6
-                 + output * prices["output"] / 1e6, 5)
-
-
 def gemini_reader(model: str = GEMINI_MODEL, api_key: str | None = None,
                   timeout_s: int = 300):
     """The same reading through Gemini, on Google's API, paid per photo.
@@ -543,7 +527,8 @@ def gemini_reader(model: str = GEMINI_MODEL, api_key: str | None = None,
                                  "responseJsonSchema": RECEIPT_SCHEMA},
         }
         try:
-            data = gemini.generate(model, body, key, timeout_s)
+            with spend.tagged("reading"):
+                data = gemini.generate(model, body, key, timeout_s)
         except gemini.GeminiError as exc:
             raise ExtractionError(str(exc)) from exc
         finish = gemini.finish_reason(data)

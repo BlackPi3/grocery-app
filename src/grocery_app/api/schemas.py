@@ -406,6 +406,54 @@ class JobDocument(BaseModel):
     finished_at: str | None
 
 
+class MonthCost(BaseModel):
+    """What the model calls cost in one month, by what they were for."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    month: str = Field(description="YYYY-MM, when the money was spent (UTC)")
+    total_usd: float
+    reading_usd: float = Field(description="Reading receipt photos")
+    finding_usd: float = Field(description="Finding what receipt lines are: matching and "
+                                           "identifying, searches included")
+    pictures_usd: float = Field(description="Finding product photos")
+    other_usd: float = Field(description="Any other call, e.g. one made answering a question")
+    searches: int = Field(description="Web searches the model ran; the first "
+                                      "`free_searches_per_month` are free")
+    receipts: int = Field(description="Receipts processed this month")
+    per_receipt_usd: float | None = Field(
+        description="Average reading + finding cost of this month's receipts whose finding "
+                    "was recorded; null when there is none")
+
+
+class ReceiptCost(BaseModel):
+    """What processing one receipt cost."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    receipt_id: int
+    month: str
+    reading_usd: float
+    finding_usd: float
+    searches: int
+    total_usd: float
+    finding_recorded: bool = Field(
+        description="False for a receipt processed before finding was recorded: its "
+                    "`finding_usd` is unknown, not zero")
+
+
+class CostsDocument(BaseModel):
+    """What the app's model calls cost, at list price, in dollars. The server
+    and the database are billed by Google separately and are not in here."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    months: list[MonthCost] = Field(description="Newest first")
+    receipts: list[ReceiptCost]
+    free_searches_per_month: int
+    finding_recorded_from: str
+
+
 class JobsDocument(BaseModel):
     """The photos still being read or placed, and the ones that failed in the
     last hour: the same list on every device."""

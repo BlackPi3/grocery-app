@@ -670,6 +670,11 @@ def main() -> None:
         from grocery_app.db.session import make_engine, make_session_factory
 
         factory = make_session_factory(make_engine(url))
+        # A command that calls a model pays for it like the server does, and
+        # is written down the same way (`spend`).
+        from grocery_app import spend
+
+        spend.install(spend.database_sink(factory))
         if args.action == "import":
             with factory() as session:
                 summary = import_data(session, args.receipts_dir, args.products, args.resolution,

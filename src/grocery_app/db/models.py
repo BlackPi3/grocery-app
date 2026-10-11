@@ -343,3 +343,28 @@ class Job(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     receipt: Mapped[Receipt | None] = relationship()
+
+
+class ModelCall(Base):
+    """One paid model call, and what it cost (`grocery_app.spend`).
+
+    Written for every Gemini call, whatever made it, so what processing a
+    receipt costs can be read back: its reading, and finding what its lines
+    are, which should cost less as the catalog grows (Parham, 2026-10-11).
+    `cost_usd` is the list price; the free monthly searches are not taken off.
+    """
+
+    __tablename__ = "model_calls"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
+                                         index=True)
+    purpose: Mapped[str] = mapped_column(String)  # spend.PURPOSES
+    # The upload it served; none for a picture lookup or a command-line run.
+    job_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("jobs.id", ondelete="SET NULL"), index=True)
+    model: Mapped[str] = mapped_column(String)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)  # thinking included
+    searches: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[Decimal | None] = mapped_column(Cost)

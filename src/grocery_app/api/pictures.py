@@ -30,7 +30,7 @@ from PIL import Image
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from grocery_app import pictures
+from grocery_app import pictures, spend
 from grocery_app.api.images import DiskImageStore, ImageStore, looks_like_an_image, sha256_of
 from grocery_app.db.io import product_to_dict
 from grocery_app.db.models import Check, LineResolution, Product, StoreListing
@@ -132,7 +132,8 @@ def keep_filling(session_factory: sessionmaker[Session], service: Pictures,
     """The server's picture thread: a pass, a pause, for as long as it runs."""
     while True:
         try:
-            fill_pictures(session_factory, service)
+            with spend.tagged("pictures"):
+                fill_pictures(session_factory, service)
         except Exception:  # noqa: BLE001 - a picture is never worth the server
             log.exception("looking up pictures failed")
         time.sleep(every)

@@ -32,6 +32,7 @@ from typing import Any, Protocol
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from grocery_app import spend
 from grocery_app.api.images import ImageStore
 from grocery_app.db.io import receipt_from_dict
 from grocery_app.db.models import Job, LineGuess, Receipt
@@ -183,7 +184,7 @@ def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
     before it becomes a question. A matcher that fails does not fail the
     job: the receipt is stored and read, and `error` says what went wrong.
     """
-    with session_factory() as session:
+    with spend.tagged(job_id=job_id), session_factory() as session:
         job = session.get(Job, job_id)
         if job is None or job.status != "queued":
             return  # already taken: a queue may deliver the same work twice
@@ -281,8 +282,9 @@ def _place_lines(session: Session, job_id: str, matcher: Any | None,
         from grocery_app.api.matching import match_receipt
 
         try:
-            match_receipt(session, job.receipt_id, matcher, identify,
-                          checkpoint=session.commit)
+            with spend.tagged("finding", job_id):
+                match_receipt(session, job.receipt_id, matcher, identify,
+                              checkpoint=session.commit)
             session.commit()
         except Exception as exc:  # noqa: BLE001 - the receipt stands without matching
             session.rollback()

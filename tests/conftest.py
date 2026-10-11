@@ -25,6 +25,17 @@ def no_paid_keys(request, monkeypatch):
         for key in ("GEMINI_API_KEY", "GEMINI_VERTEX_PROJECT", "ANTHROPIC_API_KEY"):
             monkeypatch.delenv(key, raising=False)
 
+
+@pytest.fixture(autouse=True)
+def no_cost_sink():
+    """Model costs are written wherever the last server or command said
+    (`spend.install`): a test starts with nowhere, and leaves it so."""
+    from grocery_app import spend
+
+    spend.install(None)
+    yield
+    spend.install(None)
+
 RECEIPTS = [
     {
         "source_image": "IMG_1.jpeg", "transcribed_by": "hand", "store": "Musterladen",
