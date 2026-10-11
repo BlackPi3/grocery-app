@@ -186,6 +186,13 @@ Four decisions the table encodes:
   bill, a taxi receipt, no receipt at all) is not kept either: the reader says
   where the paper is from (`receipt_from`, prompt v4), and the job ends `done`
   with no receipt and `turned_away` saying why (2026-10-11, migration 0015).
+- **Every model call is written down** (`spend.py`, table `model_calls`, migration
+  0016): `gemini.generate` records each answered call with its tokens, searches and
+  list price; the code around it says what it was for (`reading`, `finding`,
+  `pictures`) and which job it served. `GET /v1/costs` sums them per month (when
+  the money was spent) and per receipt. Finding was first recorded 2026-10-11;
+  older readings were copied in from `jobs.cost_usd`. The server and database bill
+  is Google's and is not in it.
 - **The id is a uuid.** It is the one id a client holds and quotes back.
 - **`cost_usd` is `Numeric(10, 5)` and stays in dollars.** The provider bills in
   dollars and one extraction costs fractions of a cent; converting to euros would mean

@@ -59,6 +59,7 @@ from grocery_app.api.schemas import (
     INSIGHTS_CONTRACT_VERSION,
     PURCHASES_CONTRACT_VERSION,
     ChecksDocument,
+    CostsDocument,
     Health,
     InsightsDocument,
     JobDocument,
@@ -381,6 +382,13 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return ReceiptDocument.model_validate(updated)
 
+    @app.get("/v1/costs", response_model=CostsDocument)
+    def costs() -> CostsDocument:
+        """What the model calls cost: per month (when the money was spent) and
+        per receipt (reading it, and finding what its lines are). List prices
+        in dollars; the server and the database are on Google's bill, not here."""
+        return CostsDocument.model_validate(require_writes().costs())
+
     @app.delete("/v1/receipts/{receipt_id}", status_code=204)
     def remove_receipt(receipt_id: int) -> Response:
         """Take a receipt out of the history, with its lines and the answers on
@@ -432,6 +440,11 @@ def default_app() -> FastAPI:
     if url := database_url():
         upgrade(url)
     repository = default_repository()
+    if type(repository).__name__ == "PostgresRepository":
+        # Every model call this server pays for is written down (`spend`).
+        from grocery_app import spend
+
+        spend.install(spend.database_sink(repository.session_factory))
     matcher = line_matcher(matcher_decider(), matching.default_shops())
     # Identify runs only on uploads, which need PostgreSQL: a server that only
     # serves purchases.json needs no reader and no key.

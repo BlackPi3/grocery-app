@@ -25,6 +25,8 @@ import os
 import time
 from typing import Any
 
+from grocery_app import spend
+
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 # The global endpoint: the Flash models are not offered in europe-west3 or
 # europe-west4 (tried 2026-10-03).
@@ -96,7 +98,11 @@ def generate(model: str, body: dict[str, Any], api_key: str | None = None,
     for attempt in (1, 2):
         try:
             with urllib.request.urlopen(request, timeout=timeout_s) as response:
-                return json.load(response)
+                data = json.load(response)
+            # Every answered call is paid for: written down here, the one
+            # place all of them pass (`spend`).
+            spend.record(model, data)
+            return data
         except urllib.error.HTTPError as error:
             detail = error.read()[:300].decode(errors="replace")
             if attempt == 2 or error.code not in RETRY_CODES:

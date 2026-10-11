@@ -13,7 +13,7 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app import categories, memory
@@ -26,6 +26,7 @@ from grocery_app.db.models import (
     Job,
     LineGuess,
     LineResolution,
+    ModelCall,
     Product,
     Question,
     Receipt,
@@ -129,6 +130,14 @@ class WriteRepository(Protocol):
 
     def remove_receipt(self, receipt_id: int) -> None:
         ...
+
+    def costs(self) -> dict[str, Any]:
+        ...
+
+
+# When finding a receipt's items was first written down (`spend`, PR of
+# 2026-10-11): a receipt uploaded before it has its reading cost only.
+FINDING_RECORDED_FROM = datetime(2026, 10, 11, tzinfo=UTC)
 
 
 class JsonRepository:
@@ -588,6 +597,62 @@ class PostgresRepository:
         return {"meta": {"open": len(views), "right": right, "corrected": corrected,
                          "error_rate": round(corrected / answered, 3) if answered else None},
                 "checks": views}
+
+    def costs(self) -> dict[str, Any]:
+        """What the model calls cost, per month and per receipt (`spend`).
+
+        A month is when the money was spent, not when the shopping was: a
+        June receipt read in October is October's cost. A receipt's cost is
+        its job's calls: reading the photo, and finding what its lines are.
+        Finding was first written down on `FINDING_RECORDED_FROM`; an older
+        receipt has its reading cost only, and says so.
+        """
+        from grocery_app import spend
+
+        cost_sum = func.coalesce(func.sum(ModelCall.cost_usd), 0)
+        with self.session_factory() as session:
+            month = func.to_char(func.timezone("UTC", ModelCall.at), "YYYY-MM")
+            months: dict[str, dict[str, Any]] = {}
+            for key, purpose, cost, searches in session.execute(
+                    select(month, ModelCall.purpose, func.sum(ModelCall.cost_usd),
+                           func.sum(ModelCall.searches)).group_by(month, ModelCall.purpose)):
+                entry = months.setdefault(key, {
+                    "month": key, "total_usd": 0.0, "searches": 0,
+                    **{f"{p}_usd": 0.0 for p in spend.PURPOSES}})
+                entry[f"{purpose}_usd"] = round(entry.get(f"{purpose}_usd", 0.0)
+                                                + float(cost or 0), 5)
+                entry["total_usd"] = round(entry["total_usd"] + float(cost or 0), 5)
+                entry["searches"] += int(searches or 0)
+
+            receipts = []
+            for job, purpose, cost, searches in session.execute(
+                    select(Job, ModelCall.purpose, cost_sum, func.sum(ModelCall.searches))
+                    .join(ModelCall, ModelCall.job_id == Job.id)
+                    .where(Job.receipt_id.is_not(None))
+                    .group_by(Job.id, ModelCall.purpose)):
+                found = next((r for r in receipts if r["receipt_id"] == job.receipt_id), None)
+                if found is None:
+                    found = {"receipt_id": job.receipt_id,
+                             "month": job.created_at.astimezone(UTC).strftime("%Y-%m"),
+                             "reading_usd": 0.0, "finding_usd": 0.0, "searches": 0,
+                             "finding_recorded": job.created_at >= FINDING_RECORDED_FROM}
+                    receipts.append(found)
+                if purpose in ("reading", "finding"):
+                    found[f"{purpose}_usd"] = round(found[f"{purpose}_usd"] + float(cost), 5)
+                found["searches"] += int(searches or 0)
+            for found in receipts:
+                found["total_usd"] = round(found["reading_usd"] + found["finding_usd"], 5)
+
+            for entry in months.values():
+                whole = [r for r in receipts
+                         if r["month"] == entry["month"] and r["finding_recorded"]]
+                entry["receipts"] = sum(1 for r in receipts if r["month"] == entry["month"])
+                entry["per_receipt_usd"] = (round(sum(r["total_usd"] for r in whole)
+                                                  / len(whole), 5) if whole else None)
+            return {"months": sorted(months.values(), key=lambda m: m["month"], reverse=True),
+                    "receipts": sorted(receipts, key=lambda r: r["receipt_id"]),
+                    "free_searches_per_month": spend.FREE_SEARCHES_PER_MONTH,
+                    "finding_recorded_from": FINDING_RECORDED_FROM.date().isoformat()}
 
     def remove_receipt(self, receipt_id: int) -> None:
         """Take a receipt out of the history, for whatever reason the shopper
