@@ -333,6 +333,9 @@ class Job(Base):
     # receipt, and nothing new was stored (Parham, 2026-10-09).
     already_added: Mapped[bool] = mapped_column(Boolean, default=False,
                                                 server_default="false")
+    # The photo was not of a shop receipt: where the reader says it is from
+    # (`extract.RECEIPT_FROM`, never "shop"), and nothing was stored.
+    turned_away: Mapped[str | None] = mapped_column(String)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  server_default=func.now())

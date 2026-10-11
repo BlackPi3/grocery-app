@@ -398,6 +398,9 @@ class JobDocument(BaseModel):
     already_added: bool = Field(
         description="The photo was of a receipt already in the history: `receipt_id` is "
                     "that receipt, and nothing new was stored")
+    turned_away: Literal["restaurant_or_cafe", "other_business", "not_a_receipt"] | None = Field(
+        description="The photo was not of a shop receipt, and nothing was stored: where the "
+                    "reader says it is from")
     created_at: str | None
     started_at: str | None
     finished_at: str | None

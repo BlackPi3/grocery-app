@@ -608,11 +608,22 @@ function clock(iso) {
   return isNaN(at) ? "" : at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+// Where the reader says a photo is from, when it is not a shop (`receipt_from`).
+const TURNED_AWAY = { restaurant_or_cafe: "a restaurant or café bill",
+                      other_business: "a bill for a service, a ticket or fuel",
+                      not_a_receipt: "no receipt at all" };
+
 function jobCard(job) {
   const added = "Added " + clock(job.created_at);
   if (job.status === "failed") {
     return el("div", { class: "card" }, el("h2", {}, "Not read"),
       el("div", { class: "meta" }, added), el("div", { class: "why" }, job.error || ""));
+  }
+  if (job.turned_away) {
+    return el("div", { class: "card" }, el("h2", {}, "Not added"),
+      el("div", { class: "meta" }, added),
+      el("div", { class: "why" }, `This looks like ${TURNED_AWAY[job.turned_away] || "something " +
+        "other than a shop receipt"}, not a receipt from a shop, so nothing was saved.`));
   }
   const summary = (state.receipts || []).find(r => r.receipt_id === job.receipt_id);
   if (job.already_added) {

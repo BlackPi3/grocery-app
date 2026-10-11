@@ -569,6 +569,46 @@ def test_a_second_photo_of_the_same_paper_is_not_kept(engine, session, tmp_path)
     assert client.get("/v1/insights").json()["coverage"]["receipts"] == 1
 
 
+# --- not a shop receipt --------------------------------------------------------
+# 2026-10-08: a restaurant bill was read like a shop receipt and entered the
+# history, counting a meal as groceries.
+
+def test_a_restaurant_bill_is_turned_away(engine, session, tmp_path):
+    calls = []
+
+    def matcher(line, store, inputs):
+        calls.append(line["raw_name"])
+        return butter_matcher(line, store, inputs)
+
+    repository = PostgresRepository(make_session_factory(engine))
+    bill = {**RECEIPT, "store": "Trattoria Muster", "receipt_from": "restaurant_or_cafe"}
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path), FakeExtractor(bill),
+                                   matcher))
+    sent = client.post("/v1/receipts", files={"file": ("r.jpg", a_photo("red"), "image/jpeg")})
+    job = client.get(f"/v1/jobs/{sent.json()['job_id']}").json()
+
+    assert job["status"] == "done" and job["turned_away"] == "restaurant_or_cafe"
+    assert job["receipt_id"] is None and job["cost_usd"] is not None, \
+        "nothing stored, but the reading was paid for and says so"
+    assert client.get("/v1/receipts").json() == []
+    assert [j["job_id"] for j in client.get("/v1/jobs").json()["jobs"]] == [job["job_id"]], \
+        "the Add tab says why"
+    assert calls == [] and client.get("/v1/checks").json()["checks"] == []
+
+
+def test_a_shop_receipt_is_kept_without_saying_where_it_is_from(engine, session, tmp_path):
+    """`receipt_from` is the reader's judgement, not something the paper
+    prints, so it never reaches the receipt row or its export."""
+    repository = PostgresRepository(make_session_factory(engine))
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path),
+                                   FakeExtractor({**RECEIPT, "receipt_from": "shop"})))
+    sent = client.post("/v1/receipts", files={"file": ("r.jpg", a_photo("red"), "image/jpeg")})
+    job = client.get(f"/v1/jobs/{sent.json()['job_id']}").json()
+    assert job["turned_away"] is None and job["receipt_id"] is not None
+    stored = client.get(f"/v1/receipts/{job['receipt_id']}").json()["receipt"]
+    assert "receipt_from" not in stored
+
+
 def test_another_visit_with_the_same_total_is_not_a_duplicate(engine, session, tmp_path):
     """Same shop, same day, same total, another minute: two shopping trips."""
     repository = PostgresRepository(make_session_factory(engine))

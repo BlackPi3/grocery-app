@@ -40,7 +40,9 @@ DEFAULT_MODEL = "claude-sonnet-5"
 # store name, after Gemini's first run on the 27 hand-verified receipts.
 # v3 (2026-10-05): a first guess per line (plain name, category), so the phone
 # shows a readable receipt while the lines are still being placed.
-PROMPT_VERSION = "v3"
+# v4 (2026-10-11): where the paper is from (`receipt_from`), so a restaurant
+# bill is turned away instead of entering the history as shopping.
+PROMPT_VERSION = "v4"
 
 # Server-side refusal fallbacks are only accepted on these models; Sonnet and
 # Haiku reject the parameter with a 400.
@@ -72,6 +74,18 @@ SYSTEM_PROMPT = """\
 You transcribe photographed German grocery receipts into structured JSON. The
 output is graded field-by-field against a human transcription of the same paper,
 so fidelity to what is printed matters more than readability.
+
+First, say where the paper is from, in `receipt_from`:
+   - `shop`: a business selling goods to take away: supermarkets, discounters,
+     drugstores (dm, Rossmann), pharmacies, bakeries, butchers, markets,
+     kiosks, a petrol station's shop.
+   - `restaurant_or_cafe`: food or drink served as a meal or to have there:
+     restaurants, cafés, bars, canteens, snack bars, food delivery.
+   - `other_business`: a bill for a service, a ticket or fuel alone: taxi,
+     parking, transport, a hairdresser.
+   - `not_a_receipt`: anything that is not a receipt.
+   When it is not `shop`, leave `lines` empty and fill the other fields as far
+   as the paper allows; the rules below are for shop receipts.
 
 Rules, in priority order:
 
@@ -177,9 +191,13 @@ LINE_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+# Where a paper can be from; only `shop` enters the history (`api.jobs`).
+RECEIPT_FROM = ("shop", "restaurant_or_cafe", "other_business", "not_a_receipt")
+
 RECEIPT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
+        "receipt_from": {"type": "string", "enum": list(RECEIPT_FROM)},
         "store": {"type": "string"},
         "store_location": {"type": "string"},
         "date": {"type": "string"},
@@ -199,7 +217,7 @@ RECEIPT_SCHEMA: dict[str, Any] = {
         },
     },
     "required": [
-        "store", "store_location", "date", "time", "currency", "lines",
+        "receipt_from", "store", "store_location", "date", "time", "currency", "lines",
         "printed_total", "printed_savings", "tax_buckets",
     ],
     "additionalProperties": False,
@@ -278,9 +296,11 @@ def parse_model_output(text: str, source_image: str) -> dict[str, Any]:
     """Turn the model's JSON text into a receipt in the truth shape.
 
     Beside it, under `first_guesses` (one per line, in order), the model's
-    plain name and category for each line. Like `computed_total`, that is a
-    reading of the paper and not part of it, so nothing that stores the
-    receipt as truth keeps it.
+    plain name and category for each line, and under `receipt_from` where the
+    paper is from. Like `computed_total`, those are a reading of the paper and
+    not part of it, so nothing that stores the receipt as truth keeps them.
+    A reading without `receipt_from` (before prompt v4, or `claude -p`, which
+    is only asked to follow the schema) is taken as a shop's.
     """
     try:
         raw = json.loads(text)
@@ -305,6 +325,8 @@ def parse_model_output(text: str, source_image: str) -> dict[str, Any]:
         receipt["printed_savings"] = round(raw["printed_savings"], 2)
 
     receipt["first_guesses"] = [_first_guess(line) for line in raw["lines"]]
+    receipt_from = raw.get("receipt_from")
+    receipt["receipt_from"] = receipt_from if receipt_from in RECEIPT_FROM else "shop"
 
     computed = round(sum(line["net"] for line in receipt["lines"]), 2)
     receipt["computed_total"] = computed

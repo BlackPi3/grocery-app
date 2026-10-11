@@ -307,6 +307,14 @@ never in the line, which holds what the paper prints. The page shows a guess,
 marked as one, only on a line nothing has placed; the history and the insights
 never read it.
 
+Prompt v4 (2026-10-11) adds one answer per photo, `receipt_from`: `shop`,
+`restaurant_or_cafe`, `other_business` or `not_a_receipt`. Only a shop's receipt
+enters the history; the rest are turned away with no receipt stored (a
+restaurant bill had been counted as groceries). Like the guesses, it is a
+reading and is never stored on the receipt. A reading that does not say is
+taken as a shop's, so a reader that ignores the schema never turns a real
+receipt away.
+
 Scored twice on the 27 hand-verified receipts (the second run lost one photo
 to a failed call):
 
