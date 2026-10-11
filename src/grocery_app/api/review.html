@@ -450,7 +450,8 @@ function receiptCard(summary) {
           wrap.classList.remove("open");
           return;
         }
-        if (wrap.nextSibling?.classList?.contains("picker")) return;
+        // A second tap on the line closes what the first one opened.
+        if (wrap.nextSibling?.classList?.contains("picker")) return wrap.nextSibling.remove();
         // A line answered here can be taken back, to what the app says without it.
         const takeBack = line.resolution === "user" ? el("button", { onclick: () =>
           answer(summary.receipt_id, line.position, { product_id: null }) },
