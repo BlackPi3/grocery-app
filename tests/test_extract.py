@@ -269,6 +269,40 @@ def test_gemini_reads_the_photo_with_the_same_prompt_and_schema(tmp_path, monkey
         "thinking is billed as output"
 
 
+def test_gemini_reads_a_pdf_as_it_is(tmp_path, monkeypatch):
+    """An invoice goes to Gemini as a PDF, not squeezed through the photo path."""
+    import base64
+    import urllib.request
+
+    from grocery_app import extract
+
+    invoice = tmp_path / "invoice.pdf"
+    raw = b"%PDF-1.4\nmade up\n%%EOF\n"
+    invoice.write_bytes(raw)
+    seen = []
+    monkeypatch.setattr(urllib.request, "urlopen", fake_gemini({
+        "candidates": [{"content": {"parts": [{"text": json.dumps(
+            {**GEMINI_ANSWER, "store": "Amazon", "time": "", "receipt_from": "shop"})}]},
+            "finishReason": "STOP"}], "usageMetadata": {}}, seen))
+    result = extract.gemini_reader("gemini-3.8-flash", api_key="k")(invoice)
+    (body,) = seen
+    sent = body["contents"][0]["parts"][0]["inlineData"]
+    assert sent["mimeType"] == "application/pdf" and base64.b64decode(sent["data"]) == raw
+    assert result.receipt["store"] == "Amazon"
+    assert "Bestelldatum" in extract.SYSTEM_PROMPT, "the order date, not the delivery date"
+
+
+def test_the_other_readers_say_they_cannot_read_a_pdf(tmp_path):
+    from grocery_app import extract
+
+    invoice = tmp_path / "invoice.pdf"
+    invoice.write_bytes(b"%PDF-1.4\nmade up\n%%EOF\n")
+    with pytest.raises(ExtractionError, match="Gemini"):
+        extract.claude_code_reader()(invoice)
+    with pytest.raises(ExtractionError, match="Gemini"):
+        extract.extract_receipt(invoice, client=None)
+
+
 def test_a_failed_gemini_read_is_an_extraction_error(tmp_path, monkeypatch):
     import urllib.request
 

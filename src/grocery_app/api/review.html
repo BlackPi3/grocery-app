@@ -771,13 +771,14 @@ function costsCard() {
 }
 
 function addView() {
-  const input = el("input", { type: "file", accept: "image/*", multiple: "" });
+  const input = el("input", { type: "file", accept: "image/*,application/pdf", multiple: "" });
   input.addEventListener("change", () => upload([...input.files]));
   return [
     el("div", { class: "card" },
-      el("label", { class: "photo" }, "Take or choose photos of receipts", input),
+      el("label", { class: "photo" }, "Add receipts: photos or PDF invoices", input),
       el("div", { class: "why" },
-        "The whole receipt, flat and in focus. You can add the next one while others are " +
+        "A photo of the whole receipt, flat and in focus, or a shop's PDF invoice (an " +
+        "Amazon order). You can add the next one while others are " +
         "read. Each receipt opens with a first guess per line, and the app places the " +
         "lines one by one; this list is the same on all your devices.")),
     ...state.sending.map(item => el("div", { class: "card" },
