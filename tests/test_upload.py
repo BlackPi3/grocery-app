@@ -181,9 +181,27 @@ def test_a_file_that_is_not_an_image_is_refused_before_anything_is_stored(upload
     response = client.post("/v1/receipts",
                            files={"file": ("notes.txt", b"not a photo", "text/plain")})
     assert response.status_code == 422
-    assert "not an image" in response.json()["detail"]
+    assert "not a photo or a PDF" in response.json()["detail"]
     assert extractor.calls == [], "nothing is paid for, and no job is created"
     assert not list(store.root.glob("*")) if store.root.exists() else True
+
+
+# A shop's invoice as a PDF, made up: what an Amazon order looks like on disk.
+A_PDF = b"%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << >>\n%%EOF\n"
+
+
+def test_a_pdf_invoice_is_taken_like_a_photo(uploads):
+    """2026-10-11: online orders (Amazon) and app exports come as PDFs."""
+    client, extractor, _, _ = uploads
+    response = client.post("/v1/receipts",
+                           files={"file": ("invoice.pdf", A_PDF, "application/pdf")})
+    assert response.status_code == 202
+    job = client.get(f"/v1/jobs/{response.json()['job_id']}").json()
+    assert job["status"] == "done" and job["receipt_id"] is not None
+    assert len(extractor.calls) == 1
+    truncated = client.post("/v1/receipts",
+                            files={"file": ("cut.pdf", A_PDF[:30], "application/pdf")})
+    assert truncated.status_code == 422, "a PDF cut off in transit is refused"
 
 
 def test_an_empty_upload_is_refused(uploads):

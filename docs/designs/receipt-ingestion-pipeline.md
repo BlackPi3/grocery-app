@@ -315,6 +315,16 @@ reading and is never stored on the receipt. A reading that does not say is
 taken as a shop's, so a reader that ignores the schema never turns a real
 receipt away.
 
+Prompt v5 (2026-10-11) reads a shop's PDF invoice or online order (Amazon) as
+a receipt: the upload takes a PDF, Gemini gets it as a document (no photo
+preparation), and the prompt says how: the shop's own name, the order date
+(`Bestelldatum`, not the invoice or delivery date), each item a line without
+its ASIN, shipping only when it costs something, addresses and order numbers
+ignored. Checked on two real Amazon invoices: store, date, item names, VAT and
+totals right, both reconciled. Only the Gemini reader reads PDFs; the others
+say so. Not yet seen: a DM or Lidl app export, which may hold several
+purchases in one file.
+
 Scored twice on the 27 hand-verified receipts (the second run lost one photo
 to a failed call):
 

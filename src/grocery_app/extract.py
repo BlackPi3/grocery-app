@@ -43,7 +43,9 @@ DEFAULT_MODEL = "claude-sonnet-5"
 # shows a readable receipt while the lines are still being placed.
 # v4 (2026-10-11): where the paper is from (`receipt_from`), so a restaurant
 # bill is turned away instead of entering the history as shopping.
-PROMPT_VERSION = "v4"
+# v5 (2026-10-11): a shop's invoice or online order as a PDF (Amazon), read
+# as a receipt: the shop's own name, the order date, items as lines.
+PROMPT_VERSION = "v5"
 
 # Server-side refusal fallbacks are only accepted on these models; Sonnet and
 # Haiku reject the parameter with a 400.
@@ -87,6 +89,19 @@ First, say where the paper is from, in `receipt_from`:
    - `not_a_receipt`: anything that is not a receipt.
    When it is not `shop`, leave `lines` empty and fill the other fields as far
    as the paper allows; the rules below are for shop receipts.
+
+The paper may also be an invoice or an order confirmation from a shop, often
+an online one (Amazon), as a PDF. That is `shop` too, read as a receipt:
+   - `store` is the shop's own name (`Amazon`), not the seller's legal name.
+   - `date` is the order date (`Bestelldatum`), not the invoice or delivery
+     date; `time` is empty when none is printed.
+   - Each ordered item is a line: `raw_name` its description as printed,
+     without an article number or ASIN; `qty` the quantity; `gross` and `net`
+     the line's price including VAT; `tax_class` the VAT rate as printed (`19%`).
+   - Shipping or a service charge is a line of its own only when it costs
+     more than 0.
+   - `printed_total` is what was paid (`Gesamtpreis`, `Zahlbetrag`).
+   - Ignore addresses, names, payment references and order numbers.
 
 Rules, in priority order:
 
@@ -227,6 +242,19 @@ RECEIPT_SCHEMA: dict[str, Any] = {
 
 class ExtractionError(Exception):
     """The model call completed but did not yield a usable receipt."""
+
+
+def is_pdf(data: bytes) -> bool:
+    """A PDF says so in its first bytes."""
+    return data[:5] == b"%PDF-"
+
+
+def refuse_pdf(path: Path) -> None:
+    """Only the Gemini reader reads a PDF (an invoice, an order); the others
+    say so rather than fail on it as a broken photo."""
+    with open(path, "rb") as file:
+        if is_pdf(file.read(8)):
+            raise ExtractionError("a PDF is read by the Gemini reader only (GROCERY_READER=gemini)")
 
 
 @dataclass(frozen=True)
@@ -387,6 +415,7 @@ def extract_receipt(
 ) -> Extraction:
     """One photo -> one receipt, via a single structured-output model call."""
     image_path = Path(image_path)
+    refuse_pdf(image_path)
     image_bytes = prepare_image(image_path)
     started = time.monotonic()
 
@@ -457,6 +486,7 @@ def claude_code_reader(model: str = DEFAULT_MODEL, timeout_s: int = 900):
 
     def read(image_path: str | Path) -> Extraction:
         image_path = Path(image_path)
+        refuse_pdf(image_path)
         started = time.monotonic()
         with Image.open(io.BytesIO(prepare_image(image_path))) as image:
             width, height = image.size
@@ -514,12 +544,14 @@ def gemini_reader(model: str = GEMINI_MODEL, api_key: str | None = None,
 
     def read(image_path: str | Path) -> Extraction:
         image_path = Path(image_path)
-        image_bytes = prepare_image(image_path)
+        # A PDF goes as it is: Gemini reads its text and its pages itself.
+        pdf = is_pdf(image_path.read_bytes()[:8])
+        image_bytes = image_path.read_bytes() if pdf else prepare_image(image_path)
         started = time.monotonic()
         body = {
             "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
             "contents": [{"parts": [
-                {"inlineData": {"mimeType": "image/jpeg",
+                {"inlineData": {"mimeType": "application/pdf" if pdf else "image/jpeg",
                                 "data": base64.standard_b64encode(image_bytes).decode("ascii")}},
                 {"text": "Transcribe this receipt."},
             ]}],

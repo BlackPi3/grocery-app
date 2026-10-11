@@ -44,7 +44,7 @@ from starlette.concurrency import run_in_threadpool
 from grocery_app.api.images import (
     ImageStore,
     default_image_store,
-    looks_like_an_image,
+    looks_readable,
     sha256_of,
 )
 from grocery_app.api.jobs import Extractor, configured_extractor, resume_unfinished, run_job
@@ -242,8 +242,9 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
             raise HTTPException(
                 status_code=413,
                 detail=f"file is {len(data)} bytes; the limit is {MAX_UPLOAD_BYTES}")
-        if not looks_like_an_image(data):
-            raise HTTPException(status_code=422, detail="file is not an image this can read")
+        if not looks_readable(data):
+            raise HTTPException(status_code=422,
+                                detail="file is not a photo or a PDF this can read")
 
         digest = sha256_of(data)
         existing = repo.job_for_image(digest)

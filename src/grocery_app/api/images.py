@@ -31,6 +31,12 @@ def sha256_of(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def looks_readable(data: bytes) -> bool:
+    """A photo the extractor can open, or a PDF (an invoice, an online order):
+    what an upload may be (2026-10-11)."""
+    return (data[:5] == b"%PDF-" and b"%%EOF" in data[-1024:]) or looks_like_an_image(data)
+
+
 def looks_like_an_image(data: bytes) -> bool:
     """Can the extractor actually open this?
 
