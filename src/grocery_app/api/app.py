@@ -79,6 +79,7 @@ __all__ = ["DEFAULT_PURCHASES", "MAX_UPLOAD_BYTES", "create_app", "default_app"]
 
 # The shopper's page (`GET /`): one static file, shipped with the package.
 REVIEW_PAGE = Path(__file__).with_name("review.html")
+PAGE_WORKER = Path(__file__).with_name("sw.js")
 
 # A receipt photo off a phone is a few megabytes. The cap is not a security
 # boundary, it is a promise that one request cannot read an arbitrary amount
@@ -320,6 +321,15 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         routes above, nothing else."""
         return HTMLResponse(REVIEW_PAGE.read_text(encoding="utf-8"))
 
+    @app.get("/sw.js", include_in_schema=False)
+    def page_worker() -> Response:
+        """The page's service worker: the phone keeps a copy of the page, so a
+        reload need not wait for a server that is starting up. Never cached
+        itself, so a new version reaches the phone on the next visit."""
+        return Response(PAGE_WORKER.read_text(encoding="utf-8"),
+                        media_type="application/javascript",
+                        headers={"Cache-Control": "no-cache"})
+
     @app.get("/pictures/{file}", include_in_schema=False)
     def picture(file: str) -> Response:
         """A product's photo, the app's own copy (`api.pictures`). Outside
@@ -401,7 +411,15 @@ def default_app() -> FastAPI:
     import os
 
     from grocery_app import matcher as matching
+    from grocery_app.db.migrate import upgrade
+    from grocery_app.db.session import database_url
 
+    # The migrations run here rather than as a step before the server starts:
+    # one Python start instead of two, and every start is a wait for whoever
+    # opened the page (Cloud Run stops the server after a quiet spell). A no-op
+    # on a current database; a new image still never serves an old schema.
+    if url := database_url():
+        upgrade(url)
     repository = default_repository()
     matcher = line_matcher(matcher_decider(), matching.default_shops())
     # Identify runs only on uploads, which need PostgreSQL: a server that only

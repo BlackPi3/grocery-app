@@ -153,6 +153,37 @@ def test_default_app_reads_the_path_from_the_environment(tmp_path, monkeypatch):
     assert TestClient(default_app()).get("/health").json()["receipts"] == 99
 
 
+def test_the_server_applies_the_migrations_as_it_starts(monkeypatch):
+    """No separate `db upgrade` step before the server: every start is a wait
+    for whoever opened the page, and two Python starts took longer than one.
+    The migrations still run before anything else, so no request can meet an
+    old schema."""
+    import grocery_app.db.migrate as migrate
+
+    class Upgraded(Exception):
+        pass
+
+    def upgrade(url):
+        raise Upgraded(url)
+
+    monkeypatch.setattr(migrate, "upgrade", upgrade)
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg:///nowhere")
+    with pytest.raises(Upgraded, match="nowhere"):
+        default_app()
+
+
+def test_the_page_worker_is_served_for_the_page_to_register(client):
+    """The phone keeps its own copy of the page, so a reload does not wait for
+    a server that is starting up. The worker is never cached itself, or a
+    fix to it would not reach the phone."""
+    worker = client.get("/sw.js")
+    assert worker.status_code == 200
+    assert worker.headers["content-type"].startswith("application/javascript")
+    assert worker.headers["cache-control"] == "no-cache"
+    assert '"navigate"' in worker.text, "it answers for the page only, never for /v1"
+    assert 'register("/sw.js")' in client.get("/").text
+
+
 def test_the_repository_is_chosen_by_the_environment(tmp_path, monkeypatch):
     """Which store production reads from. Without a URL it is the file; with
     one it is PostgreSQL, and no connection is made to decide that."""
@@ -190,6 +221,7 @@ def test_a_token_locks_every_v1_route_and_nothing_else():
 
     # The page, the health check and the schema hold no history.
     assert locked.get("/").status_code == 200
+    assert locked.get("/sw.js").status_code == 200
     assert locked.get("/health").json()["receipts"] == 2
     assert locked.get("/openapi.json").status_code == 200
 
