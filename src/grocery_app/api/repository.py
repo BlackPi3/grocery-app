@@ -191,8 +191,8 @@ class PostgresRepository:
 
     def jobs_in_progress(self) -> list[dict[str, Any]]:
         """What every device's Add tab shows: the photos still being read or
-        placed, and the ones that failed or were already added in the last
-        hour, oldest first.
+        placed, and the ones that failed, were already added or were turned
+        away (not a shop receipt) in the last hour, oldest first.
 
         Kept on the server, not in the browser that sent the photo, so a
         phone and a laptop show the same thing (Parham, 2026-10-08).
@@ -201,7 +201,8 @@ class PostgresRepository:
         with self.session_factory() as session:
             jobs = session.scalars(select(Job).where(
                 Job.status.in_(UNFINISHED)
-                | (((Job.status == "failed") | Job.already_added) & (Job.finished_at >= since))
+                | (((Job.status == "failed") | Job.already_added | Job.turned_away.is_not(None))
+                   & (Job.finished_at >= since))
             ).order_by(Job.created_at))
             return [job_to_dict(job) for job in jobs]
 

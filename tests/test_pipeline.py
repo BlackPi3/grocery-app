@@ -263,10 +263,11 @@ def test_a_readings_first_guesses_stay_out_of_the_receipt_and_the_history():
     })
     reading = parse_model_output(text, "IMG_1.jpeg")
     assert reading["first_guesses"] == [{"name": "Blütenhonig", "category": "honig"}]
+    assert reading["receipt_from"] == "shop", "a reading that does not say is a shop's (v3)"
 
     stored = receipt_to_dict(receipt_from_dict(
         {k: v for k, v in reading.items() if k not in DERIVED_KEYS}))
-    assert "first_guesses" not in stored
+    assert "first_guesses" not in stored and "receipt_from" not in stored
     (record,) = normalize_receipt(stored, {}, {})
     assert record["resolution"] == "none" and record.get("category_path") is None
 

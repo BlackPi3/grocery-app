@@ -119,6 +119,24 @@ def test_the_reading_is_offered_every_category_and_must_guess_one():
     assert "{categories}" not in SYSTEM_PROMPT
 
 
+def test_the_reading_says_where_the_paper_is_from():
+    """Prompt v4: a restaurant bill is not shopping (2026-10-08). The answer is
+    one of four, and anything else the model writes counts as a shop's, so a
+    reader that ignores the schema never turns a real receipt away."""
+    from grocery_app.extract import RECEIPT_FROM, RECEIPT_SCHEMA, SYSTEM_PROMPT
+
+    assert "receipt_from" in RECEIPT_SCHEMA["required"]
+    assert RECEIPT_SCHEMA["properties"]["receipt_from"]["enum"] == list(RECEIPT_FROM)
+    for value in RECEIPT_FROM:
+        assert f"`{value}`" in SYSTEM_PROMPT, value
+    bill = {"store": "Trattoria Muster", "store_location": "", "date": "2026-03-05",
+            "time": "20:15", "currency": "EUR", "printed_total": 31.5, "printed_savings": None,
+            "tax_buckets": None, "lines": []}
+    for said, taken in (("restaurant_or_cafe", "restaurant_or_cafe"), ("bistro", "shop")):
+        reading = parse_model_output(json.dumps({**bill, "receipt_from": said}), "IMG_9.jpeg")
+        assert reading["receipt_from"] == taken
+
+
 def test_parse_model_output_rejects_non_json():
     with pytest.raises(ExtractionError):
         parse_model_output("not json", "IMG_1.jpeg")

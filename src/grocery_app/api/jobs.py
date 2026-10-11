@@ -43,7 +43,7 @@ __all__ = ["Extractor", "anthropic_extractor", "configured_extractor", "job_to_d
 # tables hold what the paper says; these are a reading of it, and there is no
 # column for them on purpose. The first guesses are stored, but apart
 # (`LineGuess`).
-DERIVED_KEYS = ("computed_total", "reconciled", "first_guesses")
+DERIVED_KEYS = ("computed_total", "reconciled", "first_guesses", "receipt_from")
 
 # A job in one of these was started and has not said how it ended.
 UNFINISHED = ("queued", "running")
@@ -126,6 +126,7 @@ def job_to_dict(job: Job) -> dict[str, Any]:
         "cost_usd": float(job.cost_usd) if job.cost_usd is not None else None,
         "error": job.error,
         "already_added": bool(job.already_added),
+        "turned_away": job.turned_away,
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "started_at": job.started_at.isoformat() if job.started_at else None,
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
@@ -209,6 +210,16 @@ def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
         # Committed before the receipt is built: the call has been paid for,
         # and a receipt that will not store must not roll that fact away.
         session.commit()
+
+        # Only shopping enters the history: a restaurant bill read as a shop's
+        # receipt would count a meal as groceries (Parham, 2026-10-08).
+        receipt_from = extraction.receipt.get("receipt_from", "shop")
+        if receipt_from != "shop":
+            job.turned_away = receipt_from
+            job.status = "done"
+            job.finished_at = _now()
+            session.commit()
+            return
 
         try:
             _store_receipt(session, job, extraction)

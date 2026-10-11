@@ -182,7 +182,10 @@ Four decisions the table encodes:
   `receipts.image_sha256` is likewise not unique. A second photo of one paper
   has other bytes; it is caught by what it prints (shop, day, minute, total) and
   not kept: its job points at the receipt already there, `already_added`
-  (2026-10-09, migration 0012).
+  (2026-10-09, migration 0012). A photo that is not a shop receipt (a restaurant
+  bill, a taxi receipt, no receipt at all) is not kept either: the reader says
+  where the paper is from (`receipt_from`, prompt v4), and the job ends `done`
+  with no receipt and `turned_away` saying why (2026-10-11, migration 0015).
 - **The id is a uuid.** It is the one id a client holds and quotes back.
 - **`cost_usd` is `Numeric(10, 5)` and stays in dollars.** The provider bills in
   dollars and one extraction costs fractions of a cent; converting to euros would mean
