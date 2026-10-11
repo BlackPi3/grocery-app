@@ -110,13 +110,19 @@
   .stat { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
   .months { display: flex; gap: 6px; overflow-x: auto; margin: 0 -2px 12px; padding: 0 2px; }
   .months button { flex: 0 0 auto; padding: 6px 12px; font-size: 13px; }
-  .spend { margin-top: 10px; }
-  .spend-row { cursor: pointer; padding-bottom: 6px; }
-  .spend-row .line { padding-bottom: 4px; }
-  .bar { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
-  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
-  .items { padding: 2px 0 8px 12px; border-left: 2px solid var(--grid); margin: 4px 0 8px; }
-  .items .line { padding: 6px 0; }
+  /* The month as tiles sized by spend, all on one screen (Parham, 2026-10-11:
+     zoomed out first, zoom in if needed, no scrolling through every group). */
+  .tiles { position: relative; width: 100%; aspect-ratio: 1; margin-top: 10px; }
+  .tile { position: absolute; padding: 2px; cursor: pointer; }
+  .tile > div { width: 100%; height: 100%; border-radius: 8px; background: var(--accent-soft);
+    color: var(--ink); padding: 6px 7px; overflow: hidden; font-size: 13px; line-height: 1.25; }
+  .tile.big > div { font-size: 15px; }
+  .tile.none > div { background: var(--page); border: 1px dashed var(--muted); color: var(--ink2); }
+  /* German names, hyphenated as German where a tile is narrow ("Vorrä-te"). */
+  .tile b { display: block; font-weight: 600; overflow-wrap: break-word; hyphens: auto; }
+  .tile span { color: var(--ink2); }
+  .zoom { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .zoom button { font-size: 13px; padding: 4px 10px; }
   h2 { font-size: 15px; margin: 0 0 4px; }
   .up { color: var(--bad); } .down { color: var(--good); }
   .toast { position: fixed; left: 16px; right: 16px; bottom: 20px; max-width: 448px;
@@ -752,32 +758,61 @@ function monthName(month) {
     { month: "long", year: "numeric" });
 }
 
+// Opens on this month when it has receipts, else on the newest one.
 function defaultMonth(months) {
   const now = new Date();
-  const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const key = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}`;
+  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   return months.some(m => m.month === key) ? key : months[0].month;
 }
 
-function branchRow(branch, biggest) {
-  const open = state.openBranch === branch.branch;
-  const share = biggest ? branch.spend / biggest : 0;
-  const row = el("div", { class: "spend-row", onclick: () => {
-    state.openBranch = open ? undefined : branch.branch;
-    render();
-  } },
-    el("div", { class: "line" },
-      el("div", {}, el("div", { class: "what" }, branch.branch || "Not sorted yet"),
-         el("div", { class: "meta" }, `${branch.lines} ${branch.lines === 1 ? "line" : "lines"}`,
-            branch.branch ? "" : " with no category yet")),
-      el("div", { class: "money" }, euro(branch.spend))),
-    el("div", { class: "bar" }, el("i", { style: `width: ${Math.max(2, share * 100)}%` })));
-  if (!open) return row;
-  return el("div", {}, row, el("div", { class: "items" }, branch.items.map(item =>
-    el("div", { class: "line" },
-      el("div", { class: "what" }, productText(item.product, item.brand)),
-      el("div", { class: "money" }, (item.lines > 1 ? `${item.lines}× · ` : "") +
-         euro(item.spend))))));
+// Squarified tiles (Bruls, Huizing and van Wijk): rows of tiles laid along the
+// shorter side, each row grown while that keeps its tiles closer to squares.
+// Areas in, rectangles out, in a box of `w` by `h`.
+function squarify(items, w, h) {
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  let rest = items.map(item => ({ ...item, area: item.value / total * w * h }));
+  let x = 0, y = 0;
+  const out = [];
+  const worst = (row, side) => {
+    const sum = row.reduce((s, r) => s + r.area, 0);
+    const big = Math.max(...row.map(r => r.area)), small = Math.min(...row.map(r => r.area));
+    return Math.max(side * side * big / (sum * sum), sum * sum / (side * side * small));
+  };
+  while (rest.length) {
+    const side = Math.min(w, h);
+    let row = [rest[0]];
+    while (row.length < rest.length &&
+           worst([...row, rest[row.length]], side) <= worst(row, side)) row.push(rest[row.length]);
+    rest = rest.slice(row.length);
+    const sum = row.reduce((s, r) => s + r.area, 0);
+    if (w >= h) {
+      const width = sum / h;
+      let top = y;
+      for (const r of row) { out.push({ ...r, x, y: top, w: width, h: r.area / width }); top += r.area / width; }
+      x += width; w -= width;
+    } else {
+      const height = sum / w;
+      let left = x;
+      for (const r of row) { out.push({ ...r, x: left, y, w: r.area / height, h: height }); left += r.area / height; }
+      y += height; h -= height;
+    }
+  }
+  return out;
+}
+
+// One box of tiles, in a unit square. A tile too small for its words keeps
+// them for a tap.
+function tiles(items, onTap) {
+  const shown = items.filter(item => item.value > 0).sort((a, b) => b.value - a.value);
+  return el("div", { class: "tiles" }, squarify(shown, 1, 1).map(t => {
+    const roomy = t.w > 0.14 && t.h > 0.09;
+    return el("div", { class: "tile" + (t.big ? " big" : "") + (t.none ? " none" : ""),
+                       style: `left:${t.x * 100}%;top:${t.y * 100}%;` +
+                              `width:${t.w * 100}%;height:${t.h * 100}%`,
+                       title: `${t.label} · ${euro(t.value)}`, lang: "de",
+                       onclick: () => onTap(t) },
+      el("div", {}, roomy ? [el("b", {}, t.label), el("span", {}, euro(t.value))] : null));
+  }));
 }
 
 function insightsView() {
@@ -792,13 +827,36 @@ function insightsView() {
       state.openBranch = undefined;
       render();
     } }, monthName(m.month).replace(/ \d+$/, ""))));
+  // The newest month sits at the right end of the row: keep the chosen one in view.
+  requestAnimationFrame(() => {
+    const on = choose.querySelector(".on");
+    if (on) choose.scrollLeft += on.getBoundingClientRect().right - choose.getBoundingClientRect().right
+      + (on.nextSibling ? 0 : 2);
+  });
+  const branch = state.openBranch !== undefined &&
+    month.branches.find(b => (b.branch || null) === state.openBranch);
+  if (branch) {  // zoomed in: one group's products
+    return [el("div", { class: "card" }, choose,
+      el("div", { class: "zoom" },
+        el("button", { onclick: () => { state.openBranch = undefined; render(); } },
+           "‹ " + monthName(month.month).replace(/ \d+$/, "")),
+        el("div", { class: "what" }, branch.branch || "Not sorted yet")),
+      el("div", { class: "stat" }, euro(branch.spend)),
+      el("div", { class: "meta" }, `${branch.lines} ${branch.lines === 1 ? "line" : "lines"}` +
+         (branch.branch ? "" : " with no category yet")),
+      tiles(branch.items.map(item => ({
+        label: productText(item.product, item.brand) + (item.lines > 1 ? ` (${item.lines}×)` : ""),
+        value: item.spend, none: !item.product })),
+        t => toast(`${t.label} · ${euro(t.value)}`)))];
+  }
   return [el("div", { class: "card" }, choose,
     el("h2", {}, monthName(month.month)),
     el("div", { class: "stat" }, euro(month.spend)),
     el("div", { class: "meta" }, `${month.receipts} ${month.receipts === 1 ? "receipt" : "receipts"}`,
-       " · lines you left out are not counted"),
-    el("div", { class: "spend" }, month.branches.map(b =>
-      branchRow(b, Math.max(...month.branches.map(x => x.spend))))))];
+       " · lines you left out are not counted · tap a part to see what is in it"),
+    tiles(month.branches.map(b => ({ label: b.branch || "Not sorted yet", value: b.spend,
+                                     key: b.branch || null, none: !b.branch, big: true })),
+          t => { state.openBranch = t.key; render(); }))];
 }
 
 function receiptsView() {
