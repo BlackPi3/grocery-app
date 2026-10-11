@@ -85,6 +85,7 @@
     border-radius: 0; background: var(--bad); color: #fff; font-size: 13px; font-weight: 600; }
   .swipe.out > .act { background: var(--accent); }
   .swipe.open > .line { transform: translateX(-96px); }
+  .swipe.head { border-top: 0; }
   .editing .swipe { display: flex; align-items: center; gap: 8px; }
   .editing .swipe > .line { flex: 1; min-width: 0; }
   .editing .swipe > .act { position: static; order: 2; width: auto; border-radius: 8px;
@@ -146,7 +147,7 @@
 "use strict";
 // All text from receipts and the model goes in with textContent, never as HTML.
 const state = { tab: "waiting", checks: null, questions: null, receipts: null, open: null,
-                copyAt: null,
+                copyAt: null, removing: new Set(),
                 insights: null, jobs: null, sending: [], notSent: [], uploaded: new Set() };
 const TABS = ["waiting", "receipts", "add", "insights"];
 
@@ -216,7 +217,7 @@ async function api(path, options) {
     try { detail = (await response.json()).detail || detail; } catch (_) { /* not JSON */ }
     throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }
-  return response.json();
+  return response.status === 204 ? null : response.json();
 }
 
 function euro(amount) {
@@ -416,16 +417,47 @@ async function openReceipt(receiptId) {
   render();
 }
 
+// A removed receipt goes from the page at once and from the server only when
+// its Undo has run out, so Undo never needs the server (2026-10-11). A page
+// closed before then removes nothing.
+function removeReceipt(receiptId) {
+  state.removing.add(receiptId);
+  if (state.open === receiptId) state.open = null;
+  render();
+  const timer = setTimeout(async () => {
+    try {
+      await api(`/v1/receipts/${receiptId}`, { method: "DELETE" });
+    } catch (error) { toast("Not removed: " + error.message); }
+    state.removing.delete(receiptId);
+    await load();
+  }, 8000);
+  toast("Receipt removed", () => {
+    clearTimeout(timer);
+    state.removing.delete(receiptId);
+    render();
+  });
+}
+
 function receiptCard(summary) {
   const card = el("div", { class: "card" });
-  card.append(el("div", { class: "line", onclick: () => openReceipt(summary.receipt_id) },
+  const head = el("div", { class: "line" },
     el("div", {},
        el("div", { class: "what" }, summary.store || "Unknown shop"),
        el("div", { class: "meta" }, summary.date || "", " · ", summary.product_lines,
           " lines: ", summary.said_by_you, " you, ", summary.said_by_app, " app",
           summary.unplaced ? `, ${summary.unplaced} not placed` : "",
           summary.not_counted ? `, ${summary.not_counted} left out` : "")),
-    el("div", { class: "money" }, euro(summary.printed_total))));
+    el("div", { class: "money" }, euro(summary.printed_total)));
+  // The receipt itself slides left too, to be removed, as a line does.
+  const remove = el("button", { class: "act", onclick: () => removeReceipt(summary.receipt_id) },
+    "Remove");
+  const top = el("div", { class: "swipe head" }, remove, head);
+  swipeable(top, head);
+  head.addEventListener("click", () => {
+    if (top.classList.contains("open")) return top.classList.remove("open");
+    openReceipt(summary.receipt_id);
+  });
+  card.append(top);
   if (state.open === summary.receipt_id) {
     if (inProgress().some(job => job.receipt_id === summary.receipt_id)) {
       card.append(el("div", { class: "why" },
@@ -435,7 +467,8 @@ function receiptCard(summary) {
     const editing = state.editing === summary.receipt_id;
     card.classList.toggle("editing", editing);
     card.append(el("div", { class: "edit-row" },
-      el("div", { class: "meta" }, "Swipe a line left to leave it out of your numbers"),
+      el("div", { class: "meta" }, "Swipe a line left to leave it out of your numbers, " +
+        "the receipt to remove it"),
       el("button", { onclick: () => {
         state.editing = editing ? null : summary.receipt_id;
         render();
@@ -733,7 +766,7 @@ function insightsView() {
 
 function receiptsView() {
   if (!state.receipts.length) return [el("div", { class: "empty" }, "No receipts yet.")];
-  return state.receipts.map(receiptCard);
+  return state.receipts.filter(r => !state.removing.has(r.receipt_id)).map(receiptCard);
 }
 
 function render() {

@@ -13,7 +13,7 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app import categories, memory
@@ -125,6 +125,9 @@ class WriteRepository(Protocol):
         ...
 
     def set_counted(self, receipt_id: int, position: int, counted: bool) -> dict[str, Any]:
+        ...
+
+    def remove_receipt(self, receipt_id: int) -> None:
         ...
 
 
@@ -586,6 +589,22 @@ class PostgresRepository:
                          "error_rate": round(corrected / answered, 3) if answered else None},
                 "checks": views}
 
+    def remove_receipt(self, receipt_id: int) -> None:
+        """Take a receipt out of the history, for whatever reason the shopper
+        has (Parham, 2026-10-11): a photo that should not have been added, a
+        bill that is not shopping.
+
+        Its lines, the answers given on them, its spot checks and questions go
+        with it (the tables cascade). What those answers taught the memory
+        about a printed name stays: it is about the name, not this paper. The
+        job that read it keeps its cost, with no receipt. The photo stays in
+        the image store, so adding it again reads it again (`job_for_image`).
+        """
+        with self.session_factory() as session:
+            self._get(session, receipt_id)
+            session.execute(delete(Receipt).where(Receipt.id == receipt_id))
+            session.commit()
+
     def update_receipt(self, receipt_id: int, store: str) -> dict[str, Any]:
         """The header fact a shopper can correct from a phone: the store, for a
         photo whose header was cropped off, which leaves every line
@@ -628,8 +647,9 @@ class PostgresRepository:
 
         This is what stops one photo being paid for twice. A failed job is not
         returned, so re-uploading after a timeout retries rather than handing
-        back a dead job id; re-reading a photo under a new prompt version is
-        deliberate work and is not blocked here either.
+        back a dead job id; nor is one whose receipt the shopper removed, so
+        adding it again brings it back. Re-reading a photo under a new prompt
+        version is deliberate work and is not blocked here either.
         """
         with self.session_factory() as session:
             job = session.scalars(
@@ -638,6 +658,8 @@ class PostgresRepository:
             ).first()
             if job is None or job.status == "failed":
                 return None
+            if job.status == "done" and job.receipt_id is None and job.turned_away is None:
+                return None  # its receipt was removed
             return job_to_dict(job)
 
 
