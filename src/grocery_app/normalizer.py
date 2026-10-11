@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from grocery_app import categories, produce
-from grocery_app.memory import MACHINE_AUTHORS
+from grocery_app.memory import author_kind
 from grocery_app.resolver import budget_brand_status, store_key
 
 # --- loading -----------------------------------------------------------------
@@ -266,8 +266,11 @@ def said_by(how: str, author: str | None, authors_known: bool) -> str | None:
     decided (including rows a person marked on a review sheet). `app` is a
     memory entry the matcher or identify wrote, or a reading the normalizer
     makes by rule (the produce vocabulary, a price narrowing a family): all of
-    them guesses the shopper can overrule. Without the memory's authors (an
-    old caller), a remembered line says None rather than guess."""
+    them guesses the shopper can overrule. An entry a user taught is `app`
+    too, for that user as for everyone: a user's answer is weighed like a
+    guess, so the lines it places can still be spot-checked (2026-10-11).
+    Without the memory's authors (an old caller), a remembered line says None
+    rather than guess."""
     if how == "user":
         return "you"
     if how in ("produce", "price"):
@@ -275,7 +278,7 @@ def said_by(how: str, author: str | None, authors_known: bool) -> str | None:
     if how in ("exact", "family"):
         if not authors_known:
             return None
-        return "app" if author in MACHINE_AUTHORS else "you"
+        return "you" if author_kind(author) == "owner" else "app"
     return None
 
 
@@ -331,7 +334,10 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
     answered = pinpoint["product_id"] if pinpoint else None
     # Inside the family when there is one; anything in the catalog when the
     # name resolves to nothing, because then there is no statement to contradict.
-    usable = (answered in products and (answered in ids or not ids)
+    # A user's answer against what the owner told the memory is no stale note
+    # but a deliberate one, and holds for that user's own line (2026-10-11).
+    usable = (answered in products
+              and (answered in ids or not ids or bool(pinpoint.get("disagrees_with")))
               and line.get("type", "product") == "product")
     if answered and usable:
         ids = [answered]

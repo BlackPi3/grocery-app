@@ -39,12 +39,36 @@ class Base(DeclarativeBase):
     type_annotation_map = {dict[str, Any]: JSONB, list[str]: ARRAY(String)}
 
 
+class User(Base):
+    """Someone other than the owner who uses the app with their own receipts.
+
+    The owner is the account behind the server's own password
+    (`GROCERY_TOKEN`): no row, and everything with no user is theirs. A user
+    has a password of their own, kept here only as its sha256, and sees only
+    their own receipts. The catalog and the memory are shared, and a user's
+    answers teach them with less weight than the owner's (`memory.learn`):
+    Parham, 2026-10-11, "her answers should be accepted with a grain of salt".
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True)
+    token_sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 server_default=func.now())
+
+
 class Receipt(Base):
     """One paper receipt: the header of a truth file. No product ids here, ever."""
 
     __tablename__ = "receipts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Whose receipt: a user's, or the owner's when empty (everything from before
+    # accounts, and whatever the command line imports).
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True)
     source_image: Mapped[str] = mapped_column(String, unique=True)
     # Set when the photo arrived over HTTP; null for the files transcribed on
     # the laptop. Not unique: a second photo of one paper has other bytes, and
@@ -184,6 +208,10 @@ class LineResolution(Base):
     # taught it, so taking the answer back undoes that too: `{"held": null}`
     # when there was none. None for answers from before 2026-10-10.
     memory_before: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # A user's answer that contradicts what the owner told the memory: the
+    # owner's product, kept so the owner can look. The answer holds for the
+    # user's own line; the memory keeps the owner's (2026-10-11).
+    disagrees_with: Mapped[str | None] = mapped_column(String)
 
 
 class UncountedLine(Base):
@@ -316,6 +344,9 @@ class Job(Base):
     # and a guessable sequence over someone's receipts is not worth the bytes
     # it saves.
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    # Who sent the photo; the owner when empty. Its receipt is theirs.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True)
     status: Mapped[str] = mapped_column(String, default="queued")  # JOB_STATUSES
     image_sha256: Mapped[str] = mapped_column(String(64), index=True)
     original_filename: Mapped[str | None] = mapped_column(String)

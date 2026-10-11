@@ -367,3 +367,34 @@ def test_only_unsearched_open_questions_are_dropped_for_a_retry(session):
     assert drop_unsearched_questions(session) == {old.id}
     left = {q.receipt_id for q in session.scalars(select(Question))}
     assert left == {searched.id, answered.id}
+
+
+def test_a_users_answer_crosses_from_the_tables_into_her_history_only():
+    """Accounts (2026-10-11): from her answer in the tables, through the
+    normalizer, to her purchases. The memory says what the owner said the name
+    is; her answer disagrees, so it holds for her line, and the owner's line
+    and the memory keep his."""
+    from grocery_app.normalizer import normalize_receipt
+
+    resolution = {("musterladen", "MU Butter"): ["p-0001"]}
+    authors = {("musterladen", "MU Butter"): "shopper"}
+    products = {"p-0001": {"name": "Butter", "brand": "Muster"},
+                "p-0002": {"name": "Margarine", "brand": "Muster"}}
+    line = {"type": "product", "raw_name": "MU Butter", "qty": 1, "gross": 1.0,
+            "discount": 0.0, "net": 1.0, "tax_class": "A"}
+    hers = {"source_image": "IMG_2.jpeg", "store": "Musterladen", "date": "2026-03-01",
+            "lines": [line]}
+    answer = {("IMG_2.jpeg", 0): {"product_id": "p-0002", "raw_name": "MU Butter",
+                                  "confirmed_by": "user:Sara", "disagrees_with": "p-0001"}}
+    (record,) = normalize_receipt(hers, resolution, products, answer, None, authors)
+    assert (record["product_id"], record["said_by"]) == ("p-0002", "you")
+
+    stale = {key: {k: v for k, v in a.items() if k != "disagrees_with"}
+             for key, a in answer.items()}
+    (record,) = normalize_receipt(hers, resolution, products, stale, None, authors)
+    assert record["product_id"] == "p-0001", "an answer outside the memory, unmarked, is stale"
+
+    taught_by_her = {("musterladen", "MU Butter"): "user:Sara"}
+    mine = {**hers, "source_image": "IMG_1.jpeg"}
+    (record,) = normalize_receipt(mine, resolution, products, {}, None, taught_by_her)
+    assert record["said_by"] == "app", "a line her answer placed can still be spot-checked"

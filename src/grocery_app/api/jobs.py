@@ -34,7 +34,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app import spend
 from grocery_app.api.images import ImageStore
-from grocery_app.db.io import receipt_from_dict
+from grocery_app.db.io import receipt_from_dict, whose
 from grocery_app.db.models import Job, LineGuess, Receipt
 
 __all__ = ["Extractor", "anthropic_extractor", "configured_extractor", "job_to_dict",
@@ -149,6 +149,7 @@ def _store_receipt(session: Session, job: Job, extraction: Extraction) -> None:
     receipt_dict["transcribed_by"] = "llm"
     receipt = receipt_from_dict(receipt_dict)
     receipt.image_sha256 = job.image_sha256
+    receipt.user_id = job.user_id  # whoever sent the photo
     session.add(receipt)
     session.flush()
     earlier = same_paper(session, receipt)
@@ -244,12 +245,13 @@ def same_paper(session: Session, receipt: Receipt) -> Receipt | None:
     receipts, counted twice and spot-checked twice. A till prints the minute,
     so the same shop, day, minute and total is the same paper. Without a
     printed time the lines must read the same as well. The photos differ, so
-    their hashes never catch this.
+    their hashes never catch this. Only the same person's receipts are
+    compared: two people can shop the same minute at the same till.
     """
     if receipt.store is None or receipt.date is None or receipt.printed_total is None:
         return None
     earlier = session.scalars(select(Receipt).where(
-        Receipt.id != receipt.id,
+        Receipt.id != receipt.id, whose(receipt.user_id),
         func.lower(Receipt.store) == receipt.store.lower(), Receipt.date == receipt.date,
         Receipt.printed_total == receipt.printed_total).order_by(Receipt.id))
     names = [line.raw_name for line in receipt.lines]

@@ -201,7 +201,8 @@ function saveCopy() {
   try {
     localStorage.setItem(COPY_KEY, JSON.stringify({
       at: Date.now(), checks: state.checks, questions: state.questions, receipts: state.receipts,
-      insights: state.insights, costs: state.costs, receiptLines: state.receiptLines }));
+      insights: state.insights, costs: state.costs, me: state.me,
+      receiptLines: state.receiptLines }));
   } catch (_) { /* full, or private mode */ }
 }
 function savedCopy() {
@@ -705,7 +706,48 @@ function jobCard(job) {
 // which should cost less as the catalog grows. This month and the one before.
 function usd(amount) {
   if (amount == null) return "?";
-  return amount < 0.01 ? (amount * 100).toFixed(2) + " ¢" : "$" + amount.toFixed(2);
+  return amount === 0 ? "$0" : amount < 0.01 ? (amount * 100).toFixed(2) + " ¢" : "$" + amount.toFixed(2);
+}
+
+// Accounts (2026-10-11): each password is one person, who sees only their
+// own receipts. The owner adds people here and sees each password once.
+function accountCard() {
+  if (!state.me) return null;
+  const who = state.me.role === "owner" ? "the owner" : state.me.name;
+  return el("div", { class: "card" }, el("div", { class: "row" },
+    el("div", { class: "meta", style: "flex: 1; align-self: center" }, `Signed in as ${who}`),
+    el("button", { onclick: () => {
+      try { localStorage.removeItem("grocery-token"); localStorage.removeItem(COPY_KEY); }
+      catch (_) { /* private mode */ }
+      location.reload();
+    } }, "Log out")));
+}
+
+function peopleCard() {
+  if (!state.me || state.me.role !== "owner" || !state.people) return null;
+  const name = el("input", { placeholder: "Name", autocapitalize: "words" });
+  const add = async () => {
+    if (!name.value.trim()) return;
+    try {
+      state.newPerson = await api("/v1/users", { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.value.trim() }) });
+      state.people = await api("/v1/users");
+      render();
+    } catch (error) { toast("Not added: " + error.message); }
+  };
+  name.addEventListener("keydown", e => { if (e.key === "Enter") add(); });
+  const made = state.newPerson;
+  return el("div", { class: "card" }, el("h2", {}, "People"),
+    el("div", { class: "why" }, "Each person has a password and sees only their own " +
+      "receipts. Their answers teach the app, but never overrule yours."),
+    state.people.map(p => el("div", { class: "line" },
+      el("div", { class: "what" }, p.name),
+      el("div", { class: "meta" }, `${p.receipts} ${p.receipts === 1 ? "receipt" : "receipts"}`))),
+    made ? el("div", { class: "says" }, `${made.name}'s password, shown only now: `,
+                 el("b", {}, made.password)) : null,
+    el("div", { class: "row", style: "margin-top: 8px" }, name,
+       el("button", { class: "primary", onclick: add }, "Add a person")));
 }
 
 function costsCard() {
@@ -745,6 +787,8 @@ function addView() {
       el("div", { class: "why" }, item.error))),
     ...(state.jobs || []).map(jobCard),
     costsCard(),
+    peopleCard(),
+    accountCard(),
   ];
 }
 
@@ -905,8 +949,18 @@ async function load({ jobs = true } = {}) {
       if (state.tab === "insights") render();
     })
       .catch(error => { if (state.tab === "insights") toast("Insights: " + error.message); });
-    api("/v1/costs").then(doc => { state.costs = doc; saveCopy(); render(); })
-      .catch(() => { /* the costs are a footnote: the page works without them */ });
+    // Who this password is, and for the owner the app's costs and its people.
+    api("/v1/me").then(async me => {
+      state.me = me;
+      if (me.role === "owner") {
+        state.costs = await api("/v1/costs").catch(() => null);
+        state.people = await api("/v1/users").catch(() => null);
+      } else {
+        state.costs = state.people = null;
+      }
+      saveCopy();
+      render();
+    }).catch(() => { /* an older server: no accounts, nothing to show */ });
     if (state.open !== null) {  // keep an open receipt open, with its new answers
       const doc = await api(`/v1/receipts/${state.open}`);
       state.receiptLines[state.open] = doc.lines;
@@ -928,7 +982,10 @@ function askPassword(why) {
                               placeholder: "Password", autocapitalize: "off",
                               autocorrect: "off", spellcheck: "false" });
   const unlock = () => {
-    try { localStorage.setItem("grocery-token", field.value.trim()); } catch (_) { /* private mode */ }
+    try {
+      localStorage.setItem("grocery-token", field.value.trim());
+      localStorage.removeItem(COPY_KEY);  // another password may be another person
+    } catch (_) { /* private mode */ }
     document.getElementById("stats").textContent = "Loading…";
     load();
   };
@@ -974,7 +1031,7 @@ if ("serviceWorker" in navigator) {
 const copy = savedCopy();
 if (copy && copy.checks && copy.questions && copy.receipts) {
   Object.assign(state, { checks: copy.checks, questions: copy.questions, receipts: copy.receipts,
-                         insights: copy.insights, costs: copy.costs,
+                         insights: copy.insights, costs: copy.costs, me: copy.me,
                          receiptLines: copy.receiptLines || {},
                          copyAt: copy.at });
   render();

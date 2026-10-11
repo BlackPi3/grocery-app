@@ -406,6 +406,41 @@ class JobDocument(BaseModel):
     finished_at: str | None
 
 
+class Me(BaseModel):
+    """Who a password belongs to."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    role: Literal["owner", "user"]
+    name: str | None = Field(description="A user's name; none for the owner")
+
+
+class UserSummary(BaseModel):
+    """Someone who uses the app besides the owner."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    name: str
+    receipts: int
+
+
+class NewUserRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=60)
+
+
+class NewUser(BaseModel):
+    """A user just made. `password` is shown this once and kept nowhere."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    name: str
+    password: str
+
+
 class MonthCost(BaseModel):
     """What the model calls cost in one month, by what they were for."""
 

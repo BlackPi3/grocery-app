@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from grocery_app import categories, memory
 from grocery_app.api.jobs import UNFINISHED, job_to_dict
 from grocery_app.api.matching import article_index
-from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict
+from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict, whose
 from grocery_app.db.models import (
     Check,
     Correction,
@@ -32,6 +32,7 @@ from grocery_app.db.models import (
     Receipt,
     Resolution,
     UncountedLine,
+    User,
 )
 from grocery_app.db.session import database_url, make_engine, make_session_factory
 from grocery_app.normalizer import (
@@ -134,6 +135,18 @@ class WriteRepository(Protocol):
     def costs(self) -> dict[str, Any]:
         ...
 
+    def as_user(self, user: dict[str, Any] | None) -> Any:
+        ...
+
+    def user_for_password(self, password: str) -> dict[str, Any] | None:
+        ...
+
+    def create_user(self, name: str) -> dict[str, Any]:
+        ...
+
+    def users(self) -> list[dict[str, Any]]:
+        ...
+
 
 # When finding a receipt's items was first written down (`spend`, PR of
 # 2026-10-11): a receipt uploaded before it has its reading cost only.
@@ -174,12 +187,57 @@ class PostgresRepository:
     resolution is confirmed.
     """
 
-    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+    def __init__(self, session_factory: sessionmaker[Session],
+                 user: dict[str, Any] | None = None) -> None:
         self.session_factory = session_factory
+        # Who is asking: a user (`{"id", "name"}`), or the owner when None.
+        # Every receipt and job read or written here is that person's only.
+        self.user = user
+
+    def as_user(self, user: dict[str, Any] | None) -> PostgresRepository:
+        """The same tables, seen by `user` (None: the owner)."""
+        return PostgresRepository(self.session_factory, user)
+
+    @property
+    def user_id(self) -> int | None:
+        return self.user["id"] if self.user else None
+
+    def _my_jobs(self) -> Any:
+        return Job.user_id.is_(None) if self.user is None else Job.user_id == self.user_id
 
     def purchases(self) -> dict[str, Any]:
         with self.session_factory() as session:
-            return assemble_purchases(**load_normalizer_inputs(session))
+            return assemble_purchases(**load_normalizer_inputs(session, self.user_id))
+
+    # --- people ---------------------------------------------------------------
+
+    def create_user(self, name: str) -> dict[str, Any]:
+        """A new user and their password, which is shown this once: only its
+        hash is kept. A name already taken is refused."""
+        name = name.strip()
+        if not name:
+            raise ValueError("a user needs a name")
+        password = new_password()
+        with self.session_factory() as session:
+            if session.scalar(select(User).where(func.lower(User.name) == name.lower())):
+                raise ValueError(f"there is already a user called {name}")
+            user = User(name=name, token_sha256=password_hash(password))
+            session.add(user)
+            session.commit()
+            return {"id": user.id, "name": user.name, "password": password}
+
+    def users(self) -> list[dict[str, Any]]:
+        with self.session_factory() as session:
+            return [{"id": u.id, "name": u.name, "receipts": session.scalar(
+                         select(func.count()).select_from(Receipt)
+                         .where(Receipt.user_id == u.id))}
+                    for u in session.scalars(select(User).order_by(User.id))]
+
+    def user_for_password(self, password: str) -> dict[str, Any] | None:
+        with self.session_factory() as session:
+            user = session.scalar(select(User).where(
+                User.token_sha256 == password_hash(password)))
+            return {"id": user.id, "name": user.name} if user else None
 
     def create_job(self, image_sha256: str,
                    original_filename: str | None = None) -> dict[str, Any]:
@@ -191,7 +249,8 @@ class PostgresRepository:
         recover.
         """
         with self.session_factory() as session:
-            job = Job(image_sha256=image_sha256, original_filename=original_filename)
+            job = Job(image_sha256=image_sha256, original_filename=original_filename,
+                      user_id=self.user_id)
             session.add(job)
             session.commit()
             return job_to_dict(job)
@@ -199,7 +258,7 @@ class PostgresRepository:
     def job(self, job_id: str) -> dict[str, Any] | None:
         with self.session_factory() as session:
             job = session.get(Job, job_id)
-            return job_to_dict(job) if job else None
+            return job_to_dict(job) if job and job.user_id == self.user_id else None
 
     def jobs_in_progress(self) -> list[dict[str, Any]]:
         """What every device's Add tab shows: the photos still being read or
@@ -211,7 +270,7 @@ class PostgresRepository:
         """
         since = datetime.now(UTC) - FAILED_JOBS_SHOWN_FOR
         with self.session_factory() as session:
-            jobs = session.scalars(select(Job).where(
+            jobs = session.scalars(select(Job).where(self._my_jobs()).where(
                 Job.status.in_(UNFINISHED)
                 | (((Job.status == "failed") | Job.already_added | Job.turned_away.is_not(None))
                    & (Job.finished_at >= since))
@@ -230,7 +289,7 @@ class PostgresRepository:
         does no joining, per the design rule that a route holding business
         logic is a bug.
         """
-        inputs = load_normalizer_inputs(session)
+        inputs = load_normalizer_inputs(session, row.user_id)
         doc = receipt_to_dict(row)
         records = normalize_receipt(doc, inputs["resolution"], inputs["products"],
                                     inputs["line_resolutions"], inputs["shelf_prices"],
@@ -251,14 +310,17 @@ class PostgresRepository:
 
     def _get(self, session: Session, receipt_id: int) -> Receipt:
         row = session.get(Receipt, receipt_id)
-        if row is None:
+        # Another person's receipt is not there, as far as this one can tell.
+        if row is None or row.user_id != self.user_id:
             raise NotFound(f"no receipt {receipt_id}")
         return row
 
     def receipt(self, receipt_id: int) -> dict[str, Any] | None:
         with self.session_factory() as session:
-            row = session.get(Receipt, receipt_id)
-            return self._receipt_view(session, row) if row else None
+            try:
+                return self._receipt_view(session, self._get(session, receipt_id))
+            except NotFound:
+                return None
 
     def set_line_resolution(self, receipt_id: int, position: int, product_id: str | None,
                             confirmed_by: str | None = None,
@@ -313,7 +375,10 @@ class PostgresRepository:
                 answer = LineResolution(receipt_id=receipt_id, position=position)
                 answer.raw_name = line.raw_name
                 answer.product_id = product_id
-                answer.confirmed_by = confirmed_by or "shopper"
+                # A user's answer says whose it is, whatever the request claims:
+                # that is what the memory weighs it by (`memory.author_kind`).
+                answer.confirmed_by = (f"{memory.USER_PREFIX}{self.user['name']}" if self.user
+                                       else confirmed_by or "shopper")
                 answer.confirmed_at = date.today()
                 answer.basis = basis
                 answer.shopper_words = shopper_words
@@ -343,7 +408,13 @@ class PostgresRepository:
                                    machine_product_id=overruled,
                                    shopper_product_id=product_id))
 
-        learned = memory.learn(held, product_id)
+        if memory.author_kind(confirmed_by) == "user":
+            # Her answer stands for her line; what the owner told the memory
+            # stands for the name, and the disagreement is kept to look at.
+            answer = session.scalar(select(LineResolution).where(
+                LineResolution.receipt_id == receipt.id, LineResolution.position == position))
+            answer.disagrees_with = memory.disagrees(held, product_id)
+        learned = memory.learn(held, product_id, memory.author_kind(confirmed_by))
         if learned is None:
             return None
         snapshot = {"held": None if entry is None else {
@@ -432,8 +503,10 @@ class PostgresRepository:
                         f"{candidate}; it has {len(offered)}")
                 inputs = {"index": article_index(session),
                           "products": {p.id: {} for p in session.scalars(select(Product))}}
+                decided_by = (f"{memory.USER_PREFIX}{self.user['name']}" if self.user
+                              else "shopper")
                 product_id = product_for(session, offered[candidate - 1], row.store or "",
-                                         inputs, decided_by="shopper")
+                                         inputs, decided_by=decided_by)
             session.commit()
             return product_id
 
@@ -452,10 +525,11 @@ class PostgresRepository:
         from grocery_app import matcher as matching
 
         with self.session_factory() as session:
-            inputs = load_normalizer_inputs(session)
+            inputs = load_normalizer_inputs(session, self.user_id)
             proposals = {(q.receipt_id, q.position): q.proposal
                          for q in session.scalars(select(Question))}
-            receipts = session.scalars(select(Receipt).order_by(Receipt.date, Receipt.id)).all()
+            receipts = session.scalars(select(Receipt).where(whose(self.user_id))
+                                       .order_by(Receipt.date, Receipt.id)).all()
             questions = []
             held_back = 0
             for receipt in receipts:
@@ -499,9 +573,9 @@ class PostgresRepository:
     def receipts(self) -> list[dict[str, Any]]:
         """Every receipt, newest first, with how far its lines are placed and by whom."""
         with self.session_factory() as session:
-            inputs = load_normalizer_inputs(session)
+            inputs = load_normalizer_inputs(session, self.user_id)
             out = []
-            for row in session.scalars(select(Receipt)):
+            for row in session.scalars(select(Receipt).where(whose(self.user_id))):
                 doc = receipt_to_dict(row)
                 records = [r for r in normalize_receipt(
                     doc, inputs["resolution"], inputs["products"], inputs["line_resolutions"],
@@ -553,13 +627,14 @@ class PostgresRepository:
         with self.session_factory() as session:
             answers = {(lr.receipt_id, lr.position): lr.product_id
                        for lr in session.scalars(select(LineResolution))}
-            checks = session.scalars(select(Check)).all()
+            checks = session.scalars(select(Check).join(Receipt, Receipt.id == Check.receipt_id)
+                                     .where(whose(self.user_id))).all()
             right = sum(1 for c in checks
                         if answers.get((c.receipt_id, c.position)) == c.app_product_id)
             corrected = sum(1 for c in checks if (c.receipt_id, c.position) in answers) - right
             open_checks = [c for c in checks if (c.receipt_id, c.position) not in answers]
 
-            inputs = load_normalizer_inputs(session)
+            inputs = load_normalizer_inputs(session, self.user_id)
             views = []
             for check in open_checks:
                 receipt = session.get(Receipt, check.receipt_id)
@@ -718,7 +793,7 @@ class PostgresRepository:
         """
         with self.session_factory() as session:
             job = session.scalars(
-                select(Job).where(Job.image_sha256 == image_sha256)
+                select(Job).where(Job.image_sha256 == image_sha256, self._my_jobs())
                 .order_by(Job.created_at.desc(), Job.id)
             ).first()
             if job is None or job.status == "failed":
@@ -726,6 +801,21 @@ class PostgresRepository:
             if job.status == "done" and job.receipt_id is None and job.turned_away is None:
                 return None  # its receipt was removed
             return job_to_dict(job)
+
+
+def new_password() -> str:
+    """Four groups of four, from letters and digits nobody misreads: typed
+    once on a phone, then kept there."""
+    import secrets
+
+    alphabet = "abcdefghjkmnpqrstuvwxyz23456789"
+    return "-".join("".join(secrets.choice(alphabet) for _ in range(4)) for _ in range(4))
+
+
+def password_hash(password: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(password.strip().encode()).hexdigest()
 
 
 def default_repository(purchases_path: str | Path | None = None) -> Repository:
