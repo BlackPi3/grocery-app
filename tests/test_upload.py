@@ -569,6 +569,36 @@ def test_a_second_photo_of_the_same_paper_is_not_kept(engine, session, tmp_path)
     assert client.get("/v1/insights").json()["coverage"]["receipts"] == 1
 
 
+# --- removing a receipt -------------------------------------------------------
+# 2026-10-11: a receipt can be removed for whatever reason, by swiping it left.
+
+def test_a_removed_receipt_leaves_the_history_with_its_answers(engine, session, tmp_path):
+    session.add(Product(id="p-0001", name="Butter", brand="Muster"))
+    session.commit()
+    repository = PostgresRepository(make_session_factory(engine))
+    extractor = FakeExtractor()
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path), extractor))
+    photo = a_photo("red")
+    sent = client.post("/v1/receipts", files={"file": ("r.jpg", photo, "image/jpeg")})
+    job = client.get(f"/v1/jobs/{sent.json()['job_id']}").json()
+    receipt_id = job["receipt_id"]
+    client.put(f"/v1/receipts/{receipt_id}/lines/0/resolution", json={"product_id": "p-0001"})
+
+    assert client.delete(f"/v1/receipts/{receipt_id}").status_code == 204
+    assert client.get("/v1/receipts").json() == []
+    assert client.get("/v1/purchases").json()["purchases"] == []
+    assert client.get(f"/v1/receipts/{receipt_id}").status_code == 404
+    kept = client.get(f"/v1/jobs/{job['job_id']}").json()
+    assert kept["receipt_id"] is None and kept["cost_usd"] == job["cost_usd"], \
+        "what the reading cost was still spent"
+    assert client.delete(f"/v1/receipts/{receipt_id}").status_code == 404
+
+    again = client.post("/v1/receipts", files={"file": ("r.jpg", photo, "image/jpeg")})
+    assert again.status_code == 202, "the same photo added again is read again"
+    assert len(extractor.calls) == 2
+    assert len(client.get("/v1/receipts").json()) == 1
+
+
 # --- not a shop receipt --------------------------------------------------------
 # 2026-10-08: a restaurant bill was read like a shop receipt and entered the
 # history, counting a meal as groceries.

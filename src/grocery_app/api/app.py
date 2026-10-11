@@ -381,6 +381,17 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return ReceiptDocument.model_validate(updated)
 
+    @app.delete("/v1/receipts/{receipt_id}", status_code=204)
+    def remove_receipt(receipt_id: int) -> Response:
+        """Take a receipt out of the history, with its lines and the answers on
+        them. The page waits a few seconds before calling this, so its Undo
+        never needs the server."""
+        try:
+            require_writes().remove_receipt(receipt_id)
+        except NotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return Response(status_code=204)
+
     @app.put("/v1/receipts/{receipt_id}/lines/{position}/counted",
              response_model=ReceiptDocument, response_model_exclude_unset=True)
     def count_line(receipt_id: int, position: int,
