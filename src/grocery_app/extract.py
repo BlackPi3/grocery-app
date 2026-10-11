@@ -45,7 +45,9 @@ DEFAULT_MODEL = "claude-sonnet-5"
 # bill is turned away instead of entering the history as shopping.
 # v5 (2026-10-11): a shop's invoice or online order as a PDF (Amazon), read
 # as a receipt: the shop's own name, the order date, items as lines.
-PROMPT_VERSION = "v5"
+# v6 (2026-10-11): a PDF can hold several purchases (an app's history over
+# weeks); one receipt each, never one for the whole file.
+PROMPT_VERSION = "v6"
 
 # Server-side refusal fallbacks are only accepted on these models; Sonnet and
 # Haiku reject the parameter with a 400.
@@ -102,6 +104,13 @@ an online one (Amazon), as a PDF. That is `shop` too, read as a receipt:
      more than 0.
    - `printed_total` is what was paid (`Gesamtpreis`, `Zahlbetrag`).
    - Ignore addresses, names, payment references and order numbers.
+
+A PDF can hold several purchases: an app's purchase history over weeks, an
+export of many receipts. Answer with one receipt per purchase, never one for
+the whole file. A purchase is one shop visit or one order: its own date (and
+time, when printed), its own lines, its own total (as printed for it, else
+the sum of its lines). Items bought on different dates are always in
+different receipts. An invoice for one order is one receipt.
 
 Rules, in priority order:
 
@@ -240,6 +249,15 @@ RECEIPT_SCHEMA: dict[str, Any] = {
 }
 
 
+# A PDF is answered as a list: one receipt per purchase in the file.
+FILE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {"receipts": {"type": "array", "items": RECEIPT_SCHEMA}},
+    "required": ["receipts"],
+    "additionalProperties": False,
+}
+
+
 class ExtractionError(Exception):
     """The model call completed but did not yield a usable receipt."""
 
@@ -261,6 +279,10 @@ def refuse_pdf(path: Path) -> None:
 class Extraction:
     receipt: dict[str, Any]
     meta: dict[str, Any]
+    # The file's other purchases, when it held several (a PDF export over
+    # many dates): one receipt each, in the file's order, named
+    # `<file>#2`, `<file>#3`, ... (2026-10-11).
+    others: tuple[dict[str, Any], ...] = ()
 
 
 def prepare_image(path: str | Path, max_long_edge: int = MAX_LONG_EDGE) -> bytes:
@@ -335,7 +357,28 @@ def parse_model_output(text: str, source_image: str) -> dict[str, Any]:
         raw = json.loads(text)
     except json.JSONDecodeError as exc:
         raise ExtractionError(f"model output is not valid JSON: {exc}") from exc
+    return receipt_from_answer(raw, source_image)
 
+
+def parse_file_output(text: str, source_image: str) -> list[dict[str, Any]]:
+    """A file's purchases, one receipt each (`FILE_SCHEMA`): the first named
+    after the file, the others `<file>#2`, `<file>#3`, ... A file with no
+    purchase in it reads as no receipt at all."""
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ExtractionError(f"model output is not valid JSON: {exc}") from exc
+    found = raw.get("receipts") or []
+    if not found:
+        return [{"source_image": source_image, "receipt_from": "not_a_receipt", "lines": [],
+                 "first_guesses": []}]
+    return [receipt_from_answer(each, source_image if i == 0 else f"{source_image}#{i + 1}")
+            for i, each in enumerate(found)]
+
+
+def receipt_from_answer(raw: dict[str, Any], source_image: str) -> dict[str, Any]:
+    """One receipt as the model answered it, in the truth shape (see
+    `parse_model_output`)."""
     receipt: dict[str, Any] = {
         "source_image": source_image,
         "store": raw["store"],
@@ -553,10 +596,11 @@ def gemini_reader(model: str = GEMINI_MODEL, api_key: str | None = None,
             "contents": [{"parts": [
                 {"inlineData": {"mimeType": "application/pdf" if pdf else "image/jpeg",
                                 "data": base64.standard_b64encode(image_bytes).decode("ascii")}},
-                {"text": "Transcribe this receipt."},
+                {"text": "Transcribe every purchase in this file." if pdf
+                 else "Transcribe this receipt."},
             ]}],
             "generationConfig": {"responseMimeType": "application/json",
-                                 "responseJsonSchema": RECEIPT_SCHEMA},
+                                 "responseJsonSchema": FILE_SCHEMA if pdf else RECEIPT_SCHEMA},
         }
         try:
             with spend.tagged("reading"):
@@ -569,7 +613,8 @@ def gemini_reader(model: str = GEMINI_MODEL, api_key: str | None = None,
         text = gemini.text_of(data)
         if not text:
             raise ExtractionError(f"no text in Gemini's answer (finishReason={finish})")
-        receipt = parse_model_output(text, image_path.name)
+        receipts = (parse_file_output(text, image_path.name) if pdf
+                    else [parse_model_output(text, image_path.name)])
         usage = {k: v for k, v in (data.get("usageMetadata") or {}).items()
                  if isinstance(v, int)}
         meta = {
@@ -580,7 +625,7 @@ def gemini_reader(model: str = GEMINI_MODEL, api_key: str | None = None,
             "seconds": round(time.monotonic() - started, 1),
             "image_bytes_sent": len(image_bytes),
         }
-        return Extraction(receipt=receipt, meta=meta)
+        return Extraction(receipt=receipts[0], meta=meta, others=tuple(receipts[1:]))
 
     return read
 

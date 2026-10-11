@@ -280,16 +280,30 @@ def test_gemini_reads_a_pdf_as_it_is(tmp_path, monkeypatch):
     raw = b"%PDF-1.4\nmade up\n%%EOF\n"
     invoice.write_bytes(raw)
     seen = []
+    # An app's export: two purchases on two dates, in one file.
+    first = {**GEMINI_ANSWER, "store": "Musterladen", "time": "", "receipt_from": "shop"}
+    second = {**first, "date": "2026-03-08"}
     monkeypatch.setattr(urllib.request, "urlopen", fake_gemini({
         "candidates": [{"content": {"parts": [{"text": json.dumps(
-            {**GEMINI_ANSWER, "store": "Amazon", "time": "", "receipt_from": "shop"})}]},
-            "finishReason": "STOP"}], "usageMetadata": {}}, seen))
+            {"receipts": [first, second]})}]}, "finishReason": "STOP"}],
+        "usageMetadata": {}}, seen))
     result = extract.gemini_reader("gemini-3.8-flash", api_key="k")(invoice)
     (body,) = seen
     sent = body["contents"][0]["parts"][0]["inlineData"]
     assert sent["mimeType"] == "application/pdf" and base64.b64decode(sent["data"]) == raw
-    assert result.receipt["store"] == "Amazon"
+    assert body["generationConfig"]["responseJsonSchema"] == extract.FILE_SCHEMA
+    assert [r["date"] for r in (result.receipt, *result.others)] == ["2026-03-01", "2026-03-08"]
+    assert [r["source_image"] for r in (result.receipt, *result.others)] == \
+        ["invoice.pdf", "invoice.pdf#2"], "one receipt per purchase, each its own name"
     assert "Bestelldatum" in extract.SYSTEM_PROMPT, "the order date, not the delivery date"
+    assert "different receipts" in extract.SYSTEM_PROMPT
+
+
+def test_a_file_with_no_purchase_reads_as_no_receipt():
+    from grocery_app.extract import parse_file_output
+
+    (nothing,) = parse_file_output(json.dumps({"receipts": []}), "notes.pdf")
+    assert nothing["receipt_from"] == "not_a_receipt"
 
 
 def test_the_other_readers_say_they_cannot_read_a_pdf(tmp_path):

@@ -322,8 +322,14 @@ preparation), and the prompt says how: the shop's own name, the order date
 its ASIN, shipping only when it costs something, addresses and order numbers
 ignored. Checked on two real Amazon invoices: store, date, item names, VAT and
 totals right, both reconciled. Only the Gemini reader reads PDFs; the others
-say so. Not yet seen: a DM or Lidl app export, which may hold several
-purchases in one file.
+say so.
+
+Prompt v6 (same day): a PDF can hold several purchases (an app's history over
+weeks), so a PDF is answered as a list (`FILE_SCHEMA`), one receipt per
+purchase, never one for the whole file; items from different dates are always
+different receipts. The job stores each (`<file>`, `<file>#2`, ...), skips one
+already in that person's history, places the lines of every new one, and
+keeps spot checks at two per upload. Not yet seen: a real DM or Lidl export.
 
 Scored twice on the 27 hand-verified receipts (the second run lost one photo
 to a failed call):

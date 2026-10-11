@@ -190,6 +190,54 @@ def test_a_file_that_is_not_an_image_is_refused_before_anything_is_stored(upload
 A_PDF = b"%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << >>\n%%EOF\n"
 
 
+def test_each_purchase_in_a_file_is_its_own_receipt(engine, session, tmp_path):
+    """2026-10-11: an app's PDF export spans weeks. One receipt per purchase,
+    each placed; one already in the history is skipped; checks stay two per
+    upload, not two per purchase."""
+    from dataclasses import replace
+
+    session.add(Product(id="p-0001", name="Butter", brand="Muster"))
+    session.commit()
+    placed = []
+
+    def matcher(line, store, inputs):
+        placed.append(line["raw_name"])
+        return butter_matcher(line, store, inputs)
+
+    repository = PostgresRepository(make_session_factory(engine))
+    store = DiskImageStore(tmp_path)
+    # An earlier photo of the 8 March purchase is already in the history.
+    march_8 = {**RECEIPT, "date": "2026-03-08", "time": "18:00"}
+    TestClient(create_app(repository, store, FakeExtractor(march_8))).post(
+        "/v1/receipts", files={"file": ("r.jpg", a_photo("red"), "image/jpeg")})
+
+    class ExportReader(FakeExtractor):
+        def __call__(self, path):
+            first = super().__call__(path)
+            others = tuple({**r, "source_image": f"{path.name}#{n}"} for n, r in enumerate(
+                ({**RECEIPT, "date": "2026-03-05", "time": "09:00",
+                  "lines": [{**RECEIPT["lines"][0], "raw_name": "MU Milch"}]}, march_8),
+                start=2))
+            return replace(first, others=others)
+
+    client = TestClient(create_app(repository, store, ExportReader(
+        {**RECEIPT, "date": "2026-03-01", "time": "10:00"}), matcher))
+    sent = client.post("/v1/receipts", files={"file": ("export.pdf", A_PDF, "application/pdf")})
+    job = client.get(f"/v1/jobs/{sent.json()['job_id']}").json()
+
+    assert job["status"] == "done" and not job["already_added"]
+    dates = sorted(r["date"] for r in client.get("/v1/receipts").json())
+    assert dates == ["2026-03-01", "2026-03-05", "2026-03-08"], \
+        "two new purchases from the file, the one already there not twice"
+    new = [r["receipt_id"] for r in client.get("/v1/receipts").json()
+           if r["date"] in ("2026-03-01", "2026-03-05")]
+    for receipt_id in new:
+        (line,) = client.get(f"/v1/receipts/{receipt_id}").json()["lines"]
+        assert line["product_id"] == "p-0001", "every new receipt's lines are placed"
+    assert placed == ["MU Butter", "MU Milch"], "the matcher saw both new receipts"
+    assert len({c["receipt_id"] for c in client.get("/v1/checks").json()["checks"]}) <= 1
+
+
 def test_a_pdf_invoice_is_taken_like_a_photo(uploads):
     """2026-10-11: online orders (Amazon) and app exports come as PDFs."""
     client, extractor, _, _ = uploads

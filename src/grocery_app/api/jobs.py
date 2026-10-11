@@ -53,6 +53,8 @@ UNFINISHED = ("queued", "running")
 class Extraction(Protocol):
     receipt: dict[str, Any]
     meta: dict[str, Any]
+    # Further purchases in the same file (a PDF export): `extract.Extraction`.
+    others: tuple[dict[str, Any], ...]
 
 
 Extractor = Callable[[Path], Extraction]
@@ -138,14 +140,34 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _store_receipt(session: Session, job: Job, extraction: Extraction) -> None:
+def _store_receipts(session: Session, job: Job, extraction: Extraction) -> None:
+    """Every purchase the file held, each its own receipt (a PDF export can
+    span weeks, 2026-10-11). A purchase already in this person's history is
+    not stored again, one by one, so an export that overlaps an earlier one
+    adds only what is new. The job points at its first new receipt, or, when
+    nothing was new, at the first one already there (`already_added`)."""
+    stored, earlier = [], []
+    for receipt in (extraction.receipt, *getattr(extraction, "others", ())):
+        if receipt.get("receipt_from", "shop") != "shop":
+            continue  # a page of the file that is not a purchase
+        receipt_id, new = _store_receipt(session, job, receipt)
+        (stored if new else earlier).append(receipt_id)
+    job.receipt_id = (stored or earlier)[0]
+    job.already_added = not stored
+
+
+def _store_receipt(session: Session, job: Job,
+                   extracted: dict[str, Any]) -> tuple[int, bool]:
     """The extracted receipt, as a receipt row, marked as a model's reading.
 
     `transcribed_by = "llm"` is not a formality: the eval harness scores the
     model against hand-verified receipts, and a model's output silently
     entering that set as truth would make the score a lie.
+
+    Returns the receipt's id and whether it is new; a purchase already in the
+    history returns the earlier receipt's id.
     """
-    receipt_dict = {k: v for k, v in extraction.receipt.items() if k not in DERIVED_KEYS}
+    receipt_dict = {k: v for k, v in extracted.items() if k not in DERIVED_KEYS}
     receipt_dict["transcribed_by"] = "llm"
     receipt = receipt_from_dict(receipt_dict)
     receipt.image_sha256 = job.image_sha256
@@ -157,14 +179,13 @@ def _store_receipt(session: Session, job: Job, extraction: Extraction) -> None:
         # Already in the history: the job points there and this copy goes
         # (Parham, 2026-10-09: "a duplicate receipt shouldn't even be there").
         session.delete(receipt)
-        job.receipt_id = earlier.id
-        job.already_added = True
-        return
-    job.receipt_id = receipt.id
+        session.flush()
+        return earlier.id, False
     reading = f"{job.model} {job.prompt_version}"
-    for position, guess in enumerate(extraction.receipt.get("first_guesses") or []):
+    for position, guess in enumerate(extracted.get("first_guesses") or []):
         session.add(LineGuess(receipt_id=receipt.id, position=position, name=guess.get("name"),
                               category=guess.get("category"), reading=reading))
+    return receipt.id, True
 
 
 def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
@@ -215,16 +236,16 @@ def run_job(session_factory: sessionmaker[Session], image_store: ImageStore,
 
         # Only shopping enters the history: a restaurant bill read as a shop's
         # receipt would count a meal as groceries (Parham, 2026-10-08).
-        receipt_from = extraction.receipt.get("receipt_from", "shop")
-        if receipt_from != "shop":
-            job.turned_away = receipt_from
+        found = (extraction.receipt, *getattr(extraction, "others", ()))
+        if not any(r.get("receipt_from", "shop") == "shop" for r in found):
+            job.turned_away = extraction.receipt.get("receipt_from", "shop")
             job.status = "done"
             job.finished_at = _now()
             session.commit()
             return
 
         try:
-            _store_receipt(session, job, extraction)
+            _store_receipts(session, job, extraction)
         except Exception as exc:  # noqa: BLE001 - a receipt that will not store is a failed job
             session.rollback()
             job = session.get(Job, job_id)
@@ -266,8 +287,13 @@ def same_paper(session: Session, receipt: Receipt) -> Receipt | None:
 
 def _place_lines(session: Session, job_id: str, matcher: Any | None,
                  identify: Any | None) -> None:
-    """The second half of a job: its receipt is stored; place the lines, pick
-    the spot checks, and say `done`.
+    """The second half of a job: its receipts are stored; place the lines,
+    pick the spot checks, and say `done`.
+
+    A file with several purchases (a PDF export) left one receipt each, all
+    carrying the file's hash: every one is placed. Spot checks stay two per
+    upload, taken from its first receipt: an export of twenty purchases is
+    still one thing the shopper sent, not forty questions.
 
     Safe to run again on a receipt that is partly placed: the matcher skips a
     line the memory already places or that already has a question.
@@ -280,13 +306,18 @@ def _place_lines(session: Session, job_id: str, matcher: Any | None,
         job.finished_at = _now()
         session.commit()
         return
+    from_this_file = [job.receipt_id, *session.scalars(
+        select(Receipt.id).where(Receipt.image_sha256 == job.image_sha256,
+                                 whose(job.user_id), Receipt.id != job.receipt_id)
+        .order_by(Receipt.id))]
     if matcher is not None:
         from grocery_app.api.matching import match_receipt
 
         try:
             with spend.tagged("finding", job_id):
-                match_receipt(session, job.receipt_id, matcher, identify,
-                              checkpoint=session.commit)
+                for receipt_id in from_this_file:
+                    match_receipt(session, receipt_id, matcher, identify,
+                                  checkpoint=session.commit)
             session.commit()
         except Exception as exc:  # noqa: BLE001 - the receipt stands without matching
             session.rollback()
