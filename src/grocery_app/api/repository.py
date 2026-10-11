@@ -147,6 +147,15 @@ class WriteRepository(Protocol):
     def users(self) -> list[dict[str, Any]]:
         ...
 
+    def claim_inbox(self, is_pdf: Any) -> list[dict[str, Any]]:
+        ...
+
+    def job_image(self, job_id: str) -> str | None:
+        ...
+
+
+# The inbox starts the day it was built: older uploads were looked at already.
+INBOX_FROM = datetime(2026, 10, 11, tzinfo=UTC)
 
 # When finding a receipt's items was first written down (`spend`, PR of
 # 2026-10-11): a receipt uploaded before it has its reading cost only.
@@ -232,6 +241,45 @@ class PostgresRepository:
                          select(func.count()).select_from(Receipt)
                          .where(Receipt.user_id == u.id))}
                     for u in session.scalars(select(User).order_by(User.id))]
+
+    # --- the developer's inbox ---------------------------------------------------
+
+    def claim_inbox(self, is_pdf: Any) -> list[dict[str, Any]]:
+        """Finished uploads a developer should look at, not yet handed over;
+        handing them over marks them, so each arrives once (2026-10-11).
+
+        Worth a look: anything another person sent (their shops are new to the
+        app), any PDF (a format still being learned), anything that failed or
+        was turned away. The owner's ordinary photos are not. Each comes with
+        what was read from it, receipt by receipt, to set against the file.
+        `is_pdf(sha256)` says whether the stored upload is a PDF.
+        """
+        with self.session_factory() as session:
+            names = {u.id: u.name for u in session.scalars(select(User))}
+            found = []
+            for job in session.scalars(select(Job).where(
+                    Job.dev_seen_at.is_(None), Job.status.in_(("done", "failed")),
+                    Job.created_at >= INBOX_FROM).order_by(Job.created_at)):
+                pdf = is_pdf(job.image_sha256)
+                if not (job.user_id or pdf or job.status == "failed" or job.turned_away):
+                    continue
+                receipts = session.scalars(select(Receipt).where(
+                    Receipt.image_sha256 == job.image_sha256,
+                    whose(job.user_id)).order_by(Receipt.id)).all()
+                viewer = self.as_user({"id": job.user_id, "name": names.get(job.user_id)}
+                                      if job.user_id else None)
+                found.append({**job_to_dict(job), "user": names.get(job.user_id),
+                              "kind": "pdf" if pdf else "photo",
+                              "read": [viewer._receipt_view(session, r) for r in receipts]})
+                job.dev_seen_at = datetime.now(UTC)
+            session.commit()
+            return found
+
+    def job_image(self, job_id: str) -> str | None:
+        """The stored upload's hash, for the developer to fetch the file."""
+        with self.session_factory() as session:
+            job = session.get(Job, job_id)
+            return job.image_sha256 if job else None
 
     def user_for_password(self, password: str) -> dict[str, Any] | None:
         with self.session_factory() as session:
