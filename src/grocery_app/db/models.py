@@ -367,6 +367,9 @@ class Job(Base):
     # The photo was not of a shop receipt: where the reader says it is from
     # (`extract.RECEIPT_FROM`, never "shop"), and nothing was stored.
     turned_away: Mapped[str | None] = mapped_column(String)
+    # When the upload was handed to the developer to look at (`/v1/inbox`):
+    # another person's upload, a PDF, a failure (2026-10-11).
+    dev_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  server_default=func.now())

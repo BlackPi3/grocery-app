@@ -202,3 +202,32 @@ def test_her_answers_weigh_less_than_the_owners(two_people, session):
     assert sara.receipt(mine) is None
     with pytest.raises(NotFound):
         sara.set_line_resolution(mine, 0, "p-0002")
+
+
+# --- the developer's inbox -------------------------------------------------------
+# 2026-10-11: new kinds of upload reach development by themselves.
+
+@pytestmark_db
+def test_uploads_worth_a_look_reach_the_developer_once(two_people):
+    from tests.test_upload import A_PDF
+
+    client, _, sara = two_people
+    client.post("/v1/receipts", headers=OWNER,
+                files={"file": ("a.jpg", photo("red"), "image/jpeg")})       # ordinary
+    pdf = client.post("/v1/receipts", headers=OWNER,
+                      files={"file": ("order.pdf", A_PDF, "application/pdf")}).json()
+    hers = client.post("/v1/receipts", headers=sara,
+                       files={"file": ("b.jpg", photo("blue"), "image/jpeg")}).json()
+
+    assert client.post("/v1/inbox", headers=sara).status_code == 403
+    items = client.post("/v1/inbox", headers=OWNER).json()
+    assert {(i["job_id"], i["kind"], i["user"]) for i in items} == {
+        (pdf["job_id"], "pdf", None), (hers["job_id"], "photo", "Sara")}
+    (her_item,) = [i for i in items if i["user"] == "Sara"]
+    assert her_item["read"][0]["lines"][0]["raw_name"] == "MU Butter", \
+        "what was read comes along, to set against the file"
+    assert client.post("/v1/inbox", headers=OWNER).json() == [], "each arrives once"
+
+    got = client.get(f"/v1/inbox/{pdf['job_id']}/file", headers=OWNER)
+    assert got.content == A_PDF and got.headers["content-type"] == "application/pdf"
+    assert client.get(f"/v1/inbox/{pdf['job_id']}/file", headers=sara).status_code == 403

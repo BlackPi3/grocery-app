@@ -451,6 +451,34 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.post("/v1/inbox")
+    def claim_inbox(request: Request) -> list[dict]:
+        """Uploads a developer should look at (another person's, a PDF, a
+        failure), each with what was read from it; each is handed over once.
+        The owner's only: `scripts/dev_inbox.py` calls it when a development
+        session starts."""
+        owner_only(request)
+        repo = require_writes(request)
+
+        def is_pdf(sha256: str) -> bool:
+            if image_store is None or image_store.size(sha256) is None:
+                return False
+            with open(image_store.path(sha256), "rb") as file:
+                return file.read(5) == b"%PDF-"
+
+        return repo.claim_inbox(is_pdf)
+
+    @app.get("/v1/inbox/{job_id}/file")
+    def inbox_file(request: Request, job_id: str) -> Response:
+        """The file an upload sent, as it arrived. The owner's only."""
+        owner_only(request)
+        sha256 = require_writes(request).job_image(job_id)
+        if sha256 is None or image_store is None or image_store.size(sha256) is None:
+            raise HTTPException(status_code=404, detail=f"no file for job {job_id}")
+        data = image_store.path(sha256).read_bytes()
+        return Response(data, media_type="application/pdf" if data[:5] == b"%PDF-"
+                        else "image/jpeg")
+
     @app.delete("/v1/receipts/{receipt_id}", status_code=204)
     def remove_receipt(request: Request, receipt_id: int) -> Response:
         """Take a receipt out of the history, with its lines and the answers on
