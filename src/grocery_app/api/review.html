@@ -146,6 +146,7 @@
 "use strict";
 // All text from receipts and the model goes in with textContent, never as HTML.
 const state = { tab: "waiting", checks: null, questions: null, receipts: null, open: null,
+                copyAt: null,
                 insights: null, jobs: null, sending: [], notSent: [], uploaded: new Set() };
 const TABS = ["waiting", "receipts", "add", "insights"];
 
@@ -182,6 +183,22 @@ function toast(text, undo) {
 // A form, not prompt(): Safari and in-app browsers may never show a prompt.
 function savedToken() {
   try { return localStorage.getItem("grocery-token") || ""; } catch (_) { return ""; }
+}
+
+// What this phone last saw, drawn at once while the server starts up (12-20 s
+// after a quiet spell, Cloud Run's way of costing nothing while unused) and
+// replaced as soon as it answers. Only a convenience: without it the page
+// waits, as before. Answers and uploads always go to the server.
+const COPY_KEY = "grocery-copy";
+function saveCopy() {
+  try {
+    localStorage.setItem(COPY_KEY, JSON.stringify({
+      at: Date.now(), checks: state.checks, questions: state.questions, receipts: state.receipts,
+      insights: state.insights, receiptLines: state.receiptLines }));
+  } catch (_) { /* full, or private mode */ }
+}
+function savedCopy() {
+  try { return JSON.parse(localStorage.getItem(COPY_KEY) || "null"); } catch (_) { return null; }
 }
 
 async function api(path, options) {
@@ -382,6 +399,7 @@ async function refreshReceipt(receiptId) {
   try {
     const doc = await api(`/v1/receipts/${receiptId}`);
     state.receiptLines = { ...(state.receiptLines || {}), [receiptId]: doc.lines };
+    if (!state.copyAt) saveCopy();
   } catch (error) { toast(error.message); }
   render();
 }
@@ -392,6 +410,7 @@ async function openReceipt(receiptId) {
     try {
       const doc = await api(`/v1/receipts/${receiptId}`);
       state.receiptLines = { ...(state.receiptLines || {}), [receiptId]: doc.lines };
+      if (!state.copyAt) saveCopy();
     } catch (error) { toast(error.message); state.open = null; }
   }
   render();
@@ -724,7 +743,9 @@ function render() {
   view.replaceChildren(...views[state.tab]());
   const m = state.checks.meta;
   const answered = m.right + m.corrected;
-  document.getElementById("stats").textContent =
+  const copy = state.copyAt ? "As of your last visit (" + new Date(state.copyAt).toLocaleString([],
+    { weekday: "short", hour: "2-digit", minute: "2-digit" }) + "), updating… · " : "";
+  document.getElementById("stats").textContent = copy +
     `${m.open} spot checks and ${state.questions.meta.open} questions waiting · ` +
     (answered ? `app wrong on ${m.corrected} of ${answered} checked lines` :
                 "no spot check answered yet");
@@ -735,19 +756,26 @@ async function load({ jobs = true } = {}) {
     const [checks, questions, receipts] = await Promise.all([
       // Only searched questions: the shopper sees none a search could have answered.
       api("/v1/checks"), api("/v1/questions?searched=true"), api("/v1/receipts")]);
-    Object.assign(state, { checks, questions, receipts, receiptLines: {}, insights: null });
+    Object.assign(state, { checks, questions, receipts, receiptLines: {}, insights: null,
+                           copyAt: null });
     // Insights are computed on request; fetched after the rest so they never hold it up.
-    api("/v1/insights").then(doc => { state.insights = doc; if (state.tab === "insights") render(); })
+    api("/v1/insights").then(doc => {
+      state.insights = doc;
+      saveCopy();
+      if (state.tab === "insights") render();
+    })
       .catch(error => { if (state.tab === "insights") toast("Insights: " + error.message); });
     if (state.open !== null) {  // keep an open receipt open, with its new answers
       const doc = await api(`/v1/receipts/${state.open}`);
       state.receiptLines[state.open] = doc.lines;
     }
     render();
+    saveCopy();
     if (jobs) refreshJobs();
   } catch (error) {
     if (error.locked) return askPassword(error.message);
-    document.getElementById("stats").textContent = "Cannot load: " + error.message;
+    document.getElementById("stats").textContent = (state.copyAt ? "As of your last visit. " : "")
+      + "Cannot load: " + error.message;
   }
 }
 
@@ -785,6 +813,16 @@ document.getElementById("view").addEventListener("focusout", () => {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && state.checks) refreshJobs();
 });
+// The phone keeps the page itself as well (sw.js); over plain http, as on
+// the laptop, the browser refuses and the page simply waits.
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+const copy = savedCopy();
+if (copy && copy.checks && copy.questions && copy.receipts) {
+  Object.assign(state, { checks: copy.checks, questions: copy.questions, receipts: copy.receipts,
+                         insights: copy.insights, receiptLines: copy.receiptLines || {},
+                         copyAt: copy.at });
+  render();
+}
 load();
 </script>
 </body>

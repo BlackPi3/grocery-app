@@ -207,7 +207,7 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
   routes are open, as on the laptop. Sign in with Apple comes with the iOS app, and a
   `users` table with it; every table above gains a `user_id` then, not before.
 - **Deployment**: a `Dockerfile` (python:3.12-slim, `pip install .[api]`, uvicorn,
-  `db upgrade` before serving) on **Google Cloud** (decided 2026-10-03): Cloud Run,
+  migrations applied as the server starts, one Python start rather than two) on **Google Cloud** (decided 2026-10-03): Cloud Run,
   Cloud SQL PostgreSQL, and a Cloud Storage bucket, in `europe-west3` (Frankfurt).
   Nothing Google-only is in the code: the database is plain PostgreSQL, and the bucket
   is mounted as the `data/` folder, so `DiskImageStore` and the model caches work

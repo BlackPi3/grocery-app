@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir ".[api]" && rm -rf src
 RUN useradd --create-home --uid 1000 grocery && mkdir -p /app/data && chown grocery /app/data
 USER grocery
 
-# Migrations first, so a new image never serves an old schema. `db upgrade`
-# is a no-op on a database that is already current.
+# The server applies the migrations as it starts (`default_app`), so a new
+# image never serves an old schema, with one Python start rather than two.
 ENV PORT=8080
-CMD ["sh", "-c", "grocery-app db upgrade && exec uvicorn --factory grocery_app.api.app:default_app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "exec uvicorn --factory grocery_app.api.app:default_app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'"]
