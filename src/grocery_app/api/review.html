@@ -630,7 +630,13 @@ async function refreshJobsOnce() {
   // only one in progress and the shopper is still looking at the Add tab.
   const justRead = doc.jobs.find(job => job.receipt_id != null && state.uploaded.has(job.job_id)
     && before.get(job.job_id) && before.get(job.job_id).receipt_id == null);
+  // A photo turned away says so once, in a message that fades, and leaves no
+  // card behind (Parham, 2026-10-11).
+  const turnedAway = doc.jobs.find(job => job.turned_away && (
+    (before.get(job.job_id) && !before.get(job.job_id).turned_away) ||
+    (state.uploaded.has(job.job_id) && !before.has(job.job_id))));
   if (changed) await load({ jobs: false });
+  if (turnedAway) toast(`Not added: ${TURNED_AWAY[turnedAway.turned_away] || "not a shop receipt"}`);
   if (justRead && justRead.already_added) toast("Already in your receipts");
   if (justRead && state.tab === "add" && inProgress().length <= 1) {
     state.tab = "receipts";
@@ -656,9 +662,9 @@ function clock(iso) {
 }
 
 // Where the reader says a photo is from, when it is not a shop (`receipt_from`).
-const TURNED_AWAY = { restaurant_or_cafe: "a restaurant or café bill",
-                      other_business: "a bill for a service, a ticket or fuel",
-                      not_a_receipt: "no receipt at all" };
+const TURNED_AWAY = { restaurant_or_cafe: "a restaurant or café bill, not a shop receipt",
+                      other_business: "a bill for a service, not a shop receipt",
+                      not_a_receipt: "this is not a receipt" };
 
 function jobCard(job) {
   const added = "Added " + clock(job.created_at);
@@ -666,12 +672,7 @@ function jobCard(job) {
     return el("div", { class: "card" }, el("h2", {}, "Not read"),
       el("div", { class: "meta" }, added), el("div", { class: "why" }, job.error || ""));
   }
-  if (job.turned_away) {
-    return el("div", { class: "card" }, el("h2", {}, "Not added"),
-      el("div", { class: "meta" }, added),
-      el("div", { class: "why" }, `This looks like ${TURNED_AWAY[job.turned_away] || "something " +
-        "other than a shop receipt"}, not a receipt from a shop, so nothing was saved.`));
-  }
+  if (job.turned_away) return null;  // said once, in a message (refreshJobsOnce)
   const summary = (state.receipts || []).find(r => r.receipt_id === job.receipt_id);
   if (job.already_added) {
     return el("div", { class: "card" }, el("h2", {}, "Already added"),
@@ -879,7 +880,7 @@ function render() {
   render.pending = false;
   const views = { waiting: waitingView, receipts: receiptsView, add: addView,
                   insights: insightsView };
-  view.replaceChildren(...views[state.tab]());
+  view.replaceChildren(...views[state.tab]().filter(Boolean));  // a view may skip a card
   const m = state.checks.meta;
   const answered = m.right + m.corrected;
   const copy = state.copyAt ? "As of your last visit (" + new Date(state.copyAt).toLocaleString([],
@@ -956,7 +957,20 @@ document.addEventListener("visibilitychange", () => {
 });
 // The phone keeps the page itself as well (sw.js); over plain http, as on
 // the laptop, the browser refuses and the page simply waits.
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  // The phone showed its kept copy and the server has a newer page: load it,
+  // once nothing would be lost by it (a photo being sent, words being typed).
+  navigator.serviceWorker.addEventListener("message", event => {
+    if (event.data !== "page-updated") return;
+    const reloadWhenIdle = () => {
+      const typing = document.activeElement && document.activeElement.tagName === "INPUT";
+      if (state.sending.length || typing) return setTimeout(reloadWhenIdle, 2000);
+      location.reload();
+    };
+    reloadWhenIdle();
+  });
+}
 const copy = savedCopy();
 if (copy && copy.checks && copy.questions && copy.receipts) {
   Object.assign(state, { checks: copy.checks, questions: copy.questions, receipts: copy.receipts,

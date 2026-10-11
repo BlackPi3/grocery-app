@@ -24,14 +24,30 @@ self.addEventListener("fetch", event => {
 async function page(event) {
   const request = event.request;
   const cache = await caches.open(CACHE);
-  // The network answer is kept whenever it comes, also after the copy was shown.
-  const fresh = fetch(request).then(response => {
-    if (response.ok) cache.put("/", response.clone());
+  const kept = await cache.match("/");
+  let keptShown = false;
+  // The network answer is kept whenever it comes, also after the copy was
+  // shown; if the copy was shown and is older, the page is told, so a phone
+  // never stays on a page from before a deploy (2026-10-11: an old copy kept
+  // a turned-away photo "reading" with its clock running).
+  const fresh = fetch(request).then(async response => {
+    if (response.ok) {
+      const text = await response.clone().text();
+      const before = kept ? await kept.clone().text() : null;
+      await cache.put("/", response.clone());
+      if (keptShown && before !== text) await tellPages("page-updated");
+    }
     return response;
   });
   event.waitUntil(fresh.catch(() => null));
-  const kept = await cache.match("/");
   if (!kept) return fresh;
-  const late = new Promise(resolve => setTimeout(() => resolve(kept), WAIT_MS));
-  return Promise.race([fresh.catch(() => kept), late]);
+  const shown = () => { keptShown = true; return kept.clone(); };
+  const late = new Promise(resolve => setTimeout(() => resolve(shown()), WAIT_MS));
+  return Promise.race([fresh.catch(shown), late]);
+}
+
+async function tellPages(message) {
+  for (const client of await self.clients.matchAll({ type: "window" })) {
+    client.postMessage(message);
+  }
 }

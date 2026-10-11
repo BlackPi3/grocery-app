@@ -182,6 +182,8 @@ def test_the_page_worker_is_served_for_the_page_to_register(client):
     assert worker.headers["cache-control"] == "no-cache"
     assert '"navigate"' in worker.text, "it answers for the page only, never for /v1"
     assert 'register("/sw.js")' in client.get("/").text
+    assert '"page-updated"' in worker.text and '"page-updated"' in client.get("/").text, \
+        "a page shown from the phone's copy is replaced once the server's newer one arrives"
 
 
 def test_the_repository_is_chosen_by_the_environment(tmp_path, monkeypatch):
