@@ -20,7 +20,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, true
 from sqlalchemy.orm import Session, selectinload
 
 from grocery_app.db.models import (
@@ -216,7 +216,8 @@ def listing_to_dict(listing: StoreListing) -> dict[str, Any]:
 
 
 LINE_RESOLUTION_FIELDS = ("source_image", "line_index", "raw_name", "product_id",
-                          "confirmed_by", "confirmed_at", "basis", "shopper_words")
+                          "confirmed_by", "confirmed_at", "basis", "shopper_words",
+                          "disagrees_with")
 
 
 def line_resolution_to_dict(lr: LineResolution, source_image: str) -> dict[str, Any]:
@@ -225,21 +226,38 @@ def line_resolution_to_dict(lr: LineResolution, source_image: str) -> dict[str, 
          "confirmed_at": _iso(lr.confirmed_at), "basis": lr.basis}
     if lr.shopper_words is not None:  # only answers given as a description have them
         d["shopper_words"] = lr.shopper_words
+    if lr.disagrees_with is not None:  # only a user's answer against the owner's
+        d["disagrees_with"] = lr.disagrees_with
     return d
 
 
 # --- reading for the normalizer ----------------------------------------------
 
 
-def load_normalizer_inputs(session: Session) -> dict[str, Any]:
+# Every receipt, whoever's: what matching, the command line and a check of
+# the whole history read. `whose(None)` is the owner's, `whose(3)` user 3's.
+EVERYONE = "everyone"
+
+
+def whose(user_id: int | str | None) -> Any:
+    """The receipts one person sees: a user's, or the owner's (no user)."""
+    if user_id == EVERYONE:
+        return true()
+    return Receipt.user_id.is_(None) if user_id is None else Receipt.user_id == user_id
+
+
+def load_normalizer_inputs(session: Session,
+                           user_id: int | str | None = EVERYONE) -> dict[str, Any]:
     """Keyword arguments for `normalizer.assemble_purchases`, from the tables.
 
     The lookups are built the same way the file loaders build them
     (`load_resolution`, `load_line_resolutions`, `load_shelf_prices`,
-    `load_resolution_authors`, `load_uncounted_lines`).
+    `load_resolution_authors`, `load_uncounted_lines`). The receipts, their
+    answers and their left-out lines are one person's when `user_id` says
+    whose (`whose`); the catalog and the memory are everyone's.
     """
-    receipts = [receipt_to_dict(r) for r in
-                session.scalars(select(Receipt).options(selectinload(Receipt.lines)))]
+    receipts = [receipt_to_dict(r) for r in session.scalars(
+        select(Receipt).where(whose(user_id)).options(selectinload(Receipt.lines)))]
     products = {p.id: product_to_dict(p) for p in session.scalars(select(Product))}
 
     resolution: dict[tuple[str, str], list[str]] = {}
@@ -253,7 +271,7 @@ def load_normalizer_inputs(session: Session) -> dict[str, Any]:
     line_resolutions = {
         (source_image, lr.position): line_resolution_to_dict(lr, source_image)
         for lr, source_image in session.execute(
-            select(LineResolution, Receipt.source_image).join(Receipt))
+            select(LineResolution, Receipt.source_image).join(Receipt).where(whose(user_id)))
     }
 
     shelf_prices: dict[str, set[float]] = {}
@@ -262,7 +280,8 @@ def load_normalizer_inputs(session: Session) -> dict[str, Any]:
             shelf_prices.setdefault(listing.product_id, set()).add(float(observed["price"]))
 
     uncounted = {(source_image, u.position, u.raw_name) for u, source_image in
-                 session.execute(select(UncountedLine, Receipt.source_image).join(Receipt))}
+                 session.execute(select(UncountedLine, Receipt.source_image).join(Receipt)
+                                 .where(whose(user_id)))}
 
     return {"receipts": receipts, "products": products, "resolution": resolution,
             "line_resolutions": line_resolutions, "shelf_prices": shelf_prices,
@@ -412,13 +431,18 @@ def import_data(session: Session, receipts_dir: str | Path, products_path: str |
 
 def export_data(session: Session, out_dir: str | Path) -> dict[str, int]:
     """Write the tables out in the data/ layout. Content round-trips; formatting
-    and entry order are the exporter's, not the original files'."""
+    and entry order are the exporter's, not the original files'.
+
+    The receipts, answers and left-out lines are the owner's only: `data/` is
+    the owner's own history, and another user's receipts stay in the database.
+    The catalog and the memory are everyone's, so all of them go out."""
     out = Path(out_dir)
     truth = out / "receipts" / "truth"
     counts = {"receipts": 0, "products": 0, "resolutions": 0, "listings": 0,
               "line_resolutions": 0, "uncounted_lines": 0, "corrections": 0}
 
-    receipts = session.scalars(select(Receipt).options(selectinload(Receipt.lines))).all()
+    receipts = session.scalars(select(Receipt).where(whose(None))
+                               .options(selectinload(Receipt.lines))).all()
     for receipt in receipts:
         save_json(receipt_to_dict(receipt), truth / f"{Path(receipt.source_image).stem}.json")
         counts["receipts"] += 1
@@ -446,6 +470,7 @@ def export_data(session: Session, out_dir: str | Path) -> dict[str, int]:
 
     answers = [line_resolution_to_dict(lr, source_image) for lr, source_image in
                session.execute(select(LineResolution, Receipt.source_image).join(Receipt)
+                               .where(whose(None))
                                .order_by(Receipt.source_image, LineResolution.position))]
     save_json({"meta": {"schema": 1}, "entries": answers},
               out / "receipts" / "line_resolutions.json")
@@ -454,6 +479,7 @@ def export_data(session: Session, out_dir: str | Path) -> dict[str, int]:
     uncounted = [{"source_image": source_image, "line_index": u.position, "raw_name": u.raw_name}
                  for u, source_image in session.execute(
                      select(UncountedLine, Receipt.source_image).join(Receipt)
+                     .where(whose(None))
                      .order_by(Receipt.source_image, UncountedLine.position))]
     save_json({"meta": {"schema": 1}, "entries": uncounted},
               out / "receipts" / "uncounted_lines.json")
@@ -468,6 +494,7 @@ def export_data(session: Session, out_dir: str | Path) -> dict[str, int]:
                     "corrected_at": c.corrected_at.isoformat()}
                    for c, source_image in session.execute(
                        select(Correction, Receipt.source_image).outerjoin(Receipt)
+                       .where(whose(None))
                        .order_by(Correction.id))]
     save_json({"meta": {"schema": 1}, "entries": corrections},
               out / "receipts" / "corrections.json")

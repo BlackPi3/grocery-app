@@ -216,6 +216,18 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
   first 401 and keeps it in the phone's `localStorage`. Without `GROCERY_TOKEN` the
   routes are open, as on the laptop. Sign in with Apple comes with the iOS app, and a
   `users` table with it; every table above gains a `user_id` then, not before.
+  **Accounts came first, 2026-10-11** (migration 0017), for a designer testing the
+  app with her own receipts: a `users` table (name, sha256 of a password), and
+  `receipts.user_id` / `jobs.user_id`, empty for the owner, so nothing old changed.
+  The owner is whoever holds `GROCERY_TOKEN`; any other password is looked up in
+  `users`. Every route reads and writes the asker's receipts only
+  (`PostgresRepository.as_user`); the catalog and the memory are shared. A user's
+  answer is stamped `user:<name>` and weighs less (`memory.learn`): it replaces a
+  machine's guess, never the owner's answer (that disagreement is kept in
+  `line_resolutions.disagrees_with`, and the answer holds for the user's own line),
+  and the owner's answer replaces it. Lines a user's answer placed count as the
+  app's (`said_by: app`), so they can be spot-checked. Costs and people are the
+  owner's only. Sign in with Apple replaces the passwords with the iOS app.
 - **Deployment**: a `Dockerfile` (python:3.12-slim, `pip install .[api]`, uvicorn,
   migrations applied as the server starts, one Python start rather than two) on **Google Cloud** (decided 2026-10-03): Cloud Run,
   Cloud SQL PostgreSQL, and a Cloud Storage bucket, in `europe-west3` (Frankfurt).

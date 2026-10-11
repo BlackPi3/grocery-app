@@ -14,9 +14,13 @@ do that" — rather than a route that half works.
 `extractor` has no default on purpose. A model call costs real money, so
 there is no argument a test can forget that would make one happen.
 
-`token` locks the `/v1` routes behind `Authorization: Bearer <token>`: one
-shopper, one password, from `GROCERY_TOKEN` (backend-api.md, phase 3). The
-page at `/`, `/health` and the schema stay open; they hold no history.
+`token` locks the `/v1` routes behind `Authorization: Bearer <token>`: the
+owner's password, from `GROCERY_TOKEN` (backend-api.md, phase 3). Since
+2026-10-11 other people have passwords of their own (`users`): the password
+says who is asking, and every route reads and writes that person's receipts
+only (`PostgresRepository.as_user`); the catalog and the memory are shared.
+Without a token the server is the owner's alone, as on the laptop. The page
+at `/`, `/health` and the schema stay open; they hold no history.
 
 `resume_after`, when set, makes a starting server finish the jobs the last
 one left half done, that many seconds after it starts (`jobs.resume_unfinished`).
@@ -35,6 +39,7 @@ from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from grocery_app.api.images import (
     ImageStore,
@@ -66,12 +71,16 @@ from grocery_app.api.schemas import (
     JobsDocument,
     LineCountedRequest,
     LineResolutionRequest,
+    Me,
+    NewUser,
+    NewUserRequest,
     ProductMatch,
     PurchasesDocument,
     QuestionsDocument,
     ReceiptDocument,
     ReceiptPatch,
     ReceiptSummary,
+    UserSummary,
 )
 from grocery_app.insights import build_insights
 from grocery_app.matcher import ClaudeCodeDecider, GeminiDecider
@@ -128,11 +137,19 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         # later under /v1 cannot be added unlocked.
         @app.middleware("http")
         async def require_token(request: Request, call_next):
+            request.state.user = None  # the owner
             if request.url.path.startswith("/v1"):
-                given = request.headers.get("authorization", "").encode()
-                if not hmac.compare_digest(given, expected):
-                    return JSONResponse(status_code=401, content={"detail": "wrong or no token"},
-                                        headers={"WWW-Authenticate": "Bearer"})
+                given = request.headers.get("authorization", "")
+                if not hmac.compare_digest(given.encode(), expected):
+                    user = None
+                    if given.startswith("Bearer ") and hasattr(repository, "user_for_password"):
+                        user = await run_in_threadpool(repository.user_for_password,
+                                                       given.removeprefix("Bearer "))
+                    if user is None:
+                        return JSONResponse(status_code=401,
+                                            content={"detail": "wrong or no token"},
+                                            headers={"WWW-Authenticate": "Bearer"})
+                    request.state.user = user
             return await call_next(request)
 
     # Corrections need a database. A photo needs that and somewhere to put the
@@ -140,6 +157,23 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
     writes_available = isinstance(repository, WriteRepository)
     uploads_available = (writes_available
                          and image_store is not None and extractor is not None)
+
+    def asking(request: Request) -> dict | None:
+        """Who sent this request: a user, or None for the owner."""
+        return getattr(request.state, "user", None)
+
+    def seen_by(request: Request) -> Repository:
+        """The repository as the person asking sees it: their receipts only."""
+        user = asking(request)
+        if hasattr(repository, "as_user"):
+            return repository.as_user(user)
+        if user is not None:  # a file holds the owner's history and nobody else's
+            raise HTTPException(status_code=403, detail="this server has no accounts")
+        return repository
+
+    def owner_only(request: Request) -> None:
+        if asking(request) is not None:
+            raise HTTPException(status_code=403, detail="only the owner can see this")
 
     @app.get("/health", response_model=Health)
     def health() -> Health:
@@ -159,12 +193,13 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
     # Nulls the document really does carry (unit_price, tax_class) still go out.
     @app.get("/v1/purchases", response_model=PurchasesDocument,
              response_model_exclude_unset=True)
-    def purchases() -> PurchasesDocument:
+    def purchases(request: Request) -> PurchasesDocument:
         """The purchases.json contract, exactly as the CLI writes it."""
-        return PurchasesDocument.model_validate(repository.purchases())
+        return PurchasesDocument.model_validate(seen_by(request).purchases())
 
     @app.get("/v1/insights", response_model=InsightsDocument)
     def insights(
+        request: Request,
         as_of: str | None = Query(
             default=None,
             description="ISO date the insights are computed as of; "
@@ -177,21 +212,21 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         except ValueError as exc:
             raise HTTPException(
                 status_code=422, detail=f"as_of is not an ISO date: {as_of!r}") from exc
-        doc = build_insights(repository.purchases(), as_of=as_of_date)
+        doc = build_insights(seen_by(request).purchases(), as_of=as_of_date)
         return InsightsDocument.model_validate(doc)
 
-    def require_uploads() -> WriteRepository:
+    def require_uploads(request: Request) -> WriteRepository:
         if not uploads_available:
             raise HTTPException(
                 status_code=503,
                 detail="this server cannot accept photos: it needs DATABASE_URL, an "
                        "image store and an extractor",
             )
-        return repository  # type: ignore[return-value]
+        return seen_by(request)  # type: ignore[return-value]
 
     @app.post("/v1/receipts", response_model=JobDocument, status_code=202)
-    async def upload_receipt(background: BackgroundTasks, response: Response,
-                             file: UploadFile) -> JobDocument:
+    async def upload_receipt(request: Request, background: BackgroundTasks,
+                             response: Response, file: UploadFile) -> JobDocument:
         """Take a photo, return the job that will read it.
 
         Extraction takes seconds and costs money, so it does not happen inside
@@ -199,7 +234,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         photo is new and work was scheduled, `200` when it had already been
         read and the existing job is being handed back.
         """
-        repo = require_uploads()
+        repo = require_uploads(request)
         data = await file.read()
         if not data:
             raise HTTPException(status_code=422, detail="file is empty")
@@ -233,44 +268,44 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         return JobDocument.model_validate(job)
 
     @app.get("/v1/jobs", response_model=JobsDocument)
-    def jobs() -> JobsDocument:
+    def jobs(request: Request) -> JobsDocument:
         """Every photo still being read or placed, and those that failed in the
         last hour, oldest first. The page's Add tab is this list, so every
         device shows the same thing, whichever one sent the photo."""
-        repo = require_uploads()
+        repo = require_uploads(request)
         return JobsDocument(jobs=[JobDocument.model_validate(job)
                                   for job in repo.jobs_in_progress()])
 
     @app.get("/v1/jobs/{job_id}", response_model=JobDocument)
-    def job(job_id: str) -> JobDocument:
-        repo = require_uploads()
+    def job(request: Request, job_id: str) -> JobDocument:
+        repo = require_uploads(request)
         found = repo.job(job_id)
         if found is None:
             raise HTTPException(status_code=404, detail=f"no job {job_id}")
         return JobDocument.model_validate(found)
 
-    def require_writes() -> WriteRepository:
+    def require_writes(request: Request) -> WriteRepository:
         if not writes_available:
             raise HTTPException(
                 status_code=503,
                 detail="this server cannot record corrections: it needs DATABASE_URL")
-        return repository  # type: ignore[return-value]
+        return seen_by(request)  # type: ignore[return-value]
 
     # The same `exclude_unset` rule as /v1/purchases: a line the normalizer
     # left unresolved carries no product attributes, and the wire format must
     # not invent them as nulls.
     @app.get("/v1/receipts/{receipt_id}", response_model=ReceiptDocument,
              response_model_exclude_unset=True)
-    def receipt(receipt_id: int) -> ReceiptDocument:
+    def receipt(request: Request, receipt_id: int) -> ReceiptDocument:
         """One receipt as the paper has it, with the normalizer's reading of each line."""
-        found = require_writes().receipt(receipt_id)
+        found = require_writes(request).receipt(receipt_id)
         if found is None:
             raise HTTPException(status_code=404, detail=f"no receipt {receipt_id}")
         return ReceiptDocument.model_validate(found)
 
     @app.put("/v1/receipts/{receipt_id}/lines/{position}/resolution",
              response_model=ReceiptDocument, response_model_exclude_unset=True)
-    def resolve_line(receipt_id: int, position: int,
+    def resolve_line(request: Request, receipt_id: int, position: int,
                      answer: LineResolutionRequest) -> ReceiptDocument:
         """Say what one line actually was, or withdraw a previous answer.
 
@@ -279,7 +314,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         receipt is still resolved by the catalog, and the caller should see
         the state it is now in rather than guess.
         """
-        repo = require_writes()
+        repo = require_writes(request)
         given = [k for k in ("product_id", "candidate", "new_product")
                  if k in answer.model_fields_set]
         if len(given) != 1:
@@ -303,17 +338,19 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         return ReceiptDocument.model_validate(updated)
 
     @app.get("/v1/receipts", response_model=list[ReceiptSummary])
-    def receipts() -> list[ReceiptSummary]:
+    def receipts(request: Request) -> list[ReceiptSummary]:
         """Every receipt, newest first, with how many of its product lines are
         placed on the shopper's word, on the app's, or not at all."""
-        return [ReceiptSummary.model_validate(r) for r in require_writes().receipts()]
+        return [ReceiptSummary.model_validate(r) for r in require_writes(request).receipts()]
 
     @app.get("/v1/products", response_model=list[ProductMatch])
-    def products(q: str = Query(min_length=1, description="Words in the name or brand")
+    def products(request: Request,
+                 q: str = Query(min_length=1, description="Words in the name or brand")
                  ) -> list[ProductMatch]:
         """Catalog products to answer a line with: every word of `q` in the
-        name or brand, shortest name first, at most 20."""
-        return [ProductMatch.model_validate(p) for p in require_writes().search_products(q)]
+        name or brand, shortest name first, at most 20. The catalog is shared."""
+        return [ProductMatch.model_validate(p)
+                for p in require_writes(request).search_products(q)]
 
     @app.get("/", include_in_schema=False)
     def review_page() -> HTMLResponse:
@@ -346,7 +383,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                         headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
     @app.get("/v1/checks", response_model=ChecksDocument)
-    def checks() -> ChecksDocument:
+    def checks(request: Request) -> ChecksDocument:
         """Spot checks: lines the app placed on its own, put to the shopper at
         random, two per uploaded receipt, and the app's mistake rate on them.
 
@@ -354,10 +391,10 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         `product_id` = `app_product_id` when the app was right, another product
         when it was not (the mistake is counted in `corrections` as well).
         """
-        return ChecksDocument.model_validate(require_writes().checks())
+        return ChecksDocument.model_validate(require_writes(request).checks())
 
     @app.get("/v1/questions", response_model=QuestionsDocument)
-    def questions(searched: bool = Query(
+    def questions(request: Request, searched: bool = Query(
             default=False,
             description="Only questions a web search narrowed down; the rest are counted "
                         "in `meta.held_back`")) -> QuestionsDocument:
@@ -367,13 +404,13 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         a `candidate` number from here, a `product_id` from the catalog, or a
         `new_product` in words when it is none of them.
         """
-        return QuestionsDocument.model_validate(require_writes().questions(searched))
+        return QuestionsDocument.model_validate(require_writes(request).questions(searched))
 
     @app.patch("/v1/receipts/{receipt_id}", response_model=ReceiptDocument,
                response_model_exclude_unset=True)
-    def correct_receipt(receipt_id: int, patch: ReceiptPatch) -> ReceiptDocument:
+    def correct_receipt(request: Request, receipt_id: int, patch: ReceiptPatch) -> ReceiptDocument:
         """Correct the store."""
-        repo = require_writes()
+        repo = require_writes(request)
         if patch.store is None:
             raise HTTPException(status_code=422, detail="nothing to change: send store")
         try:
@@ -383,31 +420,55 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         return ReceiptDocument.model_validate(updated)
 
     @app.get("/v1/costs", response_model=CostsDocument)
-    def costs() -> CostsDocument:
+    def costs(request: Request) -> CostsDocument:
         """What the model calls cost: per month (when the money was spent) and
         per receipt (reading it, and finding what its lines are). List prices
-        in dollars; the server and the database are on Google's bill, not here."""
-        return CostsDocument.model_validate(require_writes().costs())
+        in dollars; the server and the database are on Google's bill, not here.
+        The whole app's bill, so the owner's only to see."""
+        owner_only(request)
+        return CostsDocument.model_validate(require_writes(request).costs())
+
+    @app.get("/v1/me", response_model=Me)
+    def me(request: Request) -> Me:
+        """Who the password belongs to: the owner, or a user by name."""
+        user = asking(request)
+        return Me(role="user" if user else "owner", name=user["name"] if user else None)
+
+    @app.get("/v1/users", response_model=list[UserSummary])
+    def users(request: Request) -> list[UserSummary]:
+        """The people who use the app besides the owner. The owner's only."""
+        owner_only(request)
+        return [UserSummary.model_validate(u) for u in require_writes(request).users()]
+
+    @app.post("/v1/users", response_model=NewUser, status_code=201)
+    def add_user(request: Request, body: NewUserRequest) -> NewUser:
+        """A new user, with their own receipts and a password shown only in this
+        answer (only its hash is kept). The owner's only."""
+        owner_only(request)
+        try:
+            return NewUser.model_validate(require_writes(request).create_user(body.name))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.delete("/v1/receipts/{receipt_id}", status_code=204)
-    def remove_receipt(receipt_id: int) -> Response:
+    def remove_receipt(request: Request, receipt_id: int) -> Response:
         """Take a receipt out of the history, with its lines and the answers on
         them. The page waits a few seconds before calling this, so its Undo
         never needs the server."""
         try:
-            require_writes().remove_receipt(receipt_id)
+            require_writes(request).remove_receipt(receipt_id)
         except NotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return Response(status_code=204)
 
     @app.put("/v1/receipts/{receipt_id}/lines/{position}/counted",
              response_model=ReceiptDocument, response_model_exclude_unset=True)
-    def count_line(receipt_id: int, position: int,
+    def count_line(request: Request, receipt_id: int, position: int,
                    body: LineCountedRequest) -> ReceiptDocument:
         """Leave one line out of the shopper's numbers (a wine bought for a
         friend), or count it again. It stays on the receipt and in the prices."""
         try:
-            updated = require_writes().set_counted(receipt_id, position, body.counted)
+            updated = require_writes(request).set_counted(receipt_id, position, body.counted)
         except NotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return ReceiptDocument.model_validate(updated)
