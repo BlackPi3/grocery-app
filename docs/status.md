@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-12, Google sign-in built (off until switched on).
+**Last updated:** 2026-10-12, why the demo has few pictures, and the fix.
 
 ## Now
 
@@ -23,6 +23,26 @@ session (laptop or cloud) can pick up from here. How we work is in
   paper is how the item was sold. A word like `lose` or `Stück`
   (`normalizer.SOLD_AS_WORDS`) is not a claim, so `Bananen` placed as
   Bananen, lose is not checked; such checks picked earlier are not shown.
+
+- Demo pictures (open item 2026-10-12: 7 of 24 products have one; branch
+  `claude/youthful-fermi-kt22jk`, not merged yet). Found:
+  the demo has no shop listings or barcodes (the matcher accepts a pick only
+  when the price paid matches the shelf; none of the made-up prices did), so
+  every picture must come from a web search. 6 products have no brand
+  (Bananen, Salatgurke, Rispentomaten, Hähnchenbrustfilet, Gouda, Bio
+  Haferflocken) and get none on purpose. Of the 18 searched, 7 found one, 8
+  found no page showing the product, and 3 (Weihenstephan, Kerrygold,
+  Kokett) timed out twice and were wrongly marked as looked up. The demo's
+  picture thread never fills them: every seeded product is marked looked up,
+  and from April 2027 it would have searched them again at every start and
+  lost the result. Fixed: a failed search stays due, searches wait 180 s,
+  the demo looks up only guests' products, and the build writes no seed with
+  an unknown picture. **Laptop step** (some 20 cents a search, 11 searches):
+  `GEMINI_VERTEX_PROJECT=<project> .venv/bin/python scripts/build_demo_seed.py --resume --retry-pictures`
+  (without `--resume` if the local `grocery_demo` database is gone), then
+  copy `data/demo/pictures/` to the bucket's `demo/pictures/`, commit
+  `demo_seed.sql`. Its log says why each search found nothing; if the 8 stay
+  empty, the matching rule (`pictures.same_product`) is the next suspect.
 
 ## Next build (agreed)
 
