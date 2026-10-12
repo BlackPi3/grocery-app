@@ -116,18 +116,22 @@ def products_wanting_pictures(session: Session, now: datetime | None = None,
 
 
 def fill_pictures(session_factory: sessionmaker[Session], service: Pictures,
-                  limit: int = 20, now: datetime | None = None, refresh: bool = True) -> int:
+                  limit: int = 20, now: datetime | None = None, refresh: bool = True,
+                  failed: set[str] | None = None) -> int:
     """Look up pictures for up to `limit` due products; returns how many were
     settled (marked as looked up).
 
     A photo found is fetched and kept. When a look finds nothing, or the
     photo cannot be fetched, a picture the product already has stays: an old
     pack beats no pack. A lookup that could not be made settles nothing: the
-    product stays due.
+    product stays due. With `failed` (the server's thread), such a product is
+    added to it and passed over while it is in it, so a lookup that keeps
+    failing is not paid for again every pass, nor keeps the others waiting.
     """
     settled = 0
     with session_factory() as session:
-        product_ids = products_wanting_pictures(session, now, refresh)[:limit]
+        product_ids = [product_id for product_id in products_wanting_pictures(
+            session, now, refresh) if failed is None or product_id not in failed][:limit]
         for product_id in product_ids:
             product = session.get(Product, product_id)
             listings = [{"store": listing.store, "article_number": listing.article_number,
@@ -138,6 +142,8 @@ def fill_pictures(session_factory: sessionmaker[Session], service: Pictures,
                 found = service.find(product_to_dict(product), listings)
             except pictures.LookupFailed as error:
                 log.warning("no picture lookup for %s this time: %s", product_id, error)
+                if failed is not None:
+                    failed.add(product_id)
                 continue
             if found:
                 try:
@@ -188,7 +194,7 @@ def open_questions(session: Session) -> list[Question]:
 
 
 def fill_question_pictures(session_factory: sessionmaker[Session], service: Pictures,
-                           limit: int = 20) -> int:
+                           limit: int = 20, failed: set[str] | None = None) -> int:
     """Look up pictures for up to `limit` shop listings on open questions'
     cards; returns how many were looked up.
 
@@ -215,8 +221,10 @@ def fill_question_pictures(session_factory: sessionmaker[Session], service: Pict
             changed = False
             for card in cards:
                 candidate = offered[card["candidate"] - 1] if "candidate" in card else None
+                key = f"{question.id}:{card['candidate']}" if candidate is not None else ""
                 if candidate is None or candidate.get("product_id") \
-                        or candidate.get("picture_checked") or looked >= limit:
+                        or candidate.get("picture_checked") or looked >= limit \
+                        or (failed is not None and key in failed):
                     continue
                 # Named as the receipt names the shop: the photo says "GLOBUS".
                 listings = ([{"store": receipt.store or candidate.get("source") or "",
@@ -228,6 +236,8 @@ def fill_question_pictures(session_factory: sessionmaker[Session], service: Pict
                                           "brand": candidate.get("brand")}, listings)
                 except pictures.LookupFailed as error:  # looked again next pass
                     log.warning("no picture lookup for a card this time: %s", error)
+                    if failed is not None:
+                        failed.add(key)
                     continue
                 if found:
                     try:
@@ -251,12 +261,14 @@ def keep_filling(session_factory: sessionmaker[Session], service: Pictures,
                  every: float = PASS_EVERY_SECONDS, refresh: bool = True) -> None:
     """The server's picture thread: a pass, a pause, for as long as it runs.
     Without `refresh` (the demo), a picture once looked up is never looked
-    up again."""
+    up again. A lookup that could not be made is tried again on the server's
+    next start, not every pass: each try may be a paid search."""
+    failed: set[str] = set()
     while True:
         try:
             with spend.tagged("pictures"):
-                fill_pictures(session_factory, service, refresh=refresh)
-                fill_question_pictures(session_factory, service)
+                fill_pictures(session_factory, service, refresh=refresh, failed=failed)
+                fill_question_pictures(session_factory, service, failed=failed)
         except Exception:  # noqa: BLE001 - a picture is never worth the server
             log.exception("looking up pictures failed")
         time.sleep(every)

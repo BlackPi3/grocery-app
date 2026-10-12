@@ -1124,6 +1124,32 @@ def test_a_picture_lookup_that_could_not_be_made_is_made_again(server, tmp_path)
     assert product.picture["from"] == "Musterladen"
 
 
+def test_a_failed_picture_lookup_is_not_tried_again_every_pass(server, tmp_path):
+    """The server's thread passes every 30 seconds, and each try may be a
+    paid search: a lookup that failed waits for the next start, and keeps no
+    other product waiting meanwhile."""
+    from grocery_app.api.pictures import fill_pictures, products_wanting_pictures
+
+    _, session = server
+    session.add_all([Product(id="p-0901", name="Zwieback", brand="Muster"),
+                     Product(id="p-0902", name="Knäckebrot", brand="Muster")])
+    session.commit()
+    factory = make_session_factory(session.get_bind())
+    failed: set[str] = set()
+    asked = []
+    service = picture_service(tmp_path, failing_for({"Zwieback"}, asked), asked)
+
+    fill_pictures(factory, service, limit=100, failed=failed)
+    assert failed == {"p-0901"}
+    tries = asked.count("Zwieback")
+    assert tries == 1
+
+    fill_pictures(factory, service, limit=100, failed=failed)
+    assert asked.count("Zwieback") == tries, "not tried again in the same run"
+    assert "p-0902" not in products_wanting_pictures(session)
+    assert products_wanting_pictures(session) == ["p-0901"], "still due at the next start"
+
+
 def test_the_demo_never_looks_up_a_picture_its_seed_already_settled(server, tmp_path,
                                                                      monkeypatch):
     """The demo starts from its seed every time: a picture looked up again
