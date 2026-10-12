@@ -12,6 +12,11 @@ straight away and its picture within a pass or two. A product with no
 picture anywhere is looked up again only when its picture is due anyway; one
 whose lookup could not be made (`pictures.LookupFailed`) is looked up again
 on the next pass.
+
+The demo looks only at products new since its start (`refresh=False`): it
+starts from the seed every time, so a refreshed picture would be gone by
+the next start and paid for again after it. The seed's pictures are found
+when the seed is built (`fill_all_pictures`).
 """
 
 from __future__ import annotations
@@ -86,11 +91,13 @@ def media_type(data: bytes) -> str:
     return Image.MIME.get(kind, "application/octet-stream")
 
 
-def products_wanting_pictures(session: Session, now: datetime | None = None) -> list[str]:
+def products_wanting_pictures(session: Session, now: datetime | None = None,
+                              refresh: bool = True) -> list[str]:
     """Products whose picture is due: never looked up, looked up longer than
-    `REFRESH_AFTER` ago, or found before the app kept copies. Those on open
-    spot checks first, then those a shop or a barcode gives a picture for in
-    a second; a web search takes half a minute, so those come last."""
+    `REFRESH_AFTER` ago (unless not `refresh`), or found before the app kept
+    copies. Those on open spot checks first, then those a shop or a barcode
+    gives a picture for in a second; a web search takes half a minute, so
+    those come last."""
     now = now or datetime.now(UTC)
     answered = select(LineResolution.id).where(
         and_(LineResolution.receipt_id == Check.receipt_id,
@@ -101,7 +108,7 @@ def products_wanting_pictures(session: Session, now: datetime | None = None) -> 
     listed = set(session.scalars(select(StoreListing.product_id)))
     due = session.execute(select(Product.id, Product.eans).where(or_(
         Product.picture_checked_at.is_(None),
-        Product.picture_checked_at < now - REFRESH_AFTER,
+        *([Product.picture_checked_at < now - REFRESH_AFTER] if refresh else []),
         and_(Product.picture.is_not(None), Product.picture["file"].astext.is_(None)),
     )).order_by(Product.id)).all()
     return [product_id for product_id, eans in sorted(due, key=lambda row: (
@@ -109,7 +116,7 @@ def products_wanting_pictures(session: Session, now: datetime | None = None) -> 
 
 
 def fill_pictures(session_factory: sessionmaker[Session], service: Pictures,
-                  limit: int = 20, now: datetime | None = None) -> int:
+                  limit: int = 20, now: datetime | None = None, refresh: bool = True) -> int:
     """Look up pictures for up to `limit` due products; returns how many were
     settled (marked as looked up).
 
@@ -120,7 +127,7 @@ def fill_pictures(session_factory: sessionmaker[Session], service: Pictures,
     """
     settled = 0
     with session_factory() as session:
-        product_ids = products_wanting_pictures(session, now)[:limit]
+        product_ids = products_wanting_pictures(session, now, refresh)[:limit]
         for product_id in product_ids:
             product = session.get(Product, product_id)
             listings = [{"store": listing.store, "article_number": listing.article_number,
@@ -241,12 +248,14 @@ def fill_question_pictures(session_factory: sessionmaker[Session], service: Pict
 
 
 def keep_filling(session_factory: sessionmaker[Session], service: Pictures,
-                 every: float = PASS_EVERY_SECONDS) -> None:
-    """The server's picture thread: a pass, a pause, for as long as it runs."""
+                 every: float = PASS_EVERY_SECONDS, refresh: bool = True) -> None:
+    """The server's picture thread: a pass, a pause, for as long as it runs.
+    Without `refresh` (the demo), a picture once looked up is never looked
+    up again."""
     while True:
         try:
             with spend.tagged("pictures"):
-                fill_pictures(session_factory, service)
+                fill_pictures(session_factory, service, refresh=refresh)
                 fill_question_pictures(session_factory, service)
         except Exception:  # noqa: BLE001 - a picture is never worth the server
             log.exception("looking up pictures failed")

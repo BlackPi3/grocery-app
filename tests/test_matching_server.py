@@ -1124,6 +1124,35 @@ def test_a_picture_lookup_that_could_not_be_made_is_made_again(server, tmp_path)
     assert product.picture["from"] == "Musterladen"
 
 
+def test_the_demo_never_looks_up_a_picture_its_seed_already_settled(server, tmp_path,
+                                                                     monkeypatch):
+    """The demo starts from its seed every time: a picture looked up again
+    would be lost at the next start and paid for again after it."""
+    from datetime import UTC, datetime, timedelta
+
+    from grocery_app.api import app as app_module
+    from grocery_app.api.pictures import fill_pictures, products_wanting_pictures
+
+    _, session = server
+    factory = make_session_factory(session.get_bind())
+    fill_pictures(factory, picture_service(tmp_path, lambda p: None, []), limit=100)
+    session.add(Product(id="p-0901", name="Zwieback", brand="Muster"))  # a guest's
+    session.commit()
+
+    later = datetime.now(UTC) + timedelta(days=200)
+    assert "p-0001" in products_wanting_pictures(session, later)
+    assert products_wanting_pictures(session, later, refresh=False) == ["p-0901"]
+
+    started = []
+    monkeypatch.setattr(app_module, "keep_filling",
+                        lambda *args, **kwargs: started.append(kwargs.get("refresh", True)))
+    service = picture_service(tmp_path, lambda p: None, [])
+    for demo in (True, False):
+        with TestClient(create_app(PostgresRepository(factory), pictures=service, demo=demo)):
+            pass
+    assert started == [False, True]
+
+
 def test_looking_again_for_the_missing_pictures_keeps_the_found_ones(server, tmp_path):
     from grocery_app.api.pictures import (
         fill_pictures,

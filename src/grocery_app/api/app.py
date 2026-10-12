@@ -133,10 +133,12 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if pictures is not None and writes_available:
-            # Finding pictures reads web pages: a thread of its own.
+            # Finding pictures reads web pages: a thread of its own. The demo
+            # starts from its seed every time: a picture it looked up again
+            # would be lost, and paid for again, at every start.
             app.state.pictures = threading.Thread(
                 target=keep_filling, args=(repository.session_factory, pictures),
-                name="pictures", daemon=True)
+                kwargs={"refresh": not demo}, name="pictures", daemon=True)
             app.state.pictures.start()
             if hasattr(repository, "picture_wait"):
                 repository.picture_wait = CHECK_WAITS_UP_TO  # checks come with theirs
