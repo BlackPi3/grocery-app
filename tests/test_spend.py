@@ -133,3 +133,20 @@ def test_a_receipt_costs_its_reading_and_finding_its_items(engine, session, tmp_
     assert now["total_usd"] == pytest.approx(reading + finding, abs=1e-5)
     assert not before["finding_recorded"], "finding was not written down then: unknown, not 0"
     assert doc["free_searches_per_month"] == 5000
+
+
+@pytestmark_db
+def test_a_day_past_each_spend_mark_says_so_once(engine, session, monkeypatch, caplog):
+    """2026-10-12: guests can spend money now; an unusual day must not go unseen."""
+    monkeypatch.setenv("GROCERY_SPEND_ALERT_USD", "1.00")
+    write = spend.database_sink(make_session_factory(engine))
+
+    def costing(dollars):  # output tokens only, at $3.75 a million
+        return spend.call_record("gemini-3.8-flash", {"usageMetadata": {
+            "candidatesTokenCount": round(dollars / 3.75 * 1e6)}})
+
+    for dollars in (0.6, 0.3, 0.2, 0.5, 0.6):  # 0.6, 0.9, 1.1, 1.6, 2.2
+        write(costing(dollars))
+    alerts = [r.getMessage() for r in caplog.records if spend.ALERT_MARK in r.getMessage()]
+    assert len(alerts) == 2, alerts
+    assert "$1.10 today" in alerts[0] and "$2.20 today" in alerts[1]

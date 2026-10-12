@@ -23,6 +23,7 @@ database) nothing is written; a sink that fails never fails the call.
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -43,6 +44,13 @@ SEARCH_PRICE_USD = 0.014
 FREE_SEARCHES_PER_MONTH = 5000
 
 PURPOSES = ("reading", "finding", "pictures", "other")
+
+# A day's model calls past this, in dollars, is unusual (Parham, 2026-10-12:
+# guests and a second user are in, "we don't want to bleed money without
+# knowing"). October's first twelve days cost $0.91 in all; a dollar in one
+# day is about ten normal days. Each further dollar is said again.
+ALERT_EVERY_USD = 1.0
+ALERT_MARK = "SPEND_ALERT"  # what the log-based alert in Cloud Monitoring matches
 
 _purpose: ContextVar[str | None] = ContextVar("spend_purpose", default=None)
 _job: ContextVar[str | None] = ContextVar("spend_job", default=None)
@@ -110,10 +118,19 @@ def record(model: str, data: dict[str, Any]) -> None:
 
 def database_sink(session_factory: Any) -> Callable[[dict[str, Any]], None]:
     """Each call as a `model_calls` row, in a session of its own: the caller's
-    may be mid-transaction or rolled back, and the money was spent anyway."""
+    may be mid-transaction or rolled back, and the money was spent anyway.
+
+    A call that takes the day's spend past another `GROCERY_SPEND_ALERT_USD`
+    (default `ALERT_EVERY_USD`) also logs `SPEND_ALERT`, which Cloud
+    Monitoring turns into an email (scripts/setup-alerts.sh)."""
+    from datetime import UTC, datetime
     from decimal import Decimal
 
+    from sqlalchemy import func, select
+
     from grocery_app.db.models import ModelCall
+
+    every = float(os.environ.get("GROCERY_SPEND_ALERT_USD", ALERT_EVERY_USD))
 
     def write(row: dict[str, Any]) -> None:
         cost = row["cost_usd"]
@@ -121,5 +138,14 @@ def database_sink(session_factory: Any) -> Callable[[dict[str, Any]], None]:
             session.add(ModelCall(**{**row, "cost_usd": None if cost is None
                                      else Decimal(str(cost))}))
             session.commit()
+            if not cost:
+                return
+            midnight = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+            today = float(session.scalar(select(func.coalesce(func.sum(ModelCall.cost_usd), 0))
+                                         .where(ModelCall.at >= midnight)))
+        if int(today // every) > int((today - cost) // every):
+            log.error("%s: model calls cost $%.2f today (UTC), past the $%.2f mark; "
+                      "last call: %s, %s", ALERT_MARK, today, today // every * every,
+                      row["purpose"], row["model"])
 
     return write
