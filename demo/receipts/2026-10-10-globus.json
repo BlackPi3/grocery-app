@@ -1,0 +1,71 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "GLOBUS",
+  "store_location": "Musterstraße 1, 66111 Saarbrücken",
+  "date": "2026-10-10",
+  "time": "19:17",
+  "currency": "EUR",
+  "printed_total": 13.67,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 11.38,
+    "19%": 2.29
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Weihenst. Frische Milch 3,5% 1L",
+      "qty": 1,
+      "gross": 1.57,
+      "discount": 0.0,
+      "net": 1.57,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kerrygold Butter 250g",
+      "qty": 1,
+      "gross": 2.89,
+      "discount": 0.0,
+      "net": 2.89,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Barilla Spaghetti No.5 500g",
+      "qty": 1,
+      "gross": 1.79,
+      "discount": 0.0,
+      "net": 1.79,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen lose",
+      "qty": 1,
+      "gross": 1.15,
+      "discount": 0.0,
+      "net": 1.15,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Philadelphia Original 175g",
+      "qty": 2,
+      "gross": 3.98,
+      "discount": 0.0,
+      "net": 3.98,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Tempo Taschent. 10x10",
+      "qty": 1,
+      "gross": 2.29,
+      "discount": 0.0,
+      "net": 2.29,
+      "tax_class": "1"
+    }
+  ]
+}

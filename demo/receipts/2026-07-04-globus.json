@@ -1,0 +1,98 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "GLOBUS",
+  "store_location": "Musterstraße 1, 66111 Saarbrücken",
+  "date": "2026-07-04",
+  "time": "09:45",
+  "currency": "EUR",
+  "printed_total": 15.59,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 10.67,
+    "19%": 4.92
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Weihenst. Frische Milch 3,5% 1L",
+      "qty": 1,
+      "gross": 1.51,
+      "discount": 0.0,
+      "net": 1.51,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kerrygold Butter 250g",
+      "qty": 1,
+      "gross": 2.59,
+      "discount": 0.0,
+      "net": 2.59,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Barilla Spaghetti No.5 500g",
+      "qty": 1,
+      "gross": 1.79,
+      "discount": 0.0,
+      "net": 1.79,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Dr.Oetker Ristorante Salame",
+      "qty": 1,
+      "gross": 2.79,
+      "discount": 0.0,
+      "net": 2.79,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Philadelphia Original 175g",
+      "qty": 1,
+      "gross": 1.99,
+      "discount": 0.0,
+      "net": 1.99,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Gerolsteiner Naturell 1,5L",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "1"
+    },
+    {
+      "type": "deposit",
+      "raw_name": "Pfand",
+      "qty": 1,
+      "gross": 0.25,
+      "discount": 0.0,
+      "net": 0.25,
+      "tax_class": "1"
+    },
+    {
+      "type": "product",
+      "raw_name": "Coca-Cola 1,5L",
+      "qty": 2,
+      "gross": 3.38,
+      "discount": 0.0,
+      "net": 3.38,
+      "tax_class": "1"
+    },
+    {
+      "type": "deposit",
+      "raw_name": "Pfand",
+      "qty": 2,
+      "gross": 0.5,
+      "discount": 0.0,
+      "net": 0.5,
+      "tax_class": "1"
+    }
+  ]
+}

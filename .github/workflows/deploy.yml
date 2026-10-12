@@ -42,8 +42,10 @@ jobs:
           service_account: github-deployer@project-cb9f2189-e79b-4351-bab.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v2
       - run: scripts/deploy.sh
-      - name: The new server answers
+      - name: The new server and the demo answer
         run: |
-          url=$(gcloud run services describe grocery --project "$GROCERY_PROJECT" \
-                --region europe-west3 --format='value(status.url)')
-          curl --fail --silent --show-error "$url/health"
+          for service in grocery grocery-demo; do
+            url=$(gcloud run services describe "$service" --project "$GROCERY_PROJECT" \
+                  --region europe-west3 --format='value(status.url)')
+            curl --fail --silent --show-error "$url/health"
+          done

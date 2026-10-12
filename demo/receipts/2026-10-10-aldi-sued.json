@@ -1,0 +1,107 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "ALDI SÜD",
+  "store_location": "Beispielweg 5, 66113 Saarbrücken",
+  "date": "2026-10-10",
+  "time": "13:33",
+  "currency": "EUR",
+  "printed_total": 22.93,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 18.16,
+    "19%": 4.77
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milsani H-Milch 1,5% 1L",
+      "qty": 1,
+      "gross": 1.07,
+      "discount": 0.0,
+      "net": 1.07,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Rispentomaten 500g",
+      "qty": 2,
+      "gross": 3.46,
+      "discount": 0.0,
+      "net": 3.46,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 1,
+      "gross": 1.19,
+      "discount": 0.0,
+      "net": 1.19,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Hähnchenbrustfilet 400g",
+      "qty": 1,
+      "gross": 4.89,
+      "discount": 0.0,
+      "net": 4.89,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kokett Toilettenpapier 8x",
+      "qty": 1,
+      "gross": 2.99,
+      "discount": 0.0,
+      "net": 2.99,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Gouda jung Scheiben 400g",
+      "qty": 1,
+      "gross": 2.99,
+      "discount": 0.0,
+      "net": 2.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Haferflocken 500g",
+      "qty": 1,
+      "gross": 0.99,
+      "discount": 0.0,
+      "net": 0.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Milsani Joghurt Natur 500g",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Moser Roth Edel-Vollmilch",
+      "qty": 2,
+      "gross": 2.78,
+      "discount": 0.0,
+      "net": 2.78,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Lacura Duschgel 300ml",
+      "qty": 2,
+      "gross": 1.78,
+      "discount": 0.0,
+      "net": 1.78,
+      "tax_class": "B"
+    }
+  ]
+}

@@ -415,6 +415,8 @@ class Me(BaseModel):
 
     role: Literal["owner", "user"]
     name: str | None = Field(description="A user's name; none for the owner")
+    demo: bool = Field(False, description="The public demo: made-up receipts, wiped on "
+                                          "every restart (`grocery_app.demo`)")
 
 
 class UserSummary(BaseModel):

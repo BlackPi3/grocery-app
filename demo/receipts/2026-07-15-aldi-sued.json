@@ -1,0 +1,71 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "ALDI SÜD",
+  "store_location": "Beispielweg 5, 66113 Saarbrücken",
+  "date": "2026-07-15",
+  "time": "11:58",
+  "currency": "EUR",
+  "printed_total": 15.78,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 14.89,
+    "19%": 0.89
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Rispentomaten 500g",
+      "qty": 1,
+      "gross": 1.55,
+      "discount": 0.0,
+      "net": 1.55,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 2,
+      "gross": 2.38,
+      "discount": 0.0,
+      "net": 2.38,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Milsani Joghurt Natur 500g",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Haferflocken 500g",
+      "qty": 1,
+      "gross": 0.99,
+      "discount": 0.0,
+      "net": 0.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Hähnchenbrustfilet 400g",
+      "qty": 2,
+      "gross": 9.18,
+      "discount": 0.0,
+      "net": 9.18,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Lacura Duschgel 300ml",
+      "qty": 1,
+      "gross": 0.89,
+      "discount": 0.0,
+      "net": 0.89,
+      "tax_class": "B"
+    }
+  ]
+}

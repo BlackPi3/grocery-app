@@ -5,6 +5,12 @@
 
 Turns grocery receipts into an item-level purchase history with spending insights.
 
+**Try it: [grocery-demo-rk2cowwvmq-ey.a.run.app](https://grocery-demo-rk2cowwvmq-ey.a.run.app)**, best on a
+phone. The live app with four months of made-up receipts from four German chains; the products,
+pictures, questions and insights are what the real pipeline made of them. Scan a receipt of your own if
+you like (ten a day across all visitors): everything you add, photos included, is wiped when the demo
+restarts. Every merge to `main` deploys it along with the real server (`grocery_app/demo.py`).
+
 ## Goal
 
 Supermarket and banking apps show what a shop cost, not what was bought. The goal here is the item level:

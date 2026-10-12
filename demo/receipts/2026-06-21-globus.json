@@ -1,0 +1,107 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "GLOBUS",
+  "store_location": "Musterstraße 1, 66111 Saarbrücken",
+  "date": "2026-06-21",
+  "time": "16:35",
+  "currency": "EUR",
+  "printed_total": 15.02,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 10.79,
+    "19%": 4.23
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Weihenst. Frische Milch 3,5% 1L",
+      "qty": 1,
+      "gross": 1.49,
+      "discount": 0.0,
+      "net": 1.49,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kerrygold Butter 250g",
+      "qty": 1,
+      "gross": 2.49,
+      "discount": 0.0,
+      "net": 2.49,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Ja! Haferflocken 500g",
+      "qty": 1,
+      "gross": 0.89,
+      "discount": 0.0,
+      "net": 0.89,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Coca-Cola 1,5L",
+      "qty": 1,
+      "gross": 1.69,
+      "discount": 0.0,
+      "net": 1.69,
+      "tax_class": "1"
+    },
+    {
+      "type": "deposit",
+      "raw_name": "Pfand",
+      "qty": 1,
+      "gross": 0.25,
+      "discount": 0.0,
+      "net": 0.25,
+      "tax_class": "1"
+    },
+    {
+      "type": "product",
+      "raw_name": "Tempo Taschent. 10x10",
+      "qty": 1,
+      "gross": 2.29,
+      "discount": 0.0,
+      "net": 2.29,
+      "tax_class": "1"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen lose",
+      "qty": 1,
+      "gross": 1.15,
+      "discount": 0.0,
+      "net": 1.15,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Salatgurke St.",
+      "qty": 1,
+      "gross": 0.69,
+      "discount": 0.0,
+      "net": 0.69,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Dr.Oetker Ristorante Salame",
+      "qty": 1,
+      "gross": 2.79,
+      "discount": 0.0,
+      "net": 2.79,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Mutti Passata 500g",
+      "qty": 1,
+      "gross": 1.29,
+      "discount": 0.0,
+      "net": 1.29,
+      "tax_class": "2"
+    }
+  ]
+}
