@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-12, after #109.
+**Last updated:** 2026-10-13, redesign step 3.
 
 ## Now
 
@@ -22,9 +22,12 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Next build (agreed)
 
-1. **Redesign step 3.** Each receipt line shows an easy product name and its
-   deepest category. Details (printed line, who said it, sizes) are shown to
-   the owner only.
+1. ~~Redesign step 3.~~ Done: each receipt line shows an easy product name
+   and its deepest category (left out when it repeats the name). A line
+   nothing placed shows the reading's guess, marked, or the printed text in
+   grey. The brand, size, details, who said it and the printed line are the
+   owner's only; the receipt header says "6 items" (owner: "6 items: 2 you,
+   4 app").
 2. **Drill-down.** Tap an insight to see a calendar of purchase dots
    (GitHub/Anki style), then the receipt line (fix it there), then the receipt
    photo. There is no photo endpoint for users yet.
