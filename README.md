@@ -21,7 +21,7 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 ## Current state (work in progress)
 
 **Stage, 12 October 2026: in daily use, with a public demo.** The server is online on Google Cloud,
-behind a password, and every merge to `main` deploys it, together with a public demo that anyone can
+with a password for each person, and every merge to `main` deploys it, together with a public demo that anyone can
 open (link above). The demo runs the same code on made-up receipts, in a database of its own that
 resets on every start. From my phone I photograph a receipt, Gemini reads it, and the app matches each
 line to a product, searching the web before it asks me. The page now has a bottom bar with a + to
@@ -38,7 +38,7 @@ November 2026).
 - **Purchase history**: `purchases.json`, built from the extracted receipts by the normalization layer.
 - **Insights**: `grocery-app insights` reads purchases.json and writes `insights.json`: repurchase cadence with an expected next date, price over time per product, a personal basket index (last month's repeat basket priced at this month's prices), budget vs name brand share, and the same item across stores. Every figure carries the coverage it rests on.
 - **API**: `grocery-app serve` exposes the same two documents over HTTP (`/v1/purchases`, `/v1/insights`, OpenAPI at `/docs`), from the JSON files or from PostgreSQL (`grocery-app db upgrade`, `db import`, `db export`); the same normalizer runs either way, and a test proves the two agree. With PostgreSQL it also takes photos: `POST /v1/receipts` stores the image, returns a job id, and extracts in the background; `GET /v1/jobs/{id}` reports `queued` / `running` / `done` / `failed` with the model's cost. One photo is never extracted twice. A shopper can read a receipt back (`GET /v1/receipts/{id}`), say what a line actually was (`PUT .../lines/{position}/resolution`), correct a receipt's store (`PATCH /v1/receipts/{id}`), and remove a receipt (`DELETE /v1/receipts/{id}`). Each person has their own password and sees only their own receipts (`/v1/me`, owner-only `/v1/users`); the catalog and the memory are shared, and a user's answers weigh less than the owner's. Every paid model call is written down (`model_calls`), so `GET /v1/costs` says what processing cost per month and per receipt: reading the photo, finding the items, product pictures. Every line says who said what it is (`said_by`: you or the app), two random lines the app placed itself per uploaded receipt are put to the shopper as spot checks (`GET /v1/checks`, with the app's mistake rate), and a phone-sized review page at `/` shows both — the corrections land in `line_resolutions` and `db export` writes them back out for the catalog loop. The plan, and what is deliberately not done yet, is in `docs/designs/backend-api.md`.
-- **Deployment**: one Docker image on Cloud Run, with Cloud SQL (PostgreSQL) and the photos in Cloud Storage, all in Frankfurt. One password guards every route; there are no user accounts yet. GitHub Actions deploys `main` after its tests pass, signing in to Google without a stored key (Workload Identity Federation).
+- **Deployment**: one Docker image on Cloud Run, with Cloud SQL (PostgreSQL) and the photos in Cloud Storage, all in Frankfurt. Every route needs a password; each person has their own and sees only their own receipts. The public demo is a second Cloud Run service from the same image, with its own database, and it sees only its own folder of the bucket. GitHub Actions deploys both after the tests on `main` pass, signing in to Google without a stored key (Workload Identity Federation). Cloud Monitoring emails me when model spending or traffic is unusual.
 
 ## Produce
 
@@ -69,14 +69,28 @@ routed to a person rather than settled by a cleverer matcher. The design is in
 
 ## What it says today
 
-From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insights use the 218 of 237 lines (88% of spend) that resolve to a catalog product; the rest counts as money only, and the demo says so in its footer.
+From my own 67 receipts, 25 June to 12 October 2026, across ten shops (mostly GLOBUS and ALDI SÜD).
+Of the 446 grocery lines, 419 are matched to a product, which is 93% of the €986 spent; the rest counts
+as money only. 24 lines that are not groceries (a cigarette pack, photo prints, a café coffee) are
+counted apart and left out of every insight.
 
-- **Price watch**: 21 products bought on more than one date; 12 of them at a different price. Snack cucumbers tripled between June and July; radishes came down a third.
-- **Personal basket index**: August vs July, over the 11 products bought in both months: 155.2. The series starts in a June of cheap summer produce, so it reads high; eleven products is still a thin basket, and the index refuses to report on fewer than three.
-- **Repurchase cadence**: 23 products bought more than once, 13 of them due. Most rest on a single gap between two trips, and the demo labels those "bought twice, N days apart" rather than "every N days".
-- **Budget vs name brand**: 34% of the €312 with a known status goes to a shop's cheaper line — 68% at ALDI SÜD. The status is derived per line from the store and the brand, never stored on the product, and €57.86 sits in "brand not yet read" rather than being guessed at.
-- **Where the money goes**: every resolved line now carries a category, so the demo breaks spend down by part of the shop — €92.71 fruit and veg, €84.12 sweet and salty snacks, €68.81 dairy. Two products are still uncategorised, worth €4.38 — the shopper looked and could not remember, which the catalog records as a question rather than a blank.
-- **Same item across stores**: 11 products bought at more than one shop. Snack cucumbers run €0.99 at Lidl against €1.11 at ALDI SÜD; redcurrants are not comparable at all, sold by the kilo at one and by the punnet at the other, and the insight says so rather than dividing.
+- **Price watch**: 56 products bought more than once at the same shop (58 product-and-shop pairs); in 34 pairs the price changed. The
+  biggest moves are the ones to check first: a halved cola price or a nearly doubled cream cheese can be a
+  real change, a special offer, or two different packs matched to one product. Tapping through to the
+  receipt behind a number is on the list below.
+- **Personal basket index**: each month's repeat basket priced at the next month's prices. September
+  against August, over 17 products: 1.7% cheaper; October so far, over 14: 2.8% dearer. Baskets this
+  small move with single items.
+- **Repurchase cadence**: 66 products bought more than once, 24 of them due again. 42 of those rest on
+  a single gap between two trips, and the app says "bought twice, N days apart" rather than
+  "every N days".
+- **Budget vs name brand**: 34% of the €631 whose brand status is known went to a shop's cheaper line:
+  71% at ALDI SÜD, 30% at GLOBUS. €158 sits under "brand not yet known" rather than being guessed.
+- **Where the money goes**: a month view splits each month by part of the shop. September, the fullest
+  month (24 receipts, €295), led with dairy and eggs (€45.52), then sweet and salty snacks (€42.68).
+- **Same item across stores**: 18 products bought at more than one shop. Onions were bought at four;
+  carrots ran €1.36/kg at ALDI SÜD against €1.79/kg at GLOBUS. Some pairs are not comparable (one shop
+  sells by the kilo, the other by the piece), and the insight shows both units rather than dividing.
 
 ## Next
 
