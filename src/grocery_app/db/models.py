@@ -196,7 +196,11 @@ class LineResolution(Base):
     receipt_id: Mapped[int] = mapped_column(ForeignKey("receipts.id", ondelete="CASCADE"))
     position: Mapped[int] = mapped_column(Integer)
     raw_name: Mapped[str] = mapped_column(String)  # guards against a re-transcribed line
-    product_id: Mapped[str] = mapped_column(ForeignKey("products.id"))
+    # None is an answer too: "none of these", the line stays not placed and
+    # is not asked about again (Parham, 2026-10-12: a No on every card).
+    product_id: Mapped[str | None] = mapped_column(ForeignKey("products.id"))
+    # The product a No on a spot check said the line was not.
+    rejected: Mapped[str | None] = mapped_column(String)
     confirmed_by: Mapped[str | None] = mapped_column(String)
     confirmed_at: Mapped[date | None] = mapped_column(Date)
     basis: Mapped[str | None] = mapped_column(String)  # memory, photo, ...
@@ -270,7 +274,7 @@ class Correction(Base):
     raw_name: Mapped[str] = mapped_column(String)
     machine_how: Mapped[str] = mapped_column(String)  # the line's `resolution` before
     machine_product_id: Mapped[str] = mapped_column(String)
-    shopper_product_id: Mapped[str] = mapped_column(String)
+    shopper_product_id: Mapped[str | None] = mapped_column(String)  # None: "not that"
     corrected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                    server_default=func.now())
 

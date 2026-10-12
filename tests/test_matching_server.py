@@ -615,6 +615,61 @@ def test_a_spot_check_comes_with_its_picture_not_before_it(server, tmp_path):
         "a server that looks up no pictures waits for none"
 
 
+def test_a_question_is_asked_with_cards_the_price_paid_first(server):
+    """2026-10-12: yes/no cards, the product that costs what was paid first."""
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["Rätsel"])
+    match_receipt(session, receipt, TableMatcher({"Rätsel": ("ask", [
+        listing("21", "Rätselheft", price=2.5), listing("22", "Rätselblock")])}))
+    session.commit()
+
+    question = next(q for q in client.get("/v1/questions").json()["questions"]
+                    if q["raw_name"] == "Rätsel")
+    assert question["cards"] == [{"candidate": 2, "choice": None},
+                                 {"candidate": 1, "choice": None}], "1,19 € paid"
+    assert [c["price"] for c in question["candidates"]] == [2.5, 1.19]
+
+
+def test_a_question_comes_with_its_shop_pictures_not_before_them(server, tmp_path):
+    from grocery_app.api.pictures import CHECK_WAITS_UP_TO, fill_question_pictures
+    from grocery_app.db.session import make_session_factory
+
+    _, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["Rätsel"])
+    match_receipt(session, receipt, TableMatcher({"Rätsel": ("ask", [
+        listing("21", "Rätselheft"), listing("22", "Rätselblock")])}))
+    session.commit()
+    factory = make_session_factory(session.get_bind())
+    looks_up = PostgresRepository(factory, picture_wait=CHECK_WAITS_UP_TO)
+
+    def rätsel():
+        return [q for q in looks_up.questions()["questions"] if q["raw_name"] == "Rätsel"]
+
+    assert rätsel() == [], "held back while its pictures are looked up"
+
+    asked = []
+    found = {"Rätselheft": {"url": "https://laden.example/media/red", "from": "musterladen"}}
+    service = picture_service(tmp_path, lambda product: found.get(product["name"]), asked)
+    assert fill_question_pictures(factory, service) == 2
+    assert fill_question_pictures(factory, service) == 0, "looked up once"
+    (question,) = rätsel()
+    heft, block = question["candidates"]
+    assert heft["picture"]["url"].startswith("/pictures/") and block["picture"] is None
+    assert len(PostgresRepository(factory).questions()["questions"]) == 2, \
+        "a server that looks up no pictures waits for none"
+
+
+def test_a_line_the_shopper_answered_is_never_matched_again(server):
+    client, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["Rätsel"])
+    client.put(f"/v1/receipts/{receipt}/lines/0/resolution", json={"none_of_these": True})
+    table = TableMatcher({})
+
+    match_receipt(session, receipt, table)
+
+    assert table.calls == []
+
+
 def test_a_product_a_shop_lists_is_looked_up_before_one_that_needs_a_search(server):
     from grocery_app.api.pictures import products_wanting_pictures
 

@@ -335,22 +335,24 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         the state it is now in rather than guess.
         """
         repo = require_writes(request)
-        given = [k for k in ("product_id", "candidate", "new_product")
+        given = [k for k in ("product_id", "candidate", "new_product", "none_of_these")
                  if k in answer.model_fields_set]
         if len(given) != 1:
             raise HTTPException(
                 status_code=422,
-                detail="send exactly one of product_id (null withdraws), candidate, new_product")
+                detail="send exactly one of product_id (null withdraws), candidate, new_product, "
+                       "none_of_these")
         try:
             product_id = answer.product_id
-            if given[0] != "product_id":
+            if given[0] not in ("product_id", "none_of_these"):
                 product_id = repo.product_for_answer(
                     receipt_id, position, answer.candidate,
                     answer.new_product.model_dump() if answer.new_product else None,
                     identify)
             updated = repo.set_line_resolution(
                 receipt_id, position, product_id, answer.confirmed_by, answer.basis,
-                answer.new_product.description if answer.new_product else None)
+                answer.new_product.description if answer.new_product else None,
+                none_of_these=bool(answer.none_of_these))
         except NotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except (UnknownProduct, NotAProductLine, NoSuchCandidate) as exc:

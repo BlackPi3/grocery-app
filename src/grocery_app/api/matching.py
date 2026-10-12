@@ -45,7 +45,14 @@ from sqlalchemy.orm import Session
 from grocery_app import identify as identifying
 from grocery_app import matcher as matching
 from grocery_app.db.io import load_normalizer_inputs, product_from_dict, receipt_to_dict
-from grocery_app.db.models import Product, Question, Receipt, Resolution, StoreListing
+from grocery_app.db.models import (
+    LineResolution,
+    Product,
+    Question,
+    Receipt,
+    Resolution,
+    StoreListing,
+)
 from grocery_app.normalizer import never_remembered, normalize_receipt
 from grocery_app.resolver import store_key
 
@@ -259,8 +266,10 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
 
     inputs = load_normalizer_inputs(session)
     inputs["index"] = article_index(session)
+    # A line the shopper answered, "none of these" too, is theirs: never matched.
     asked = {q.position for q in session.scalars(
-        select(Question).where(Question.receipt_id == receipt_id))}
+        select(Question).where(Question.receipt_id == receipt_id))} | set(session.scalars(
+            select(LineResolution.position).where(LineResolution.receipt_id == receipt_id)))
     doc = receipt_to_dict(receipt)
 
     for position, line in enumerate(doc["lines"]):
