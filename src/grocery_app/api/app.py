@@ -108,7 +108,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                matcher: LineMatcher | None = None,
                identify: LineIdentifier | None = None,
                token: str | None = None, resume_after: float | None = None,
-               pictures: Pictures | None = None) -> FastAPI:
+               pictures: Pictures | None = None, demo: bool = False) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if pictures is not None and writes_available:
@@ -257,6 +257,15 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                                 detail="file is not a photo or a PDF this can read")
 
         digest = sha256_of(data)
+        if demo:
+            from grocery_app import demo as demo_mode
+
+            with repo.session_factory() as session:
+                if demo_mode.readings_today(session) >= demo_mode.readings_per_day():
+                    raise HTTPException(
+                        status_code=429, detail="The demo reads "
+                        f"{demo_mode.readings_per_day()} receipts a day, and today's are "
+                        "used up. Try again tomorrow.")
         existing = repo.job_for_image(digest)
         if existing is not None:
             # Same bytes, same hash: already paid for. The length check is a
@@ -443,7 +452,8 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
     def me(request: Request) -> Me:
         """Who the password belongs to: the owner, or a user by name."""
         user = asking(request)
-        return Me(role="user" if user else "owner", name=user["name"] if user else None)
+        return Me(role="user" if user else "owner", name=user["name"] if user else None,
+                  demo=demo)
 
     @app.get("/v1/users", response_model=list[UserSummary])
     def users(request: Request) -> list[UserSummary]:
@@ -454,8 +464,11 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
     @app.post("/v1/users", response_model=NewUser, status_code=201)
     def add_user(request: Request, body: NewUserRequest) -> NewUser:
         """A new user, with their own receipts and a password shown only in this
-        answer (only its hash is kept). The owner's only."""
+        answer (only its hash is kept). The owner's only, and not in the demo,
+        where every guest is the owner."""
         owner_only(request)
+        if demo:
+            raise HTTPException(status_code=403, detail="not in the demo")
         try:
             return NewUser.model_validate(require_writes(request).create_user(body.name))
         except ValueError as exc:
@@ -529,6 +542,7 @@ def default_app() -> FastAPI:
     """
     import os
 
+    from grocery_app import demo
     from grocery_app import matcher as matching
     from grocery_app.db.migrate import upgrade
     from grocery_app.db.session import database_url
@@ -538,7 +552,14 @@ def default_app() -> FastAPI:
     # opened the page (Cloud Run stops the server after a quiet spell). A no-op
     # on a current database; a new image still never serves an old schema.
     if url := database_url():
+        if demo.is_demo():
+            demo.reset(url)  # every start is a fresh demo
         upgrade(url)
+        if demo.is_demo():
+            from grocery_app.api.images import DEFAULT_ROOT
+            from grocery_app.api.images import ENV_VAR as IMAGES
+
+            demo.prune_uploads(url, Path(os.environ.get(IMAGES, DEFAULT_ROOT)))
     repository = default_repository()
     if type(repository).__name__ == "PostgresRepository":
         # Every model call this server pays for is written down (`spend`).
@@ -554,7 +575,8 @@ def default_app() -> FastAPI:
                       identifier, token=os.environ.get("GROCERY_TOKEN") or None,
                       resume_after=RESUME_AFTER_SECONDS,
                       pictures=default_pictures(model=GEMINI_MODEL)
-                      if type(repository).__name__ == "PostgresRepository" else None)
+                      if type(repository).__name__ == "PostgresRepository" else None,
+                      demo=demo.is_demo())
 
 
 # A deploy stops the old server within ten seconds of starting the new one

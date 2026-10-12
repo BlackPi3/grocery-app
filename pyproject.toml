@@ -23,7 +23,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 # The review page `grocery-app serve` hands out at `/`, and its service worker.
 # The migrations too: `db upgrade` runs from an installed package in the server image.
-grocery_app = ["api/review.html", "api/sw.js", "db/migrations/*.py", "db/migrations/*.mako",
+grocery_app = ["api/review.html", "api/sw.js", "demo_seed.sql", "db/migrations/*.py", "db/migrations/*.mako",
                "db/migrations/versions/*.py"]
 
 [project.optional-dependencies]

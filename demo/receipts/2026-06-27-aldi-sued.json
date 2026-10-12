@@ -1,0 +1,107 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "ALDI SÜD",
+  "store_location": "Beispielweg 5, 66113 Saarbrücken",
+  "date": "2026-06-27",
+  "time": "17:42",
+  "currency": "EUR",
+  "printed_total": 18.53,
+  "printed_savings": 0.36,
+  "tax_buckets": {
+    "7%": 14.12,
+    "19%": 4.41
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milsani H-Milch 1,5% 1L",
+      "qty": 1,
+      "gross": 0.99,
+      "discount": 0.0,
+      "net": 0.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Rispentomaten 500g",
+      "qty": 1,
+      "gross": 1.49,
+      "discount": 0.0,
+      "net": 1.49,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 1,
+      "gross": 1.19,
+      "discount": 0.0,
+      "net": 1.19,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Hähnchenbrustfilet 400g",
+      "qty": 1,
+      "gross": 4.49,
+      "discount": 0.0,
+      "net": 4.49,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Gouda jung Scheiben 400g",
+      "qty": 1,
+      "gross": 2.79,
+      "discount": 0.0,
+      "net": 2.79,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Haferflocken 500g",
+      "qty": 1,
+      "gross": 0.99,
+      "discount": 0.0,
+      "net": 0.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Moser Roth Edel-Vollmilch",
+      "qty": 1,
+      "gross": 1.39,
+      "discount": 0.0,
+      "net": 1.39,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Lacura Duschgel 300ml",
+      "qty": 2,
+      "gross": 1.78,
+      "discount": -0.36,
+      "net": 1.42,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kokett Toilettenpapier 8x",
+      "qty": 1,
+      "gross": 2.99,
+      "discount": 0.0,
+      "net": 2.99,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Milsani Joghurt Natur 500g",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "A"
+    }
+  ]
+}

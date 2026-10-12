@@ -139,6 +139,15 @@
     border: 1px solid var(--border); background: var(--page); color: var(--ink); margin: 6px 0; }
   .picker { margin-top: 10px; border-top: 1px solid var(--grid); padding-top: 8px; }
   .empty { color: var(--muted); text-align: center; padding: 30px 0; }
+  .demo { margin-top: 8px; padding: 6px 12px; border-radius: 10px; font-size: 12px;
+    background: var(--accent-soft); border: 0; color: var(--ink); }
+  .welcome { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center;
+    padding: 16px; background: rgba(0, 0, 0, 0.45); }
+  .welcome[hidden] { display: none; }
+  .welcome .card { max-width: 420px; margin: 0; padding: 20px; }
+  .welcome h2 { font-size: 19px; margin-bottom: 8px; }
+  .welcome p { font-size: 14px; color: var(--ink2); margin: 0 0 10px; }
+  .welcome button { width: 100%; margin-top: 6px; }
   .confirm { display: flex; justify-content: space-between; align-items: center; gap: 10px;
     cursor: pointer; background: var(--accent-soft); border-color: transparent; }
   .confirm .money { color: var(--accent); font-weight: 600; font-size: 14px; }
@@ -174,6 +183,7 @@
   <header>
     <h1 id="title">Home</h1>
     <div class="sub" id="stats">Loading…</div>
+    <button class="demo" id="demo" hidden>Demo with made-up receipts · About this demo</button>
   </header>
   <main id="view"></main>
 </div>
@@ -187,6 +197,21 @@
   </nav>
 </div>
 <div class="toast" id="toast"></div>
+<!-- The demo's welcome (Parham, 2026-10-12): whoever opens the link may not
+     know what this is, so every visit starts by saying so. -->
+<div class="welcome" id="welcome" hidden>
+  <div class="card">
+    <h2>Grocery receipts, item by item</h2>
+    <p>This app reads grocery receipts and turns them into a history of what you buy: where the
+      money goes, how often you buy things, and how their prices change.</p>
+    <p><b>This is a demo, and the app is still being built.</b> The receipts in it are made up.
+      Look around, answer its questions, or scan a receipt of your own with the + button.
+      Everything you add is wiped when the demo restarts, so please leave out receipts with
+      personal details.</p>
+    <p>Next: an iPhone app, with work starting in November 2026.</p>
+    <button class="primary" id="welcome-close">Look around</button>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -794,7 +819,7 @@ function accountCard() {
 }
 
 function peopleCard() {
-  if (!state.me || state.me.role !== "owner" || !state.people) return null;
+  if (!state.me || state.me.role !== "owner" || state.me.demo || !state.people) return null;
   const name = el("input", { placeholder: "Name", autocapitalize: "words" });
   const add = async () => {
     if (!name.value.trim()) return;
@@ -1045,6 +1070,12 @@ function render() {
     document.getElementById("tab-" + tab).className = state.tab === tab ? "on" : "";
   }
   document.getElementById("title").textContent = TITLES[state.tab];
+  const demo = !!(state.me && state.me.demo);
+  document.getElementById("demo").hidden = !demo;
+  if (demo && !state.welcomed) {  // once per visit, on every visit
+    state.welcomed = true;
+    document.getElementById("welcome").hidden = false;
+  }
   const view = document.getElementById("view");
   if (!state.checks) return;
   // What waits for the shopper is a badge on Receipts, not a tab of its own:
@@ -1131,6 +1162,12 @@ function askPassword(why) {
   field.focus();
 }
 
+document.getElementById("demo").addEventListener("click", () => {
+  document.getElementById("welcome").hidden = false;
+});
+document.getElementById("welcome-close").addEventListener("click", () => {
+  document.getElementById("welcome").hidden = true;
+});
 // The + : the camera or a file, then Home shows it being read.
 document.getElementById("add-file").addEventListener("change", event => {
   const files = [...event.target.files];
