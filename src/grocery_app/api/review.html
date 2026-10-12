@@ -579,8 +579,10 @@ function receiptCard(summary) {
     el("div", {},
        el("div", { class: "what" }, summary.store || "Unknown shop"),
        el("div", { class: "meta" }, summary.date || "", " · ", summary.product_lines,
-          " lines: ", summary.said_by_you, " you, ", summary.said_by_app, " app",
-          summary.unplaced ? `, ${summary.unplaced} not placed` : "",
+          summary.product_lines === 1 ? " item" : " items",
+          // Who said what is a detail for the owner (the redesign, step 3).
+          isOwner() ? `: ${summary.said_by_you} you, ${summary.said_by_app} app` : "",
+          summary.unplaced ? `, ${summary.unplaced} not known yet` : "",
           summary.not_counted ? `, ${summary.not_counted} left out` : "")),
     el("div", { class: "money" }, euro(summary.printed_total)));
   // The receipt itself slides left too, to be removed, as a line does.
@@ -618,25 +620,13 @@ function receiptCard(summary) {
       } }, editing ? "Done" : "Edit")));
     for (const line of (state.receiptLines?.[summary.receipt_id] || [])) {
       if (line.type !== "product") continue;
-      // A line nothing placed shows the photo reading's guess, marked as one.
-      const guess = !line.product && line.first_guess;
-      const what = line.product ? [productText(line.product, line.brand, line),
-                                   badge(line.said_by)]
-        : guess ? [el("span", { class: "guess" }, guess.name || line.raw_name),
-                   el("span", { class: "badge guess" }, "guess")]
-        : ["—", line.not_counted ? null : badge(line.said_by)];  // nothing left to place
       const counted = !line.not_counted;
       const act = el("button", { class: "act", onclick: () => {
         act.disabled = true;
         setCounted(summary.receipt_id, line.position, !counted);
       } }, counted ? "Leave out" : "Count again");
       const row = el("div", { class: counted ? "line" : "line off" },
-        el("div", {},
-           el("div", { class: "what" }, ...what,
-              counted ? null : el("span", { class: "badge none" }, "left out")),
-           guess && guess.category_path ? el("div", { class: "meta" },
-             guess.category_path.slice(1).join(" › ")) : null,
-           el("div", { class: "printed" }, line.raw_name)),
+        el("div", {}, ...lineText(line, counted)),
         el("div", { class: "money" }, euro(line.net_paid)));
       const wrap = el("div", { class: counted ? "swipe" : "swipe out" }, act, row);
       swipeable(wrap, row);
@@ -658,6 +648,40 @@ function receiptCard(summary) {
     }
   }
   return card;
+}
+
+// A receipt line as anyone reads it: an easy name and its deepest category,
+// "Rispentomaten / Tomaten" (the redesign, step 3, 2026-10-12). What the
+// paper printed, the brand and size, and who said what it is are details for
+// the owner. A line nothing placed shows the photo reading's guess, marked
+// as one (a guess is never passed off as an answer), or else what the paper
+// printed, in grey.
+function lineText(line, counted) {
+  const owner = isOwner();
+  const guess = !line.product && line.first_guess;
+  const name = line.product ? el("span", {}, line.product)
+    : guess && guess.name ? el("span", { class: "guess" }, guess.name)
+    : el("span", { class: "guess" }, line.raw_name);  // the only name the line has
+  const path = line.product ? line.category_path : guess && guess.category_path;
+  // "Bananen / Bananen" says nothing twice: a category the name already says is left out.
+  const deepest = path && path.length ? path[path.length - 1] : null;
+  const shown = line.product || (guess && guess.name) || "";
+  const kind = deepest && deepest.toLowerCase() !== shown.toLowerCase() ? deepest : null;
+  const details = line.product ? [line.brand, (line.details || []).join(", "),
+                                  sizeText(line.sold_as)].filter(Boolean).join(" · ") : "";
+  return [
+    el("div", { class: "what" }, name,
+       guess && guess.name ? el("span", { class: "badge guess" }, "guess") : null,
+       counted ? null : el("span", { class: "badge none" }, "left out")),
+    kind ? el("div", { class: "meta" }, kind) : null,
+    owner ? el("div", { class: "meta" }, details,
+               line.product || !guess ? badge(line.said_by) : null) : null,
+    owner && (line.product || guess) ? el("div", { class: "printed" }, line.raw_name) : null,
+  ];
+}
+
+function isOwner() {
+  return !!(state.me && state.me.role === "owner");
 }
 
 // Follow a finger sideways on a line: past half the action's width it stays
