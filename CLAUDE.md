@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+**Start every session by reading `docs/status.md` (where the work stands and
+what is next) and `docs/working-agreement.md` (how we work: message rules,
+shipping, tests, product rules).** Keep `docs/status.md` current in every PR
+that changes the state of the work.
+
 ## Project overview
 This project is a portfolio-oriented grocery receipt intelligence app.
 
@@ -117,7 +122,9 @@ Therefore, by default in this repository:
   only authority on what I actually bought and on how these stores behave.
 - Never route something to me that a lookup, the existing catalog, or a model
   could answer. My attention is for what only I can answer.
-- Ask before committing, pushing, or opening a PR; then do it yourself.
+- Once I agree to build something, commit, open the PR and merge on green CI
+  without asking; if I dislike it, we revert. Ask before building when the
+  *what* is a judgement call.
 
 ## gstack
 Use the `/browse` skill from gstack for all web browsing in this project. Never use `mcp__claude-in-chrome__*` tools.
