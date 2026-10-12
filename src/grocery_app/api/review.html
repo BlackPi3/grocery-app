@@ -808,6 +808,10 @@ function usd(amount) {
 // own receipts. The owner adds people here and sees each password once.
 function accountCard() {
   if (!state.me) return null;
+  if (state.me.demo) {
+    return el("div", { class: "card" }, el("div", { class: "meta" },
+      "You are a guest in the demo: everything you add is wiped when it restarts."));
+  }
   const who = state.me.role === "owner" ? "the owner" : state.me.name;
   return el("div", { class: "card" }, el("div", { class: "row" },
     el("div", { class: "meta", style: "flex: 1; align-self: center" }, `Signed in as ${who}`),
