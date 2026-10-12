@@ -41,13 +41,48 @@
   body { margin: 0; background: var(--page); color: var(--ink);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.45;
     -webkit-font-smoothing: antialiased; }
-  .app { max-width: 480px; margin: 0 auto; padding: 0 16px 40px; }
+  .app { max-width: 480px; margin: 0 auto;
+    padding: 0 16px calc(110px + env(safe-area-inset-bottom)); }
   header { padding: 18px 0 6px; position: sticky; top: 0; z-index: 5;
     background: linear-gradient(var(--page) 80%, transparent); }
   h1 { margin: 0; font-size: 20px; letter-spacing: -0.02em; }
   .sub { color: var(--ink2); font-size: 13px; }
-  nav { display: flex; gap: 6px; margin-top: 10px; }
-  nav button { flex: 1; padding: 9px 4px; font-size: 13px; }
+  /* The bottom bar, the designer's advice (2026-10-12): the tabs where the
+     thumb is, and the one thing the app is for, adding a receipt, in the
+     middle as a big +. */
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+    background: color-mix(in srgb, var(--card) 92%, transparent);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
+  .bar nav { max-width: 480px; margin: 0 auto; display: grid;
+    grid-template-columns: repeat(5, 1fr); align-items: end; padding: 6px 8px 8px; }
+  .bar button { border: 0; background: none; padding: 4px 0; display: flex;
+    flex-direction: column; align-items: center; gap: 2px; font-size: 11px;
+    color: var(--muted); position: relative; border-radius: 0; }
+  .bar button.on { color: var(--accent); background: none; }
+  .bar svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .bar .add { justify-self: center; }
+  .bar .add span { width: 58px; height: 58px; margin-top: -26px; border-radius: 50%;
+    background: var(--accent); color: #fff; display: grid; place-items: center;
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent);
+    transition: transform 0.15s; }
+  .bar .add:active span { transform: scale(0.94); }
+  .bar .add svg { width: 28px; height: 28px; stroke-width: 2.4; }
+  .bar .add input { display: none; }
+  .dot { position: absolute; top: 0; left: calc(50% + 6px); min-width: 17px; height: 17px;
+    padding: 0 4px; border-radius: 9px; background: var(--bad); color: #fff;
+    font-size: 11px; font-weight: 700; line-height: 17px; text-align: center; }
+  /* Home: a few things at a glance, not analysis (2026-10-12). */
+  .card.hero { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #6a3fd6));
+    color: #fff; border: 0; padding: 18px; }
+  .hero .meta, .hero .label { color: rgba(255,255,255,0.8); }
+  .hero .stat { font-size: 34px; }
+  .label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 4px; }
+  .glance { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .glance .card { margin: 0; }
+  .glance .big { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; margin: 2px 0; }
   button { font: inherit; font-size: 14px; border-radius: 10px; padding: 9px 12px;
     border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer; }
   button.on, button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -104,9 +139,9 @@
     border: 1px solid var(--border); background: var(--page); color: var(--ink); margin: 6px 0; }
   .picker { margin-top: 10px; border-top: 1px solid var(--grid); padding-top: 8px; }
   .empty { color: var(--muted); text-align: center; padding: 30px 0; }
-  .photo { display: block; text-align: center; padding: 18px 12px; border-radius: 12px;
-    background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
-  .photo input { display: none; }
+  .confirm { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    cursor: pointer; background: var(--accent-soft); border-color: transparent; }
+  .confirm .money { color: var(--accent); font-weight: 600; font-size: 14px; }
   .stat { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
   .months { display: flex; gap: 6px; overflow-x: auto; margin: 0 -2px 12px; padding: 0 2px; }
   .months button { flex: 0 0 auto; padding: 6px 12px; font-size: 13px; }
@@ -125,7 +160,8 @@
   .zoom button { font-size: 13px; padding: 4px 10px; }
   h2 { font-size: 15px; margin: 0 0 4px; }
   .up { color: var(--bad); } .down { color: var(--good); }
-  .toast { position: fixed; left: 16px; right: 16px; bottom: 20px; max-width: 448px;
+  .toast { position: fixed; left: 16px; right: 16px; z-index: 7;
+    bottom: calc(88px + env(safe-area-inset-bottom)); max-width: 448px;
     margin: 0 auto; background: var(--ink); color: var(--page); border-radius: 10px;
     padding: 10px 14px; font-size: 14px; display: none; align-items: center; gap: 12px; }
   .toast span { flex: 1; }
@@ -136,26 +172,30 @@
 <body>
 <div class="app">
   <header>
-    <h1>Basket review</h1>
+    <h1 id="title">Home</h1>
     <div class="sub" id="stats">Loading…</div>
-    <nav>
-      <button id="tab-waiting" class="on">Waiting</button>
-      <button id="tab-receipts">Receipts</button>
-      <button id="tab-add">Add</button>
-      <button id="tab-insights">Insights</button>
-    </nav>
   </header>
   <main id="view"></main>
+</div>
+<div class="bar">
+  <nav>
+    <button id="tab-home" class="on"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h5v-6h4v6h5V9.5"/></svg>Home</button>
+    <button id="tab-receipts"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Receipts</button>
+    <label class="add" aria-label="Add a receipt"><span><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><input id="add-file" type="file" accept="image/*,application/pdf" multiple></label>
+    <button id="tab-insights"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Insights</button>
+    <button id="tab-you"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>You</button>
+  </nav>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
 "use strict";
 // All text from receipts and the model goes in with textContent, never as HTML.
-const state = { tab: "waiting", checks: null, questions: null, receipts: null, open: null,
+const state = { tab: "home", checks: null, questions: null, receipts: null, open: null,
                 copyAt: null, removing: new Set(),
                 insights: null, jobs: null, sending: [], notSent: [], uploaded: new Set() };
-const TABS = ["waiting", "receipts", "add", "insights"];
+const TABS = ["home", "receipts", "insights", "you"];
+const TITLES = { home: "Home", receipts: "Receipts", insights: "Insights", you: "You" };
 
 function el(tag, attrs, ...children) {
   const node = document.createElement(tag);
@@ -390,11 +430,22 @@ function questionCard(question) {
   return card;
 }
 
-function waitingView() {
+// What the app asks, at the top of Receipts behind the tab's badge, folded
+// until opened: an optional contribution (2026-10-12). The yes/no cards
+// replace these next.
+function waitingCard() {
   const cards = [...state.checks.checks.map(checkCard),
                  ...state.questions.questions.map(questionCard)];
-  if (!cards.length) return [el("div", { class: "empty" }, "Nothing is waiting for you.")];
-  return cards;
+  if (!cards.length) return null;
+  const open = state.confirmOpen;
+  return el("div", {},
+    el("div", { class: "card confirm", onclick: () => { state.confirmOpen = !open; render(); } },
+      el("div", {},
+        el("div", { class: "what" }, `${cards.length} ${cards.length === 1 ? "line" : "lines"} ` +
+           "to confirm"),
+        el("div", { class: "meta" }, "Help the app learn what you bought")),
+      el("div", { class: "money" }, open ? "Hide" : "Show")),
+    open ? cards : null);
 }
 
 // Open one receipt (never toggling it shut) with its lines as they are now.
@@ -640,12 +691,12 @@ async function refreshJobsOnce() {
   if (changed) await load({ jobs: false });
   if (turnedAway) toast(`Not added: ${TURNED_AWAY[turnedAway.turned_away] || "not a shop receipt"}`);
   if (justRead && justRead.already_added) toast("Already in your receipts");
-  if (justRead && state.tab === "add" && inProgress().length <= 1) {
+  if (justRead && state.tab === "home" && inProgress().length <= 1) {
     state.tab = "receipts";
     await showReceipt(justRead.receipt_id);
   } else if (inProgress().some(job => job.receipt_id === state.open) && state.tab === "receipts") {
     await refreshReceipt(state.open);  // the lines placed so far
-  } else if (changed || state.tab === "add") {
+  } else if (changed || state.tab === "home") {
     render();  // only when it shows something new: a redraw loses a text selection
   }
   if (state.sending.length || inProgress().length) {
@@ -789,23 +840,82 @@ function costsCard() {
       `${d.finding_recorded_from}.`));
 }
 
-function addView() {
-  const input = el("input", { type: "file", accept: "image/*,application/pdf", multiple: "" });
-  input.addEventListener("change", () => upload([...input.files]));
+// Receipts on their way in, on Home, where the + leaves the shopper.
+function uploadCards() {
   return [
-    el("div", { class: "card" },
-      el("label", { class: "photo" }, "Add receipts: photos or PDF invoices", input),
-      el("div", { class: "why" },
-        "A photo of the whole receipt, flat and in focus, or a shop's PDF invoice (an " +
-        "Amazon order). You can add the next one while others are " +
-        "read. Each receipt opens with a first guess per line, and the app places the " +
-        "lines one by one; this list is the same on all your devices.")),
     ...state.sending.map(item => el("div", { class: "card" },
       el("h2", {}, "Sending the photo…"), el("div", { class: "meta" }, item.name))),
     ...state.notSent.map(item => el("div", { class: "card" },
       el("h2", {}, "Not sent"), el("div", { class: "meta" }, item.name),
       el("div", { class: "why" }, item.error))),
     ...(state.jobs || []).map(jobCard),
+  ];
+}
+
+// Home, at a glance (the designer's advice, 2026-10-12): what this month cost
+// so far, one price that moved, one fact. The analysis stays on Insights.
+function homeView() {
+  const d = state.insights;
+  const cards = uploadCards();
+  if (!d) return [...cards, el("div", { class: "empty" }, "Loading…")];
+  if (!d.months.length) {
+    return [...cards, el("div", { class: "card" }, el("h2", {}, "Add your first receipt"),
+      el("div", { class: "why" }, "Tap + below: a photo of a whole receipt, flat and in " +
+         "focus, or a shop's PDF invoice."))];
+  }
+  const now = defaultMonth(d.months);
+  const at = d.months.findIndex(m => m.month === now);
+  const month = d.months[at], before = d.months[at + 1];
+  const thisMonth = now === new Date().toISOString().slice(0, 7);
+  cards.push(el("div", { class: "card hero" },
+    el("div", { class: "label" }, monthName(month.month).replace(/ \d+$/, "") +
+       (thisMonth ? " so far" : "")),
+    el("div", { class: "stat" }, euro(month.spend)),
+    el("div", { class: "meta" }, `${month.receipts} ${month.receipts === 1 ? "receipt" : "receipts"}` +
+       (before ? ` · ${monthName(before.month).replace(/ \d+$/, "")}: ${euro(before.spend)}` : ""))));
+  const glance = [priceCard(d), factCard(d)].filter(Boolean);
+  if (glance.length) cards.push(el("div", { class: "glance" }, glance));
+  return cards;
+}
+
+// The price that moved most, among products bought at least three times, the
+// last time within three months: one odd reading is not a trend.
+function priceCard(d) {
+  const since = new Date(Date.parse(d.as_of) - 92 * 864e5).toISOString().slice(0, 10);
+  const moved = d.price_changes.filter(c => c.observations.length >= 3 && c.last.date >= since
+    && c.change_pct).sort((a, b) => Math.abs(b.change_pct) - Math.abs(a.change_pct))[0];
+  if (!moved) return null;
+  const up = moved.change_pct > 0;
+  return el("div", { class: "card" }, el("div", { class: "label" }, "Price " + (up ? "up" : "down")),
+    el("div", { class: "big " + (up ? "up" : "down") },
+       (up ? "▲ " : "▼ ") + Math.round(Math.abs(moved.change_pct)) + "%"),
+    el("div", { class: "what" }, productText(moved.product, moved.brand)),
+    el("div", { class: "meta" }, `${euro(moved.first.price)} → ${euro(moved.last.price)}` +
+       ` per ${moved.per} at ${moved.store}`));
+}
+
+// What the shopper buys most often.
+function factCard(d) {
+  const most = d.repurchase.filter(r => r.product).sort((a, b) => b.trips - a.trips)[0];
+  if (!most || most.trips < 2) return null;
+  return el("div", { class: "card" }, el("div", { class: "label" }, "Your regular"),
+    el("div", { class: "big" }, `${most.trips}×`),
+    el("div", { class: "what" }, productText(most.product, most.brand)),
+    el("div", { class: "meta" }, `bought since ${new Date(d.coverage.date_range[0])
+      .toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`));
+}
+
+// You: who is signed in, and for the owner what the app costs, its people,
+// and how often its own guesses were wrong.
+function youView() {
+  const m = state.checks.meta;
+  const answered = m.right + m.corrected;
+  const owner = state.me && state.me.role === "owner";
+  return [
+    owner ? el("div", { class: "card" }, el("h2", {}, "How the app is doing"),
+      el("div", { class: "why" }, `${m.open} spot checks and ${state.questions.meta.open} ` +
+        "questions waiting · " + (answered ? `app wrong on ${m.corrected} of ${answered} ` +
+        "checked lines" : "no spot check answered yet"))) : null,
     costsCard(),
     peopleCard(),
     accountCard(),
@@ -926,15 +1036,23 @@ function insightsView() {
 
 function receiptsView() {
   if (!state.receipts.length) return [el("div", { class: "empty" }, "No receipts yet.")];
-  return state.receipts.filter(r => !state.removing.has(r.receipt_id)).map(receiptCard);
+  return [waitingCard(),
+          ...state.receipts.filter(r => !state.removing.has(r.receipt_id)).map(receiptCard)];
 }
 
 function render() {
   for (const tab of TABS) {
     document.getElementById("tab-" + tab).className = state.tab === tab ? "on" : "";
   }
+  document.getElementById("title").textContent = TITLES[state.tab];
   const view = document.getElementById("view");
   if (!state.checks) return;
+  // What waits for the shopper is a badge on Receipts, not a tab of its own:
+  // answering is a contribution, not a chore (2026-10-12).
+  const waiting = state.checks.meta.open + state.questions.meta.open;
+  const receiptsTab = document.getElementById("tab-receipts");
+  receiptsTab.querySelector(".dot")?.remove();
+  if (waiting) receiptsTab.append(el("span", { class: "dot" }, String(waiting)));
   // Never redraw under someone typing: it took the text box away mid-word and
   // jumped the page (2026-10-08). Drawn once they leave the box.
   if (view.contains(document.activeElement) && document.activeElement.tagName === "INPUT") {
@@ -942,17 +1060,12 @@ function render() {
     return;
   }
   render.pending = false;
-  const views = { waiting: waitingView, receipts: receiptsView, add: addView,
-                  insights: insightsView };
+  const views = { home: homeView, receipts: receiptsView, insights: insightsView,
+                  you: youView };
   view.replaceChildren(...views[state.tab]().filter(Boolean));  // a view may skip a card
-  const m = state.checks.meta;
-  const answered = m.right + m.corrected;
-  const copy = state.copyAt ? "As of your last visit (" + new Date(state.copyAt).toLocaleString([],
-    { weekday: "short", hour: "2-digit", minute: "2-digit" }) + "), updating… · " : "";
-  document.getElementById("stats").textContent = copy +
-    `${m.open} spot checks and ${state.questions.meta.open} questions waiting · ` +
-    (answered ? `app wrong on ${m.corrected} of ${answered} checked lines` :
-                "no spot check answered yet");
+  document.getElementById("stats").textContent = state.copyAt
+    ? "As of your last visit (" + new Date(state.copyAt).toLocaleString([],
+        { weekday: "short", hour: "2-digit", minute: "2-digit" }) + "), updating…" : "";
 }
 
 async function load({ jobs = true } = {}) {
@@ -966,7 +1079,7 @@ async function load({ jobs = true } = {}) {
     api("/v1/insights").then(doc => {
       state.insights = doc;
       saveCopy();
-      if (state.tab === "insights") render();
+      if (state.tab === "insights" || state.tab === "home") render();
     })
       .catch(error => { if (state.tab === "insights") toast("Insights: " + error.message); });
     // Who this password is, and for the owner the app's costs and its people.
@@ -1018,10 +1131,19 @@ function askPassword(why) {
   field.focus();
 }
 
+// The + : the camera or a file, then Home shows it being read.
+document.getElementById("add-file").addEventListener("change", event => {
+  const files = [...event.target.files];
+  event.target.value = "";
+  state.tab = "home";
+  render();
+  upload(files);
+});
 for (const tab of TABS) {
   document.getElementById("tab-" + tab).addEventListener("click", () => {
     state.tab = tab; render();
-    if (tab === "add") refreshJobs();
+    window.scrollTo(0, 0);
+    if (tab === "home") refreshJobs();
   });
 }
 // A redraw held back while the shopper typed. Later, not at once: leaving the
