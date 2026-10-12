@@ -93,3 +93,12 @@ def test_a_demo_start_deletes_the_photos_guests_sent(engine, session, tmp_path):
     (tmp_path / ("b" * 64)).write_bytes(b"a guest's photo")
     assert prune_uploads(DATABASE_URL, tmp_path) == 1
     assert [p.name for p in tmp_path.iterdir()] == [seeded]
+
+
+def test_an_address_with_escaped_characters_reaches_the_migrations():
+    """The demo's address names its socket as `host=%2Fcloudsql...`: the
+    migrations must take it as it is (2026-10-12, the demo's first start)."""
+    from grocery_app.db.migrate import alembic_config
+
+    url = "postgresql+psycopg://u:p@/grocery_demo?host=%2Fcloudsql%2Fx%3Ay"
+    assert alembic_config(url).get_main_option("sqlalchemy.url") == url
