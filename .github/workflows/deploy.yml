@@ -42,6 +42,11 @@ jobs:
           service_account: github-deployer@project-cb9f2189-e79b-4351-bab.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v2
       - run: scripts/deploy.sh
+        env:
+          # Sign in with Google: off while these are empty (scripts/deploy.sh).
+          # The address is a secret so it stays out of the public logs.
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GROCERY_OWNER_EMAIL: ${{ secrets.GROCERY_OWNER_EMAIL }}
       - name: The new server and the demo answer
         run: |
           for service in grocery grocery-demo; do
