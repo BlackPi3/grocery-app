@@ -573,6 +573,7 @@ function swipeable(wrap, row) {
 // something is in progress the page asks again every few seconds; when a job
 // leaves the list its receipt is finished, and the history is loaded again.
 const POLL_MS = 3000;
+const PICTURE_POLL_MS = 5000;
 try { localStorage.removeItem("grocery-job"); } catch (_) { /* the old one-job memory */ }
 
 function inProgress() {
@@ -650,6 +651,24 @@ async function refreshJobsOnce() {
   if (state.sending.length || inProgress().length) {
     refreshJobs.timer = setTimeout(refreshJobs, POLL_MS);
   }
+}
+
+// A spot check comes once its picture has been looked up (Parham, 2026-10-12:
+// "the message should be complete"); until then the server holds it back.
+async function waitForPictures() {
+  clearTimeout(waitForPictures.timer);
+  if (!state.checks || !state.checks.meta.held_back) return;
+  waitForPictures.timer = setTimeout(async () => {
+    try {
+      const checks = await api("/v1/checks");
+      if (checks.meta.held_back !== state.checks.meta.held_back) {
+        state.checks = checks;  // one or more came: redraw with them
+        saveCopy();
+        render();
+      }
+    } catch (_) { /* the next load tries again */ }
+    waitForPictures();
+  }, PICTURE_POLL_MS);
 }
 
 function elapsed(since) {
@@ -969,6 +988,7 @@ async function load({ jobs = true } = {}) {
     render();
     saveCopy();
     if (jobs) refreshJobs();
+    waitForPictures();
   } catch (error) {
     if (error.locked) return askPassword(error.message);
     document.getElementById("stats").textContent = (state.copyAt ? "As of your last visit. " : "")
