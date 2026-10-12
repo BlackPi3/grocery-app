@@ -228,6 +228,47 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
   and the owner's answer replaces it. Lines a user's answer placed count as the
   app's (`said_by: app`), so they can be spot-checked. Costs and people are the
   owner's only. Sign in with Apple replaces the passwords with the iOS app.
+  **Sign in with Google, 2026-10-12** (migration 0020), for the milestone "Ready
+  for iOS"; Apple is deferred. The page shows Google's button (Google Identity
+  Services); Google hands it an ID token, and `POST /v1/auth/google` checks it
+  (`api/google_sign_in.py`: signature against Google's keys through `google-auth`,
+  `aud` is our client id, `iss` is Google, `exp` not passed, `email_verified`) and
+  returns a sign-in token that the page keeps and sends as `Authorization: Bearer`,
+  like a password. **Invite-only** (decided by the lead while the owner was away,
+  as the safe default, and reversible): the address is the owner's when it is
+  `GROCERY_OWNER_EMAIL`, a user's when the owner added it on the People card
+  (`users.email`, set with `POST /v1/users` or `PATCH /v1/users/{id}`), and any
+  other address is a 403. Passwords keep working beside it. A sign-in is kept as
+  the sha256 of its token (`sign_ins`) and ends after 90 days, on Log out
+  (`POST /v1/auth/sign-out`), when its user is removed (the row goes with them),
+  or when the address stops being theirs (the user's email changed, or the
+  owner's). Off until `GOOGLE_CLIENT_ID` is set: `GET /v1/auth/config` (open)
+  names no client id, the page shows no button, and `/v1/auth/google` is a 404.
+  Never in the demo. With it on, `/v1` is locked even without `GROCERY_TOKEN`.
+  Only the client id is needed, and it is public: there is no client secret.
+
+  **Switching on Sign in with Google** (once, by the owner):
+
+  1. Google Cloud Console, the project the server runs in → APIs & Services →
+     OAuth consent screen (newer consoles: Google Auth Platform → Branding and
+     Audience): create one (External, app name "Basket", your
+     address as support and developer contact). While it is in "Testing",
+     add each person's Google address under Test users, or publish it (no
+     verification is needed for the email and profile scopes).
+  2. APIs & Services → Credentials → Create credentials → OAuth client ID →
+     Web application. Under Authorized JavaScript origins add the server's
+     address, e.g. `https://grocery-<hash>.europe-west3.run.app` (the address
+     the phone opens; no path, no trailing slash). No redirect URI is needed.
+     Copy the client id (`<numbers>-<letters>.apps.googleusercontent.com`).
+  3. GitHub → the repo → Settings → Secrets and variables → Actions: a
+     **variable** `GOOGLE_CLIENT_ID` with the client id, and a **secret**
+     `GROCERY_OWNER_EMAIL` with your own Google address (a secret, so it never
+     shows in the public deploy logs).
+  4. Actions → deploy → Run workflow (or merge anything). `scripts/deploy.sh`
+     passes both to the server only when they are set; `--set-env-vars`
+     replaces every variable on each deploy, so setting them on the Cloud Run
+     service by hand would not last. Then invite people by address on the
+     People card.
 - **Deployment**: a `Dockerfile` (python:3.12-slim, `pip install .[api]`, uvicorn,
   migrations applied as the server starts, one Python start rather than two) on **Google Cloud** (decided 2026-10-03): Cloud Run,
   Cloud SQL PostgreSQL, and a Cloud Storage bucket, in `europe-west3` (Frankfurt).

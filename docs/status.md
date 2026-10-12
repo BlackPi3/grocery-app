@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-12, the drill-down.
+**Last updated:** 2026-10-12, Google sign-in built (off until switched on).
 
 ## Now
 
@@ -37,14 +37,30 @@ session (laptop or cloud) can pick up from here. How we work is in
    receipt with the line marked (fix it there), then its photo
    (`GET /v1/products/{id}/purchases`, `GET /v1/receipts/{id}/photo`, the
    asker's receipts only; the demo shows only the made-up receipts' photos).
-3. **Google sign-in** on the web. Still open: who may sign up. Apple sign-in
-   is deferred (it needs the paid developer account).
+3. ~~Google sign-in on the web.~~ Built, **off until the owner switches it
+   on**. Who may sign up was decided by the lead while the owner was away, as
+   the safe default (reversible): **invite-only**. The owner's address is
+   `GROCERY_OWNER_EMAIL`; anyone else needs their address added on the People
+   card. Passwords keep working. Sign-ins last 90 days (migration 0020,
+   `api/google_sign_in.py`). The owner's steps (details in
+   `docs/designs/backend-api.md`, "Switching on Sign in with Google"):
+   1. Google Cloud Console: an OAuth consent screen, then an OAuth client
+      (Web application) with the server's address as Authorized JavaScript
+      origin.
+   2. GitHub repo settings: variable `GOOGLE_CLIENT_ID`, secret
+      `GROCERY_OWNER_EMAIL`.
+   3. Run the deploy workflow.
+   4. Add each person's Google address on the People card (and as a test
+      user while the consent screen is in Testing).
+   No route removes a user yet (their receipts would go with them); a
+   removed user's sign-ins end with the row. Apple sign-in is deferred (it
+   needs the paid developer account).
 
 ## Milestone: Ready for iOS (target 2026-11-02)
 
 - The screens are settled: unchanged for 2 weeks after the designer's input.
 - 2 weeks of real use with no database fix by hand.
-- Google sign-in on the web.
+- Google sign-in on the web (built; the owner switches it on).
 - A second person using it with real receipts.
 
 ## Parked (later, not now)
