@@ -8,7 +8,8 @@
   The shopper's page, served by `grocery-app serve` at `/`. It only reads,
   uploads and answers through the API (/v1/checks, /v1/questions,
   /v1/receipts, POST /v1/receipts + /v1/jobs, /v1/products, /v1/insights,
-  PUT .../resolution): nothing here decides anything. Throwaway UI below the
+  PUT .../resolution, /v1/products/{id}/purchases, /v1/receipts/{id}/photo):
+  nothing here decides anything. Throwaway UI below the
   contract; the iOS app will do the same job against the same API.
 -->
 <style>
@@ -180,6 +181,42 @@
   .zoom button { font-size: 13px; padding: 4px 10px; }
   h2 { font-size: 15px; margin: 0 0 4px; }
   .up { color: var(--bad); } .down { color: var(--good); }
+  /* The drill-down (2026-10-12): an insight, then the product's purchases as
+     days on a calendar (GitHub's contribution graph), then the receipt line,
+     then the receipt's photo. One level per tap. */
+  .tap { cursor: pointer; position: relative; }
+  .tap::after { content: "›"; position: absolute; top: 10px; right: 14px; font-size: 20px;
+    line-height: 1; color: var(--muted); }
+  .hero.tap::after { color: rgba(255,255,255,0.8); }
+  .back { border: 0; background: none; color: var(--accent); padding: 4px 0; font-size: 14px; }
+  .cal { overflow-x: auto; margin: 12px 0 4px; padding-bottom: 4px; }
+  .cal .grid { display: grid; grid-auto-flow: column; gap: 3px;
+    grid-template-rows: 14px repeat(7, 13px); grid-auto-columns: 13px; width: max-content; }
+  .cal .mon { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: visible;
+    line-height: 14px; }
+  .cal .day { border-radius: 3px; background: var(--grid); }
+  .cal .day.out { background: transparent; }
+  .cal .day.b1 { background: color-mix(in srgb, var(--accent) 55%, var(--grid)); cursor: pointer; }
+  .cal .day.b2 { background: var(--accent); cursor: pointer; }
+  .cal .day.on { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .buys .line { cursor: pointer; align-items: center; }
+  .buys .line.on { background: var(--accent-soft); border-radius: 8px; padding-left: 8px;
+    padding-right: 8px; }
+  .swipe > .line.hit { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent);
+    padding-left: 10px; padding-right: 8px; }
+  .trail { display: flex; justify-content: space-between; padding: 2px 0 6px; }
+  .link { border: 0; background: none; color: var(--accent); padding: 4px 0; font-size: 14px; }
+  .viewer { position: fixed; inset: 0; z-index: 10; background: #000; overflow: auto;
+    display: flex; flex-direction: column; }
+  .viewer[hidden] { display: none; }
+  .viewer .top { position: sticky; top: 0; display: flex; justify-content: space-between;
+    align-items: center; padding: 10px 16px; background: rgba(0,0,0,0.7); color: #fff;
+    font-size: 14px; }
+  .viewer .top button { background: none; border: 1px solid rgba(255,255,255,0.4); color: #fff; }
+  .viewer img { width: 100%; height: auto; display: block; }
+  .viewer iframe { flex: 1; width: 100%; border: 0; background: #fff; }
+  .viewer .empty { color: #ccc; }
+  .viewer a { color: #fff; }
   .toast { position: fixed; left: 16px; right: 16px; z-index: 7;
     bottom: calc(88px + env(safe-area-inset-bottom)); max-width: 448px;
     margin: 0 auto; background: var(--ink); color: var(--page); border-radius: 10px;
@@ -208,6 +245,7 @@
   </nav>
 </div>
 <div class="toast" id="toast"></div>
+<div class="viewer" id="viewer" hidden></div>
 <!-- The demo's welcome (Parham, 2026-10-12): whoever opens the link may not
      know what this is, so every visit starts by saying so. -->
 <div class="welcome" id="welcome" hidden>
@@ -609,8 +647,15 @@ function receiptCard(summary) {
             `${usd(cost.finding_usd)}${cost.searches ? `, ${cost.searches} searches` : ""})`
           : `reading ${usd(cost.reading_usd)}; finding items was not recorded then`)));
     }
+    // The paper itself, the last step of the drill-down.
+    if (summary.photo) {
+      card.append(el("button", { class: "link", onclick: () => showPhoto(summary.receipt_id) },
+        "See the photo"));
+    }
     const editing = state.editing === summary.receipt_id;
     card.classList.toggle("editing", editing);
+    const marked = state.highlight && state.highlight.receipt_id === summary.receipt_id
+      ? state.highlight.positions : [];
     card.append(el("div", { class: "edit-row" },
       el("div", { class: "meta" }, "Swipe a line left to leave it out of your numbers, " +
         "the receipt to remove it"),
@@ -625,7 +670,8 @@ function receiptCard(summary) {
         act.disabled = true;
         setCounted(summary.receipt_id, line.position, !counted);
       } }, counted ? "Leave out" : "Count again");
-      const row = el("div", { class: counted ? "line" : "line off" },
+      const row = el("div", { class: (counted ? "line" : "line off") +
+                                     (marked.includes(line.position) ? " hit" : "") },
         el("div", {}, ...lineText(line, counted)),
         el("div", { class: "money" }, euro(line.net_paid)));
       const wrap = el("div", { class: counted ? "swipe" : "swipe out" }, act, row);
@@ -645,6 +691,14 @@ function receiptCard(summary) {
           el("div", {}, takeBack, el("div", { class: "meta" }, "Correct what this line is:"))));
       });
       card.append(wrap);
+      // Under the line the drill-down opened: back up a level, or on to the paper.
+      if (marked[0] === line.position && (state.cameFrom || summary.photo)) {
+        card.append(el("div", { class: "trail" },
+          state.cameFrom ? el("button", { class: "link", onclick: backToProduct },
+                              `‹ ${state.cameFrom.name}`) : el("span"),
+          summary.photo ? el("button", { class: "link",
+            onclick: () => showPhoto(summary.receipt_id) }, "See the photo") : null));
+      }
     }
   }
   return card;
@@ -991,7 +1045,8 @@ function priceCard(d) {
     && c.change_pct).sort((a, b) => Math.abs(b.change_pct) - Math.abs(a.change_pct))[0];
   if (!moved) return null;
   const up = moved.change_pct > 0;
-  return el("div", { class: "card" }, el("div", { class: "label" }, "Price " + (up ? "up" : "down")),
+  return el("div", { class: "card tap", onclick: () => openProduct(moved.product_id) },
+    el("div", { class: "label" }, "Price " + (up ? "up" : "down")),
     el("div", { class: "big " + (up ? "up" : "down") },
        (up ? "▲ " : "▼ ") + Math.round(Math.abs(moved.change_pct)) + "%"),
     el("div", { class: "what" }, productText(moved.product, moved.brand)),
@@ -1003,7 +1058,8 @@ function priceCard(d) {
 function factCard(d) {
   const most = d.repurchase.filter(r => r.product).sort((a, b) => b.trips - a.trips)[0];
   if (!most || most.trips < 2) return null;
-  return el("div", { class: "card" }, el("div", { class: "label" }, "Your regular"),
+  return el("div", { class: "card tap", onclick: () => openProduct(most.product_id) },
+    el("div", { class: "label" }, "Your regular"),
     el("div", { class: "big" }, `${most.trips}×`),
     el("div", { class: "what" }, productText(most.product, most.brand)),
     el("div", { class: "meta" }, `bought since ${new Date(d.coverage.date_range[0])
@@ -1025,6 +1081,194 @@ function youView() {
     peopleCard(),
     accountCard(),
   ];
+}
+
+// --- the drill-down -------------------------------------------------------
+
+// Every insight can be checked, one level per tap (owner's call, 2026-10-12,
+// from a tomato "up 172%" that compared one shop in June with another in
+// September): a product in an insight, then its purchases as days on a
+// calendar with a list under it, then the receipt with that line marked
+// (fix it there as any line), then the receipt's photo.
+async function openProduct(productId) {
+  const tab = state.tab;
+  state.product = { id: productId, tab, doc: null };
+  render();
+  window.scrollTo(0, 0);
+  try {
+    const doc = await api(`/v1/products/${encodeURIComponent(productId)}/purchases`);
+    if (state.product && state.product.id === productId) state.product.doc = doc;
+  } catch (error) {
+    toast(error.message);
+    if (state.product && state.product.id === productId) state.product = null;
+  }
+  render();
+}
+
+function closeProduct() {
+  state.product = null;
+  render();
+}
+
+// Dates as the receipts print them, read as calendar days (no time zone).
+function day(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+function isoDay(date) { return date.toISOString().slice(0, 10); }
+function dayText(iso, year) {
+  return day(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short",
+    year: year ? "numeric" : undefined, timeZone: "UTC" });
+}
+
+// Days with a purchase, as dots in weeks from Monday to Sunday: from the month
+// of the first purchase to the last receipt in the history. Tap a dot to open
+// that day's receipt.
+function calendar(purchases, onDay) {
+  const byDay = new Map();
+  for (const p of purchases) {
+    if (!p.date) continue;
+    if (!byDay.has(p.date)) byDay.set(p.date, []);
+    byDay.get(p.date).push(p);
+  }
+  const dates = [...byDay.keys()].sort();
+  if (!dates.length) return null;
+  const first = day(dates[0].slice(0, 8) + "01");
+  const lastBought = dates[dates.length - 1];
+  const asOf = state.insights && state.insights.as_of > lastBought ? state.insights.as_of : lastBought;
+  const start = new Date(first.getTime() - ((first.getUTCDay() + 6) % 7) * 864e5);  // a Monday
+  const end = day(asOf);
+  const grid = el("div", { class: "grid" });
+  for (let week = new Date(start); week <= end; week = new Date(week.getTime() + 7 * 864e5)) {
+    // A month's name over the week its first day is in.
+    const firstOfMonth = [...Array(7).keys()].map(i => new Date(week.getTime() + i * 864e5))
+      .find(d => d.getUTCDate() === 1);
+    grid.append(el("div", { class: "mon" }, firstOfMonth || week.getTime() === start.getTime()
+      ? (firstOfMonth || first).toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" })
+      : ""));
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(week.getTime() + i * 864e5);
+      const iso = isoDay(date);
+      const bought = byDay.get(iso);
+      const outside = date < first || date > end;
+      const cell = el("div", { class: "day" + (outside ? " out" : "") +
+        (bought ? (bought.length > 1 ? " b2" : " b1") : "") +
+        (bought && state.product?.day === iso ? " on" : ""),
+        title: bought ? `${dayText(iso, true)}: ${bought.length}×` : dayText(iso, true) });
+      if (bought) cell.addEventListener("click", () => onDay(iso, bought));
+      grid.append(cell);
+    }
+  }
+  const box = el("div", { class: "cal" }, grid);
+  // The latest weeks are at the right end: start there when it does not fit.
+  requestAnimationFrame(() => { box.scrollLeft = box.scrollWidth; });
+  return box;
+}
+
+function productView() {
+  const p = state.product;
+  const back = el("button", { class: "back", onclick: closeProduct }, "‹ Back");
+  if (!p.doc) return [back, el("div", { class: "empty" }, "Loading…")];
+  const d = p.doc;
+  const buys = d.purchases;
+  const owner = isOwner();
+  const deepest = d.category_path && d.category_path.length
+    ? d.category_path[d.category_path.length - 1] : null;
+  const days = new Set(buys.map(b => b.date)).size;
+  const shops = [...new Set(buys.map(b => b.store).filter(Boolean))];
+  const years = new Set(buys.map(b => (b.date || "").slice(0, 4))).size > 1;
+  const onDay = (iso, bought) => {
+    const receipts = new Set(bought.map(b => b.receipt_id));
+    if (receipts.size === 1) return openLine(bought[0].receipt_id, bought.map(b => b.position));
+    p.day = iso;  // more than one receipt that day: they are marked in the list
+    render();
+    document.querySelector(".buys .line.on")?.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
+  return [back,
+    el("div", { class: "card" },
+      el("h2", {}, d.product || d.product_id),
+      el("div", { class: "meta" }, [deepest && deepest !== d.product ? deepest : null,
+        owner ? d.brand : null].filter(Boolean).join(" · ")),
+      buys.length ? calendar(buys, onDay) : null,
+      el("div", { class: "meta" }, buys.length
+        ? `Bought ${buys.length === 1 ? "once" : buys.length + " times"}` +
+          (days !== buys.length ? ` on ${days} days` : "") +
+          (shops.length ? ` at ${shops.join(", ")}` : "") + " · tap a day to see its receipt"
+        : "Not on any of your receipts.")),
+    buys.length ? el("div", { class: "card buys" }, [...buys].reverse().map(b => {
+      const unit = b.unit_price && b.unit_price.per !== "item"
+        ? `${euro(b.unit_price.amount)}/${b.unit_price.per === "piece" ? "pc" : b.unit_price.per}`
+        : null;
+      return el("div", { class: "line" + (p.day === b.date ? " on" : ""),
+                         onclick: () => openLine(b.receipt_id, [b.position]) },
+        el("div", {},
+          el("div", { class: "what" }, dayText(b.date, years),
+             b.not_counted ? el("span", { class: "badge none" }, "left out") : null),
+          el("div", { class: "meta" }, [b.store, b.qty !== 1 ? `${b.qty}×` : null, unit]
+            .filter(Boolean).join(" · "),
+            // What the paper printed and who said what it is: the owner's details.
+            owner ? badge(b.said_by) : null),
+          owner ? el("div", { class: "printed" }, b.raw_name) : null),
+        el("div", { class: "money" }, euro(b.net_paid), " ›"));
+    })) : null];
+}
+
+// The receipt on the Receipts screen, open, with the lines marked and in
+// view. A line is fixed there as any line is: tap it.
+async function openLine(receiptId, positions) {
+  const p = state.product;
+  state.cameFrom = p && p.doc ? { id: p.id, name: p.doc.product || p.id, tab: p.tab } : null;
+  state.product = null;
+  state.highlight = { receipt_id: receiptId, positions };
+  state.editing = null;
+  state.tab = "receipts";
+  await showReceipt(receiptId);
+  requestAnimationFrame(() => document.querySelector(".line.hit")
+    ?.scrollIntoView({ block: "center" }));
+}
+
+function backToProduct() {
+  const from = state.cameFrom;
+  state.cameFrom = state.highlight = null;
+  state.tab = from.tab;
+  openProduct(from.id);
+}
+
+// The photo or PDF the receipt was read from. An <img> cannot send the
+// password, so the file is fetched and shown from memory.
+async function showPhoto(receiptId) {
+  const viewer = document.getElementById("viewer");
+  const close = () => {
+    viewer.hidden = true;
+    viewer.replaceChildren();
+    document.body.style.overflow = "";
+    if (viewer.url) URL.revokeObjectURL(viewer.url);
+    viewer.url = null;
+  };
+  const top = el("div", { class: "top" }, el("span", {}, "The receipt's photo"),
+    el("button", { onclick: close }, "Close"));
+  viewer.replaceChildren(top, el("div", { class: "empty" }, "Loading the photo…"));
+  viewer.hidden = false;
+  document.body.style.overflow = "hidden";
+  try {
+    const token = savedToken();
+    const response = await fetch(`/v1/receipts/${receiptId}/photo`,
+      token ? { headers: { Authorization: "Bearer " + token } } : {});
+    if (!response.ok) {
+      let detail = response.statusText;
+      try { detail = (await response.json()).detail || detail; } catch (_) { /* not JSON */ }
+      throw new Error(detail);
+    }
+    const blob = await response.blob();
+    viewer.url = URL.createObjectURL(blob);
+    viewer.replaceChildren(top, blob.type === "application/pdf"
+      ? [el("iframe", { src: viewer.url, title: "The receipt" }),
+         el("div", { class: "top" }, el("a", { href: viewer.url, target: "_blank" }, "Open the PDF"))]
+      : el("img", { src: viewer.url, alt: "The receipt's photo" }));
+  } catch (error) {
+    close();
+    toast("No photo: " + error.message);
+  }
 }
 
 // --- insights -------------------------------------------------------------
@@ -1126,8 +1370,9 @@ function insightsView() {
          (branch.branch ? "" : " with no category yet")),
       tiles(branch.items.map(item => ({
         label: productText(item.product, item.brand) + (item.lines > 1 ? ` (${item.lines}×)` : ""),
-        value: item.spend, none: !item.product })),
-        t => toast(`${t.label} · ${euro(t.value)}`)))];
+        value: item.spend, none: !item.product, product_id: item.product_id })),
+        // A product opens its purchases; a line nothing placed has none to show.
+        t => t.product_id ? openProduct(t.product_id) : toast(`${t.label} · ${euro(t.value)}`)))];
   }
   return [el("div", { class: "card" }, choose,
     el("h2", {}, monthName(month.month)),
@@ -1141,7 +1386,10 @@ function insightsView() {
 
 function receiptsView() {
   if (!state.receipts.length) return [el("div", { class: "empty" }, "No receipts yet.")];
-  return [waitingCard(),
+  const from = state.cameFrom;
+  return [from ? el("button", { class: "back", onclick: backToProduct }, `‹ Back to ${from.name}`)
+            : null,
+          from ? null : waitingCard(),
           ...state.receipts.filter(r => !state.removing.has(r.receipt_id)).map(receiptCard)];
 }
 
@@ -1173,7 +1421,8 @@ function render() {
   render.pending = false;
   const views = { home: homeView, receipts: receiptsView, insights: insightsView,
                   you: youView };
-  view.replaceChildren(...views[state.tab]().filter(Boolean));  // a view may skip a card
+  const shown = state.product && state.product.tab === state.tab ? productView : views[state.tab];
+  view.replaceChildren(...shown().filter(Boolean));  // a view may skip a card
   document.getElementById("stats").textContent = state.copyAt
     ? "As of your last visit (" + new Date(state.copyAt).toLocaleString([],
         { weekday: "short", hour: "2-digit", minute: "2-digit" }) + "), updating…" : "";
@@ -1258,7 +1507,9 @@ document.getElementById("add-file").addEventListener("change", event => {
 });
 for (const tab of TABS) {
   document.getElementById("tab-" + tab).addEventListener("click", () => {
-    state.tab = tab; render();
+    state.tab = tab;
+    state.product = state.cameFrom = state.highlight = null;  // a tab starts from its top
+    render();
     window.scrollTo(0, 0);
     if (tab === "home") refreshJobs();
   });
