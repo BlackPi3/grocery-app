@@ -398,3 +398,25 @@ def test_a_users_answer_crosses_from_the_tables_into_her_history_only():
     mine = {**hers, "source_image": "IMG_1.jpeg"}
     (record,) = normalize_receipt(mine, resolution, products, {}, None, taught_by_her)
     assert record["said_by"] == "app", "a line her answer placed can still be spot-checked"
+
+
+def test_none_of_these_crosses_from_the_tables_into_a_line_nothing_places():
+    """2026-10-12: a No on every card is an answer with no product. Through
+    the normalizer it leaves the line not placed, whatever the memory or the
+    produce rule would say, and keeps the money."""
+    from grocery_app.normalizer import normalize_receipt
+
+    resolution = {("musterladen", "MU Butter"): ["p-0001"]}
+    products = {"p-0001": {"name": "Butter", "brand": "Muster"}}
+    line = {"type": "product", "raw_name": "MU Butter", "qty": 1, "gross": 1.0,
+            "discount": 0.0, "net": 1.0, "tax_class": "A"}
+    receipt = {"source_image": "IMG_1.jpeg", "store": "Musterladen", "date": "2026-03-01",
+               "lines": [line]}
+    said_no = {("IMG_1.jpeg", 0): {"product_id": None, "raw_name": "MU Butter",
+                                   "rejected": "p-0001", "confirmed_by": "shopper"}}
+
+    (record,) = normalize_receipt(receipt, resolution, products, said_no, None, {})
+
+    assert (record["resolution"], record["product_id"], record["said_by"]) == \
+        ("none", None, None)
+    assert record["net_paid"] == 1.0 and "brand" not in record

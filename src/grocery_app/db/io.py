@@ -217,7 +217,7 @@ def listing_to_dict(listing: StoreListing) -> dict[str, Any]:
 
 LINE_RESOLUTION_FIELDS = ("source_image", "line_index", "raw_name", "product_id",
                           "confirmed_by", "confirmed_at", "basis", "shopper_words",
-                          "disagrees_with")
+                          "disagrees_with", "rejected")
 
 
 def line_resolution_to_dict(lr: LineResolution, source_image: str) -> dict[str, Any]:
@@ -228,6 +228,8 @@ def line_resolution_to_dict(lr: LineResolution, source_image: str) -> dict[str, 
         d["shopper_words"] = lr.shopper_words
     if lr.disagrees_with is not None:  # only a user's answer against the owner's
         d["disagrees_with"] = lr.disagrees_with
+    if lr.rejected is not None:  # only a No on a spot check
+        d["rejected"] = lr.rejected
     return d
 
 
@@ -396,10 +398,11 @@ def import_data(session: Session, receipts_dir: str | Path, products_path: str |
                                  raw_name=d["raw_name"], product_id=d["product_id"],
                                  confirmed_by=d.get("confirmed_by"),
                                  confirmed_at=_date(d.get("confirmed_at")), basis=d.get("basis"),
-                                 shopper_words=d.get("shopper_words"))
+                                 shopper_words=d.get("shopper_words"),
+                                 rejected=d.get("rejected"))
             if existing:
                 _copy(existing, new, ("raw_name", "product_id", "confirmed_by", "confirmed_at",
-                                      "basis"))
+                                      "basis", "rejected"))
                 summary["line_resolutions"]["updated"] += 1
             else:
                 session.add(new)

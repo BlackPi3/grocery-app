@@ -151,6 +151,19 @@
   .confirm { display: flex; justify-content: space-between; align-items: center; gap: 10px;
     cursor: pointer; background: var(--accent-soft); border-color: transparent; }
   .confirm .money { color: var(--accent); font-weight: 600; font-size: 14px; }
+  .deck { touch-action: pan-y; transition: transform 0.25s ease, opacity 0.25s ease;
+    user-select: none; -webkit-user-select: none; }
+  .deck.busy { opacity: 0.5; pointer-events: none; }
+  .deck.leaning-yes { box-shadow: 0 0 0 2px var(--good); }
+  .deck.leaning-no { box-shadow: 0 0 0 2px var(--bad); }
+  .deck .ask { font-size: 17px; font-weight: 600; margin: 4px 0 10px; }
+  .deck .photo { display: block; width: 100%; height: 260px; object-fit: contain;
+    background: #fff; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 10px; }
+  .deck .photo.none { display: grid; place-items: center; height: 110px; background: var(--page);
+    color: var(--muted); font-size: 13px; }
+  .deck .what { font-weight: 600; margin-bottom: 2px; }
+  .deck .row { margin-top: 12px; }
+  .deck .row button { padding: 12px; font-size: 16px; font-weight: 600; }
   .stat { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
   .months { display: flex; gap: 6px; overflow-x: auto; margin: 0 -2px 12px; padding: 0 2px; }
   .months button { flex: 0 0 auto; padding: 6px 12px; font-size: 13px; }
@@ -217,7 +230,7 @@
 "use strict";
 // All text from receipts and the model goes in with textContent, never as HTML.
 const state = { tab: "home", checks: null, questions: null, receipts: null, open: null,
-                copyAt: null, removing: new Set(),
+                copyAt: null, removing: new Set(), step: {},
                 insights: null, jobs: null, sending: [], notSent: [], uploaded: new Set() };
 const TABS = ["home", "receipts", "insights", "you"];
 const TITLES = { home: "Home", receipts: "Receipts", insights: "Insights", you: "You" };
@@ -333,6 +346,8 @@ async function answer(receiptId, position, body) {
     // Say what it was stored as: a description is read into the app's format.
     const line = (doc.lines || []).find(l => l.position === position);
     if (body.product_id === null) toast("Answer taken back");
+    else if (body.none_of_these) toast("Left not placed; the app won't ask again",
+                                       () => answer(receiptId, position, { product_id: null }));
     else toast(line && line.product ? "Saved as: " + productText(line.product, line.brand, line)
                                      : "Saved",
                () => answer(receiptId, position, { product_id: null }));
@@ -394,83 +409,120 @@ function picker(receiptId, position, extra) {
 
 // --- views ----------------------------------------------------------------
 
-function checkCard(check) {
-  const card = el("div", { class: "card" });
-  const wrong = el("button", { class: "bad", onclick: () => {
-    wrong.disabled = true;
-    card.append(picker(check.receipt_id, check.position));
-  } }, "Wrong");
-  card.append(
-    el("div", { class: "meta" }, "Spot check · ", check.store || "", " · ", check.date || "",
-       check.paid != null ? " · " + euro(check.paid) : ""),
-    el("div", { class: "printed" }, check.raw_name),
-    // A photo of the pack settles it at a glance (2026-10-08); a tap opens
-    // the page it is from, to look closer.
-    check.picture ? el("a", { class: "picture", href: check.picture.page || check.picture.url,
-                              target: "_blank", rel: "noopener" },
-      el("img", { src: check.picture.url, alt: "", loading: "lazy" }),
-      el("span", { class: "meta" }, "Photo: ", check.picture.from)) : null,
-    el("div", { class: "says" }, "The app says ", el("b", {}, productText(check.app_product,
-       check.brand, check) || check.app_product_id),
-       check.category_path ? el("div", { class: "meta" }, check.category_path.join(" › ")) : null),
+// --- yes/no cards ----------------------------------------------------------
+
+// What the app asks, one product at a time: its picture, Yes or No, nothing
+// to type (the redesign, 2026-10-12). A spot check is one card. A question is
+// a short run of cards, the one that costs what was paid first (`api.cards`
+// on the server). A No on a spot check, or on every card of a question, says
+// "none of these": the line stays not placed and is not asked about again.
+// Swipe right for Yes, left for No.
+function asks() {
+  const checks = state.checks.checks.map(c => ({ item: c, cards: [{
+    name: c.app_product || c.app_product_id, brand: c.brand,
+    more: { details: c.details, sold_as: c.sold_as }, picture: c.picture,
+    category_path: c.category_path, yes: { product_id: c.app_product_id } }] }));
+  const questions = state.questions.questions.map(q => ({ item: q,
+    cards: (q.cards || []).map(card => {
+      if (card.choice) return { name: card.choice, yes: { new_product: { description: card.choice } } };
+      const c = q.candidates[card.candidate - 1];
+      return c && { name: c.name, brand: c.brand, size: c.pack_size, price: c.price,
+                    picture: c.picture, yes: { candidate: c.number } };
+    }).filter(Boolean) }));
+  // A question with nothing to show could only be answered by typing: not asked.
+  return [...checks, ...questions].filter(a => a.cards.length);
+}
+
+function deckCard(ask) {
+  const line = ask.item;
+  const key = `${line.receipt_id}:${line.position}`;
+  const step = Math.min(state.step[key] || 0, ask.cards.length - 1);
+  const shown = ask.cards[step];
+  const owner = state.me && state.me.role === "owner";
+  let busy = false;
+  const say = async yes => {
+    if (busy) return;
+    busy = true;
+    card.classList.add("busy");
+    if (yes) return answer(line.receipt_id, line.position, shown.yes);
+    if (step + 1 < ask.cards.length) {
+      state.step[key] = step + 1;
+      return render();
+    }
+    delete state.step[key];
+    return answer(line.receipt_id, line.position, { none_of_these: true });
+  };
+  const card = el("div", { class: "card deck" },
+    el("div", { class: "meta" }, [line.store, line.date, line.paid != null ? euro(line.paid)
+       : null].filter(Boolean).join(" · "),
+       ask.cards.length > 1 ? ` · ${step + 1} of ${ask.cards.length}` : ""),
+    el("div", { class: "ask" }, ask.cards.length > 1 || !shown.yes.product_id
+       ? "Did you buy this?" : "Is this what you bought?"),
+    shown.picture
+      ? el("img", { class: "photo", src: shown.picture.url, alt: "", draggable: "false" })
+      : el("div", { class: "photo none" }, "No photo"),
+    el("div", { class: "what" }, productText(shown.name, shown.brand, shown.more),
+       shown.size ? el("span", { class: "meta" }, " · " + shown.size) : null),
+    shown.price != null ? el("div", { class: "meta" }, `${euro(shown.price)} at the shop`) : null,
+    shown.picture ? el("div", { class: "meta" }, "Photo: ", shown.picture.page
+      ? el("a", { href: shown.picture.page, target: "_blank", rel: "noopener" },
+           shown.picture.from) : shown.picture.from) : null,
+    // The printed line is a detail for the owner (k-simple-screens).
+    owner ? el("div", { class: "printed" }, line.raw_name) : null,
     el("div", { class: "row" },
-       el("button", { class: "good", onclick: () => answer(check.receipt_id, check.position,
-         { product_id: check.app_product_id }) }, "Right"),
-       wrong),
-  );
+       el("button", { class: "bad", onclick: () => say(false) }, "No"),
+       el("button", { class: "good", onclick: () => say(true) }, "Yes")));
+  flingable(card, say);
   return card;
 }
 
-function questionCard(question) {
-  const card = el("div", { class: "card" });
-  const offered = el("div", { class: "list" }, question.candidates.map(c =>
-    el("button", { onclick: () => answer(question.receipt_id, question.position,
-      { candidate: c.number }) },
-      productText(c.name, c.brand), c.pack_size ? el("span", { class: "meta" }, " " + c.pack_size)
-      : null, question.model_pick === c.number ? el("span", { class: "badge app" }, "app's pick")
-      : null)));
-  const other = el("button", { onclick: () => {
-    other.disabled = true;
-    card.append(picker(question.receipt_id, question.position));
-  } }, question.candidates.length ? "Something else" : "Say what it was");
-  // Through el(), which skips missing parts: DOM append would print "null".
-  card.append(el("div", {},
-    el("div", { class: "meta" }, "Question · ", question.store || "", " · ",
-       question.date || "", question.paid != null ? " · " + euro(question.paid) : ""),
-    el("div", { class: "printed" }, question.raw_name),
-    question.per_line ? el("div", { class: "why" },
-      "The till prints this for anything: your answer is for this line only.") : null,
-    question.unclear ? el("div", { class: "why" }, "The app can't tell: ", question.unclear)
-      : el("div", { class: "why" }, "The app found no product it is sure of."),
-    // What the search narrowed it to: one tap says it, in those words.
-    question.choices && question.choices.length ? el("div", { class: "meta" },
-      "A web search narrowed it to. Tap the one you bought:") : null,
-    question.choices && question.choices.length ? el("div", { class: "list" },
-      ...question.choices.map((choice) => el("button", { onclick: () => answer(
-        question.receipt_id, question.position, { new_product: { description: choice } }) },
-        choice))) : null,
-    question.candidates.length ? el("div", { class: "meta" },
-      "Shop products with similar names. Pick one only if it is what you bought:") : null,
-    offered, el("div", { class: "row" }, other)));
-  return card;
+// Follow a finger sideways on a card; let go past a third of the card's
+// width and it answers: right is Yes, left is No.
+function flingable(card, say) {
+  let start = null, dx = 0, sideways = false;
+  card.addEventListener("touchstart", event => {
+    start = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+    dx = 0;
+    sideways = false;
+  }, { passive: true });
+  card.addEventListener("touchmove", event => {
+    if (!start) return;
+    dx = event.touches[0].clientX - start.x;
+    const dy = event.touches[0].clientY - start.y;
+    if (!sideways && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) sideways = true;
+    if (!sideways) return;
+    card.style.transition = "none";
+    card.style.transform = `translateX(${dx}px) rotate(${dx / 30}deg)`;
+    card.classList.toggle("leaning-yes", dx > 40);
+    card.classList.toggle("leaning-no", dx < -40);
+  }, { passive: true });
+  card.addEventListener("touchend", () => {
+    start = null;
+    card.style.transition = "";
+    card.classList.remove("leaning-yes", "leaning-no");
+    if (sideways && Math.abs(dx) > card.offsetWidth / 3) {
+      card.style.transform = `translateX(${Math.sign(dx) * card.offsetWidth * 1.5}px)`;
+      say(dx > 0);
+    } else {
+      card.style.transform = "";
+    }
+  });
 }
 
 // What the app asks, at the top of Receipts behind the tab's badge, folded
-// until opened: an optional contribution (2026-10-12). The yes/no cards
-// replace these next.
+// until opened: an optional contribution (2026-10-12). One card at a time.
 function waitingCard() {
-  const cards = [...state.checks.checks.map(checkCard),
-                 ...state.questions.questions.map(questionCard)];
-  if (!cards.length) return null;
+  const all = asks();
+  if (!all.length) return null;
   const open = state.confirmOpen;
   return el("div", {},
     el("div", { class: "card confirm", onclick: () => { state.confirmOpen = !open; render(); } },
       el("div", {},
-        el("div", { class: "what" }, `${cards.length} ${cards.length === 1 ? "line" : "lines"} ` +
+        el("div", { class: "what" }, `${all.length} ${all.length === 1 ? "line" : "lines"} ` +
            "to confirm"),
         el("div", { class: "meta" }, "Help the app learn what you bought")),
       el("div", { class: "money" }, open ? "Hide" : "Show")),
-    open ? cards : null);
+    open ? deckCard(all[0]) : null);
 }
 
 // Open one receipt (never toggling it shut) with its lines as they are now.
@@ -1084,7 +1136,7 @@ function render() {
   if (!state.checks) return;
   // What waits for the shopper is a badge on Receipts, not a tab of its own:
   // answering is a contribution, not a chore (2026-10-12).
-  const waiting = state.checks.meta.open + state.questions.meta.open;
+  const waiting = asks().length;
   const receiptsTab = document.getElementById("tab-receipts");
   receiptsTab.querySelector(".dot")?.remove();
   if (waiting) receiptsTab.append(el("span", { class: "dot" }, String(waiting)));

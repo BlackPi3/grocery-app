@@ -314,6 +314,10 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
       a different string for the bottle GLOBUS calls something else, and only
       the shopper can say they are the same thing.
 
+    An answer of no product ("none of these": a No on every card) leaves
+    the line not placed whatever the memory or a rule would say: the shopper
+    was there.
+
     An answer *outside* a family the name does resolve to is still refused: a
     family is the catalog's statement about what that name can mean, and an
     answer contradicting it is a stale note, not new information. An answer on
@@ -339,7 +343,10 @@ def normalize_line(line: dict[str, Any], receipt: dict[str, Any],
     usable = (answered in products
               and (answered in ids or not ids or bool(pinpoint.get("disagrees_with")))
               and line.get("type", "product") == "product")
-    if answered and usable:
+    if pinpoint and answered is None and line.get("type", "product") == "product":
+        ids, candidates = [], []
+        product_id, how = None, "none"
+    elif answered and usable:
         ids = [answered]
         candidates = [products[ids[0]]]
         product_id, how = ids[0], "user"

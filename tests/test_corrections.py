@@ -402,3 +402,92 @@ def test_marking_a_line_that_does_not_exist_is_a_404(corrections):
                       json={"counted": False}).status_code == 404
     assert client.put("/v1/receipts/999999/lines/0/counted",
                       json={"counted": False}).status_code == 404
+
+
+# --- "none of these": a No on every card (2026-10-12) ------------------------
+
+
+def make_bananas_the_matchers(session):
+    row = session.scalars(select(Resolution).where(Resolution.raw_name == "Bananen")).one()
+    row.confirmed_by = "matcher"
+    session.commit()
+
+
+def test_none_of_these_leaves_a_question_unplaced_and_unasked(corrections):
+    client, _, receipt_id = corrections
+    url = f"/v1/receipts/{receipt_id}/lines/2/resolution"
+
+    def asked():
+        return [(q["receipt_id"], q["position"])
+                for q in client.get("/v1/questions").json()["questions"]]
+
+    line = client.put(url, json={"none_of_these": True}).json()["lines"][2]
+
+    assert (line["resolution"], line["said_by"]) == ("none", None)
+    assert (receipt_id, 2) not in asked()
+    summary = next(r for r in client.get("/v1/receipts").json()
+                   if r["receipt_id"] == receipt_id)
+    assert summary["unplaced"] == 1, "still not placed: the app does not know what it was"
+
+    client.put(url, json={"product_id": None})
+    assert (receipt_id, 2) in asked(), "taken back, it is a question again"
+
+
+def test_a_no_on_the_apps_guess_counts_the_mistake_and_forgets_the_guess(corrections):
+    """Parham's call: a No on a spot check also forgets the machine's guess
+    for the printed name, so the next receipt with it is looked at afresh."""
+    from grocery_app.db.models import Correction, LineResolution
+
+    client, session, receipt_id = corrections
+    make_bananas_the_matchers(session)
+
+    line = client.put(f"/v1/receipts/{receipt_id}/lines/1/resolution",
+                      json={"none_of_these": True}).json()["lines"][1]
+
+    assert (line["resolution"], line.get("product_id")) == ("none", None)
+    session.expire_all()
+    assert session.scalars(select(LineResolution)).one().rejected == "p-0002"
+    (mistake,) = session.scalars(select(Correction)).all()
+    assert (mistake.machine_product_id, mistake.shopper_product_id) == ("p-0002", None)
+    assert session.scalars(select(Resolution).where(Resolution.raw_name == "Bananen")).all() \
+        == [], "the guess is forgotten"
+    other = next(p for p in client.get("/v1/purchases").json()["purchases"]
+                 if p["raw_name"] == "Bananen" and p["source_image"] == "IMG_1.jpeg")
+    assert other["resolution"] != "exact", "no memory places it now (the produce rule may)"
+
+
+def test_taking_back_a_no_brings_the_guess_back(corrections):
+    from grocery_app.db.models import Correction
+
+    client, session, receipt_id = corrections
+    make_bananas_the_matchers(session)
+    url = f"/v1/receipts/{receipt_id}/lines/1/resolution"
+    client.put(url, json={"none_of_these": True})
+
+    client.put(url, json={"product_id": None})
+
+    session.expire_all()
+    assert session.scalars(select(Correction)).all() == []
+    row = session.scalars(select(Resolution).where(Resolution.raw_name == "Bananen")).one()
+    assert (row.product_id, row.confirmed_by) == ("p-0002", "matcher")
+    assert client.get(f"/v1/receipts/{receipt_id}").json()["lines"][1]["product_id"] == "p-0002"
+
+
+def test_a_no_never_forgets_what_a_person_answered(corrections):
+    client, session, receipt_id = corrections
+
+    client.put(f"/v1/receipts/{receipt_id}/lines/1/resolution", json={"none_of_these": True})
+
+    assert session.scalars(select(Resolution).where(Resolution.raw_name == "Bananen")).one()
+    other = next(p for p in client.get("/v1/purchases").json()["purchases"]
+                 if p["raw_name"] == "Bananen" and p["source_image"] == "IMG_1.jpeg")
+    assert other["resolution"] == "exact", "only this line is not placed"
+
+
+def test_none_of_these_is_one_answer_not_two(corrections):
+    client, _, receipt_id = corrections
+    url = f"/v1/receipts/{receipt_id}/lines/2/resolution"
+
+    assert client.put(url, json={"none_of_these": True, "product_id": "p-0001"}) \
+        .status_code == 422
+    assert client.put(url, json={"none_of_these": False}).status_code == 422

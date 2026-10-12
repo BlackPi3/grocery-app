@@ -211,7 +211,7 @@ class NewProductAnswer(BaseModel):
 
 
 class LineResolutionRequest(BaseModel):
-    """The shopper's answer for one line, in exactly one of three ways, or
+    """The shopper's answer for one line, in exactly one of four ways, or
     `product_id: null` to withdraw it."""
 
     model_config = ConfigDict(extra="forbid")
@@ -225,9 +225,23 @@ class LineResolutionRequest(BaseModel):
                     "a shop listing the catalog lacks becomes a product")
     new_product: NewProductAnswer | None = Field(
         default=None, description="None of the candidates: a new product in the shopper's words")
+    none_of_these: Literal[True] | None = Field(
+        default=None,
+        description="No on every card: the line stays not placed and is not asked again; on a "
+                    "line the app placed, its product is counted as a mistake and forgotten")
     confirmed_by: str | None = Field(default=None,
                                      description="Who answered; defaults to 'shopper'")
     basis: str | None = Field(default=None, description="How they knew: memory, photo, ...")
+
+
+class Picture(BaseModel):
+    """A photo of the pack, where the app found it (`grocery_app.pictures`)."""
+
+    url: str = Field(description="The app's own copy, under /pictures (no token needed)")
+    from_: str = Field(alias="from",
+                       description="The shop, `Open Food Facts`, or the site a web "
+                                   "search found it on")
+    page: str | None = Field(description="The page it is on, to look closer")
 
 
 class QuestionCandidate(BaseModel):
@@ -240,6 +254,18 @@ class QuestionCandidate(BaseModel):
     product_id: str | None = Field(description="Set when the catalog already holds it")
     article: str | None = Field(description="The shop's article number, when a shop lists it")
     url: str | None
+    price: float | None = Field(
+        default=None, description="Its shelf price nearest to what was paid, when one is known")
+    picture: Picture | None = Field(default=None, description="A photo of the pack, if found")
+
+
+class QuestionCard(BaseModel):
+    """One yes/no card: a candidate by its number, or what a web search said."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate: int | None = None
+    choice: str | None = None
 
 
 class Question(BaseModel):
@@ -263,16 +289,10 @@ class Question(BaseModel):
     choices: list[str] = Field(
         default_factory=list, description="What a web search for the whole line narrowed it "
                                           "down to, when identify could not tell; best first")
-
-
-class Picture(BaseModel):
-    """A photo of the pack, where the app found it (`grocery_app.pictures`)."""
-
-    url: str = Field(description="The app's own copy, under /pictures (no token needed)")
-    from_: str = Field(alias="from",
-                       description="The shop, `Open Food Facts`, or the site a web "
-                                   "search found it on")
-    page: str | None = Field(description="The page it is on, to look closer")
+    cards: list[QuestionCard] = Field(
+        default_factory=list,
+        description="What to ask with, one yes/no card at a time, first card first: the "
+                    "price paid picks the order (`api.cards`)")
 
 
 class SpotCheck(BaseModel):

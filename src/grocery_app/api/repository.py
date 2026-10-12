@@ -103,7 +103,8 @@ class WriteRepository(Protocol):
 
     def set_line_resolution(self, receipt_id: int, position: int, product_id: str | None,
                             confirmed_by: str | None, basis: str | None,
-                            shopper_words: str | None = None) -> dict[str, Any]:
+                            shopper_words: str | None = None,
+                            none_of_these: bool = False) -> dict[str, Any]:
         ...
 
     def product_for_answer(self, receipt_id: int, position: int, candidate: int | None,
@@ -377,7 +378,8 @@ class PostgresRepository:
     def set_line_resolution(self, receipt_id: int, position: int, product_id: str | None,
                             confirmed_by: str | None = None,
                             basis: str | None = None,
-                            shopper_words: str | None = None) -> dict[str, Any]:
+                            shopper_words: str | None = None,
+                            none_of_these: bool = False) -> dict[str, Any]:
         """Record, or withdraw, the shopper's answer for one line.
 
         This is the most valuable data the project has: the till prints a name
@@ -399,6 +401,13 @@ class PostgresRepository:
         what it was, unless something else changed it since, and the
         correction it logged is removed. A new answer over an old one first
         takes the old one back, so the two are never mixed into a family.
+
+        `none_of_these` is the answer of a No on every card (2026-10-12): no
+        product. The line stays not placed and is not asked about again. When
+        the app had placed it, that product is kept as `rejected`, the mistake
+        counted, and the memory forgets the machine's guess for the printed
+        name, so the next receipt is looked at afresh (Parham's call); a
+        person's answer in the memory is never forgotten this way.
         """
         with self.session_factory() as session:
             row = self._get(session, receipt_id)
@@ -409,11 +418,11 @@ class PostgresRepository:
             existing = session.scalars(
                 select(LineResolution).where(LineResolution.receipt_id == receipt_id,
                                              LineResolution.position == position)).first()
-            if product_id is not None:
+            if product_id is not None or none_of_these:
                 if line.type != "product":
                     raise NotAProductLine(
                         f"line {position} is a {line.type} line, not a product")
-                if session.get(Product, product_id) is None:
+                if product_id is not None and session.get(Product, product_id) is None:
                     raise UnknownProduct(f"no product {product_id}")
             if existing is not None:
                 self._take_back(session, row, existing)
@@ -421,8 +430,9 @@ class PostgresRepository:
             question = session.scalars(select(Question).where(
                 Question.receipt_id == receipt_id, Question.position == position)).first()
             if question is not None:
-                question.answered_at = None if product_id is None else datetime.now(UTC)
-            if product_id is not None:
+                question.answered_at = (None if product_id is None and not none_of_these
+                                        else datetime.now(UTC))
+            if product_id is not None or none_of_these:
                 before = self._receipt_view(session, row)["lines"][position]
                 answer = LineResolution(receipt_id=receipt_id, position=position)
                 answer.raw_name = line.raw_name
@@ -435,8 +445,14 @@ class PostgresRepository:
                 answer.basis = basis
                 answer.shopper_words = shopper_words
                 session.add(answer)
-                answer.memory_before = self._remember(session, row, line.raw_name, position,
-                                                      product_id, answer.confirmed_by, before)
+                if none_of_these:
+                    answer.rejected = before.get("product_id")
+                    answer.memory_before = self._forget(session, row, line.raw_name, position,
+                                                        before)
+                else:
+                    answer.memory_before = self._remember(session, row, line.raw_name,
+                                                          position, product_id,
+                                                          answer.confirmed_by, before)
             session.commit()
             return self._receipt_view(session, self._get(session, receipt_id))
 
@@ -487,6 +503,36 @@ class PostgresRepository:
         entry.source = "shopper-answer"
         return snapshot
 
+    def _forget(self, session: Session, receipt: Receipt, raw_name: str, position: int,
+                before: dict[str, Any]) -> dict[str, Any] | None:
+        """What a "none of these" answer does to the memory: a machine's guess
+        that placed the line is counted as a mistake and forgotten. Returns
+        the row as it was (`held`, with its own printed name) and `wrote:
+        None`, or None when the memory was left alone."""
+        if not receipt.store or never_remembered(receipt.store, raw_name):
+            return None
+        entry = self._memory_entry(session, receipt.store, raw_name)
+        held = ({"product_id": entry.product_id, "product_ids": list(entry.product_ids or []),
+                 "confirmed_by": entry.confirmed_by} if entry else None)
+        overruled = memory.machine_answer(before, held)
+        if overruled:
+            session.add(Correction(receipt_id=receipt.id, position=position,
+                                   store=receipt.store, raw_name=raw_name,
+                                   machine_how=before["resolution"],
+                                   machine_product_id=overruled, shopper_product_id=None))
+        if entry is None or memory.author_kind(entry.confirmed_by) != "machine" \
+                or not overruled:
+            return None
+        snapshot = {"held": {"raw_name": entry.raw_name, "product_id": entry.product_id,
+                             "product_ids": list(entry.product_ids or []),
+                             "status": entry.status, "confirmed_by": entry.confirmed_by,
+                             "confirmed_at": entry.confirmed_at
+                             and entry.confirmed_at.isoformat(),
+                             "source": entry.source},
+                    "wrote": None}
+        session.delete(entry)
+        return snapshot
+
     def _take_back(self, session: Session, receipt: Receipt, answer: LineResolution) -> None:
         """Remove one line answer and what it taught: its correction, and its
         change to the memory if the memory still holds what it wrote."""
@@ -497,8 +543,20 @@ class PostgresRepository:
         snapshot = answer.memory_before
         entry = (self._memory_entry(session, receipt.store, answer.raw_name)
                  if snapshot and receipt.store else None)
-        if entry is not None and {"product_id": entry.product_id,
-                                  "product_ids": list(entry.product_ids or [])} \
+        if snapshot and receipt.store and snapshot["wrote"] is None:
+            # A "none of these" forgot a machine's guess: it comes back,
+            # unless something has been remembered for the name since.
+            held = snapshot["held"]
+            if entry is None:
+                session.add(Resolution(
+                    store=receipt.store, raw_name=held["raw_name"], line_type="product",
+                    product_id=held["product_id"], product_ids=held["product_ids"],
+                    status=held["status"], confirmed_by=held["confirmed_by"],
+                    confirmed_at=(date.fromisoformat(held["confirmed_at"])
+                                  if held["confirmed_at"] else None),
+                    source=held["source"]))
+        elif entry is not None and {"product_id": entry.product_id,
+                                    "product_ids": list(entry.product_ids or [])} \
                 == snapshot["wrote"]:
             held = snapshot["held"]
             if held is None:
@@ -573,13 +631,30 @@ class PostgresRepository:
         `searched_only` holds back every question no web search narrowed down,
         and counts them (`held_back`): nothing reaches the shopper unsearched
         (Parham, 2026-10-02). They are not answered or dropped, only not shown.
+
+        `cards` is what the page asks with, one yes/no card at a time
+        (`api.cards`). Like a spot check, a question waits until the products
+        on its cards have had their pictures looked up, or `picture_wait`.
         """
         from grocery_app import matcher as matching
+        from grocery_app.api.cards import card_order, nearest_price
+        from grocery_app.api.pictures import shown
 
         with self.session_factory() as session:
             inputs = load_normalizer_inputs(session, self.user_id)
-            proposals = {(q.receipt_id, q.position): q.proposal
-                         for q in session.scalars(select(Question))}
+            asked = {(q.receipt_id, q.position): q for q in session.scalars(select(Question))}
+            pictures = {p.id: (p.picture, p.picture_checked_at)
+                        for p in session.scalars(select(Product))}
+            waited_long_enough = datetime.now(UTC) - self.picture_wait
+
+            def picture(c: dict[str, Any]) -> tuple[dict[str, Any] | None, bool]:
+                """A candidate's picture, and whether it has been looked for: a
+                catalog product's own, else the one found for the shop listing."""
+                if c.get("product_id") in pictures:
+                    kept, checked = pictures[c["product_id"]]
+                    return shown(kept), checked is not None
+                return shown(c.get("picture")), bool(c.get("picture_checked"))
+
             receipts = session.scalars(select(Receipt).where(whose(self.user_id))
                                        .order_by(Receipt.date, Receipt.id)).all()
             questions = []
@@ -590,28 +665,47 @@ class PostgresRepository:
                                             inputs["line_resolutions"], inputs["shelf_prices"],
                                             inputs["authors"], inputs["uncounted"])
                 for position, (line, record) in enumerate(zip(doc["lines"], records, strict=True)):
-                    # A line the shopper does not count is not worth a question.
+                    # A line the shopper does not count is not worth a question,
+                    # nor one they said was none of what the app offered.
                     if record["resolution"] != "none" or record["type"] != "product" \
                             or record.get("not_counted"):
                         continue
-                    proposal = proposals.get((receipt.id, position)) or {}
+                    said = inputs["line_resolutions"].get((doc["source_image"], position))
+                    if said and said["raw_name"] == line["raw_name"]:
+                        continue
+                    question = asked.get((receipt.id, position))
+                    proposal = question.proposal if question is not None else {}
                     if searched_only and not (proposal.get("identity") or {}).get("searched"):
                         held_back += 1
                         continue
                     offered = proposal.get("candidates") or []
                     pick = proposal.get("pick")
+                    paid = matching.paid_price(line)
+                    model_pick = offered.index(pick) + 1 if pick in offered else None
+                    choices = (proposal.get("identity") or {}).get("choices") or []
+                    cards = card_order(offered, choices, model_pick, paid)
+
+                    waiting = any(not picture(offered[card["candidate"] - 1])[1]
+                                  for card in cards if "candidate" in card)
+                    if waiting and question is not None \
+                            and question.created_at > waited_long_enough:
+                        held_back += 1
+                        continue
                     questions.append({
                         "receipt_id": receipt.id, "position": position, "store": receipt.store,
                         "date": doc.get("date"), "raw_name": line["raw_name"],
-                        "paid": matching.paid_price(line),
+                        "paid": paid,
                         "per_line": never_remembered(receipt.store, line["raw_name"]),
                         "candidates": [{"number": n, **{k: c.get(k) for k in (
-                            "name", "brand", "pack_size", "product_id", "article", "url")}}
+                            "name", "brand", "pack_size", "product_id", "article", "url")},
+                            "price": nearest_price(c.get("prices"), paid),
+                            "picture": picture(c)[0]}
                             for n, c in enumerate(offered, 1)],
-                        "model_pick": offered.index(pick) + 1 if pick in offered else None,
+                        "model_pick": model_pick,
                         "reason": proposal.get("reason"),
                         "unclear": (proposal.get("identity") or {}).get("reason"),
-                        "choices": (proposal.get("identity") or {}).get("choices") or [],
+                        "choices": choices,
+                        "cards": cards,
                     })
             authors = [r.confirmed_by for r in session.scalars(select(Resolution))]
             matcher_answers, identify_answers = (authors.count("matcher"),

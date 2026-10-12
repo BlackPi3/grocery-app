@@ -32,8 +32,15 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app import pictures, spend
 from grocery_app.api.images import DiskImageStore, ImageStore, looks_like_an_image, sha256_of
-from grocery_app.db.io import product_to_dict
-from grocery_app.db.models import Check, LineResolution, Product, StoreListing
+from grocery_app.db.io import product_to_dict, receipt_to_dict
+from grocery_app.db.models import (
+    Check,
+    LineResolution,
+    Product,
+    Question,
+    Receipt,
+    StoreListing,
+)
 from grocery_app.resolver import fold
 
 log = logging.getLogger(__name__)
@@ -87,6 +94,8 @@ def products_wanting_pictures(session: Session, now: datetime | None = None) -> 
         and_(LineResolution.receipt_id == Check.receipt_id,
              LineResolution.position == Check.position))
     on_checks = set(session.scalars(select(Check.app_product_id).where(~answered.exists())))
+    on_checks |= {c["product_id"] for q in open_questions(session)
+                  for c in (q.proposal.get("candidates") or []) if c.get("product_id")}
     listed = set(session.scalars(select(StoreListing.product_id)))
     due = session.execute(select(Product.id, Product.eans).where(or_(
         Product.picture_checked_at.is_(None),
@@ -131,6 +140,67 @@ def fill_pictures(session_factory: sessionmaker[Session], service: Pictures,
         return len(product_ids)
 
 
+def open_questions(session: Session) -> list[Question]:
+    return list(session.scalars(select(Question).where(Question.answered_at.is_(None))
+                                .order_by(Question.id)))
+
+
+def fill_question_pictures(session_factory: sessionmaker[Session], service: Pictures,
+                           limit: int = 20) -> int:
+    """Look up pictures for up to `limit` shop listings on open questions'
+    cards; returns how many were looked up.
+
+    A listing the catalog does not hold yet is no product, so its picture is
+    kept on the question's candidate (`picture`, `picture_checked`). Should
+    the shopper say yes, the product made from it finds its own.
+    """
+    from grocery_app import matcher as matching
+    from grocery_app.api.cards import card_order
+
+    looked = 0
+    with session_factory() as session:
+        for question in open_questions(session):
+            receipt = session.get(Receipt, question.receipt_id)
+            lines = receipt_to_dict(receipt)["lines"] if receipt else []
+            if question.position >= len(lines):
+                continue
+            proposal = question.proposal or {}
+            offered = [dict(c) for c in proposal.get("candidates") or []]
+            pick = proposal.get("pick")
+            cards = card_order(offered, (proposal.get("identity") or {}).get("choices") or [],
+                               offered.index(pick) + 1 if pick in offered else None,
+                               matching.paid_price(lines[question.position]))
+            changed = False
+            for card in cards:
+                candidate = offered[card["candidate"] - 1] if "candidate" in card else None
+                if candidate is None or candidate.get("product_id") \
+                        or candidate.get("picture_checked") or looked >= limit:
+                    continue
+                # Named as the receipt names the shop: the photo says "GLOBUS".
+                listings = ([{"store": receipt.store or candidate.get("source") or "",
+                              "article_number": candidate["article"], "url": candidate.get("url")}]
+                            if candidate.get("article") else [])
+                found = service.find({"name": candidate.get("name"),
+                                      "brand": candidate.get("brand")}, listings)
+                looked += 1
+                if found:
+                    try:
+                        data = service.download(found["url"])
+                    except (OSError, ValueError):
+                        data = b""
+                    if looks_like_an_image(data):
+                        digest = sha256_of(data)
+                        service.store.put(digest, data)
+                        candidate["picture"] = {"file": digest, "from": found["from"],
+                                                "page": found.get("page"), "source": found["url"]}
+                candidate["picture_checked"] = True
+                changed = True
+            if changed:
+                question.proposal = {**proposal, "candidates": offered}
+                session.commit()
+    return looked
+
+
 def keep_filling(session_factory: sessionmaker[Session], service: Pictures,
                  every: float = PASS_EVERY_SECONDS) -> None:
     """The server's picture thread: a pass, a pause, for as long as it runs."""
@@ -138,6 +208,7 @@ def keep_filling(session_factory: sessionmaker[Session], service: Pictures,
         try:
             with spend.tagged("pictures"):
                 fill_pictures(session_factory, service)
+                fill_question_pictures(session_factory, service)
         except Exception:  # noqa: BLE001 - a picture is never worth the server
             log.exception("looking up pictures failed")
         time.sleep(every)
