@@ -67,6 +67,20 @@ def test_price_change_falls_back_to_paid_per_item():
     assert change["first"]["price"] == 1.0 and change["last"]["price"] == 1.2
 
 
+def test_a_price_change_compares_one_shop_with_itself():
+    """Cheap in one shop, dearer in another later, is not a price going up."""
+    rows = [row("p-1", "2026-06-29", 0.49, unit=0.99, per="kg", store="Billigmarkt"),
+            row("p-1", "2026-07-18", 0.34, unit=1.18, per="kg", store="Billigmarkt"),
+            row("p-1", "2026-09-04", 0.43, unit=2.24, per="kg", store="Großmarkt"),
+            row("p-1", "2026-09-23", 1.83, unit=2.69, per="kg", store="Großmarkt")]
+    changes = {c["store"]: c for c in price_changes(rows)}
+    assert set(changes) == {"Billigmarkt", "Großmarkt"}
+    assert (changes["Großmarkt"]["first"]["price"], changes["Großmarkt"]["change_pct"]) == \
+        (2.24, 20.1)
+    assert [o["date"] for o in changes["Billigmarkt"]["observations"]] == \
+        ["2026-06-29", "2026-07-18"]
+
+
 def test_a_product_priced_per_kg_once_and_per_piece_once_is_skipped():
     rows = [row("p-1", "2026-01-01", 2.0, unit=4.0, per="kg"),
             row("p-1", "2026-02-01", 2.0, unit=2.0, per="piece")]

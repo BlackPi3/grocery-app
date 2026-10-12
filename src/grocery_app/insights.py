@@ -186,10 +186,19 @@ def _observations(group: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], st
 
 def price_changes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Every product seen on at least two dates in the same form (loose, a pack,
-    or unknown), with the price it was bought at each time."""
+    or unknown) at the same shop, with the price it was bought at each time.
+
+    One shop at a time: loose tomatoes at 0,99 €/kg in one shop and 2,69 €/kg
+    in another three months later read as +172% (Parham, 2026-10-12), a
+    difference between shops shown as a price going up. Shops are compared
+    in `cross_store`."""
     labels = _store_labels(rows)
-    out = []
+    by_shop: dict[tuple[str, str | None, str], list[dict[str, Any]]] = defaultdict(list)
     for (pid, form), group in _by_product_and_form(rows).items():
+        for p in group:
+            by_shop[(pid, form, store_key(p.get("store")))].append(p)
+    out = []
+    for (pid, form, _), group in by_shop.items():
         found = _observations(group)
         if found is None:
             continue
