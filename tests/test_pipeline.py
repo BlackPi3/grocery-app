@@ -420,3 +420,39 @@ def test_none_of_these_crosses_from_the_tables_into_a_line_nothing_places():
     assert (record["resolution"], record["product_id"], record["said_by"]) == \
         ("none", None, None)
     assert record["net_paid"] == 1.0 and "brand" not in record
+
+
+def test_a_drill_down_lists_the_lines_an_insight_was_computed_from(data, session):
+    """The drill-down (2026-10-12): a price change of +172% was ALDI in June
+    against GLOBUS in September, and only the lines behind it could show
+    that. From the tables, through the normalizer, to the insight and to the
+    drill-down: the price change's observations are the drill-down's
+    purchases at that shop, date by date, and a repurchase's trips are its
+    dates."""
+    from statistics import mean
+
+    from grocery_app.api.repository import PostgresRepository
+    from grocery_app.db.io import import_data
+    from grocery_app.db.session import make_session_factory
+
+    import_data(session, data / "receipts" / "truth", data / "products" / "products.json",
+                data / "products" / "resolution.json",
+                data / "receipts" / "line_resolutions.json", data / "products")
+    session.commit()
+    repository = PostgresRepository(make_session_factory(session.get_bind()))
+    insights = build_insights(repository.purchases())
+    (change,) = [c for c in insights["price_changes"] if c["product_id"] == "p-0001"]
+    drill = repository.product_purchases("p-0001")["purchases"]
+
+    by_date: dict[str, list[float]] = {}
+    for p in drill:
+        if p["store"].casefold() == change["store"].casefold():
+            paid = p["unit_price"]["amount"] if p["unit_price"] else p["net_paid"] / p["qty"]
+            by_date.setdefault(p["date"], []).append(paid)
+    assert [{"date": d, "price": round(mean(v), 2)} for d, v in sorted(by_date.items())] == \
+        change["observations"]
+    assert len(drill) == 3, "the line the shopper answered as the milk is one of them"
+
+    (milk,) = [r for r in insights["repurchase"] if r["product_id"] == "p-0001"]
+    assert milk["trips"] == len({p["date"] for p in drill})
+    assert milk["last_bought"] == drill[-1]["date"]

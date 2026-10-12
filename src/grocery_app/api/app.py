@@ -81,6 +81,7 @@ from grocery_app.api.schemas import (
     NewUser,
     NewUserRequest,
     ProductMatch,
+    ProductPurchases,
     PurchasesDocument,
     QuestionsDocument,
     ReceiptDocument,
@@ -180,6 +181,20 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         if user is not None:  # a file holds the owner's history and nobody else's
             raise HTTPException(status_code=403, detail="this server has no accounts")
         return repository
+
+    # In the demo every guest is the owner: the photos it shows are the
+    # made-up receipts' only, never one a guest sent (`demo.seeded_photos`).
+    demo_photos: frozenset[str] = frozenset()
+    if demo:
+        from grocery_app import demo as demo_mode
+
+        demo_photos = demo_mode.seeded_photos()
+
+    def photo_shown(sha256: str | None) -> bool:
+        """Is this upload's file kept here, and may this server show it?"""
+        return (sha256 is not None and image_store is not None
+                and (not demo or sha256 in demo_photos)
+                and image_store.size(sha256) is not None)
 
     def owner_only(request: Request) -> None:
         if asking(request) is not None:
@@ -363,7 +378,39 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
     def receipts(request: Request) -> list[ReceiptSummary]:
         """Every receipt, newest first, with how many of its product lines are
         placed on the shopper's word, on the app's, or not at all."""
-        return [ReceiptSummary.model_validate(r) for r in require_writes(request).receipts()]
+        return [ReceiptSummary.model_validate({**r, "photo": photo_shown(r.get("image_sha256"))})
+                for r in require_writes(request).receipts()]
+
+    @app.get("/v1/receipts/{receipt_id}/photo")
+    def receipt_photo(request: Request, receipt_id: int) -> Response:
+        """The photo or PDF a receipt was read from, as it arrived: the last
+        step of the drill-down, to set a line against the paper. Whoever may
+        see the receipt may see its photo, and no one else (another person's
+        receipt is a 404, as everywhere). In the demo, only the made-up
+        receipts' photos: a guest is the owner there, and must not see a
+        photo another guest sent."""
+        try:
+            sha256 = require_writes(request).receipt_image(receipt_id)
+        except NotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if demo and sha256 not in demo_photos:
+            raise HTTPException(status_code=403,
+                                detail="the demo shows the photos of its made-up receipts only")
+        if not photo_shown(sha256):
+            raise HTTPException(status_code=404, detail=f"no photo kept for receipt {receipt_id}")
+        data = image_store.path(sha256).read_bytes()
+        return Response(data, media_type="application/pdf" if data[:5] == b"%PDF-"
+                        else media_type(data), headers={"Cache-Control": "private, max-age=3600"})
+
+    @app.get("/v1/products/{product_id}/purchases", response_model=ProductPurchases)
+    def product_purchases(request: Request, product_id: str) -> ProductPurchases:
+        """Every purchase of one product, oldest first, each with the receipt
+        line to open (`receipt_id`, `position`): what an insight about it was
+        computed from. The asker's own receipts only; the catalog is shared."""
+        found = require_writes(request).product_purchases(product_id)
+        if found is None:
+            raise HTTPException(status_code=404, detail=f"no product {product_id}")
+        return ProductPurchases.model_validate(found)
 
     @app.get("/v1/products", response_model=list[ProductMatch])
     def products(request: Request,

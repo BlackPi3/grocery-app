@@ -121,6 +121,12 @@ class WriteRepository(Protocol):
     def receipts(self) -> list[dict[str, Any]]:
         ...
 
+    def receipt_image(self, receipt_id: int) -> str | None:
+        ...
+
+    def product_purchases(self, product_id: str) -> dict[str, Any] | None:
+        ...
+
     def search_products(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
         ...
 
@@ -729,7 +735,7 @@ class PostgresRepository:
                     if r["type"] == "product"]
                 out.append({
                     "receipt_id": row.id, "date": doc.get("date"), "store": row.store,
-                    "source_image": row.source_image,
+                    "source_image": row.source_image, "image_sha256": row.image_sha256,
                     "printed_total": doc.get("printed_total"),
                     "product_lines": len(records),
                     "said_by_you": sum(r["said_by"] == "you" for r in records),
@@ -740,6 +746,50 @@ class PostgresRepository:
                 })
         out.sort(key=lambda r: (r["date"] or "", r["receipt_id"]), reverse=True)
         return out
+
+    def receipt_image(self, receipt_id: int) -> str | None:
+        """The hash of the upload a receipt was read from, or None for one
+        typed in on the laptop. Another person's receipt is `NotFound`."""
+        with self.session_factory() as session:
+            return self._get(session, receipt_id).image_sha256
+
+    def product_purchases(self, product_id: str) -> dict[str, Any] | None:
+        """Every line of this person's receipts placed as `product_id`, oldest
+        first, each with the receipt and position to open it at: what an
+        insight about the product was computed from (the drill-down,
+        2026-10-12). None when the catalog has no such product.
+
+        Read through `normalize_receipt`, as the receipt screen and the
+        history are, so a line here is placed exactly as the insights see it.
+        """
+        with self.session_factory() as session:
+            inputs = load_normalizer_inputs(session, self.user_id)
+            product = inputs["products"].get(product_id)
+            if product is None:
+                return None
+            found = []
+            for row in session.scalars(select(Receipt).where(whose(self.user_id))):
+                doc = receipt_to_dict(row)
+                records = normalize_receipt(
+                    doc, inputs["resolution"], inputs["products"], inputs["line_resolutions"],
+                    inputs["shelf_prices"], inputs["authors"], inputs["uncounted"])
+                for position, record in enumerate(records):
+                    if record["type"] != "product" or record["product_id"] != product_id:
+                        continue
+                    found.append({
+                        "receipt_id": row.id, "position": position, "date": record["date"],
+                        "store": row.store, "raw_name": record["raw_name"],
+                        "qty": record["qty"], "net_paid": record["net_paid"],
+                        "unit_price": record.get("unit_price"),
+                        "sold_as": record.get("sold_as"), "said_by": record["said_by"],
+                        "not_counted": bool(record.get("not_counted"))})
+        found.sort(key=lambda p: (p["date"] or "", p["receipt_id"], p["position"]))
+        category = product.get("category")
+        return {"product_id": product_id, "product": product.get("name"),
+                "brand": product.get("brand"),
+                "category_path": (list(categories.path(category))
+                                  if category in categories.CATEGORIES else None),
+                "purchases": found}
 
     def search_products(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
         """Catalog products whose name or brand holds every word of `query`,

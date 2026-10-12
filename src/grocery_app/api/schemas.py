@@ -334,6 +334,41 @@ class ReceiptSummary(BaseModel):
     unplaced: int = Field(description="Product lines nothing placed, not counting those the "
                                       "shopper left out")
     not_counted: int = Field(description="Product lines the shopper left out of their numbers")
+    photo: bool = Field(default=False,
+                        description="The photo or PDF it was read from can be fetched "
+                                    "(`GET /v1/receipts/{receipt_id}/photo`)")
+
+
+class ProductPurchase(BaseModel):
+    """One receipt line placed as the product: where to open it, and what it cost."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    receipt_id: int
+    position: int = Field(description="The line on that receipt, as `GET /v1/receipts/{id}` "
+                                      "numbers it")
+    date: str | None
+    store: str | None
+    raw_name: str = Field(description="What the paper printed")
+    qty: float
+    net_paid: float
+    unit_price: UnitPrice | None = None
+    sold_as: SoldAs | None = None
+    said_by: Literal["you", "app"] | None
+    not_counted: bool = False
+
+
+class ProductPurchases(BaseModel):
+    """Every purchase of one product, oldest first: what an insight about it
+    was computed from, line by line (the drill-down, 2026-10-12)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    product_id: str
+    product: str | None
+    brand: str | None
+    category_path: list[str] | None
+    purchases: list[ProductPurchase]
 
 
 class ProductMatch(BaseModel):
