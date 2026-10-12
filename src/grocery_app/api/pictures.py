@@ -42,6 +42,10 @@ PictureFinder = Callable[[dict[str, Any], list[dict[str, Any]]], dict[str, Any] 
 PASS_EVERY_SECONDS = 30
 # "3 or 6 months" (Parham, 2026-10-10): six, so each shop is asked half as often.
 REFRESH_AFTER = timedelta(days=182)
+# How long a spot check waits for its picture before it shows without one: a
+# web search takes half a minute and a pass comes every 30 s, so ten minutes
+# means the lookup is not coming.
+CHECK_WAITS_UP_TO = timedelta(minutes=10)
 PICTURE_PATH = "/pictures/{file}"
 DEFAULT_ROOT = "data/pictures"
 ENV_VAR = "GROCERY_PICTURES"

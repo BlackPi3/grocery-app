@@ -49,7 +49,13 @@ from grocery_app.api.images import (
 )
 from grocery_app.api.jobs import Extractor, configured_extractor, resume_unfinished, run_job
 from grocery_app.api.matching import LineIdentifier, LineMatcher, line_identifier, line_matcher
-from grocery_app.api.pictures import Pictures, default_pictures, keep_filling, media_type
+from grocery_app.api.pictures import (
+    CHECK_WAITS_UP_TO,
+    Pictures,
+    default_pictures,
+    keep_filling,
+    media_type,
+)
 from grocery_app.api.repository import (
     DEFAULT_PURCHASES,
     NoSuchCandidate,
@@ -111,6 +117,8 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                 target=keep_filling, args=(repository.session_factory, pictures),
                 name="pictures", daemon=True)
             app.state.pictures.start()
+            if hasattr(repository, "picture_wait"):
+                repository.picture_wait = CHECK_WAITS_UP_TO  # checks come with theirs
         if resume_after is not None and uploads_available:
             started = datetime.now(UTC)
 

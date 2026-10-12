@@ -197,15 +197,19 @@ class PostgresRepository:
     """
 
     def __init__(self, session_factory: sessionmaker[Session],
-                 user: dict[str, Any] | None = None) -> None:
+                 user: dict[str, Any] | None = None,
+                 picture_wait: timedelta = timedelta(0)) -> None:
         self.session_factory = session_factory
         # Who is asking: a user (`{"id", "name"}`), or the owner when None.
         # Every receipt and job read or written here is that person's only.
         self.user = user
+        # How long a spot check waits for its picture (`checks`); none unless
+        # this server looks pictures up (`create_app(pictures=...)`).
+        self.picture_wait = picture_wait
 
     def as_user(self, user: dict[str, Any] | None) -> PostgresRepository:
         """The same tables, seen by `user` (None: the owner)."""
-        return PostgresRepository(self.session_factory, user)
+        return PostgresRepository(self.session_factory, user, self.picture_wait)
 
     @property
     def user_id(self) -> int | None:
@@ -666,6 +670,11 @@ class PostgresRepository:
         A check is answered when the shopper has answered its line. Its
         outcome is read from that answer: the product the app said is
         `right`, any other is `corrected`. Nothing about it is stored twice.
+
+        A check waits until its product's picture has been looked up, found
+        or not: the card shows complete, never with its picture arriving
+        after it (Parham, 2026-10-12). After `picture_wait` it shows anyway:
+        a lookup that slow is not coming.
         """
         from grocery_app import matcher as matching
         from grocery_app.api.checks import says_more_than_print
@@ -683,7 +692,8 @@ class PostgresRepository:
             open_checks = [c for c in checks if (c.receipt_id, c.position) not in answers]
 
             inputs = load_normalizer_inputs(session, self.user_id)
-            views = []
+            views, held_back = [], 0
+            waited_long_enough = datetime.now(UTC) - self.picture_wait
             for check in open_checks:
                 receipt = session.get(Receipt, check.receipt_id)
                 doc = receipt_to_dict(receipt)
@@ -693,6 +703,12 @@ class PostgresRepository:
                 product = inputs["products"].get(check.app_product_id, {})
                 if not says_more_than_print(check.raw_name, product):
                     continue  # picked before 2026-10-10: nothing to ask
+                looked_up = session.scalar(select(Product.picture_checked_at).where(
+                    Product.id == check.app_product_id))
+                if (check.app_product_id in inputs["products"] and looked_up is None
+                        and check.created_at > waited_long_enough):
+                    held_back += 1
+                    continue
                 record = normalize_receipt(
                     {**doc, "lines": [line]}, inputs["resolution"], inputs["products"],
                     None, inputs["shelf_prices"], inputs["authors"])[0]
@@ -718,7 +734,8 @@ class PostgresRepository:
         views.sort(key=lambda v: (v["date"] or "", v["receipt_id"], v["position"]))
         answered = right + corrected
         return {"meta": {"open": len(views), "right": right, "corrected": corrected,
-                         "error_rate": round(corrected / answered, 3) if answered else None},
+                         "error_rate": round(corrected / answered, 3) if answered else None,
+                         "held_back": held_back},
                 "checks": views}
 
     def costs(self) -> dict[str, Any]:

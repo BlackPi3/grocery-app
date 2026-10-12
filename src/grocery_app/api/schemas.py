@@ -333,6 +333,8 @@ class ChecksMeta(BaseModel):
     error_rate: float | None = Field(
         description="corrected / (right + corrected): the app's mistake rate on lines it was "
                     "sure of, on real shopping; null before any check is answered")
+    held_back: int = Field(0, description="Checks not shown yet: their product's picture is "
+                                          "still being looked up (`api.pictures`)")
 
 
 class ChecksDocument(BaseModel):

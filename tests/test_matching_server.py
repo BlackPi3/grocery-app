@@ -15,7 +15,7 @@ from grocery_app.api.app import create_app
 from grocery_app.api.matching import match_receipt
 from grocery_app.api.repository import PostgresRepository
 from grocery_app.db.io import receipt_from_dict
-from grocery_app.db.models import Correction, Product, Question, Resolution, StoreListing
+from grocery_app.db.models import Check, Correction, Product, Question, Resolution, StoreListing
 from grocery_app.db.session import make_session_factory
 from grocery_app.identify import PROMPT_VERSION
 from tests.conftest import DATABASE_URL as URL
@@ -583,6 +583,38 @@ def test_every_product_gets_a_picture_kept_by_the_app_checked_products_first(ser
     assert client.get("/pictures/" + "0" * 64).status_code == 404
 
 
+def test_a_spot_check_comes_with_its_picture_not_before_it(server, tmp_path):
+    """2026-10-12: a check showed, and its picture arrived a while later."""
+    from datetime import timedelta
+
+    from grocery_app.api.checks import pick_checks
+    from grocery_app.api.pictures import CHECK_WAITS_UP_TO, fill_pictures
+    from grocery_app.db.session import make_session_factory
+
+    _, session = server
+    receipt = identified_receipt(session, ["Himbeeren 250g", "Schmand 200g"])
+    pick_checks(session, receipt)
+    session.commit()
+    factory = make_session_factory(session.get_bind())
+    looks_up = PostgresRepository(factory, picture_wait=CHECK_WAITS_UP_TO)
+    held = looks_up.checks()
+    assert held["checks"] == [] and held["meta"]["held_back"] == 2
+
+    fill_pictures(factory, picture_service(tmp_path, lambda product: {
+        "url": "https://laden.example/media/red", "from": "Musterladen"}, []), limit=100)
+    shown = looks_up.checks()
+    assert shown["meta"]["held_back"] == 0
+    assert all(check["picture"] for check in shown["checks"]), "complete when shown"
+
+    for check in session.scalars(select(Check)):
+        check.created_at -= CHECK_WAITS_UP_TO + timedelta(minutes=1)
+        session.get(Product, check.app_product_id).picture_checked_at = None
+    session.commit()
+    assert len(looks_up.checks()["checks"]) == 2, "a lookup that never ends holds nothing"
+    assert len(PostgresRepository(factory).checks()["checks"]) == 2, \
+        "a server that looks up no pictures waits for none"
+
+
 def test_a_product_a_shop_lists_is_looked_up_before_one_that_needs_a_search(server):
     from grocery_app.api.pictures import products_wanting_pictures
 
@@ -707,7 +739,8 @@ def test_answering_checks_gives_the_apps_mistake_rate(server):
     session.commit()
 
     body = client.get("/v1/checks").json()
-    assert body["meta"] == {"open": 2, "right": 0, "corrected": 0, "error_rate": None}
+    assert body["meta"] == {"open": 2, "right": 0, "corrected": 0, "error_rate": None,
+                            "held_back": 0}
     first, second = body["checks"]
     assert (first["raw_name"], first["app_product"], first["decided_by"]) == \
         ("Himbeeren 250g", "Himbeeren", "identify")
@@ -718,7 +751,8 @@ def test_answering_checks_gives_the_apps_mistake_rate(server):
                json={"product_id": "p-0002"})
 
     body = client.get("/v1/checks").json()
-    assert body["meta"] == {"open": 0, "right": 1, "corrected": 1, "error_rate": 0.5}
+    assert body["meta"] == {"open": 0, "right": 1, "corrected": 1, "error_rate": 0.5,
+                            "held_back": 0}
     (mistake,) = session.scalars(select(Correction)).all()
     assert (mistake.raw_name, mistake.shopper_product_id) == ("Schmand 200g", "p-0002")
     lines = client.get(f"/v1/receipts/{receipt}").json()["lines"]
