@@ -20,13 +20,15 @@ Pipeline: receipt photo -> extraction -> normalization against a product catalog
 
 ## Current state (work in progress)
 
-**Stage, 10 October 2026: in daily use.** The server is online on Google Cloud, behind a password, and
-every merge to `main` deploys it. From my phone I photograph a receipt, Gemini reads it, and the app
-matches each line to a product, searching the web before it asks me. What real use showed has shaped the
-last weeks: products sorted by the shop's own shelves, a month view of where the money went, spot checks
-only where the app claims more than the receipt prints, each with a photo of the pack the app found and
-keeps, an undo for every answer, and swipe-to-leave-out for a line bought for someone else. The iOS app
-comes after.
+**Stage, 12 October 2026: in daily use, with a public demo.** The server is online on Google Cloud,
+behind a password, and every merge to `main` deploys it, together with a public demo that anyone can
+open (link above). The demo runs the same code on made-up receipts, in a database of its own that
+resets on every start. From my phone I photograph a receipt, Gemini reads it, and the app matches each
+line to a product, searching the web before it asks me. The page now has a bottom bar with a + to
+scan, and a Home screen with a few things at a glance. A second person can have an account, and an
+email alert fires when model spending or traffic is unusual. Next is a simpler set of screens for
+people other than me, then the iOS app (work starts once the milestone below is met, aimed at
+November 2026).
 
 - **Receipts**: `data/receipts/` holds the photos, one verified transcription per receipt (`truth/`, the schema everything downstream reads), and the hand-typed sources those were converted from (`transcripts/`). All gitignored: it is my own shopping.
 - **Extraction**: `grocery-app extract` reads a photo with a vision model (Claude or Gemini) into the same schema; results are cached under `data/extracted/<model>/<prompt version>/` with their cost. The server reads with Gemini: on the verified receipts it got 22 of 27 fully right, with every price right.
@@ -88,8 +90,11 @@ From 27 receipts across 7 stores, 26 June to 29 August 2026. Product-level insig
   deployment above. See `docs/designs/backend-api.md`.
 - **Done:** the first weeks of real use: duplicate photos not kept, categories from the shops' shelves,
   a month view, fewer and clearer spot checks with product photos, undo, and leaving a line out.
-- **Now:** real use. Every new receipt goes in from the phone, and real cases decide what to fix.
-- **After:** the iOS app, on the same API.
+- **Done:** a public demo with made-up receipts, accounts for a second person, cost alerts.
+- **Now:** "Ready for iOS", targeted for 2 November 2026: the screens settled (yes/no cards with
+  pictures, receipts showing plain product names), two weeks of real use without hand fixes, Google
+  sign-in, and a second person using it.
+- **After:** the iOS app, on the same API, with the share button and the document scanner.
 - Later on the insights: roll spend and cadence up by category, and resolve the last stores so the
   cross-store comparison has more than eleven products.
 
