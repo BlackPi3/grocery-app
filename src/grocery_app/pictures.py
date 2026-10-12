@@ -28,11 +28,18 @@ built around his shops):
 A product with none of these gets no picture. A line known only as a kind of
 thing (`Sandkuchen`) has no listing, no barcode and no brand, so it never
 gets a stock photo that would claim more than the app knows.
+
+A search that could not be made (it failed, or the run's budget is spent)
+is not a search that found nothing: `find_picture` raises `LookupFailed`, and
+the product is looked up again rather than marked as having no picture for
+six months. 2026-10-12: three of the demo's 18 branded products were left
+without a picture that way, each after two timed-out tries.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import re
 import urllib.error
 import urllib.parse
@@ -42,6 +49,8 @@ from typing import Any
 
 from grocery_app.resolver import fold
 
+log = logging.getLogger(__name__)
+
 PICTURE_FROM_OFF = "Open Food Facts"
 PICTURE_FROM_SEARCH = "web search"
 SEARCHED_KINDS = {"identify", "shopper"}  # `provenance.attributes`
@@ -49,6 +58,11 @@ OFF_PRODUCT_URL = ("https://world.openfoodfacts.org/api/v2/product/{ean}.json"
                    "?fields=image_front_url")
 OFF_PAGE_URL = "https://world.openfoodfacts.org/product/{ean}"
 USER_AGENT = "grocery-app/0.1 (https://github.com/BlackPi3/grocery-app)"
+
+
+class LookupFailed(Exception):
+    """A web search for a product's picture could not be made: nothing was
+    learnt, so the product is not marked as looked up."""
 
 
 def product_on_page(html: str) -> dict[str, str | None] | None:
@@ -135,7 +149,9 @@ def find_picture(product: dict[str, Any], listings: list[dict[str, Any]], *,
     is a crawled record of that shop's, if the app has one; `fetch_page`
     reads a page, `fetch_off` gives Open Food Facts' photo for a barcode,
     `search` the addresses of the pages a web search returned for a text.
-    Each may raise; a source that fails is passed over.
+    Each may raise; a shop, a barcode or a page that fails is passed over,
+    but a search that fails raises `LookupFailed`: whether the web has a
+    picture is then unknown, not no.
     """
     for listing in listings:
         record = crawled(listing["store"], listing["article_number"]) or {}
@@ -156,18 +172,26 @@ def find_picture(product: dict[str, Any], listings: list[dict[str, Any]], *,
             return {"url": url, "from": PICTURE_FROM_OFF, "page": OFF_PAGE_URL.format(ean=ean)}
     if search is None or not searchable(product, listings):
         return None
+    text = search_text(product)
     try:
-        pages = search(search_text(product))
-    except (OSError, ValueError):
-        return None
+        pages = search(text)
+    except LookupFailed:
+        raise
+    except (OSError, ValueError) as error:
+        raise LookupFailed(f"searching {text!r} failed: {error}") from error
     for page_url in pages:
         try:
             found = product_on_page(fetch_page(page_url))
-        except (OSError, ValueError):
+        except (OSError, ValueError) as error:
+            log.info("picture search %r: %s unreadable (%s)", text, page_url, error)
             continue
         if found and same_product(product, found):
             site = urllib.parse.urlsplit(page_url).hostname or PICTURE_FROM_SEARCH
             return {"url": found["image"], "from": site.removeprefix("www."), "page": page_url}
+        log.info("picture search %r: %s %s", text, page_url,
+                 f"is another product ({found['brand']} {found['name']})" if found
+                 else "names no product with a photo")
+    log.info("picture search %r: no page of %d shows the product", text, len(pages))
     return None
 
 
@@ -202,6 +226,10 @@ def fetch_off(ean: str) -> str | None:
     return (doc.get("product") or {}).get("image_front_url")
 
 
+# A search with Google takes 10 to 60 s and sometimes more. 2026-10-12, the
+# demo seed's build: with 60 s, 6 of 18 searches timed out on the first try
+# and 3 on the second too (no picture for Weihenstephan, Kerrygold, Kokett).
+SEARCH_TIMEOUT_S = 180
 SEARCH_PROMPT = ("Find the product page of exactly this product, in an online shop or on "
                  "the maker's own site, preferably German: {text}")
 
@@ -216,7 +244,7 @@ def gemini_search(model: str) -> Callable[[str], list[str]]:
         try:
             data = gemini.generate(model, {
                 "contents": [{"parts": [{"text": SEARCH_PROMPT.format(text=text)}]}],
-                "tools": [{"google_search": {}}]}, timeout_s=60)
+                "tools": [{"google_search": {}}]}, timeout_s=SEARCH_TIMEOUT_S)
         except gemini.GeminiError as error:
             raise OSError(str(error)) from error
         grounding = (data.get("candidates") or [{}])[0].get("groundingMetadata") or {}

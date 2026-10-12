@@ -123,3 +123,51 @@ def test_same_product_needs_the_brand_and_most_of_the_name():
     assert not same_product(FOUND, {"brand": "Musterherz", "name": "Vitamin D3 Tabletten"})
     assert same_product({"brand": "Dr. Muster", "name": "Puddingpulver"},
                         {"brand": None, "name": "Dr.Muster Puddingpulver Vanille"})
+
+
+def test_a_search_that_could_not_be_made_is_not_one_that_found_nothing():
+    """2026-10-12: three demo products were marked as having no picture after
+    their searches timed out."""
+    import pytest
+
+    from grocery_app.pictures import LookupFailed
+
+    def failing(text):
+        raise OSError("Gemini did not answer: timed out")
+
+    find = lambda search: find_picture(FOUND, [], fetch_page=lambda url: "",  # noqa: E731
+                                       crawled=lambda store, article: None,
+                                       fetch_off=lambda ean: None, search=search)
+    with pytest.raises(LookupFailed, match="timed out"):
+        find(failing)
+    assert find(lambda text: []) is None, "a search that found nothing is an answer"
+
+
+def test_a_spent_search_budget_fails_the_lookup_rather_than_finding_nothing():
+    import pytest
+
+    from grocery_app.api.pictures import limited
+    from grocery_app.pictures import LookupFailed
+
+    asked = []
+    search = limited(lambda text: asked.append(text) or ["https://a.example"], 1)
+    assert search("Muster Ding") == ["https://a.example"]
+    with pytest.raises(LookupFailed, match="spent"):
+        search("Muster Ding")
+    assert asked == ["Muster Ding"], "no search once the budget is spent"
+
+
+def test_a_picture_search_waits_longer_than_a_search_takes(monkeypatch):
+    """With 60 s, 6 of the demo's 18 searches timed out (2026-10-12)."""
+    from grocery_app import gemini
+    from grocery_app.pictures import gemini_search
+
+    waited = []
+
+    def generate(model, body, api_key=None, timeout_s=180):
+        waited.append(timeout_s)
+        return {"candidates": [{}]}
+
+    monkeypatch.setattr(gemini, "generate", generate)
+    assert gemini_search("gemini-test")("Muster Ding") == []
+    assert waited and waited[0] >= 120
