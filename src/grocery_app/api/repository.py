@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -17,6 +18,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app import categories, memory
+from grocery_app.api.google_sign_in import SESSION_DAYS, normal_email
 from grocery_app.api.jobs import UNFINISHED, job_to_dict
 from grocery_app.api.matching import article_index
 from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict, whose
@@ -31,6 +33,7 @@ from grocery_app.db.models import (
     Question,
     Receipt,
     Resolution,
+    SignIn,
     UncountedLine,
     User,
 )
@@ -148,10 +151,25 @@ class WriteRepository(Protocol):
     def user_for_password(self, password: str) -> dict[str, Any] | None:
         ...
 
-    def create_user(self, name: str) -> dict[str, Any]:
+    def create_user(self, name: str, email: str | None = None) -> dict[str, Any]:
+        ...
+
+    def set_user_email(self, user_id: int, email: str | None) -> dict[str, Any]:
         ...
 
     def users(self) -> list[dict[str, Any]]:
+        ...
+
+    def user_for_email(self, email: str) -> dict[str, Any] | None:
+        ...
+
+    def start_sign_in(self, user: dict[str, Any] | None, email: str) -> dict[str, Any]:
+        ...
+
+    def signed_in(self, token: str) -> dict[str, Any] | None:
+        ...
+
+    def end_sign_in(self, token: str) -> None:
         ...
 
     def claim_inbox(self, is_pdf: Any) -> list[dict[str, Any]]:
@@ -231,9 +249,10 @@ class PostgresRepository:
 
     # --- people ---------------------------------------------------------------
 
-    def create_user(self, name: str) -> dict[str, Any]:
+    def create_user(self, name: str, email: str | None = None) -> dict[str, Any]:
         """A new user and their password, which is shown this once: only its
-        hash is kept. A name already taken is refused."""
+        hash is kept. A name already taken is refused. `email`, when given,
+        is the Google address they may sign in with (`google_sign_in`)."""
         name = name.strip()
         if not name:
             raise ValueError("a user needs a name")
@@ -241,17 +260,95 @@ class PostgresRepository:
         with self.session_factory() as session:
             if session.scalar(select(User).where(func.lower(User.name) == name.lower())):
                 raise ValueError(f"there is already a user called {name}")
-            user = User(name=name, token_sha256=password_hash(password))
+            user = User(name=name, token_sha256=password_hash(password),
+                        email=self._free_email(session, email))
             session.add(user)
             session.commit()
-            return {"id": user.id, "name": user.name, "password": password}
+            return {"id": user.id, "name": user.name, "email": user.email,
+                    "password": password}
+
+    def set_user_email(self, user_id: int, email: str | None) -> dict[str, Any]:
+        """Give a user the Google address they sign in with, change it, or
+        take it away (None). Their Google sign-ins made with the old address
+        end with it (`signed_in`); their password is untouched."""
+        with self.session_factory() as session:
+            user = session.get(User, user_id)
+            if user is None:
+                raise NotFound(f"no user {user_id}")
+            user.email = self._free_email(session, email, user_id)
+            session.commit()
+            return self._user_summary(session, user)
+
+    @staticmethod
+    def _free_email(session: Session, email: str | None, user_id: int | None = None) -> str | None:
+        """`email` in its kept form, or ValueError when it is not an address
+        or another user has it."""
+        if email is None or not email.strip():
+            return None
+        email = normal_email(email)
+        if not EMAIL.fullmatch(email):
+            raise ValueError(f"{email} is not an email address")
+        other = session.scalar(select(User).where(User.email == email))
+        if other is not None and other.id != user_id:
+            raise ValueError(f"{other.name} already signs in with {email}")
+        return email
+
+    @staticmethod
+    def _user_summary(session: Session, user: User) -> dict[str, Any]:
+        return {"id": user.id, "name": user.name, "email": user.email,
+                "receipts": session.scalar(select(func.count()).select_from(Receipt)
+                                           .where(Receipt.user_id == user.id))}
 
     def users(self) -> list[dict[str, Any]]:
         with self.session_factory() as session:
-            return [{"id": u.id, "name": u.name, "receipts": session.scalar(
-                         select(func.count()).select_from(Receipt)
-                         .where(Receipt.user_id == u.id))}
+            return [self._user_summary(session, u)
                     for u in session.scalars(select(User).order_by(User.id))]
+
+    def user_for_email(self, email: str) -> dict[str, Any] | None:
+        """The user the owner invited with this Google address, if any."""
+        with self.session_factory() as session:
+            user = session.scalar(select(User).where(User.email == normal_email(email)))
+            return {"id": user.id, "name": user.name} if user else None
+
+    def start_sign_in(self, user: dict[str, Any] | None, email: str,
+                      days: int = SESSION_DAYS) -> dict[str, Any]:
+        """A new sign-in for `user` (None: the owner), made with the Google
+        address `email`. The token is shown this once; only its hash is kept."""
+        import secrets
+
+        token = secrets.token_urlsafe(32)
+        expires = datetime.now(UTC) + timedelta(days=days)
+        with self.session_factory() as session:
+            session.add(SignIn(token_sha256=password_hash(token),
+                               user_id=user["id"] if user else None,
+                               email=normal_email(email), expires_at=expires))
+            session.commit()
+        return {"token": token, "expires_at": expires}
+
+    def signed_in(self, token: str) -> dict[str, Any] | None:
+        """Who a sign-in token belongs to: `{"user": None or {"id", "name"},
+        "email"}`, or None when it is unknown, has expired, or its user no
+        longer signs in with the address it was made for. Whether an owner's
+        sign-in still is the owner's is the caller's to say: the owner's
+        address is configuration, not a row."""
+        with self.session_factory() as session:
+            row = session.scalar(select(SignIn).where(
+                SignIn.token_sha256 == password_hash(token),
+                SignIn.expires_at > datetime.now(UTC)))
+            if row is None:
+                return None
+            if row.user_id is None:
+                return {"user": None, "email": row.email}
+            user = session.get(User, row.user_id)
+            if user is None or user.email != row.email:
+                return None
+            return {"user": {"id": user.id, "name": user.name}, "email": row.email}
+
+    def end_sign_in(self, token: str) -> None:
+        """Sign out: the token stops working at once."""
+        with self.session_factory() as session:
+            session.execute(delete(SignIn).where(SignIn.token_sha256 == password_hash(token)))
+            session.commit()
 
     # --- the developer's inbox ---------------------------------------------------
 
@@ -1010,6 +1107,10 @@ class PostgresRepository:
             if job.status == "done" and job.receipt_id is None and job.turned_away is None:
                 return None  # its receipt was removed
             return job_to_dict(job)
+
+
+# Enough to catch a name typed into the address box; Google is the real check.
+EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 
 def new_password() -> str:

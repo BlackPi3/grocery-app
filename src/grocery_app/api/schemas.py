@@ -14,6 +14,7 @@ them when the iOS client needs to bind to them.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -481,6 +482,8 @@ class UserSummary(BaseModel):
 
     id: int
     name: str
+    email: str | None = Field(None, description="The Google address they sign in with; "
+                                                "none when they have a password only")
     receipts: int
 
 
@@ -488,6 +491,17 @@ class NewUserRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=60)
+    email: str | None = Field(None, max_length=254,
+                              description="Their Google address, to sign in with Google. "
+                                          "Nobody can sign in with Google uninvited.")
+
+
+class UserPatch(BaseModel):
+    """Give a user a Google address, change it, or take it away (null)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str | None = Field(max_length=254)
 
 
 class NewUser(BaseModel):
@@ -497,7 +511,37 @@ class NewUser(BaseModel):
 
     id: int
     name: str
+    email: str | None = None
     password: str
+
+
+class AuthConfig(BaseModel):
+    """How one may sign in here; open, so the page can ask before it has a password."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    google_client_id: str | None = Field(
+        description="The Google OAuth client id the page's Google button uses; none when "
+                    "Google sign-in is off (not configured, or the demo)")
+
+
+class GoogleSignInRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    credential: str = Field(min_length=1, max_length=8192,
+                            description="The ID token Google Identity Services handed the page")
+
+
+class SignedIn(BaseModel):
+    """A sign-in: `token` goes in `Authorization: Bearer`, like a password.
+    Shown this once; only its hash is kept."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str
+    role: Literal["owner", "user"]
+    name: str | None = Field(description="A user's name; none for the owner")
+    expires_at: datetime
 
 
 class MonthCost(BaseModel):

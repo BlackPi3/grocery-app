@@ -22,6 +22,10 @@ only (`PostgresRepository.as_user`); the catalog and the memory are shared.
 Without a token the server is the owner's alone, as on the laptop. The page
 at `/`, `/health` and the schema stay open; they hold no history.
 
+`google`, when given, switches on Sign in with Google (`google_sign_in`): an
+invited person trades Google's ID token for a sign-in token of their own,
+sent like a password. It locks `/v1` even without `token`. Never in the demo.
+
 `resume_after`, when set, makes a starting server finish the jobs the last
 one left half done, that many seconds after it starts (`jobs.resume_unfinished`).
 Off by default, so a test's app never sets work off on its own.
@@ -41,6 +45,12 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Res
 from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.concurrency import run_in_threadpool
 
+from grocery_app.api.google_sign_in import (
+    GoogleSignIn,
+    GoogleUnavailable,
+    NotSignedIn,
+)
+from grocery_app.api.google_sign_in import configured as google_configured
 from grocery_app.api.images import (
     ImageStore,
     default_image_store,
@@ -69,8 +79,10 @@ from grocery_app.api.repository import (
 from grocery_app.api.schemas import (
     INSIGHTS_CONTRACT_VERSION,
     PURCHASES_CONTRACT_VERSION,
+    AuthConfig,
     ChecksDocument,
     CostsDocument,
+    GoogleSignInRequest,
     Health,
     InsightsDocument,
     JobDocument,
@@ -87,6 +99,8 @@ from grocery_app.api.schemas import (
     ReceiptDocument,
     ReceiptPatch,
     ReceiptSummary,
+    SignedIn,
+    UserPatch,
     UserSummary,
 )
 from grocery_app.insights import build_insights
@@ -103,13 +117,19 @@ PAGE_WORKER = Path(__file__).with_name("sw.js")
 # into memory before anyone has looked at it.
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
+# The /v1 routes that answer without a password: they are how one gets one.
+SIGN_IN_PATHS = frozenset({"/v1/auth/config", "/v1/auth/google"})
+
 
 def create_app(repository: Repository, image_store: ImageStore | None = None,
                extractor: Extractor | None = None,
                matcher: LineMatcher | None = None,
                identify: LineIdentifier | None = None,
                token: str | None = None, resume_after: float | None = None,
-               pictures: Pictures | None = None, demo: bool = False) -> FastAPI:
+               pictures: Pictures | None = None, demo: bool = False,
+               google: GoogleSignIn | None = None) -> FastAPI:
+    if demo:
+        google = None  # the demo has no accounts: every guest is the owner
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if pictures is not None and writes_available:
@@ -141,26 +161,40 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         lifespan=lifespan,
     )
 
-    if token:
-        expected = f"Bearer {token}".encode()
+    if token or google is not None:
+        expected = f"Bearer {token}".encode() if token else None
+
+        def who_holds(given: str) -> dict | None:
+            """`{"user": ...}` for a password or a sign-in, None for neither."""
+            if not given.startswith("Bearer "):
+                return None
+            secret = given.removeprefix("Bearer ")
+            if hasattr(repository, "user_for_password"):
+                if user := repository.user_for_password(secret):
+                    return {"user": user}
+            if google is not None and hasattr(repository, "signed_in"):
+                found = repository.signed_in(secret)
+                # An owner's sign-in lasts while their address is the owner's.
+                if found and (found["user"] is not None or google.is_owner(found["email"])):
+                    return {"user": found["user"]}
+            return None
 
         # A middleware rather than a dependency per route, so a route added
-        # later under /v1 cannot be added unlocked.
+        # later under /v1 cannot be added unlocked. Only the two routes that
+        # sign someone in are open, by their exact paths.
         @app.middleware("http")
         async def require_token(request: Request, call_next):
             request.state.user = None  # the owner
-            if request.url.path.startswith("/v1"):
+            path = request.url.path
+            if path.startswith("/v1") and path not in SIGN_IN_PATHS:
                 given = request.headers.get("authorization", "")
-                if not hmac.compare_digest(given.encode(), expected):
-                    user = None
-                    if given.startswith("Bearer ") and hasattr(repository, "user_for_password"):
-                        user = await run_in_threadpool(repository.user_for_password,
-                                                       given.removeprefix("Bearer "))
-                    if user is None:
+                if expected is None or not hmac.compare_digest(given.encode(), expected):
+                    found = await run_in_threadpool(who_holds, given)
+                    if found is None:
                         return JSONResponse(status_code=401,
                                             content={"detail": "wrong or no token"},
                                             headers={"WWW-Authenticate": "Bearer"})
-                    request.state.user = user
+                    request.state.user = found["user"]
             return await call_next(request)
 
     # Corrections need a database. A photo needs that and somewhere to put the
@@ -519,13 +553,74 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
     @app.post("/v1/users", response_model=NewUser, status_code=201)
     def add_user(request: Request, body: NewUserRequest) -> NewUser:
         """A new user, with their own receipts and a password shown only in this
-        answer (only its hash is kept). The owner's only, and not in the demo."""
+        answer (only its hash is kept), and the Google address they may sign
+        in with, if given. The owner's only, and not in the demo."""
+        owner_only(request)
+        not_in_demo()
+        if body.email and google is not None and google.is_owner(body.email):
+            raise HTTPException(status_code=422, detail="that is the owner's own address")
+        try:
+            return NewUser.model_validate(
+                require_writes(request).create_user(body.name, body.email))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.patch("/v1/users/{user_id}", response_model=UserSummary)
+    def change_user(request: Request, user_id: int, body: UserPatch) -> UserSummary:
+        """Give a user the Google address they sign in with, change it, or take
+        it away (null): their Google sign-ins with the old address end. The
+        owner's only, and not in the demo."""
         owner_only(request)
         not_in_demo()
         try:
-            return NewUser.model_validate(require_writes(request).create_user(body.name))
+            return UserSummary.model_validate(
+                require_writes(request).set_user_email(user_id, body.email))
+        except NotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # --- signing in -------------------------------------------------------------
+
+    @app.get("/v1/auth/config", response_model=AuthConfig)
+    def auth_config() -> AuthConfig:
+        """How one may sign in here, asked before there is a password: the
+        Google button is shown only when this names a client id. Open."""
+        return AuthConfig(google_client_id=google.client_id if google else None)
+
+    if google is not None:
+        @app.post("/v1/auth/google", response_model=SignedIn)
+        def sign_in_with_google(body: GoogleSignInRequest) -> SignedIn:
+            """Trade the ID token Google gave the page for a sign-in token,
+            sent as `Authorization: Bearer` from then on. Invite-only: the
+            owner's address (`GROCERY_OWNER_EMAIL`) or one the owner added on
+            the People card; any other verified address is a 403. Open."""
+            if not writes_available:
+                raise HTTPException(status_code=503,
+                                    detail="signing in needs the database (DATABASE_URL)")
+            try:
+                email = google.email(body.credential)
+            except NotSignedIn as exc:
+                raise HTTPException(status_code=401, detail=str(exc)) from exc
+            except GoogleUnavailable as exc:
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
+            user = None if google.is_owner(email) else repository.user_for_email(email)
+            if user is None and not google.is_owner(email):
+                raise HTTPException(status_code=403,
+                                    detail=f"{email} has not been invited: ask the owner "
+                                           "to add it on their People card")
+            made = repository.start_sign_in(user, email)
+            return SignedIn(token=made["token"], role="user" if user else "owner",
+                            name=user["name"] if user else None, expires_at=made["expires_at"])
+
+    @app.post("/v1/auth/sign-out", status_code=204)
+    def sign_out(request: Request) -> Response:
+        """End the sign-in this request was made with. A password is not
+        ended by this: it is not a sign-in."""
+        given = request.headers.get("authorization", "")
+        if given.startswith("Bearer ") and hasattr(repository, "end_sign_in"):
+            repository.end_sign_in(given.removeprefix("Bearer "))
+        return Response(status_code=204)
 
     @app.post("/v1/inbox")
     def claim_inbox(request: Request) -> list[dict]:
@@ -591,7 +686,9 @@ def default_app() -> FastAPI:
     purchases.json to serve. This is the one place the real, paid extractor is
     wired in: `GROCERY_READER` picks the API (default) or `claude -p` on the
     subscription, or `gemini`. `GROCERY_TOKEN`, when set, is the password the
-    `/v1` routes ask for. `GROCERY_IMAGES` says where uploaded photos are
+    `/v1` routes ask for. `GOOGLE_CLIENT_ID` switches on Sign in with Google,
+    and `GROCERY_OWNER_EMAIL` says which Google address is the owner's
+    (`google_sign_in.configured`). `GROCERY_IMAGES` says where uploaded photos are
     kept. The matcher asks the model `GROCERY_MATCHER` names
     (`matcher_decider`); identify reads and searches with `GROCERY_IDENTIFY`
     (`identify_decider`).
@@ -632,7 +729,8 @@ def default_app() -> FastAPI:
                       resume_after=RESUME_AFTER_SECONDS,
                       pictures=default_pictures(model=GEMINI_MODEL)
                       if type(repository).__name__ == "PostgresRepository" else None,
-                      demo=demo.is_demo())
+                      demo=demo.is_demo(),
+                      google=None if demo.is_demo() else google_configured())
 
 
 # A deploy stops the old server within ten seconds of starting the new one
