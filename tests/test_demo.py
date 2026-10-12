@@ -33,17 +33,6 @@ def test_a_demo_reset_never_touches_a_database_not_named_demo(tmp_path):
         reset("postgresql+psycopg://u:p@/grocery?host=/cloudsql/x", tmp_path / "seed.sql")
 
 
-def test_the_demo_shares_the_live_address_and_names_its_own_database(monkeypatch):
-    from grocery_app.db.session import database_url
-
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@/grocery?host=/cloudsql/x")
-    monkeypatch.setenv("GROCERY_DATABASE", "grocery_demo")
-    from sqlalchemy.engine import make_url
-
-    url = make_url(database_url())
-    assert (url.database, url.query["host"], url.password) == ("grocery_demo", "/cloudsql/x", "p")
-
-
 def test_a_demo_start_replaces_the_database_with_the_seed(engine, tmp_path):
     from grocery_app.db.migrate import upgrade
     from grocery_app.demo import reset

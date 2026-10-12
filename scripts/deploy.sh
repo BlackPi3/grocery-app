@@ -15,7 +15,7 @@ REGION=${GROCERY_REGION:-europe-west3}
 # --no-cpu-throttling: a photo is read after the upload's response has gone
 #   out (api/jobs.py), and without it Cloud Run starves that work of CPU.
 # --max-instances 1: one shopper; jobs run inside the process that took them.
-# The service account may read the two secrets, connect to the database, use
+# The service account may read the secrets, connect to the database, use
 #   the bucket and call Gemini on Vertex AI, and nothing else.
 # Gemini goes through Vertex AI as that account (GEMINI_VERTEX_PROJECT): no key,
 #   and the calls are billed to this project.
@@ -37,9 +37,9 @@ gcloud run deploy grocery --quiet \
   --add-volume-mount "volume=data,mount-path=/app/data"
 
 # The public demo (grocery_app.demo): the image just rolled out, run a second
-# time with made-up receipts. Same database server and login, its own
-# database (GROCERY_DATABASE), which it rebuilds from the seed on every start;
-# no password. Of the bucket it sees only demo/ (only-dir): its own uploads
+# time with made-up receipts. Same database server, but its own login
+# (secret database-url-demo), which can open only the demo database and owns
+# it: it rebuilds it from the seed on every start. Guests need no password. Of the bucket it sees only demo/ (only-dir): its own uploads
 # (emptied of guests' photos on every start), pictures and copy of the shop
 # catalogs; the real server's photos are not on its disk at all.
 # --min-instances 0 (the default): an idle demo costs nothing.
@@ -52,7 +52,7 @@ gcloud run deploy grocery-demo --quiet \
   --service-account "grocery-server@$PROJECT.iam.gserviceaccount.com" \
   --max-instances 1 --no-cpu-throttling --memory 1Gi --timeout 300 \
   --add-cloudsql-instances "$PROJECT:$REGION:grocery" \
-  --set-secrets "DATABASE_URL=database-url:latest" \
-  --set-env-vars "GROCERY_DEMO=1,GROCERY_DATABASE=grocery_demo,GROCERY_READER=gemini,GROCERY_MATCHER=gemini,GROCERY_IDENTIFY=gemini,GEMINI_VERTEX_PROJECT=$PROJECT" \
+  --set-secrets "DATABASE_URL=database-url-demo:latest" \
+  --set-env-vars "GROCERY_DEMO=1,GROCERY_READER=gemini,GROCERY_MATCHER=gemini,GROCERY_IDENTIFY=gemini,GEMINI_VERTEX_PROJECT=$PROJECT" \
   --add-volume "name=data,type=cloud-storage,bucket=$PROJECT-grocery-data,mount-options=uid=1000;gid=1000;only-dir=demo" \
   --add-volume-mount "volume=data,mount-path=/app/data"
