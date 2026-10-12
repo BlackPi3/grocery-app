@@ -81,6 +81,10 @@ def test_a_guest_cannot_hand_out_accounts_and_the_page_knows_it_is_the_demo(
         engine, session, tmp_path):
     client = demo_server(engine, tmp_path)
     assert client.post("/v1/users", json={"name": "Gast"}).status_code == 403
+    # Every guest is the owner: one must not fetch the photo another sent.
+    job = client.post("/v1/receipts", files={"file": ("a.jpg", a_photo(), "image/jpeg")}).json()
+    assert client.get(f"/v1/inbox/{job['job_id']}/file").status_code == 403
+    assert client.post("/v1/inbox").status_code == 403
     assert client.get("/v1/me").json()["demo"] is True
 
 

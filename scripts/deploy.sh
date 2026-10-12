@@ -39,7 +39,9 @@ gcloud run deploy grocery --quiet \
 # The public demo (grocery_app.demo): the image just rolled out, run a second
 # time with made-up receipts. Same database server and login, its own
 # database (GROCERY_DATABASE), which it rebuilds from the seed on every start;
-# its own photo folder, emptied of guests' photos on every start; no password.
+# no password. Of the bucket it sees only demo/ (only-dir): its own uploads
+# (emptied of guests' photos on every start), pictures and copy of the shop
+# catalogs; the real server's photos are not on its disk at all.
 # --min-instances 0 (the default): an idle demo costs nothing.
 IMAGE=$(gcloud run services describe grocery --project "$PROJECT" --region "$REGION" \
   --format='value(spec.template.spec.containers[0].image)')
@@ -51,6 +53,6 @@ gcloud run deploy grocery-demo --quiet \
   --max-instances 1 --no-cpu-throttling --memory 1Gi --timeout 300 \
   --add-cloudsql-instances "$PROJECT:$REGION:grocery" \
   --set-secrets "DATABASE_URL=database-url:latest" \
-  --set-env-vars "GROCERY_DEMO=1,GROCERY_DATABASE=grocery_demo,GROCERY_IMAGES=data/demo/uploads,GROCERY_READER=gemini,GROCERY_MATCHER=gemini,GROCERY_IDENTIFY=gemini,GEMINI_VERTEX_PROJECT=$PROJECT" \
-  --add-volume "name=data,type=cloud-storage,bucket=$PROJECT-grocery-data,mount-options=uid=1000;gid=1000" \
+  --set-env-vars "GROCERY_DEMO=1,GROCERY_DATABASE=grocery_demo,GROCERY_READER=gemini,GROCERY_MATCHER=gemini,GROCERY_IDENTIFY=gemini,GEMINI_VERTEX_PROJECT=$PROJECT" \
+  --add-volume "name=data,type=cloud-storage,bucket=$PROJECT-grocery-data,mount-options=uid=1000;gid=1000;only-dir=demo" \
   --add-volume-mount "volume=data,mount-path=/app/data"

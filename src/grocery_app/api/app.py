@@ -448,6 +448,12 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         owner_only(request)
         return CostsDocument.model_validate(require_writes(request).costs())
 
+    def not_in_demo() -> None:
+        """In the demo every guest is the owner (there is no password), so
+        what is the owner's for another person's sake is no one's there."""
+        if demo:
+            raise HTTPException(status_code=403, detail="not in the demo")
+
     @app.get("/v1/me", response_model=Me)
     def me(request: Request) -> Me:
         """Who the password belongs to: the owner, or a user by name."""
@@ -464,11 +470,9 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
     @app.post("/v1/users", response_model=NewUser, status_code=201)
     def add_user(request: Request, body: NewUserRequest) -> NewUser:
         """A new user, with their own receipts and a password shown only in this
-        answer (only its hash is kept). The owner's only, and not in the demo,
-        where every guest is the owner."""
+        answer (only its hash is kept). The owner's only, and not in the demo."""
         owner_only(request)
-        if demo:
-            raise HTTPException(status_code=403, detail="not in the demo")
+        not_in_demo()
         try:
             return NewUser.model_validate(require_writes(request).create_user(body.name))
         except ValueError as exc:
@@ -479,8 +483,9 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         """Uploads a developer should look at (another person's, a PDF, a
         failure), each with what was read from it; each is handed over once.
         The owner's only: `scripts/dev_inbox.py` calls it when a development
-        session starts."""
+        session starts. Not in the demo."""
         owner_only(request)
+        not_in_demo()
         repo = require_writes(request)
 
         def is_pdf(sha256: str) -> bool:
@@ -493,8 +498,10 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
 
     @app.get("/v1/inbox/{job_id}/file")
     def inbox_file(request: Request, job_id: str) -> Response:
-        """The file an upload sent, as it arrived. The owner's only."""
+        """The file an upload sent, as it arrived. The owner's only, and not in
+        the demo: one guest must not fetch the receipt photo another sent."""
         owner_only(request)
+        not_in_demo()
         sha256 = require_writes(request).job_image(job_id)
         if sha256 is None or image_store is None or image_store.size(sha256) is None:
             raise HTTPException(status_code=404, detail=f"no file for job {job_id}")
