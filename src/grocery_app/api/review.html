@@ -159,8 +159,6 @@
   .deck .ask { font-size: 17px; font-weight: 600; margin: 4px 0 10px; }
   .deck .photo { display: block; width: 100%; height: 260px; object-fit: contain;
     background: #fff; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 10px; }
-  .deck .photo.none { display: grid; place-items: center; height: 110px; background: var(--page);
-    color: var(--muted); font-size: 13px; }
   .deck .what { font-weight: 600; margin-bottom: 2px; }
   .deck .row { margin-top: 12px; }
   .deck .row button { padding: 12px; font-size: 16px; font-weight: 600; }
@@ -458,9 +456,11 @@ function deckCard(ask) {
        ask.cards.length > 1 ? ` · ${step + 1} of ${ask.cards.length}` : ""),
     el("div", { class: "ask" }, ask.cards.length > 1 || !shown.yes.product_id
        ? "Did you buy this?" : "Is this what you bought?"),
+    // No photo, no empty box: a loose banana gets no stock photo, which would
+    // claim more than the app knows, and a gap only looked broken (2026-10-12).
     shown.picture
       ? el("img", { class: "photo", src: shown.picture.url, alt: "", draggable: "false" })
-      : el("div", { class: "photo none" }, "No photo"),
+      : null,
     el("div", { class: "what" }, productText(shown.name, shown.brand, shown.more),
        shown.size ? el("span", { class: "meta" }, " · " + shown.size) : null),
     shown.price != null ? el("div", { class: "meta" }, `${euro(shown.price)} at the shop`) : null,
