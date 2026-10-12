@@ -19,6 +19,10 @@ session (laptop or cloud) can pick up from here. How we work is in
   check leaves the line unplaced, counts a mistake, and forgets the *machine's*
   memory entry for that printed name (a person's entry is never forgotten).
   #109: a card without a photo shows no empty box.
+- Decided and done (owner: yes): no spot check whose only claim beyond the
+  paper is how the item was sold. A word like `lose` or `Stück`
+  (`normalizer.SOLD_AS_WORDS`) is not a claim, so `Bananen` placed as
+  Bananen, lose is not checked; such checks picked earlier are not shown.
 
 ## Next build (agreed)
 
@@ -33,11 +37,6 @@ session (laptop or cloud) can pick up from here. How we work is in
    photo. There is no photo endpoint for users yet.
 3. **Google sign-in** on the web. Still open: who may sign up. Apple sign-in
    is deferred (it needs the paid developer account).
-
-## Open decision (the owner's)
-
-- Should the app stop spot checks whose only claim beyond the paper is how
-  the item was sold (`lose`, loose)? Recommendation: yes.
 
 ## Milestone: Ready for iOS (target 2026-11-02)
 
