@@ -342,11 +342,21 @@ def _place_lines(session: Session, job_id: str, matcher: Any | None,
     session.commit()
 
 
-def unfinished_jobs(session_factory: sessionmaker[Session]) -> list[str]:
-    """The jobs a stopped server left behind, oldest first."""
+def unfinished_jobs(session_factory: sessionmaker[Session],
+                    started_before: datetime | None = None) -> list[str]:
+    """The jobs a stopped server left behind, oldest first.
+
+    `started_before` is when this server started: a job sent after that is
+    this server's own, still running, not left behind. Real use, 2026-10-12:
+    a photo woke the server, the scan 30 s later found its job reading and
+    read it a second time; the first run stored the receipt, the second
+    could not store it again and marked the finished job failed.
+    """
+    query = select(Job.id).where(Job.status.in_(UNFINISHED))
+    if started_before is not None:
+        query = query.where(Job.created_at < started_before)
     with session_factory() as session:
-        return [str(job_id) for job_id in session.scalars(
-            select(Job.id).where(Job.status.in_(UNFINISHED)).order_by(Job.created_at))]
+        return [str(job_id) for job_id in session.scalars(query.order_by(Job.created_at))]
 
 
 def resume_job(session_factory: sessionmaker[Session], image_store: ImageStore,
@@ -373,7 +383,8 @@ def resume_job(session_factory: sessionmaker[Session], image_store: ImageStore,
 
 def resume_unfinished(session_factory: sessionmaker[Session], image_store: ImageStore,
                       extractor: Extractor, matcher: Any | None = None,
-                      identify: Any | None = None) -> list[str]:
+                      identify: Any | None = None,
+                      started_before: datetime | None = None) -> list[str]:
     """Finish every job a stopped server left behind; returns their ids.
 
     Only one server may run this: two would place the same lines twice. Cloud
@@ -381,7 +392,7 @@ def resume_unfinished(session_factory: sessionmaker[Session], image_store: Image
     one is stopped within ten seconds of the new one starting, so the caller
     waits longer than that first (`create_app(resume_after=...)`).
     """
-    ids = unfinished_jobs(session_factory)
+    ids = unfinished_jobs(session_factory, started_before)
     for job_id in ids:
         resume_job(session_factory, image_store, extractor, job_id, matcher, identify)
     return ids

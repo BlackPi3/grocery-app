@@ -511,6 +511,27 @@ def test_a_job_cut_off_before_its_photo_was_read_is_read(engine, session, tmp_pa
     assert extractor.calls == [sha256_of(photo)]
 
 
+def test_a_job_sent_after_the_server_started_is_its_own(engine, session, tmp_path):
+    """2026-10-12: a photo woke the server, and the scan found that photo's
+    job still reading. It read it a second time and marked it failed."""
+    from datetime import UTC, datetime
+
+    from grocery_app.api.jobs import resume_unfinished
+
+    repository = PostgresRepository(make_session_factory(engine))
+    store, extractor = DiskImageStore(tmp_path), FakeExtractor()
+    started = datetime.now(UTC)
+    photo = a_photo()
+    store.put(sha256_of(photo), photo)
+    job_id = repository.create_job(sha256_of(photo), "image.jpg")["job_id"]
+    cut_off(engine, job_id)  # `running`, as it is while this server reads it
+
+    assert resume_unfinished(repository.session_factory, store, extractor,
+                             started_before=started) == []
+    assert repository.job(job_id)["status"] == "running"
+    assert extractor.calls == []
+
+
 def test_finished_jobs_are_left_alone(uploads):
     from grocery_app.api.jobs import resume_unfinished
 
