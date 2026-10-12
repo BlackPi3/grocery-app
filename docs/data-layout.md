@@ -40,7 +40,7 @@ data/
       cache/<branch>/           raw API responses: category-tree.json, <category>/offsetN.json
       listings.json             written by `confirm` as ALDI matches are banked
     off/<ean>.json              Open Food Facts records, one per barcode, misses included
-  purchases.json                the output contract (copied to web/purchases.json for the demo)
+  purchases.json                the output contract
   backups/                      pg_dump copies taken before a database is changed by hand
 ```
 

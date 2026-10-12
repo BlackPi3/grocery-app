@@ -31,7 +31,6 @@ comes after.
 - **Insights**: `grocery-app insights` reads purchases.json and writes `insights.json`: repurchase cadence with an expected next date, price over time per product, a personal basket index (last month's repeat basket priced at this month's prices), budget vs name brand share, and the same item across stores. Every figure carries the coverage it rests on.
 - **API**: `grocery-app serve` exposes the same two documents over HTTP (`/v1/purchases`, `/v1/insights`, OpenAPI at `/docs`), from the JSON files or from PostgreSQL (`grocery-app db upgrade`, `db import`, `db export`); the same normalizer runs either way, and a test proves the two agree. With PostgreSQL it also takes photos: `POST /v1/receipts` stores the image, returns a job id, and extracts in the background; `GET /v1/jobs/{id}` reports `queued` / `running` / `done` / `failed` with the model's cost. One photo is never extracted twice. A shopper can read a receipt back (`GET /v1/receipts/{id}`), say what a line actually was (`PUT .../lines/{position}/resolution`), correct a receipt's store (`PATCH /v1/receipts/{id}`), and remove a receipt (`DELETE /v1/receipts/{id}`). Each person has their own password and sees only their own receipts (`/v1/me`, owner-only `/v1/users`); the catalog and the memory are shared, and a user's answers weigh less than the owner's. Every paid model call is written down (`model_calls`), so `GET /v1/costs` says what processing cost per month and per receipt: reading the photo, finding the items, product pictures. Every line says who said what it is (`said_by`: you or the app), two random lines the app placed itself per uploaded receipt are put to the shopper as spot checks (`GET /v1/checks`, with the app's mistake rate), and a phone-sized review page at `/` shows both — the corrections land in `line_resolutions` and `db export` writes them back out for the catalog loop. The plan, and what is deliberately not done yet, is in `docs/designs/backend-api.md`.
 - **Deployment**: one Docker image on Cloud Run, with Cloud SQL (PostgreSQL) and the photos in Cloud Storage, all in Frankfurt. One password guards every route; there are no user accounts yet. GitHub Actions deploys `main` after its tests pass, signing in to Google without a stored key (Workload Identity Federation).
-- **Demo**: a self-contained static web page (`web/index.html`) presenting the history and the insights in a mobile-style layout, live at **https://blackpi3.github.io/grocery-app/**. The two JSON files it reads are my real shopping history, published deliberately.
 
 ## Produce
 
@@ -98,14 +97,12 @@ source .venv/bin/activate
 grocery-app catalog
 # build the purchase history from the verified receipts
 grocery-app purchases
-# compute the insights from it, then give the demo its copies
+# compute the insights from it
 grocery-app insights
-cp data/purchases.json data/insights.json web/
 # score a directory of extracted receipts against the verified ones
 grocery-app eval --pred-dir <dir>
 # tests
 pytest
-open web/index.html
 # serve purchases.json and the insights over HTTP, OpenAPI docs at /docs
 grocery-app serve
 # or serve from PostgreSQL: migrate, load the data/ files, serve (DATABASE_URL selects it)
