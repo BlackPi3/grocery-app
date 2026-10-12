@@ -8,8 +8,8 @@
   The shopper's page, served by `grocery-app serve` at `/`. It only reads,
   uploads and answers through the API (/v1/checks, /v1/questions,
   /v1/receipts, POST /v1/receipts + /v1/jobs, /v1/products, /v1/insights,
-  PUT .../resolution, /v1/products/{id}/purchases, /v1/receipts/{id}/photo):
-  nothing here decides anything. Throwaway UI below the
+  PUT .../resolution, /v1/products/{id}/purchases, /v1/receipts/{id}/photo,
+  /v1/auth/config and /v1/auth/google): nothing here decides anything. Throwaway UI below the
   contract; the iOS app will do the same job against the same API.
 -->
 <style>
@@ -138,6 +138,10 @@
     white-space: nowrap; }
   input { font: inherit; font-size: 16px; width: 100%; padding: 9px 10px; border-radius: 10px;
     border: 1px solid var(--border); background: var(--page); color: var(--ink); margin: 6px 0; }
+  .google { display: flex; justify-content: center; min-height: 44px; }
+  .or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px;
+    margin: 14px 0 6px; }
+  .or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--grid); }
   .picker { margin-top: 10px; border-top: 1px solid var(--grid); padding-top: 8px; }
   .empty { color: var(--muted); text-align: center; padding: 30px 0; }
   .demo { margin-top: 8px; padding: 6px 12px; border-radius: 10px; font-size: 12px;
@@ -305,6 +309,81 @@ function toast(text, undo) {
 function savedToken() {
   try { return localStorage.getItem("grocery-token") || ""; } catch (_) { return ""; }
 }
+// Sign in with Google (2026-10-12): Google's own button, shown only when the
+// server names a client id (GET /v1/auth/config). Google hands the page an
+// ID token; the server trades it for a sign-in token of this page's own,
+// kept and sent exactly like a password. Invite-only: the owner adds people's
+// addresses on the People card.
+const TOKEN_KIND = "grocery-token-kind";  // "google" for a sign-in; empty for a password
+function tokenKind() {
+  try { return localStorage.getItem(TOKEN_KIND) || ""; } catch (_) { return ""; }
+}
+function keepToken(token, kind) {
+  try {
+    localStorage.setItem("grocery-token", token);
+    if (kind) localStorage.setItem(TOKEN_KIND, kind); else localStorage.removeItem(TOKEN_KIND);
+    localStorage.removeItem(COPY_KEY);  // another token may be another person
+  } catch (_) { /* private mode */ }
+}
+function forgetToken() {
+  try {
+    for (const key of ["grocery-token", TOKEN_KIND, COPY_KEY]) localStorage.removeItem(key);
+  } catch (_) { /* private mode */ }
+}
+async function signInOptions() {
+  if (signInOptions.known) return signInOptions.known;
+  try {
+    const response = await fetch("/v1/auth/config");
+    if (response.ok) return (signInOptions.known = await response.json());
+  } catch (_) { /* asked again next time */ }
+  return { google_client_id: null };  // an older server, or none reachable
+}
+function loadGoogle() {
+  if (!loadGoogle.ready) {
+    loadGoogle.ready = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.onload = () => resolve(window.google);
+      script.onerror = () => {
+        loadGoogle.ready = null;
+        script.remove();
+        reject(new Error("Google's sign-in could not load"));
+      };
+      document.head.append(script);
+    });
+  }
+  return loadGoogle.ready;
+}
+function googleButton(clientId) {
+  const box = el("div", { class: "google" });
+  loadGoogle().then(google => {
+    google.accounts.id.initialize({ client_id: clientId, callback: signedInWithGoogle,
+                                    auto_select: false });
+    google.accounts.id.renderButton(box, { theme: "outline", size: "large", shape: "pill",
+      text: "signin_with", width: Math.max(200, Math.min(box.clientWidth || 300, 400)) });
+  }).catch(error => box.replaceChildren(el("div", { class: "meta" },
+    error.message + ". Use a password, or try again later.")));
+  return box;
+}
+async function signedInWithGoogle(answer) {
+  const stats = document.getElementById("stats");
+  stats.textContent = "Signing in…";
+  try {
+    const response = await fetch("/v1/auth/google", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: answer.credential }) });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      stats.textContent = response.status === 403 ? body.detail + "."
+        : "Google sign-in did not work: " + (body.detail || response.statusText);
+      return;
+    }
+    keepToken(body.token, "google");
+    stats.textContent = "Loading…";
+    load();
+  } catch (error) { stats.textContent = "Google sign-in did not work: " + error.message; }
+}
 
 // What this phone last saw, drawn at once while the server starts up (12-20 s
 // after a quiet spell, Cloud Run's way of costing nothing while unused) and
@@ -329,7 +408,8 @@ async function api(path, options) {
   if (token) opts.headers = { ...(opts.headers || {}), Authorization: "Bearer " + token };
   const response = await fetch(path, opts);
   if (response.status === 401) {
-    const error = new Error(token ? "wrong password" : "password needed");
+    const error = new Error(!token ? "password needed"
+      : tokenKind() === "google" ? "sign-in ended" : "wrong password");
     error.locked = true;
     throw error;
   }
@@ -942,12 +1022,15 @@ function accountCard() {
     return el("div", { class: "card" }, el("div", { class: "meta" },
       "You are a guest in the demo: everything you add is wiped when it restarts."));
   }
-  const who = state.me.role === "owner" ? "the owner" : state.me.name;
+  const who = (state.me.role === "owner" ? "the owner" : state.me.name) +
+    (tokenKind() === "google" ? ", with Google" : "");
   return el("div", { class: "card" }, el("div", { class: "row" },
     el("div", { class: "meta", style: "flex: 1; align-self: center" }, `Signed in as ${who}`),
-    el("button", { onclick: () => {
-      try { localStorage.removeItem("grocery-token"); localStorage.removeItem(COPY_KEY); }
-      catch (_) { /* private mode */ }
+    el("button", { onclick: async () => {
+      // A Google sign-in ends on the server too; a password stays valid.
+      if (tokenKind() === "google") await api("/v1/auth/sign-out", { method: "POST" })
+        .catch(() => { /* it ends by itself */ });
+      forgetToken();
       location.reload();
     } }, "Log out")));
 }
@@ -955,28 +1038,72 @@ function accountCard() {
 function peopleCard() {
   if (!state.me || state.me.role !== "owner" || state.me.demo || !state.people) return null;
   const name = el("input", { placeholder: "Name", autocapitalize: "words" });
+  const email = state.google ? el("input", { type: "email", placeholder: "Google email (optional)",
+    autocapitalize: "off", autocorrect: "off", spellcheck: "false" }) : null;
   const add = async () => {
     if (!name.value.trim()) return;
     try {
       state.newPerson = await api("/v1/users", { method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.value.trim() }) });
+        body: JSON.stringify({ name: name.value.trim(),
+                               email: email && email.value.trim() || null }) });
       state.people = await api("/v1/users");
       render();
     } catch (error) { toast("Not added: " + error.message); }
   };
-  name.addEventListener("keydown", e => { if (e.key === "Enter") add(); });
+  for (const field of [name, email]) {
+    if (field) field.addEventListener("keydown", e => { if (e.key === "Enter") add(); });
+  }
   const made = state.newPerson;
   return el("div", { class: "card" }, el("h2", {}, "People"),
-    el("div", { class: "why" }, "Each person has a password and sees only their own " +
-      "receipts. Their answers teach the app, but never overrule yours."),
-    state.people.map(p => el("div", { class: "line" },
+    el("div", { class: "why" }, (state.google
+      ? "Each person signs in with Google at the address you add here, or with a password, " +
+        "and sees only their own receipts. "
+      : "Each person has a password and sees only their own receipts. ") +
+      "Their answers teach the app, but never overrule yours."),
+    state.people.map(personLine),
+    made ? el("div", { class: "says" }, made.email
+      ? `${made.name} signs in with Google as ${made.email}, or with this password, shown ` +
+        "only now: " : `${made.name}'s password, shown only now: `,
+      el("b", {}, made.password)) : null,
+    el("div", { style: "margin-top: 8px" }, name, email,
+       el("div", { class: "row", style: "margin-top: 4px" },
+          el("button", { class: "primary", onclick: add }, "Add a person"))));
+}
+
+// One person on the People card. With Google sign-in on, the owner can give
+// someone who has only a password their Google address, or change it.
+function personLine(p) {
+  const receipts = `${p.receipts} ${p.receipts === 1 ? "receipt" : "receipts"}`;
+  if (state.editingEmail === p.id) {
+    const field = el("input", { type: "email", placeholder: "Google email",
+      autocapitalize: "off", autocorrect: "off", spellcheck: "false", value: p.email || "" });
+    const save = async () => {
+      try {
+        await api(`/v1/users/${p.id}`, { method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: field.value.trim() || null }) });
+        state.people = await api("/v1/users");
+        state.editingEmail = null;
+        field.blur();  // a page never redraws under a text box in use
+        render();
+      } catch (error) { toast("Not saved: " + error.message); }
+    };
+    field.addEventListener("keydown", e => { if (e.key === "Enter") save(); });
+    setTimeout(() => field.focus(), 0);
+    return el("div", { class: "line", style: "display: block" },
+      el("div", { class: "what" }, p.name), field,
+      el("div", { class: "row" },
+        el("button", { onclick: () => { state.editingEmail = null; render(); } }, "Cancel"),
+        el("button", { class: "primary", onclick: save }, "Save")));
+  }
+  return el("div", { class: "line" },
+    el("div", {},
       el("div", { class: "what" }, p.name),
-      el("div", { class: "meta" }, `${p.receipts} ${p.receipts === 1 ? "receipt" : "receipts"}`))),
-    made ? el("div", { class: "says" }, `${made.name}'s password, shown only now: `,
-                 el("b", {}, made.password)) : null,
-    el("div", { class: "row", style: "margin-top: 8px" }, name,
-       el("button", { class: "primary", onclick: add }, "Add a person")));
+      el("div", { class: "meta" }, p.email ? `${receipts} · Google: ${p.email}` : receipts)),
+    state.google ? el("button", { style: "align-self: center",
+      onclick: () => { state.editingEmail = p.id; render(); } },
+      p.email ? "Change" : "Add Google") : null);
 }
 
 function costsCard() {
@@ -1448,6 +1575,7 @@ async function load({ jobs = true } = {}) {
       if (me.role === "owner") {
         state.costs = await api("/v1/costs").catch(() => null);
         state.people = await api("/v1/users").catch(() => null);
+        state.google = !!(await signInOptions()).google_client_id;
       } else {
         state.costs = state.people = null;
       }
@@ -1469,26 +1597,29 @@ async function load({ jobs = true } = {}) {
   }
 }
 
-function askPassword(why) {
+async function askPassword(why) {
+  const clientId = (await signInOptions()).google_client_id;
   document.getElementById("stats").textContent = why === "wrong password"
-    ? "That password is wrong." : "This server needs its password.";
+    ? "That password is wrong." : why === "sign-in ended"
+    ? "Your sign-in has ended. Sign in again." : clientId
+    ? "Sign in to see your receipts." : "This server needs its password.";
   const field = el("input", { type: "password", autocomplete: "current-password",
                               placeholder: "Password", autocapitalize: "off",
                               autocorrect: "off", spellcheck: "false" });
   const unlock = () => {
-    try {
-      localStorage.setItem("grocery-token", field.value.trim());
-      localStorage.removeItem(COPY_KEY);  // another password may be another person
-    } catch (_) { /* private mode */ }
+    keepToken(field.value.trim(), "");
     document.getElementById("stats").textContent = "Loading…";
     load();
   };
   field.addEventListener("keydown", e => { if (e.key === "Enter") unlock(); });
   document.getElementById("view").replaceChildren(
-    el("div", { class: "card" }, field,
+    el("div", { class: "card" },
+       clientId ? [googleButton(clientId), el("div", { class: "or" }, "or with a password")] : null,
+       field,
        el("div", { class: "row", style: "margin-top: 10px" },
           el("button", { class: "primary", onclick: unlock }, "Unlock"))));
-  field.focus();
+  // With Google on, the keyboard would cover the button most people want.
+  if (!clientId) field.focus();
 }
 
 document.getElementById("demo").addEventListener("click", () => {
