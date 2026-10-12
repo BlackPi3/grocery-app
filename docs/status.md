@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, redesign step 3.
+**Last updated:** 2026-10-12, the drill-down.
 
 ## Now
 
@@ -32,9 +32,11 @@ session (laptop or cloud) can pick up from here. How we work is in
    grey. The brand, size, details, who said it and the printed line are the
    owner's only; the receipt header says "6 items" (owner: "6 items: 2 you,
    4 app").
-2. **Drill-down.** Tap an insight to see a calendar of purchase dots
-   (GitHub/Anki style), then the receipt line (fix it there), then the receipt
-   photo. There is no photo endpoint for users yet.
+2. ~~Drill-down.~~ Done: the price that moved, your regular and a product
+   tile open the product's purchases (calendar of dots and a list), then the
+   receipt with the line marked (fix it there), then its photo
+   (`GET /v1/products/{id}/purchases`, `GET /v1/receipts/{id}/photo`, the
+   asker's receipts only; the demo shows only the made-up receipts' photos).
 3. **Google sign-in** on the web. Still open: who may sign up. Apple sign-in
    is deferred (it needs the paid developer account).
 
