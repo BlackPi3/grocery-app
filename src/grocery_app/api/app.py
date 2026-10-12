@@ -34,7 +34,7 @@ import re
 import threading
 import time
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response, UploadFile
@@ -112,10 +112,12 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                 name="pictures", daemon=True)
             app.state.pictures.start()
         if resume_after is not None and uploads_available:
+            started = datetime.now(UTC)
+
             def resume() -> None:
                 time.sleep(resume_after)
                 resume_unfinished(repository.session_factory, image_store, extractor,
-                                  matcher, identify)
+                                  matcher, identify, started_before=started)
 
             # A thread, so the server answers the phone while it catches up.
             app.state.resuming = threading.Thread(target=resume, name="resume-jobs",
