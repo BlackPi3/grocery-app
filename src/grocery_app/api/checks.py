@@ -9,9 +9,10 @@ shopping, not only on the answer sheet it was tuned on.
 `pick_checks` chooses, per receipt, `SPOT_CHECKS_PER_RECEIPT` lines whose
 `said_by` is `app` (the matcher's or identify's memory entries, or a
 reading by rule), different printed names, where the product says more than
-the paper (`says_more_than_print`). A line the shopper has answered is `you`,
-so it is never one. A receipt is picked for once. The seed is the receipt id, so the
-choice is random across receipts and the same on a re-run.
+the paper (`says_more_than_print`) beyond how the line was sold. A line the
+shopper has answered is `you`, so it is never one. A receipt is picked for
+once. The seed is the receipt id, so the choice is random across receipts and
+the same on a re-run.
 
 The shopper answers a check as any line: `PUT .../lines/{position}/resolution`
 with the product the app said (right) or another one (corrected).
@@ -28,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict
 from grocery_app.db.models import Check, Receipt
-from grocery_app.normalizer import normalize_receipt, printed_size
+from grocery_app.normalizer import SOLD_AS_WORDS, normalize_receipt, printed_size
 from grocery_app.resolver import fold
 
 # Parham's call, 2026-09-30: about ten seconds per receipt, and after twenty
@@ -54,16 +55,21 @@ def says_more_than_print(raw_name: str, product: dict[str, Any]) -> bool:
     """Whether the product claims something the printed line does not say: a
     word of its name, brand or details that is not on the paper, or a size
     the paper does not print. A word cut short on the paper (`Authent` for
-    Authentic) is the same word. The category is not counted.
+    Authentic) is the same word. The category is not counted, and neither is
+    a word for how the line was sold (`SOLD_AS_WORDS`): that is the purchase,
+    not the product.
 
     Only such a line is worth a spot check (Parham, 2026-10-08): the receipt
     says `Sandkuchen`, the app says Sandkuchen, and a person cannot tell what
-    is being asked.
+    is being asked. Nor when the receipt says `Bananen` and the app says
+    Bananen, lose (2026-10-12).
     """
     printed = _words(raw_name)
     claimed = _words(" ".join([product.get("name") or "", product.get("brand") or "",
                                *(product.get("details") or [])]))
     for word in claimed:
+        if word in SOLD_AS_WORDS:
+            continue
         if not any(word == p or (len(p) >= 3 and word.startswith(p)) for p in printed):
             return True
     size = _amount(product.get("size"))

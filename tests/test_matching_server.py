@@ -515,6 +515,39 @@ def test_a_line_where_the_app_says_only_what_the_paper_prints_is_not_checked(ser
     assert pick_checks(session, receipt) == 0
 
 
+def test_how_the_line_was_sold_is_not_a_claim_worth_a_check(server):
+    """2026-10-12: the receipt says `Bananen`, the app says Bananen, lose. How
+    it was sold is the purchase, not the product, so there is nothing to ask;
+    a line where the app claims more is still checked."""
+    from grocery_app.api.checks import pick_checks
+    from grocery_app.db.models import Check
+
+    _, session = server
+    receipt = add_receipt(session, "IMG_9.jpeg", ["Drachenfrucht", "Himbeeren 250g"])
+    match_receipt(session, receipt, TableMatcher({}), reads_as(
+        **{"Drachenfrucht": {"name": "Drachenfrucht", "details": ["lose"]},
+           "Himbeeren 250g": {"name": "Himbeeren", "brand": "Muster"}}))
+    session.commit()
+    assert pick_checks(session, receipt) == 1
+    assert [c.raw_name for c in session.scalars(select(Check))] == ["Himbeeren 250g"]
+
+
+def test_a_check_on_how_the_line_was_sold_picked_earlier_is_not_shown(server):
+    from grocery_app.db.models import Check
+
+    client, session = server
+    receipt = add_receipt(session, "IMG_9.jpeg", ["Drachenfrucht"])
+    match_receipt(session, receipt, TableMatcher({}), reads_as(
+        Drachenfrucht={"name": "Drachenfrucht", "details": ["lose"]}))
+    session.commit()
+    product = client.get(f"/v1/receipts/{receipt}").json()["lines"][0]["product_id"]
+    assert session.get(Product, product).details == ["lose"]
+    session.add(Check(receipt_id=receipt, position=0, raw_name="Drachenfrucht",
+                      app_product_id=product))
+    session.commit()
+    assert client.get("/v1/checks").json()["checks"] == []
+
+
 def test_a_pointless_check_picked_earlier_is_not_shown(server):
     from grocery_app.db.models import Check
 
@@ -733,6 +766,11 @@ def test_says_more_than_print():
                                                        "unit": "l"}}), "another size"
     assert not more("Sandkuchen", {"name": "Sandkuchen", "category": "kuchen"}), \
         "the category is not a claim"
+    assert not more("Bananen", {"name": "Bananen", "details": ["lose"]}), \
+        "how it was sold is not a claim"
+    assert not more("Brezel", {"name": "Brezel", "details": ["Stück"]}), "nor by the piece"
+    assert more("Bananen", {"name": "Bananen", "details": ["lose", "Cavendish"]}), \
+        "a claim beside it still counts"
 
 
 def test_spot_checks_are_two_lines_the_app_placed_itself_chosen_once(server):

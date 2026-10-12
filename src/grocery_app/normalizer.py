@@ -122,6 +122,13 @@ def pack_size(line: dict[str, Any], entry: dict[str, Any] | None,
     return size
 
 
+# Words that say how a line was sold (loose, by the piece, packed), which is
+# `sold_as`, not what the product is. A product that carries one (details
+# `lose`) claims nothing more about itself for it (`api.checks`).
+SOLD_AS_WORDS = frozenset({"lose", "loose", "offen", "stueck", "stk", "st",
+                           "verpackt", "abgepackt"})
+
+
 def sold_as(line: dict[str, Any], pack: dict[str, Any] | None) -> dict[str, Any] | None:
     """How the line was sold: `loose` (weighed at the till) or `pack` (with
     its size), or None when neither is known.
