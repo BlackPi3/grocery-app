@@ -13,7 +13,10 @@ MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 def alembic_config(url: str) -> Config:
     cfg = Config()
     cfg.set_main_option("script_location", str(MIGRATIONS_DIR))
-    cfg.set_main_option("sqlalchemy.url", url)
+    # Alembic's config treats `%` as interpolation: an address with an
+    # escaped character in it (`host=%2Fcloudsql...`) stopped the demo from
+    # starting (2026-10-12), and the error printed the address, password and all.
+    cfg.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     return cfg
 
 
