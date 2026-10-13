@@ -202,6 +202,19 @@ def test_build_insights_defaults_as_of_to_the_last_receipt_not_today():
     assert out["repurchase"][0]["status"] == "upcoming"
 
 
+def test_coverage_counts_the_products_the_insights_can_speak_about():
+    """"Bought again: 1 of 2 products" reads against this number, so it holds
+    each counted grocery product once, however often it was bought."""
+    rows = [row("p-1", "2026-01-01", 1.0), row("p-1", "2026-01-09", 1.0),
+            row("p-2", "2026-01-09", 2.0),
+            row(None, "2026-01-09", 3.0),                                  # nothing placed it
+            row("p-cafe", "2026-01-09", 8.0, category="cafe-imbiss"),      # not a grocery
+            {**row("p-gift", "2026-01-09", 5.0), "not_counted": True}]     # for a friend
+    out = build_insights({"meta": {}, "purchases": rows})
+    assert out["coverage"]["products"] == 2
+    assert len(out["repurchase"]) == 1
+
+
 # --- groceries only ----------------------------------------------------------
 
 def test_a_line_that_is_not_a_grocery_leaves_every_insight_but_is_counted():

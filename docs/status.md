@@ -4,13 +4,26 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-12, why the demo has few pictures, and the fix.
+**Last updated:** 2026-10-13, the Insights screen redesigned.
 
 ## Now
 
 - Everything is merged. `main` deploys the server and the public demo on every
   merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
-- Just shipped: **redesign step 2** (#108). Spot checks and questions are
+- Just shipped: **the Insights screen** (the last screen of the redesign).
+  A short scroll of cards, each answering one question and saying what it
+  rests on: where the money went this month (ranked bars by part of the shop,
+  names never cut; tap a part for its products), prices that moved (one
+  product at one shop, biggest first, old and new price with the dates), due
+  again soon (from the last receipt; "bought twice, N days apart" when one gap
+  is all there is; products not bought for longer than their usual gap are
+  named under the list, not in it), the budget-brand share and the basket
+  price (with the money each leaves out), and the same item at other shops.
+  Every product on it opens the drill-down; back returns to the same place.
+  Brands are the owner's only, on Home too. `insights.json` gained
+  `coverage.products` (different products placed), so "18 of 24 products
+  bought again" can be said. The squarified tiles are gone.
+- Earlier: **redesign step 2** (#108). Spot checks and questions are
   yes/no cards with pictures, one at a time, behind the Receipts badge
   (swipe right for Yes, left for No; Undo restores). A question shows up to 5
   cards, ordered: the price paid first, then the model's pick, then the search
@@ -23,21 +36,12 @@ session (laptop or cloud) can pick up from here. How we work is in
   paper is how the item was sold. A word like `lose` or `Stück`
   (`normalizer.SOLD_AS_WORDS`) is not a claim, so `Bananen` placed as
   Bananen, lose is not checked; such checks picked earlier are not shown.
-
-- Demo pictures (open item 2026-10-12: 7 of 24 products have one; branch
-  `claude/youthful-fermi-kt22jk`, not merged yet). Found:
-  the demo has no shop listings or barcodes (the matcher accepts a pick only
-  when the price paid matches the shelf; none of the made-up prices did), so
-  every picture must come from a web search. 6 products have no brand
-  (Bananen, Salatgurke, Rispentomaten, Hähnchenbrustfilet, Gouda, Bio
-  Haferflocken) and get none on purpose. Of the 18 searched, 7 found one, 8
-  found no page showing the product, and 3 (Weihenstephan, Kerrygold,
-  Kokett) timed out twice and were wrongly marked as looked up. The demo's
-  picture thread never fills them: every seeded product is marked looked up,
-  and from April 2027 it would have searched them again at every start and
-  lost the result. Fixed: a failed search stays due, searches wait 180 s,
-  the demo looks up only guests' products, and the build writes no seed with
-  an unknown picture. **Laptop step** (some 20 cents a search, 11 searches):
+- Waiting on the owner: **Google sign-in** is built and off; the owner
+  switches it on later (steps under Next build, item 3).
+- Demo pictures: #112 is merged and deployed (a failed search stays due,
+  searches wait 180 s, the demo looks up only guests' products). 7 of 24 demo
+  products have a picture; filling the rest is a **laptop step** (some 20
+  cents a search, 11 searches):
   `GEMINI_VERTEX_PROJECT=<project> .venv/bin/python scripts/build_demo_seed.py --resume --retry-pictures`
   (without `--resume` if the local `grocery_demo` database is gone), then
   copy `data/demo/pictures/` to the bucket's `demo/pictures/`, commit
@@ -75,18 +79,20 @@ session (laptop or cloud) can pick up from here. How we work is in
    No route removes a user yet (their receipts would go with them); a
    removed user's sign-ins end with the row. Apple sign-in is deferred (it
    needs the paid developer account).
+4. ~~Insights screen.~~ Done (2026-10-13): five cards, one question each,
+   with their coverage; every product opens the drill-down (see Now).
 
 ## Milestone: Ready for iOS (target 2026-11-02)
 
 - The screens are settled: unchanged for 2 weeks after the designer's input.
+  All screens are redesigned as of 2026-10-13 (Insights last); the two weeks
+  run from there.
 - 2 weeks of real use with no database fix by hand.
 - Google sign-in on the web (built; the owner switches it on).
 - A second person using it with real receipts.
 
 ## Parked (later, not now)
 
-- Insights month view: the owner dislikes the squarified tiles (small tiles
-  lose their names). Redo with the redesign.
 - A "none of these" answer used as a search hint (see the working agreement).
 - Barcodes: connect every packaged product to a real barcode (shop barcode,
   Open Food Facts name search, a barcode photo from the user).

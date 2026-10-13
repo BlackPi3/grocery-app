@@ -481,6 +481,9 @@ def coverage(purchases: dict[str, Any], rows: list[dict[str, Any]],
         "date_range": meta.get("date_range"),
         "product_lines": len(rows),
         "resolved_lines": len(resolved),
+        # How many different products the product-level insights could speak
+        # about: "bought again" is read against it ("12 of 30 products").
+        "products": len({p["product_id"] for p in resolved}),
         "spend": round(spend, 2),
         "resolved_spend": round(resolved_spend, 2),
         "resolved_share_of_spend": round(resolved_spend / spend, 3) if spend else None,

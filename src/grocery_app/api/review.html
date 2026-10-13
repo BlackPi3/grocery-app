@@ -170,19 +170,38 @@
   .stat { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
   .months { display: flex; gap: 6px; overflow-x: auto; margin: 0 -2px 12px; padding: 0 2px; }
   .months button { flex: 0 0 auto; padding: 6px 12px; font-size: 13px; }
-  /* The month as tiles sized by spend, all on one screen (Parham, 2026-10-11:
-     zoomed out first, zoom in if needed, no scrolling through every group). */
-  .tiles { position: relative; width: 100%; aspect-ratio: 1; margin-top: 10px; }
-  .tile { position: absolute; padding: 2px; cursor: pointer; }
-  .tile > div { width: 100%; height: 100%; border-radius: 8px; background: var(--accent-soft);
-    color: var(--ink); padding: 6px 7px; overflow: hidden; font-size: 13px; line-height: 1.25; }
-  .tile.big > div { font-size: 15px; }
-  .tile.none > div { background: var(--page); border: 1px dashed var(--muted); color: var(--ink2); }
-  /* German names, hyphenated as German where a tile is narrow ("Vorrä-te"). */
-  .tile b { display: block; font-weight: 600; overflow-wrap: break-word; hyphens: auto; }
-  .tile span { color: var(--ink2); }
-  .zoom { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
-  .zoom button { font-size: 13px; padding: 4px 10px; }
+  /* Insights (2026-10-13): a short scroll of cards, one question each. Where
+     the money went is a ranked list of bars, names on their own line so no
+     name is ever cut (the squarified tiles lost the small ones' names). One
+     hue, the accent; money nothing placed is grey. Marks: thin bars, 4px
+     rounded at the value end, square at the start. */
+  .q { margin-bottom: 2px; }
+  .cover { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .rank-row { padding: 7px 0; cursor: pointer; }
+  .rank-row .top { display: flex; justify-content: space-between; align-items: baseline;
+    gap: 10px; }
+  .rank-row .name { font-size: 14px; overflow-wrap: break-word; hyphens: auto; min-width: 0; }
+  .rank-row .money { font-variant-numeric: tabular-nums; color: var(--ink2); font-size: 13px;
+    white-space: nowrap; }
+  .track { height: 10px; margin-top: 4px; }
+  .fill { height: 100%; min-width: 3px; background: var(--accent); border-radius: 0 4px 4px 0; }
+  .fill.none { background: var(--muted); }
+  .rank-row.open .name { font-weight: 600; }
+  .inside { margin: 2px 0 8px 12px; padding-left: 10px; border-left: 2px solid var(--grid); }
+  .inside .rank-row { padding: 5px 0; }
+  .inside .name { font-size: 13px; }
+  .inside .track { height: 6px; margin-top: 3px; }
+  .inside .fill { border-radius: 0 3px 3px 0; }
+  .item { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 9px 0; border-top: 1px solid var(--grid); cursor: pointer; }
+  .item:first-of-type { border-top: 0; }
+  .item .what { font-size: 14px; }
+  .item .end { text-align: right; white-space: nowrap; font-size: 14px; font-weight: 600;
+    font-variant-numeric: tabular-nums; }
+  .cover .link { font-size: inherit; padding: 0; cursor: pointer; }
+  .more { margin-top: 6px; font-size: 13px; padding: 6px 12px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pair .big { font-size: 24px; font-weight: 650; letter-spacing: -0.01em; margin: 2px 0; }
   h2 { font-size: 15px; margin: 0 0 4px; }
   .up { color: var(--bad); } .down { color: var(--good); }
   /* The drill-down (2026-10-12): an insight, then the product's purchases as
@@ -1176,7 +1195,7 @@ function priceCard(d) {
     el("div", { class: "label" }, "Price " + (up ? "up" : "down")),
     el("div", { class: "big " + (up ? "up" : "down") },
        (up ? "▲ " : "▼ ") + Math.round(Math.abs(moved.change_pct)) + "%"),
-    el("div", { class: "what" }, productText(moved.product, moved.brand)),
+    el("div", { class: "what" }, easyName(moved.product, moved.brand)),
     el("div", { class: "meta" }, `${euro(moved.first.price)} → ${euro(moved.last.price)}` +
        ` per ${moved.per} at ${moved.store}`));
 }
@@ -1188,7 +1207,7 @@ function factCard(d) {
   return el("div", { class: "card tap", onclick: () => openProduct(most.product_id) },
     el("div", { class: "label" }, "Your regular"),
     el("div", { class: "big" }, `${most.trips}×`),
-    el("div", { class: "what" }, productText(most.product, most.brand)),
+    el("div", { class: "what" }, easyName(most.product, most.brand)),
     el("div", { class: "meta" }, `bought since ${new Date(d.coverage.date_range[0])
       .toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`));
 }
@@ -1217,9 +1236,11 @@ function youView() {
 // September): a product in an insight, then its purchases as days on a
 // calendar with a list under it, then the receipt with that line marked
 // (fix it there as any line), then the receipt's photo.
-async function openProduct(productId) {
+async function openProduct(productId, back) {
   const tab = state.tab;
-  state.product = { id: productId, tab, doc: null };
+  // Back returns to the same place on a long screen such as Insights.
+  const scroll = back !== undefined ? back : window.scrollY;
+  state.product = { id: productId, tab, doc: null, scroll };
   render();
   window.scrollTo(0, 0);
   try {
@@ -1233,8 +1254,10 @@ async function openProduct(productId) {
 }
 
 function closeProduct() {
+  const scroll = state.product && state.product.scroll;
   state.product = null;
   render();
+  if (scroll) window.scrollTo(0, scroll);
 }
 
 // Dates as the receipts print them, read as calendar days (no time zone).
@@ -1344,7 +1367,8 @@ function productView() {
 // view. A line is fixed there as any line is: tap it.
 async function openLine(receiptId, positions) {
   const p = state.product;
-  state.cameFrom = p && p.doc ? { id: p.id, name: p.doc.product || p.id, tab: p.tab } : null;
+  state.cameFrom = p && p.doc ? { id: p.id, name: p.doc.product || p.id, tab: p.tab,
+                                   scroll: p.scroll } : null;
   state.product = null;
   state.highlight = { receipt_id: receiptId, positions };
   state.editing = null;
@@ -1358,7 +1382,7 @@ function backToProduct() {
   const from = state.cameFrom;
   state.cameFrom = state.highlight = null;
   state.tab = from.tab;
-  openProduct(from.id);
+  openProduct(from.id, from.scroll);
 }
 
 // The photo or PDF the receipt was read from. An <img> cannot send the
@@ -1416,60 +1440,46 @@ function defaultMonth(months) {
   return months.some(m => m.month === key) ? key : months[0].month;
 }
 
-// Squarified tiles (Bruls, Huizing and van Wijk): rows of tiles laid along the
-// shorter side, each row grown while that keeps its tiles closer to squares.
-// Areas in, rectangles out, in a box of `w` by `h`.
-function squarify(items, w, h) {
-  const total = items.reduce((sum, item) => sum + item.value, 0);
-  let rest = items.map(item => ({ ...item, area: item.value / total * w * h }));
-  let x = 0, y = 0;
-  const out = [];
-  const worst = (row, side) => {
-    const sum = row.reduce((s, r) => s + r.area, 0);
-    const big = Math.max(...row.map(r => r.area)), small = Math.min(...row.map(r => r.area));
-    return Math.max(side * side * big / (sum * sum), sum * sum / (side * side * small));
-  };
-  while (rest.length) {
-    const side = Math.min(w, h);
-    let row = [rest[0]];
-    while (row.length < rest.length &&
-           worst([...row, rest[row.length]], side) <= worst(row, side)) row.push(rest[row.length]);
-    rest = rest.slice(row.length);
-    const sum = row.reduce((s, r) => s + r.area, 0);
-    if (w >= h) {
-      const width = sum / h;
-      let top = y;
-      for (const r of row) { out.push({ ...r, x, y: top, w: width, h: r.area / width }); top += r.area / width; }
-      x += width; w -= width;
-    } else {
-      const height = sum / w;
-      let left = x;
-      for (const r of row) { out.push({ ...r, x: left, y, w: r.area / height, h: height }); left += r.area / height; }
-      y += height; h -= height;
-    }
-  }
-  return out;
+// A product's name as everyone sees it; the owner also sees its brand.
+function easyName(name, brand) {
+  return isOwner() ? productText(name, brand) : name;
 }
 
-// One box of tiles, in a unit square. A tile too small for its words keeps
-// them for a tap.
-function tiles(items, onTap) {
-  const shown = items.filter(item => item.value > 0).sort((a, b) => b.value - a.value);
-  return el("div", { class: "tiles" }, squarify(shown, 1, 1).map(t => {
-    const roomy = t.w > 0.14 && t.h > 0.09;
-    return el("div", { class: "tile" + (t.big ? " big" : "") + (t.none ? " none" : ""),
-                       style: `left:${t.x * 100}%;top:${t.y * 100}%;` +
-                              `width:${t.w * 100}%;height:${t.h * 100}%`,
-                       title: `${t.label} · ${euro(t.value)}`, lang: "de",
-                       onclick: () => onTap(t) },
-      el("div", {}, roomy ? [el("b", {}, t.label), el("span", {}, euro(t.value))] : null));
-  }));
+function shortDate(iso) {
+  return day(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
-function insightsView() {
-  const d = state.insights;
-  if (!d) return [el("div", { class: "empty" }, "Loading insights…")];
-  if (!d.months.length) return [el("div", { class: "empty" }, "No receipts yet.")];
+function daysBetween(from, to) {
+  return Math.round((day(to) - day(from)) / 864e5);
+}
+
+function pctText(pct) {
+  const size = Math.abs(pct);
+  return (size >= 10 ? Math.round(size) : size.toFixed(1)) + "%";
+}
+
+// "0,89 €" for a thing bought by the item, "3,46 €/kg" by weight.
+function perText(amount, per) {
+  if (per === "item") return euro(amount);
+  return `${euro(amount)}/${per === "piece" ? "pc" : per}`;
+}
+
+function plural(n, one, many) { return `${n} ${n === 1 ? one : many}`; }
+
+// One ranked bar: the name on its own line (never cut), the money at its end,
+// the bar under it as long as its share of the largest.
+function rankRow(label, spend, most, { none, open, onclick, lang } = {}) {
+  return el("div", { class: "rank-row" + (open ? " open" : ""), onclick },
+    el("div", { class: "top" },
+      el("span", { class: "name" + (none ? " guess" : ""), lang: lang || "de" }, label),
+      el("span", { class: "money" }, euro(spend))),
+    el("div", { class: "track" }, el("div", { class: "fill" + (none ? " none" : ""),
+      style: `width:${Math.max(spend / most * 100, 0)}%` })));
+}
+
+// 1. Where the money went this month: every part of the shop, most money
+// first, all of it (groceries or not), so the bars add up to the month.
+function moneyCard(d) {
   if (!d.months.some(m => m.month === state.month)) state.month = defaultMonth(d.months);
   const month = d.months.find(m => m.month === state.month);
   const choose = el("div", { class: "months" }, [...d.months].reverse().map(m =>
@@ -1484,31 +1494,194 @@ function insightsView() {
     if (on) choose.scrollLeft += on.getBoundingClientRect().right - choose.getBoundingClientRect().right
       + (on.nextSibling ? 0 : 2);
   });
-  const branch = state.openBranch !== undefined &&
-    month.branches.find(b => (b.branch || null) === state.openBranch);
-  if (branch) {  // zoomed in: one group's products
-    return [el("div", { class: "card" }, choose,
-      el("div", { class: "zoom" },
-        el("button", { onclick: () => { state.openBranch = undefined; render(); } },
-           "‹ " + monthName(month.month).replace(/ \d+$/, "")),
-        el("div", { class: "what" }, branch.branch || "Not sorted yet")),
-      el("div", { class: "stat" }, euro(branch.spend)),
-      el("div", { class: "meta" }, `${branch.lines} ${branch.lines === 1 ? "line" : "lines"}` +
-         (branch.branch ? "" : " with no category yet")),
-      tiles(branch.items.map(item => ({
-        label: productText(item.product, item.brand) + (item.lines > 1 ? ` (${item.lines}×)` : ""),
-        value: item.spend, none: !item.product, product_id: item.product_id })),
+  const most = Math.max(...month.branches.map(b => b.spend), 0.01);
+  const rows = month.branches.flatMap(b => {
+    const key = b.branch || null;
+    const open = state.openBranch === key;
+    const row = rankRow(b.branch || "Not sorted yet", b.spend, most, { none: !b.branch, open,
+      lang: b.branch ? "de" : "en",
+      onclick: () => { state.openBranch = open ? undefined : key; render(); } });
+    if (!open) return [row];
+    const top = Math.max(...b.items.map(i => i.spend), 0.01);
+    return [row, el("div", { class: "inside" }, b.items.map(item => rankRow(
+      (item.product_id ? easyName(item.product, item.brand) : item.product) +
+        (item.lines > 1 ? ` (${item.lines}×)` : ""),
+      item.spend, top, { none: !item.product_id,
         // A product opens its purchases; a line nothing placed has none to show.
-        t => t.product_id ? openProduct(t.product_id) : toast(`${t.label} · ${euro(t.value)}`)))];
-  }
-  return [el("div", { class: "card" }, choose,
-    el("h2", {}, monthName(month.month)),
+        onclick: () => item.product_id ? openProduct(item.product_id)
+          : toast("Not placed on a product yet: fix it on its receipt") })))];
+  });
+  const unsorted = month.branches.find(b => !b.branch);
+  return el("div", { class: "card" },
+    el("h2", { class: "q" }, "Where the money went"), choose,
     el("div", { class: "stat" }, euro(month.spend)),
-    el("div", { class: "meta" }, `${month.receipts} ${month.receipts === 1 ? "receipt" : "receipts"}`,
-       " · lines you left out are not counted · tap a part to see what is in it"),
-    tiles(month.branches.map(b => ({ label: b.branch || "Not sorted yet", value: b.spend,
-                                     key: b.branch || null, none: !b.branch, big: true })),
-          t => { state.openBranch = t.key; render(); }))];
+    el("div", { class: "meta" }, `${monthName(month.month)} · ` +
+       `${plural(month.receipts, "receipt", "receipts")} · tap a part to see what is in it`),
+    el("div", { class: "rank" }, rows),
+    el("div", { class: "cover" }, "Every line you counted, groceries or not. " + (unsorted
+      ? `${euro(unsorted.spend)} on ${plural(unsorted.lines, "line", "lines")} is not placed on ` +
+        "a product yet, so it has no part of the shop."
+      : "Every line is placed.")));
+}
+
+// 2. Prices that moved: one product at one shop, first price against the
+// latest, the biggest moves first.
+function pricesCard(d) {
+  const moved = d.price_changes.filter(c => c.change_pct);
+  const shown = state.allPrices ? moved : moved.slice(0, 5);
+  const seen = d.price_changes.length;
+  return el("div", { class: "card" },
+    el("h2", { class: "q" }, "Prices that moved"),
+    el("div", { class: "meta" }, "The same product at the same shop, first time against the latest."),
+    shown.map(c => {
+      const up = c.change_pct > 0;
+      return el("div", { class: "item", onclick: () => openProduct(c.product_id) },
+        el("div", {},
+          el("div", { class: "what", lang: "de" }, easyName(c.product, c.brand)),
+          el("div", { class: "meta" }, `${perText(c.first.price, c.per)} → ` +
+             `${perText(c.last.price, c.per)}${c.sold_as === "loose" ? " loose" : ""} · ${c.store}`),
+          el("div", { class: "meta" }, `${shortDate(c.first.date)} → ${shortDate(c.last.date)} · ` +
+             `bought on ${c.observations.length} days`)),
+        el("div", { class: "end " + (up ? "up" : "down") }, (up ? "▲ " : "▼ ") + pctText(c.change_pct)));
+    }),
+    moved.length > 5 ? el("button", { class: "more", onclick: () => {
+      state.allPrices = !state.allPrices;
+      render();
+    } }, state.allPrices ? "Show fewer" : `Show all ${moved.length}`) : null,
+    el("div", { class: "cover" }, seen
+      ? `${moved.length} of ${plural(seen, "product", "products")} bought on two or more days at ` +
+        "the same shop changed price. A move seen on two days is one comparison: it can be an " +
+        "offer, or a different pack."
+      : "Nothing bought twice at the same shop yet."));
+}
+
+// 3. Due again soon: the next things to run out, by how often they were
+// bought. A product not bought for longer than its usual gap is left out of
+// the list and named under it: perhaps it is no longer bought.
+function dueCard(d) {
+  const stale = d.repurchase.filter(r => r.days_overdue > r.typical_interval_days);
+  const next = d.repurchase.filter(r => r.days_overdue <= r.typical_interval_days)
+    .sort((a, b) => a.expected_next.localeCompare(b.expected_next));
+  const shown = state.allDue ? next : next.slice(0, 5);
+  const when = r => {
+    const days = daysBetween(d.as_of, r.expected_next);
+    return days > 1 ? `in ${days} days` : days === 1 ? "tomorrow" : days === 0 ? "now"
+      : `${-days} ${days === -1 ? "day" : "days"} late`;
+  };
+  const products = d.coverage.products;
+  return el("div", { class: "card" },
+    el("h2", { class: "q" }, "Due again soon"),
+    el("div", { class: "meta" }, `Counted from your last receipt, ${shortDate(d.as_of)}.`),
+    shown.map(r => el("div", { class: "item", onclick: () => openProduct(r.product_id) },
+      el("div", {},
+        el("div", { class: "what", lang: "de" }, easyName(r.product, r.brand)),
+        // One gap is not a habit: two trips say "bought again", not "every N days".
+        el("div", { class: "meta" }, (r.gaps_observed === 1
+          ? `bought twice, ${r.typical_interval_days} days apart`
+          : `about every ${r.typical_interval_days} days, ${r.trips} times`) +
+          ` · last ${shortDate(r.last_bought)}`)),
+      el("div", { class: "end" + (r.status === "due" ? " up" : "") }, when(r)))),
+    next.length > 5 ? el("button", { class: "more", onclick: () => {
+      state.allDue = !state.allDue;
+      render();
+    } }, state.allDue ? "Show fewer" : `Show all ${next.length}`) : null,
+    next.length ? null : el("div", { class: "why" }, "Nothing to buy again yet."),
+    el("div", { class: "cover" },
+      (products ? `${d.repurchase.length} of ${plural(products, "product", "products")} were ` +
+        "bought on two or more days. " : "") +
+      (d.repurchase.length ? `${d.repurchase.filter(r => r.gaps_observed === 1).length} of those ` +
+        "rest on a single gap." : "A product shows here once it is bought on two days."),
+      stale.length ? el("div", {}, "Not bought for longer than usual: ",
+        stale.flatMap((r, i) => [i ? ", " : "", el("span", { class: "link", role: "button",
+          onclick: () => openProduct(r.product_id) }, r.product)])) : null));
+}
+
+// 4. Two numbers: how much went to a shop's cheaper line, and what last
+// month's basket costs now.
+function numbersCard(d) {
+  const all = d.budget_brand.overall;
+  const known = all.budget + all.name_brand;
+  const share = all.budget_share_of_known;
+  const series = d.basket_index.series;
+  const latest = series[series.length - 1];
+  const priced = [...series].reverse().find(s => s.index != null);
+  const short = m => monthName(m).replace(/ \d+$/, "").slice(0, 3);
+  const up = priced && priced.month_over_month_pct > 0;
+  const brandTile = el("div", {},
+    el("div", { class: "label" }, "Budget brand"),
+    el("div", { class: "big" }, share == null ? "–" : Math.round(share * 100) + "%"),
+    el("div", { class: "meta" }, share == null ? "No brand known yet."
+      : `of ${euro(known)} where the brand is known went to the shop's cheaper line`));
+  const basketTile = el("div", {},
+    el("div", { class: "label" }, "Basket price"),
+    el("div", { class: "big" + (priced ? (up ? " up" : " down") : "") }, priced
+      ? (priced.month_over_month_pct === 0 ? "±0%"
+        : (up ? "▲ " : "▼ ") + pctText(priced.month_over_month_pct)) : "–"),
+    el("div", { class: "meta" }, priced
+      ? `${short(priced.month)} against ${short(priced.versus)}: the same ` +
+        `${priced.products} products`
+      : "Needs a few products bought in two months running."));
+  const notes = [
+    all.unknown ? `${euro(all.unknown)} has a brand not known yet` : null,
+    all.unbranded ? `${euro(all.unbranded)} is fruit and vegetables with no brand` : null,
+    all.unresolved ? `${euro(all.unresolved)} is not placed on a product` : null,
+  ].filter(Boolean);
+  return el("div", { class: "card" },
+    el("h2", { class: "q" }, "Two numbers"),
+    el("div", { class: "pair" }, brandTile, basketTile),
+    el("div", { class: "cover" },
+      share == null ? null : el("div", {}, `Budget brand, all receipts: ${notes.length
+        ? notes.join(", ") + ", left out." : "every brand is known."}`),
+      latest && latest !== priced
+        ? el("div", {}, `Basket, ${short(latest.month)}: ${latest.reason}.`) : null,
+      priced ? el("div", {}, "Basket: those products' prices this month, in last month's " +
+        "amounts. Few products move it a lot.") : null));
+}
+
+// 5. The same item at other shops: the latest price at each.
+function shopsCard(d) {
+  const products = d.cross_store.products;
+  return el("div", { class: "card" },
+    el("h2", { class: "q" }, "Same item, other shops"),
+    products.map(c => {
+      const stores = Object.entries(c.stores);
+      const units = new Set(stores.map(([, s]) => s.per));
+      const cheapest = units.size === 1 && stores.every(([, s]) => s.price != null)
+        ? Math.min(...stores.map(([, s]) => s.price)) : null;
+      return el("div", { class: "item", onclick: () => openProduct(c.product_id) },
+        el("div", {},
+          el("div", { class: "what", lang: "de" }, c.product),
+          stores.map(([store, s]) => el("div", { class: "meta" },
+            `${store}: ${s.price == null ? "no price" : perText(s.price, s.per)} on ` +
+            `${shortDate(s.date)}` + (cheapest != null && s.price === cheapest ? " · cheapest" : ""))),
+          units.size > 1 ? el("div", { class: "meta" }, "Sold by different units: not compared.")
+            : null),
+        el("div", { class: "end" }, "›"));
+    }),
+    el("div", { class: "cover" }, d.cross_store.note
+      || "The latest price at each shop; an offer on one day can decide it."));
+}
+
+// Insights, a short scroll (2026-10-13, the designer's advice: a few things
+// at a glance, taps only). Each card answers one question and says what it
+// rests on; every product on it opens its purchases.
+function insightsView() {
+  const d = state.insights;
+  if (!d) return [el("div", { class: "empty" }, "Loading insights…")];
+  if (!d.months.length) return [el("div", { class: "empty" }, "No receipts yet.")];
+  const cov = d.coverage;
+  const range = cov.date_range;
+  const aside = [
+    cov.not_grocery.lines ? `${euro(cov.not_grocery.spend)} that is not groceries` : null,
+    cov.not_counted.lines ? `${euro(cov.not_counted.spend)} you left out` : null,
+  ].filter(Boolean);
+  return [
+    el("div", { class: "why" }, (range ? `From ${plural(cov.receipts, "receipt", "receipts")}, ` +
+      `${shortDate(range[0])} to ${shortDate(range[1])}. ` : "") +
+      (cov.resolved_share_of_spend == null ? "" : `${Math.round(cov.resolved_share_of_spend * 100)}% ` +
+        "of the grocery money is placed on a product; the rest counts as money only.") +
+      (aside.length ? ` After the month, the cards leave out ${aside.join(" and ")}.` : "")),
+    moneyCard(d), pricesCard(d), dueCard(d), numbersCard(d), shopsCard(d)];
 }
 
 function receiptsView() {
