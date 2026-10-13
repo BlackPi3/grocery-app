@@ -108,11 +108,12 @@ session (laptop or cloud) can pick up from here. How we work is in
   pop-up never handed its answer back; no request reached the server). The
   page now uses Google's **redirect mode** (`POST /v1/auth/google/redirect`,
   the sign-in comes back after the `#`). Needs both addresses +
-  `/v1/auth/google/redirect` as Authorized redirect URIs (done by the owner).
-  Second try worked (16:47): the owner signed in with Google, though through
-  the pop-up (the phone still ran the page from before the redirect change).
-  The redirect itself is tested but not yet used on the phone. The 16 s wait
-  was the server waking up; the bottom bar is now hidden under the sign-in
+  `/v1/auth/google/redirect` as Authorized redirect URIs (exact URIs, path
+  included; the JavaScript origins take no path). Both set by the owner.
+  Confirmed 2026-10-13 20:34: the owner signed in on the phone through the
+  redirect. The first pop-up failure was probably Google still taking up the
+  origins just added; redirect is kept as the surer way on phones. The 16 s
+  wait on a sleeping server: the bottom bar is now hidden under the sign-in
   card (#127), where its tabs looked live and did nothing.
 - Demo pictures: #112 is merged and deployed (a failed search stays due,
   searches wait 180 s, the demo looks up only guests' products). 7 of 24 demo
