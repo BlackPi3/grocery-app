@@ -290,7 +290,7 @@ def main() -> None:
         help="The PostgreSQL store behind `serve` (needs the 'api' extra and DATABASE_URL)",
     )
     d.add_argument("action", choices=["upgrade", "import", "export", "match", "add-readings",
-                                      "answer", "reread", "categorize"],
+                                      "answer", "reread", "categorize", "barcodes"],
                    help="upgrade: apply the migrations; import: load the data/ files into "
                         "the tables (idempotent); export: write the tables out as files; "
                         "match: run the matcher over stored receipts (claude -p, on the "
@@ -300,12 +300,14 @@ def main() -> None:
                         "read the lines behind --product again with the current identify "
                         "prompt and fill in the details an older reading dropped; "
                         "categorize: sort every product with no category by its shop "
-                        "shelf and its name (Gemini), shown only unless --write")
+                        "shelf and its name (Gemini), shown only unless --write; "
+                        "barcodes: find each packaged product's barcode in Open Food "
+                        "Facts (free), exact matches only, shown only unless --write")
     d.add_argument("--retry-unsearched", action="store_true",
                    help="match: first drop the open questions no search narrowed down, "
                         "then match only their receipts again")
     d.add_argument("--write", action="store_true",
-                   help="categorize: save the categories rather than only show them")
+                   help="categorize, barcodes: save what was found rather than only show it")
     d.add_argument("--product", action="append", default=[], metavar="ID",
                    help="reread: a product identify made (repeat for several)")
     d.add_argument("--url", default=None,
@@ -789,6 +791,22 @@ def main() -> None:
                 filed = sum(1 for row in report if row["category"])
                 print(f"{filed} of {len(report)} products sorted"
                       + ("" if args.write else " (not saved: --write saves them)"))
+                if args.write:
+                    session.commit()
+        if args.action == "barcodes":
+            from grocery_app import barcodes
+            from grocery_app.api.matching import find_barcodes
+
+            with factory() as session:
+                report = find_barcodes(session, barcodes.search)
+                for row in report:
+                    print(json.dumps(row, ensure_ascii=False))
+                outcomes: dict[str, int] = {}
+                for row in report:
+                    outcomes[row["outcome"]] = outcomes.get(row["outcome"], 0) + 1
+                print(f"{len(report)} products without a barcode: "
+                      + ", ".join(f"{n} {kind}" for kind, n in sorted(outcomes.items()))
+                      + ("" if args.write else " (not saved: --write saves the found ones)"))
                 if args.write:
                     session.commit()
         if args.action == "export":

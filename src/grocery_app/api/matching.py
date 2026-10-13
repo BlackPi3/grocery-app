@@ -40,7 +40,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import asdict, replace
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -511,6 +511,30 @@ def sort_products(session: Session, decider: Any,
             product.open_questions = [q for q in product.open_questions or []
                                       if q != categorize.CATEGORY_UNKNOWN]
             product.provenance = {**(product.provenance or {}), "category_from": how}
+    return report
+
+
+def find_barcodes(session: Session, search: Any) -> list[dict[str, Any]]:
+    """Give every packaged product without a barcode the one Open Food Facts
+    matches exactly (`barcodes.find`), and say where it came from
+    (`provenance.barcode_from`). The report also holds what was not written
+    and why. The caller commits.
+    """
+    from grocery_app import barcodes
+
+    products = {p.id: p for p in session.scalars(select(Product))}
+    as_dicts = {p.id: {"name": p.name, "brand": p.brand, "details": list(p.details or []),
+                       "size": p.size, "eans": list(p.eans or [])}
+                for p in products.values()}
+    report = barcodes.find_all(as_dicts, search)
+    found_on = datetime.now(UTC).date().isoformat()
+    for row in report:
+        if row["outcome"] == "found":
+            product = products[row["product_id"]]
+            product.eans = [row["ean"]]
+            product.provenance = {**(product.provenance or {}), "barcode_from": {
+                "source": barcodes.FROM, "name": row["name"], "quantity": row["quantity"],
+                "found_on": found_on}}
     return report
 
 
