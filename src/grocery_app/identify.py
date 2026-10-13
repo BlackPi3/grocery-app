@@ -492,10 +492,18 @@ def build_prompt(raw_name: str, store: str | None,
     if description:
         # In the line's prompt, not the system prompt: the scored prompt and
         # its cached answers stay what they were.
+        # A hint, not the product (Parham, 2026-10-03): `PEPSI 1,25l`, said to
+        # be "Pepsi. Not cola", became a product "Pepsi · Pepsi" when the
+        # right one was Cola, Pepsi. His words say which product; the pages
+        # say how it is named.
         prompt += (f"\n\nThe shopper who bought it says what it is, in their own words:\n"
-                   f"<<{description}>>\nThey are right about what it is: take the kind, brand "
-                   f"and details from their words, read together with the printed line. Never "
-                   f"contradict them. Your job is only the format above, in German.")
+                   f"<<{description}>>\nThey know which product it was, but they are not "
+                   f"naming it for a catalog: their words may be loose or partial. Never "
+                   f"contradict them about which product it was. When the web search below "
+                   f"shows a product that fits their words and the printed line, take its "
+                   f"name, brand and size as the pages give them. When nothing found fits, "
+                   f"take the kind, brand and details from their words, read together with "
+                   f"the printed line. Your job is only the format above, in German.")
     if paid_text:
         prompt += f"\n{paid_text}"
     if abbreviations_seen:
@@ -567,7 +575,8 @@ def identify(raw_name: str, store: str | None, decider: Decider,
 
 
 def search_line(raw_name: str, store: str | None, searcher: Decider,
-                paid_text: str = "", place: str | None = None) -> Findings:
+                paid_text: str = "", place: str | None = None,
+                hint: str | None = None) -> Findings:
     """Search the web for the whole printed line, as a person would type it.
 
     The query is built here, from the whole line and the shop's name: a part
@@ -577,6 +586,8 @@ def search_line(raw_name: str, store: str | None, searcher: Decider,
     model already believed as something it found. What was searched is read
     from the searcher (`last_search`), not from its own account. `place` is
     the shop's address as the receipt prints it; the country is added.
+    `hint` is the shopper's own words for the line: searched too, after the
+    printed line, since they are what a person who was there knows.
     """
     from grocery_app.matcher import DeciderError
 
@@ -584,6 +595,9 @@ def search_line(raw_name: str, store: str | None, searcher: Decider,
     where = ", ".join(part for part in (place, SHOP_COUNTRY) if part)
     prompt = (f"Query to search first: {query}\nThe shop is at: {where}"
               + (f"\n{paid_text}" if paid_text else ""))
+    if hint:
+        prompt += (f"\nThe shopper who bought it says what it is: <<{hint}>>\nAfter the "
+                   f"query above, search once more with their words and the shop's name.")
     try:
         answer = searcher(SEARCH_SYSTEM, prompt, SEARCH_SCHEMA)
         searched = searcher.last_search  # type: ignore[attr-defined]
@@ -617,22 +631,27 @@ def read_line(raw_name: str, store: str | None, reader: Decider,
     wrong answers were the confident ones (`Ult.` read as Ultra, a muesli read
     as chocolate). A line whose searcher would not search is `unsearched`: an
     answer nobody checked is not saved, and nothing is asked before a search.
-    A shopper's own description needs no search. Without a searcher this is
-    `identify`.
+    A shopper's own description is a hint for the search, not the product
+    (Parham, 2026-10-03): it is searched with the printed line, and read with
+    what the pages show. A described line whose search fails is read from the
+    words alone: an answer is never lost, or left waiting, for want of a
+    search. Without a searcher this is `identify`.
     """
     def read(findings: Findings | None = None) -> Identity:
         return identify(raw_name, store, reader, shop_products, receipt_lines, paid_text,
                         learned, description, findings)
 
     first = read()
-    if searcher is None or description:
+    if searcher is None:
         return first
     if first.category and not categories.is_grocery(first.category):
         first.can_tell = bool(first.name)
         first.choices = []
         first.reason = f"not groceries, so the exact item does not matter: {first.reason}"
         return first
-    findings = search_line(raw_name, store, searcher, paid_text, place)
+    findings = search_line(raw_name, store, searcher, paid_text, place, description)
+    if not findings.queries and description:
+        return first
     if not findings.queries:
         first.can_tell, first.choices, first.unsearched = False, [], True
         first.reason = f"not searched, so not read: {first.reason}"

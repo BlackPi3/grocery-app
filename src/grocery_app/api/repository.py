@@ -846,7 +846,7 @@ class PostgresRepository:
                     "unplaced": sum(r["said_by"] is None and not r.get("not_counted")
                                     for r in records),
                     "not_counted": sum(bool(r.get("not_counted")) for r in records),
-                    "seen_at": row.seen_at.isoformat() if row.seen_at else None,
+                    "seen_at": row.seen_at.astimezone(UTC).isoformat() if row.seen_at else None,
                 })
         out.sort(key=lambda r: (r["date"] or "", r["receipt_id"]), reverse=True)
         return out
@@ -860,7 +860,7 @@ class PostgresRepository:
             if row.seen_at is None:
                 row.seen_at = datetime.now(UTC)
                 session.commit()
-            return row.seen_at.isoformat()
+            return row.seen_at.astimezone(UTC).isoformat()
 
     def receipt_image(self, receipt_id: int) -> str | None:
         """The hash of the upload a receipt was read from, or None for one
