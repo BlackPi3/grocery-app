@@ -54,6 +54,9 @@
   /* The bottom bar, the designer's advice (2026-10-12): the tabs where the
      thumb is, and the one thing the app is for, adding a receipt, in the
      middle as a big +. */
+  /* No tabs before there is something to show: under the sign-in card they
+     looked live and did nothing (2026-10-13). */
+  .bar[hidden] { display: none; }
   .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
     background: color-mix(in srgb, var(--card) 92%, transparent);
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
@@ -311,7 +314,7 @@
   </header>
   <main id="view"></main>
 </div>
-<div class="bar">
+<div class="bar" id="bar" hidden>
   <nav>
     <button id="tab-home" class="on"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h5v-6h4v6h5V9.5"/></svg>Home</button>
     <button id="tab-receipts"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Receipts</button>
@@ -1908,6 +1911,7 @@ function render() {
     document.getElementById("welcome").hidden = false;
   }
   const view = document.getElementById("view");
+  document.getElementById("bar").hidden = !state.checks;
   if (!state.checks) return;
   // What waits for the shopper is a badge on Receipts, not a tab of its own:
   // answering is a contribution, not a chore (2026-10-12).
@@ -1980,6 +1984,7 @@ async function load({ jobs = true } = {}) {
 }
 
 async function askPassword(why) {
+  document.getElementById("bar").hidden = true;
   const clientId = (await signInOptions()).google_client_id;
   document.getElementById("stats").textContent = googleError
     ? "Google sign-in did not work: " + googleError : why === "wrong password"
