@@ -43,6 +43,8 @@ def test_receipts_become_purchases_become_insights(data):
     assert insights["contract_version"] == 6
     assert insights["as_of"] == "2026-02-05"
     assert insights["coverage"]["resolved_lines"] == 4
+    assert insights["coverage"]["products"] == 2, \
+        "four placed lines are two products, the number 'bought again' is read against"
     (change,) = [c for c in insights["price_changes"] if c["product_id"] == "p-0001"]
     assert change["change_pct"] == 9.2
     assert [r["product_id"] for r in insights["repurchase"]] == ["p-0001", "p-0002"]
