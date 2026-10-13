@@ -170,6 +170,20 @@
   .stat { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
   .months { display: flex; gap: 6px; overflow-x: auto; margin: 0 -2px 12px; padding: 0 2px; }
   .months button { flex: 0 0 auto; padding: 6px 12px; font-size: 13px; }
+  /* Receipts by month (the owner, 2026-10-09: zoom year → month → week →
+     day, one level at a time, as iPhone Photos and Anki's calendar do). A
+     month is one compact row; tap it to open its receipts. */
+  .month-head { display: flex; width: 100%; justify-content: space-between; align-items: center;
+    gap: 10px; padding: 12px 2px; margin: 0; border: 0; border-bottom: 1px solid var(--grid);
+    border-radius: 0; background: none; color: var(--ink); text-align: left; }
+  .month-head .name { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+  .month-head .end { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .month-head .money { font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600; }
+  .month-head .chev { color: var(--muted); font-size: 20px; line-height: 1;
+    transition: transform 0.15s; }
+  .month-head.open { border-bottom-color: transparent; }
+  .month-head.open .chev { transform: rotate(90deg); }
+  .years { margin-top: 4px; }
   /* Insights (2026-10-13): a short scroll of cards, one question each. Where
      the money went is a ranked list of bars, names on their own line so no
      name is ever cut (the squarified tiles lost the small ones' names). One
@@ -289,7 +303,7 @@
 "use strict";
 // All text from receipts and the model goes in with textContent, never as HTML.
 const state = { tab: "home", checks: null, questions: null, receipts: null, open: null,
-                copyAt: null, removing: new Set(), step: {},
+                copyAt: null, removing: new Set(), step: {}, monthOpen: {}, year: null,
                 insights: null, jobs: null, sending: [], notSent: [], uploaded: new Set() };
 const TABS = ["home", "receipts", "insights", "you"];
 const TITLES = { home: "Home", receipts: "Receipts", insights: "Insights", you: "You" };
@@ -668,6 +682,13 @@ function waitingCard() {
 // Open one receipt (never toggling it shut) with its lines as they are now.
 async function showReceipt(receiptId) {
   state.open = receiptId;
+  // Its month opens, in its year, wherever the receipt is opened from (the
+  // drill-down, a job's "Open the receipt").
+  const summary = (state.receipts || []).find(r => r.receipt_id === receiptId);
+  if (summary) {
+    state.monthOpen[monthOf(summary)] = true;
+    if (summary.date) state.year = summary.date.slice(0, 4);
+  }
   await refreshReceipt(receiptId);
 }
 
@@ -1724,13 +1745,66 @@ function insightsView() {
     moneyCard(d), pricesCard(d), dueCard(d), numbersCard(d), shopsCard(d)];
 }
 
+// Receipts by month, newest first (the owner, 2026-10-09): one compact row a
+// month with its receipts and their total; this month open (else the newest),
+// the rest folded, tap to open or close. Which are open lasts for the visit
+// only. Receipts being read stay at the top, outside any month. A year switch
+// shows only when the receipts span more than one year. Weeks and days are
+// the next zoom steps.
+function monthOf(summary) {
+  return summary.date ? summary.date.slice(0, 7) : "";
+}
+
 function receiptsView() {
   if (!state.receipts.length) return [el("div", { class: "empty" }, "No receipts yet.")];
   const from = state.cameFrom;
+  const shown = state.receipts.filter(r => !state.removing.has(r.receipt_id));
+  const reading = new Set(inProgress().map(job => job.receipt_id));
+  const months = new Map();  // newest first, as the server sorts them; undated last
+  for (const r of shown) {
+    if (reading.has(r.receipt_id)) continue;
+    const key = monthOf(r);
+    if (!months.has(key)) months.set(key, []);
+    months.get(key).push(r);
+  }
+  const dated = [...months.keys()].filter(Boolean).sort().reverse();
+  const years = [...new Set(dated.map(key => key.slice(0, 4)))];
+  const newest = dated.length ? defaultMonth(dated.map(month => ({ month }))) : null;
+  if (!years.includes(state.year)) state.year = newest ? newest.slice(0, 4) : null;
+  const yearSwitch = years.length > 1 ? el("div", { class: "months years" },
+    [...years].reverse().map(year => el("button", { class: year === state.year ? "on" : "",
+      onclick: () => { state.year = year; render(); } }, year))) : null;
+  const thisYear = String(new Date().getFullYear());
+  const groups = [...dated.filter(key => key.slice(0, 4) === state.year),
+                  ...(months.has("") ? [""] : [])];
   return [from ? el("button", { class: "back", onclick: backToProduct }, `‹ Back to ${from.name}`)
             : null,
           from ? null : waitingCard(),
-          ...state.receipts.filter(r => !state.removing.has(r.receipt_id)).map(receiptCard)];
+          ...shown.filter(r => reading.has(r.receipt_id)).map(receiptCard),
+          yearSwitch,
+          ...groups.flatMap(key => {
+            const list = months.get(key);
+            const open = key in state.monthOpen ? state.monthOpen[key]
+              : key === newest || list.some(r => r.receipt_id === state.open);
+            const totals = list.filter(r => r.printed_total != null);
+            const name = !key ? "No date"
+              : yearSwitch || key.slice(0, 4) === thisYear ? monthName(key).replace(/ \d+$/, "")
+              : monthName(key);
+            const head = el("button", { class: "month-head" + (open ? " open" : ""),
+              "aria-expanded": String(open),
+              onclick: () => { state.monthOpen[key] = !open; render(); } },
+              el("div", {},
+                el("div", { class: "name" }, name),
+                el("div", { class: "meta" }, plural(list.length, "receipt", "receipts") +
+                   // A total the paper did not give is not guessed: say it is missing.
+                   (totals.length < list.length
+                     ? `, ${list.length - totals.length} without a total` : ""))),
+              el("div", { class: "end" },
+                el("span", { class: "money" },
+                   euro(totals.reduce((sum, r) => sum + r.printed_total, 0))),
+                el("span", { class: "chev", "aria-hidden": "true" }, "›")));
+            return [head, ...(open ? list.map(receiptCard) : [])];
+          })];
 }
 
 function render() {
