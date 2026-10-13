@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, how sure the app is, counted by level.
+**Last updated:** 2026-10-13, a brand one letter from the shop's own is asked.
 
 ## Now
 
@@ -23,6 +23,14 @@ session (laptop or cloud) can pick up from here. How we work is in
   Brands are the owner's only, on Home too. `insights.json` gained
   `coverage.products` (different products placed), so "18 of 24 products
   bought again" can be said. The squarified tiles are gone.
+- Done (owner, 2026-10-03, faint print read a shop's brand one letter
+  wrong): **a brand one letter from the shop's own is asked**, not made.
+  A brand no shop has been seen with, one letter from a brand seen at this
+  shop (3 letters or more), makes the line a question; its cards are that
+  shop's products of the near brand, the same name first, then the reading
+  as it stands (`identify.misread_brand`, `api.matching.brand_question`;
+  `what-a-line-is.md`). Products already made from such a misread are not
+  changed; a spot check or a correction fixes them.
 - Done (owner, 2026-10-12): **how sure the app is**, counted. Every
   counted product line, everyone's receipts, by level, from fields that
   already exist (`grocery_app.sureness`): answered (a person said it, "none

@@ -148,3 +148,21 @@ error rate stays known.
   shopper confirms, the app finds out. Reader and searcher are Gemini through
   Google's API (`GROCERY_IDENTIFY`), chosen on the comparison in
   `docs/evaluations/2026-10-02-search-as-a-step.md`.
+- **A brand one letter from the shop's own is asked** (owner, 2026-10-03;
+  knowing when to ask). Faint print read a shop's brand one letter wrong on
+  two lines, and identify saved a new brand beside six products of the real
+  one at that shop. Now a brand identify reads is doubted when no shop has
+  been seen with it and it is one letter (read wrong, added or lost; edit
+  distance 1, letter case and punctuation aside) from a brand seen at this
+  shop (`identify.misread_brand`). A brand is seen at a shop when one of its
+  products is placed on a line there (the memory, or a person's answer) or
+  the shop lists it, so a product whose lines were all corrected no longer
+  counts. Such a line is not saved: it is a question whose cards are that
+  shop's products of the near brand, the one with the name identify read
+  first; when the shop has none by that name, the reading with the near
+  brand, as a choice; then the reading as it stands, so a really new brand is
+  one Yes away (`api.matching.brand_question`). Brands under three letters
+  are never near anything: one letter is half of them, and real short brands
+  differ by one (`JT`, `JA`). Not covered: two letters read as one (`rn` as
+  `m`), which is two edits; no case has needed it, and a list of letter pairs
+  would be a rule per mistake.
