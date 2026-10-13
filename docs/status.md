@@ -4,12 +4,29 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, laptop: Google sign-in works on the owner's phone.
+**Last updated:** 2026-10-13, laptop: barcodes step 1 (Open Food Facts by name, exact only).
 
 ## Now
 
 - Everything is merged. `main` deploys the server and the public demo on every
   merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
+- Built (owner, 2026-10-13: barcodes first, **exact matches only**, "might
+  move to best guess, let's see how it looks"): `grocery-app db barcodes`
+  searches Open Food Facts (free) by brand and name, sold in Germany, for
+  every product with a brand and no barcode, and writes one only when brand,
+  name (their name says nothing ours does not) and size all match and exactly
+  one barcode does, and no other product of ours has it
+  (`grocery_app.barcodes`, `provenance.barcode_from`). Shown only unless
+  `--write`. First run, laptop copy of the catalog (96 products without a
+  barcode): **3 found, 19 near misses, 74 nothing.** 14 of the 19 near misses
+  fall short only because the product's size is unknown (the receipt names a
+  family). Best-guess (B) would be visibly wrong on some: one barcode for all
+  three Mini Muffins flavours, one for both Milsani Skyr products. Of the 3
+  found, Kerrygold Butter 250 g got a Norwegian-prefixed barcode that Open
+  Food Facts lists as sold in Germany (crowd data). **Nothing written yet,
+  live not run**: the owner looks first. The user's barcode photo waits until
+  after the Ready-for-iOS milestone (it adds a button, which restarts the
+  screens-unchanged clock).
 - Just shipped: **the Insights screen** (the last screen of the redesign).
   A short scroll of cards, each answering one question and saying what it
   rests on: where the money went this month (ranked bars by part of the shop,
@@ -213,8 +230,8 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
-- Barcodes: connect every packaged product to a real barcode (shop barcode,
-  Open Food Facts name search, a barcode photo from the user).
+- Barcodes, the rest: a barcode photo from the user (after the milestone),
+  and a known size for products read from a receipt (see Now).
 - Attention follows seriousness and freshness (a level-4 line right after
   the scan asks loudly; a random check waits). The levels it would use are
   counted (`GET /v1/sureness`).
