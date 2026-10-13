@@ -458,3 +458,33 @@ def test_a_drill_down_lists_the_lines_an_insight_was_computed_from(data, session
     (milk,) = [r for r in insights["repurchase"] if r["product_id"] == "p-0001"]
     assert milk["trips"] == len({p["date"] for p in drill})
     assert milk["last_bought"] == drill[-1]["date"]
+
+
+def test_the_sureness_counts_read_the_lines_the_history_holds(data, session):
+    """The measurement of how sure the app is (2026-10-12) reads what the
+    normalizer makes of the tables, not a copy of its own: the lines it counts
+    are the history's counted product lines, each at the level its
+    `resolution` and `said_by` give. A machine's memory entry makes a line the
+    app's; the shopper's answer and their left-out line come from the tables."""
+    from grocery_app import sureness
+    from grocery_app.api.repository import PostgresRepository
+    from grocery_app.db.io import import_data
+    from grocery_app.db.models import Resolution
+    from grocery_app.db.session import make_session_factory
+
+    import_data(session, data / "receipts" / "truth", data / "products" / "products.json",
+                data / "products" / "resolution.json",
+                data / "receipts" / "line_resolutions.json", data / "products",
+                data / "receipts" / "uncounted_lines.json")
+    session.query(Resolution).filter_by(raw_name="Bananen").update({"confirmed_by": "matcher"})
+    session.commit()
+    repository = PostgresRepository(make_session_factory(session.get_bind()))
+
+    measured = repository.sureness()
+    history = repository.purchases()["purchases"]
+    expected = sureness.empty()
+    for record in history:
+        sureness.add(expected, record)
+    assert {k: measured[k] for k in sureness.COUNTS} == expected
+    assert (measured["lines"], measured["answered"], measured["sure"]) == (4, 3, 1), \
+        "January's bananas are left out; February's are the matcher's; the rest a person's"

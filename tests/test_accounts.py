@@ -134,7 +134,7 @@ def test_each_person_sees_only_their_own(two_people):
         {"role": "user", "name": "Sara", "demo": False}
     assert client.get("/v1/me", headers=OWNER).json() == \
         {"role": "owner", "name": None, "demo": False}
-    for path in ("/v1/costs", "/v1/users"):
+    for path in ("/v1/costs", "/v1/users", "/v1/sureness"):
         assert client.get(path, headers=sara).status_code == 403, path
     assert client.post("/v1/users", headers=sara, json={"name": "Eve"}).status_code == 403
     assert client.get("/v1/receipts",
