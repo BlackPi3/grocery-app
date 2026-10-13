@@ -1215,17 +1215,54 @@ function factCard(d) {
       .toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`));
 }
 
-// You: who is signed in, and for the owner what the app costs, its people,
-// and how often its own guesses were wrong.
-function youView() {
+// How sure the app is of every product line, by level, over everyone's
+// receipts, and how good its sure lines are by the random checks (owner's
+// call, 2026-10-12: the counts say how much help the app needs from users).
+// The level rules are in `grocery_app.sureness` on the server.
+const SURENESS_LEVELS = [
+  ["sure", "Sure", "the app placed it; random checks test these"],
+  ["unclear_print", "Unclear print, product found", "the price picked one of several"],
+  ["category_only", "Only the kind found", "one of several of the same kind"],
+  ["needs_answer", "Needs an answer", "nothing placed it"],
+  ["answered", "Answered by a person", "an answer, or none of these"],
+];
+
+function surenessCard() {
   const m = state.checks.meta;
-  const answered = m.right + m.corrected;
+  const d = state.sureness;
+  const waiting = el("div", { class: "why" }, `${m.open} random checks and ` +
+    `${state.questions.meta.open} questions waiting for you`);
+  if (!d) return el("div", { class: "card" }, el("h2", {}, "How the app is doing"), waiting);
+  const share = n => n && d.lines ? ` · ${Math.round(100 * n / d.lines)}%` : "";
+  const c = d.checks;
+  const checked = c.right + c.corrected;
+  const unplaced = [d.print_says_nothing ? `${d.print_says_nothing} the till names nothing`
+    : null, d.category_guessed ? `${d.category_guessed} with a guessed kind` : null]
+    .filter(Boolean).join(", ");
+  const recent = d.months.filter(x => x.month).slice(0, 2);
+  return el("div", { class: "card" }, el("h2", {}, "How the app is doing"),
+    el("div", { class: "says" }, checked
+      ? `Random checks: right on ${c.right} of ${checked} (${Math.round(100 * c.yes_rate)}%)`
+      : "No random check answered yet"),
+    SURENESS_LEVELS.map(([key, name, meaning]) => el("div", { class: "line" },
+      el("div", {},
+        el("div", { class: "what" }, name),
+        el("div", { class: "meta" }, meaning +
+          (key === "needs_answer" && unplaced ? ` (${unplaced})` : ""))),
+      el("div", { class: "money" }, `${d[key]}${share(d[key])}`))),
+    recent.map(x => el("div", { class: "meta", style: "margin-top: 4px" },
+      `${monthName(x.month)}: ${x.lines} lines, ` +
+      `${x.needs_answer} need an answer, ${x.answered} answered`)),
+    el("div", { class: "why" }, `${d.lines} product lines on everyone's receipts.`),
+    waiting);
+}
+
+// You: who is signed in, and for the owner how sure the app is, what it
+// costs, and its people.
+function youView() {
   const owner = state.me && state.me.role === "owner";
   return [
-    owner ? el("div", { class: "card" }, el("h2", {}, "How the app is doing"),
-      el("div", { class: "why" }, `${m.open} spot checks and ${state.questions.meta.open} ` +
-        "questions waiting · " + (answered ? `app wrong on ${m.corrected} of ${answered} ` +
-        "checked lines" : "no spot check answered yet"))) : null,
+    owner ? surenessCard() : null,
     costsCard(),
     peopleCard(),
     accountCard(),
@@ -1750,10 +1787,11 @@ async function load({ jobs = true } = {}) {
       state.me = me;
       if (me.role === "owner") {
         state.costs = await api("/v1/costs").catch(() => null);
+        state.sureness = await api("/v1/sureness").catch(() => null);
         state.people = await api("/v1/users").catch(() => null);
         state.google = !!(await signInOptions()).google_client_id;
       } else {
-        state.costs = state.people = null;
+        state.costs = state.sureness = state.people = null;
       }
       saveCopy();
       render();
