@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, a brand one letter from the shop's own is asked.
+**Last updated:** 2026-10-13, receipts by month (zoom step 1).
 
 ## Now
 
@@ -23,6 +23,17 @@ session (laptop or cloud) can pick up from here. How we work is in
   Brands are the owner's only, on Home too. `insights.json` gained
   `coverage.products` (different products placed), so "18 of 24 products
   bought again" can be said. The squarified tiles are gone.
+- Done (owner, 2026-10-09; designer, 2026-10-12): **receipts by month**,
+  step 1 of zooming through time (year → month → week → day, one level at a
+  time). Receipts shows one compact row per month, newest first: the month,
+  its number of receipts and their total (printed totals only; "1 without a
+  total" when one is missing). This month is open (else the newest), the rest
+  folded; a tap opens or closes one, remembered for the visit only. A year
+  switch shows only when receipts span more than one year; undated receipts
+  sit under "No date" at the end. Receipts still being read stay at the top.
+  The drill-down and "Open the receipt" open the receipt's month (and year)
+  first. Page only, computed from `/v1/receipts`. **Next zoom step: weeks,
+  then days, inside a month.**
 - Done (owner, 2026-10-03, faint print read a shop's brand one letter
   wrong): **a brand one letter from the shop's own is asked**, not made.
   A brand no shop has been seen with, one letter from a brand seen at this
@@ -120,7 +131,8 @@ session (laptop or cloud) can pick up from here. How we work is in
 - Attention follows seriousness and freshness (a level-4 line right after
   the scan asks loudly; a random check waits). The levels it would use are
   counted (`GET /v1/sureness`).
-- Lifestyle, personas, deals, dislikes, and zooming through time in insights.
+- Lifestyle, personas, deals, dislikes, and zooming through time in insights
+  (Receipts zooms by month now; weeks and days are next there).
 - Cleanup: old English-named products, doubles from early catalog work.
 
 ## Gotchas
