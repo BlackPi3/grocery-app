@@ -288,8 +288,9 @@ def described_product(session: Session, receipt_id: int, position: int, descript
 
     The shopper says what it was in their own words, in any language and as
     loosely as they like ("salted pickled cucumbers, the Pamir ones").
-    identify reads the words with the printed line, the price and the rest of
-    the receipt, and gives the level-1 product (`Salzgurken`, Pamir): an
+    The words are a hint (Parham, 2026-10-03): identify searches them with
+    the printed line, reads what the pages show with the price and the rest
+    of the receipt, and gives the level-1 product (`Salzgurken`, Pamir): an
     existing one with that name, brand and details, or a new one decided by
     the shopper. The meaning is the shopper's; only the wording is ours, so
     a change of format is a re-run, never a question back (Parham,

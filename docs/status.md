@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, laptop: database backups switched on.
+**Last updated:** 2026-10-13, laptop: a shopper's typed words are a search hint.
 
 ## Now
 
@@ -23,6 +23,15 @@ session (laptop or cloud) can pick up from here. How we work is in
   Brands are the owner's only, on Home too. `insights.json` gained
   `coverage.products` (different products placed), so "18 of 24 products
   bought again" can be said. The squarified tiles are gone.
+- Done (owner, 2026-10-13): **a typed answer is a hint**, not the product.
+  Words typed in a line's fix box ("None of these: save my description")
+  are searched with the printed line and the shop, and the reader takes the
+  product the pages show that fits them, keeping the words beside it; only
+  when nothing found fits do the words make the product (the Pepsi case:
+  "Pepsi. Not cola" had become a product "Pepsi · Pepsi"). A failed search
+  reads the words alone, never leaves the answer waiting. One extra search
+  per typed answer, which the minimum-input rule keeps rare. Checked with
+  fake models only; no real reading of a typed answer yet.
 - Done (owner, 2026-10-13): **processing is quiet; new receipts and
   questions are marks**. A receipt on its way in is a slim note at the top
   ("Your receipt is being processed") that fades after a few seconds;
@@ -45,7 +54,9 @@ session (laptop or cloud) can pick up from here. How we work is in
   sit under "No date" at the end. Receipts still being read stay at the top.
   The drill-down and "Open the receipt" open the receipt's month (and year)
   first. Page only, computed from `/v1/receipts`. **Next zoom step: weeks,
-  then days, inside a month.**
+  then days, inside a month.** The owner, 2026-10-13: the view opens at the
+  level the receipts fill (early in a month, its weeks or days; further back,
+  months, then years), and each tap zooms one level in.
 - Done (owner, 2026-10-03, faint print read a shop's brand one letter
   wrong): **a brand one letter from the shop's own is asked**, not made.
   A brand no shop has been seen with, one letter from a brand seen at this
@@ -174,7 +185,6 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
-- A "none of these" answer used as a search hint (see the working agreement).
 - Barcodes: connect every packaged product to a real barcode (shop barcode,
   Open Food Facts name search, a barcode photo from the user).
 - Attention follows seriousness and freshness (a level-4 line right after

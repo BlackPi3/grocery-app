@@ -447,13 +447,49 @@ def test_a_line_still_unclear_after_the_search_comes_with_the_choices_it_left():
     assert sure.choices == [], "a line it can tell has no choices"
 
 
-def test_the_shoppers_own_words_need_no_search():
+def test_the_shoppers_words_are_a_hint_for_the_search_not_the_product():
+    """`MUSTER COLA 1,25l`, said to be "Muster. Not cola": the words go into
+    the search with the printed line, and the reader sees both, so what the
+    pages show can name the product his words point at."""
     from grocery_app.identify import read_line
 
-    searcher = Searching(["Pamir Musterladen"])
-    read_line("Pamir", "Musterladen", answering(), searcher,
-              description="salted pickled cucumbers")
-    assert searcher.asked == []
+    words = "Muster. Not cola"
+    searcher = Searching(["MUSTER 1,25l Musterladen", "Muster Musterladen"],
+                         titles=["Muster Cola 1,25 l - Musterladen"],
+                         products=[{"product": "Muster Cola", "brand": "Muster",
+                                    "size": "1,25 l", "price": "1,29 €",
+                                    "seen_at": "musterladen.de"}])
+    reader = answering(parts=[{"printed": "MUSTER", "means": "Muster (brand)"},
+                              {"printed": "1,25l", "means": "size"}],
+                       name="Cola", brand="Muster", category=None, can_tell=True)
+    identity = read_line("MUSTER 1,25l", "Musterladen", reader, searcher, description=words)
+
+    (_, prompt, _), = searcher.asked
+    assert prompt.startswith("Query to search first: MUSTER 1,25l Musterladen"), \
+        "the printed line is still searched first"
+    assert f"says what it is: <<{words}>>" in prompt, "his words are searched too"
+    last = reader.asked[-1][1]
+    assert f"<<{words}>>" in last and "Muster Cola 1,25 l - Musterladen" in last, \
+        "the reader reads his words with what the pages showed"
+    assert "fits their words" in last, "his words pick the product, the pages name it"
+    assert identity.searched == ["MUSTER 1,25l Musterladen", "Muster Musterladen"]
+
+
+def test_a_described_line_whose_search_fails_is_read_from_the_words_alone():
+    """An answer is never lost, or left waiting, for want of a search."""
+    from grocery_app.identify import read_line
+    from grocery_app.matcher import SearchBudgetExceeded
+
+    def spent(system, prompt, schema):
+        raise SearchBudgetExceeded("150 searches made; the limit is 150")
+
+    reader = answering(parts=[{"printed": "Pamir", "means": "Pamir (brand)"}],
+                       name="Salzgurken", category=None, can_tell=True)
+    identity = read_line("Pamir", "Musterladen", reader, spent,
+                         description="salted pickled cucumbers")
+    assert (identity.unsearched, identity.can_tell, identity.name) == \
+        (False, True, "Salzgurken")
+    assert "<<salted pickled cucumbers>>" in reader.asked[0][1]
 
 
 def test_claude_with_search_may_search_the_web_and_nothing_else(monkeypatch, tmp_path):
