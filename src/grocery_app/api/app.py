@@ -99,6 +99,7 @@ from grocery_app.api.schemas import (
     ReceiptDocument,
     ReceiptPatch,
     ReceiptSummary,
+    Seen,
     SignedIn,
     SurenessDocument,
     UserPatch,
@@ -417,6 +418,17 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         placed on the shopper's word, on the app's, or not at all."""
         return [ReceiptSummary.model_validate({**r, "photo": photo_shown(r.get("image_sha256"))})
                 for r in require_writes(request).receipts()]
+
+    @app.put("/v1/receipts/{receipt_id}/seen", response_model=Seen)
+    def mark_seen(request: Request, receipt_id: int) -> Seen:
+        """The shopper opened this receipt: its "new" mark goes, on every
+        device (2026-10-13). Never set by a GET, so nothing that only looks,
+        a preview or a second tab, takes the mark away unopened."""
+        try:
+            seen_at = require_writes(request).mark_seen(receipt_id)
+        except NotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return Seen(receipt_id=receipt_id, seen_at=seen_at)
 
     @app.get("/v1/receipts/{receipt_id}/photo")
     def receipt_photo(request: Request, receipt_id: int) -> Response:

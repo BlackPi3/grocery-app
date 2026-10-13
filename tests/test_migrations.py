@@ -46,3 +46,33 @@ def test_0011_makes_one_list_of_the_range_and_the_variant():
     finally:
         engine.dispose()
         downgrade(URL)
+
+
+def test_0021_counts_every_receipt_already_there_as_seen():
+    """2026-10-13: a receipt not yet opened is marked new. The receipts from
+    before the mark existed were looked at long ago: none of them starts
+    marked, and one added afterwards does."""
+    from grocery_app.db.migrate import downgrade, upgrade
+    from grocery_app.db.session import make_engine
+
+    downgrade(URL)
+    upgrade(URL, "0020")
+    engine = make_engine(URL)
+    try:
+        with engine.begin() as c:
+            c.execute(text("""
+                INSERT INTO receipts (source_image, transcribed_by, store)
+                VALUES ('IMG_1.jpeg', 'hand', 'Musterladen'),
+                       ('IMG_2.jpeg', 'llm', 'Musterladen')"""))
+        upgrade(URL, "0021")
+        with engine.begin() as c:
+            assert c.execute(text("SELECT count(*) FROM receipts WHERE seen_at IS NULL")
+                             ).scalar() == 0
+            c.execute(text("""INSERT INTO receipts (source_image, transcribed_by, store)
+                              VALUES ('IMG_3.jpeg', 'llm', 'Musterladen')"""))
+            unseen = c.execute(text("SELECT source_image FROM receipts WHERE seen_at IS NULL")
+                               ).scalars().all()
+        assert unseen == ["IMG_3.jpeg"]
+    finally:
+        engine.dispose()
+        downgrade(URL)

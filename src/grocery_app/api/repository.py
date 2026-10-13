@@ -124,6 +124,9 @@ class WriteRepository(Protocol):
     def receipts(self) -> list[dict[str, Any]]:
         ...
 
+    def mark_seen(self, receipt_id: int) -> str:
+        ...
+
     def receipt_image(self, receipt_id: int) -> str | None:
         ...
 
@@ -843,9 +846,21 @@ class PostgresRepository:
                     "unplaced": sum(r["said_by"] is None and not r.get("not_counted")
                                     for r in records),
                     "not_counted": sum(bool(r.get("not_counted")) for r in records),
+                    "seen_at": row.seen_at.isoformat() if row.seen_at else None,
                 })
         out.sort(key=lambda r: (r["date"] or "", r["receipt_id"]), reverse=True)
         return out
+
+    def mark_seen(self, receipt_id: int) -> str:
+        """Say this person has opened the receipt: its "new" mark goes, on
+        every device (2026-10-13). The first time counts; opening it again
+        changes nothing. Another person's receipt is `NotFound`."""
+        with self.session_factory() as session:
+            row = self._get(session, receipt_id)
+            if row.seen_at is None:
+                row.seen_at = datetime.now(UTC)
+                session.commit()
+            return row.seen_at.isoformat()
 
     def receipt_image(self, receipt_id: int) -> str | None:
         """The hash of the upload a receipt was read from, or None for one

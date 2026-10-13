@@ -338,6 +338,10 @@ class ReceiptSummary(BaseModel):
     photo: bool = Field(default=False,
                         description="The photo or PDF it was read from can be fetched "
                                     "(`GET /v1/receipts/{receipt_id}/photo`)")
+    seen_at: str | None = Field(
+        default=None,
+        description="When its owner first opened it (`PUT /v1/receipts/{receipt_id}/seen`); "
+                    "null while it is new to them")
 
 
 class ProductPurchase(BaseModel):
@@ -422,6 +426,13 @@ class LineCountedRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     counted: bool
+
+
+class Seen(BaseModel):
+    """A receipt opened: when it was first."""
+
+    receipt_id: int
+    seen_at: str
 
 
 class ReceiptPatch(BaseModel):
