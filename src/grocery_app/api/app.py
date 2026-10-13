@@ -100,6 +100,7 @@ from grocery_app.api.schemas import (
     ReceiptPatch,
     ReceiptSummary,
     SignedIn,
+    SurenessDocument,
     UserPatch,
     UserSummary,
 )
@@ -532,6 +533,16 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         The whole app's bill, so the owner's only to see."""
         owner_only(request)
         return CostsDocument.model_validate(require_writes(request).costs())
+
+    @app.get("/v1/sureness", response_model=SurenessDocument)
+    def sureness(request: Request) -> SurenessDocument:
+        """How sure the app is of every product line, by level, and how many a
+        person answered: overall and per shopping month, over everyone's
+        receipts, with the spot checks' yes rate. The owner's only: it is
+        about the app, not one person's shopping. The level rules are in
+        `grocery_app.sureness`."""
+        owner_only(request)
+        return SurenessDocument.model_validate(require_writes(request).sureness())
 
     def not_in_demo() -> None:
         """In the demo every guest is the owner (there is no password), so

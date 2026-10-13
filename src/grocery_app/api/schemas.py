@@ -592,6 +592,50 @@ class CostsDocument(BaseModel):
     finding_recorded_from: str
 
 
+class SurenessCounts(BaseModel):
+    """Product lines by how sure the app is of them (`grocery_app.sureness`).
+    A line the shopper left out of their numbers is not counted."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    lines: int = Field(description="Product lines counted: answered plus the four levels")
+    answered: int = Field(description="A person said what the line is, or that it was "
+                                      "none of what the app offered")
+    sure: int = Field(description="Level 1: the app placed it on one product, from its "
+                                  "memory of the printed name or the produce vocabulary")
+    unclear_print: int = Field(description="Level 2: the printed name stands for several "
+                                           "products; the price paid picked one")
+    category_only: int = Field(description="Level 3: the printed name stands for several "
+                                           "products of one category; none picked")
+    needs_answer: int = Field(description="Level 4: nothing placed it; only a person can say")
+    print_says_nothing: int = Field(description="Of level 4: a name the till prints for "
+                                                "anything (the receipt's fault)")
+    category_guessed: int = Field(description="Of level 4: the photo reading guessed a "
+                                              "category, which the history does not use")
+
+
+class MonthSureness(SurenessCounts):
+    month: str | None = Field(description="The shopping month, YYYY-MM; null for a receipt "
+                                          "with no date")
+
+
+class CheckOutcomes(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    right: int
+    corrected: int
+    yes_rate: float | None = Field(description="right / (right + corrected); null before any "
+                                               "spot check is answered")
+
+
+class SurenessDocument(SurenessCounts):
+    """How sure the app is of every product line, over everyone's receipts,
+    and what the spot checks on its own lines say."""
+
+    checks: CheckOutcomes
+    months: list[MonthSureness] = Field(description="Newest first")
+
+
 class JobsDocument(BaseModel):
     """The photos still being read or placed, and the ones that failed in the
     last hour: the same list on every device."""

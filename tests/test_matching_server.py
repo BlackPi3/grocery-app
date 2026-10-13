@@ -893,7 +893,7 @@ def test_the_review_page_is_served_at_the_root(server):
     assert page.status_code == 200 and page.headers["content-type"].startswith("text/html")
     assert "<title>Basket review</title>" in page.text
     for route in ("/v1/checks", "/v1/questions", "/v1/receipts", "/v1/products", "\"/v1/jobs\"",
-                  "/v1/insights", "/v1/costs"):
+                  "/v1/insights", "/v1/costs", "/v1/sureness"):
         assert route in page.text, f"the page reads {route}"
 
 

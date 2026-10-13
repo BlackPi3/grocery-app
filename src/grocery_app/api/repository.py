@@ -145,6 +145,9 @@ class WriteRepository(Protocol):
     def costs(self) -> dict[str, Any]:
         ...
 
+    def sureness(self) -> dict[str, Any]:
+        ...
+
     def as_user(self, user: dict[str, Any] | None) -> Any:
         ...
 
@@ -1034,6 +1037,51 @@ class PostgresRepository:
                     "receipts": sorted(receipts, key=lambda r: r["receipt_id"]),
                     "free_searches_per_month": spend.FREE_SEARCHES_PER_MONTH,
                     "finding_recorded_from": FINDING_RECORDED_FROM.date().isoformat()}
+
+    def sureness(self) -> dict[str, Any]:
+        """How sure the app is of every product line, and how many a person
+        answered (`grocery_app.sureness`), over everyone's receipts: overall
+        and per shopping month. With it, what the spot checks say: of the
+        answered ones, how often the app was right.
+
+        Read through `normalize_receipt` like the receipt screen, so a line is
+        counted as placed exactly as the history sees it.
+        """
+        from grocery_app import sureness
+        from grocery_app.db.io import EVERYONE
+
+        with self.session_factory() as session:
+            inputs = load_normalizer_inputs(session, EVERYONE)
+            guessed = {(g.receipt_id, g.position) for g in session.scalars(select(LineGuess))
+                       if g.category}
+            overall, months = sureness.empty(), {}
+            for row in session.scalars(select(Receipt).order_by(Receipt.id)):
+                doc = receipt_to_dict(row)
+                month = doc["date"][:7] if doc.get("date") else None
+                records = normalize_receipt(
+                    doc, inputs["resolution"], inputs["products"], inputs["line_resolutions"],
+                    inputs["shelf_prices"], inputs["authors"], inputs["uncounted"])
+                for position, (line, record) in enumerate(zip(doc["lines"], records,
+                                                              strict=True)):
+                    said = inputs["line_resolutions"].get((doc["source_image"], position))
+                    answered = bool(said) and said["raw_name"] == line["raw_name"]
+                    category_guessed = (row.id, position) in guessed
+                    if sureness.add(overall, record, answered, category_guessed):
+                        sureness.add(months.setdefault(month, sureness.empty()), record,
+                                     answered, category_guessed)
+
+            answers = {(lr.receipt_id, lr.position): lr.product_id
+                       for lr in session.scalars(select(LineResolution))}
+            checks = session.scalars(select(Check)).all()
+            right = sum(1 for c in checks
+                        if answers.get((c.receipt_id, c.position), "") == c.app_product_id)
+            corrected = sum(1 for c in checks if (c.receipt_id, c.position) in answers) - right
+        return {**overall,
+                "checks": {"right": right, "corrected": corrected,
+                           "yes_rate": (round(right / (right + corrected), 3)
+                                        if right + corrected else None)},
+                "months": [{"month": m, **c} for m, c in
+                           sorted(months.items(), key=lambda kv: kv[0] or "", reverse=True)]}
 
     def remove_receipt(self, receipt_id: int) -> None:
         """Take a receipt out of the history, for whatever reason the shopper
