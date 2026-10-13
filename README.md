@@ -76,8 +76,8 @@ counted apart and left out of every insight.
 
 - **Price watch**: 56 products bought more than once at the same shop (58 product-and-shop pairs); in 34 pairs the price changed. The
   biggest moves are the ones to check first: a halved cola price or a nearly doubled cream cheese can be a
-  real change, a special offer, or two different packs matched to one product. Tapping through to the
-  receipt behind a number is on the list below.
+  real change, a special offer, or two different packs matched to one product. On the Insights screen
+  each one taps through to the product's purchases, the receipt line and its photo.
 - **Personal basket index**: each month's repeat basket priced at the next month's prices. September
   against August, over 17 products: 1.7% cheaper; October so far, over 14: 2.8% dearer. Baskets this
   small move with single items.
