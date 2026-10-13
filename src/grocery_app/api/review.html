@@ -8,7 +8,7 @@
   The shopper's page, served by `grocery-app serve` at `/`. It only reads,
   uploads and answers through the API (/v1/checks, /v1/questions,
   /v1/receipts, POST /v1/receipts + /v1/jobs, /v1/products, /v1/insights,
-  PUT .../resolution, /v1/products/{id}/purchases, /v1/receipts/{id}/photo,
+  PUT .../resolution, PUT /v1/receipts/{id}/seen, /v1/products/{id}/purchases, /v1/receipts/{id}/photo,
   /v1/auth/config and /v1/auth/google): nothing here decides anything. Throwaway UI below the
   contract; the iOS app will do the same job against the same API.
 -->
@@ -19,6 +19,7 @@
     --grid: #e1e0d9; --border: rgba(11,11,11,0.10);
     --accent: #2a78d6; --accent-soft: #cde2fb;
     --good: #006300; --bad: #d03b3b; --warn: #b06a00;
+    --ask: #c45a00; --on-ask: #ffffff;
     --radius: 14px;
   }
   @media (prefers-color-scheme: dark) {
@@ -28,6 +29,7 @@
       --grid: #2c2c2a; --border: rgba(255,255,255,0.12);
       --accent: #3987e5; --accent-soft: #184f95;
       --good: #0ca30c; --bad: #e34948; --warn: #fab219;
+      --ask: #f28c28; --on-ask: #1c1000;
     }
   }
   :root[data-theme="dark"] {
@@ -36,6 +38,7 @@
     --grid: #2c2c2a; --border: rgba(255,255,255,0.12);
     --accent: #3987e5; --accent-soft: #184f95;
     --good: #0ca30c; --bad: #e34948; --warn: #fab219;
+    --ask: #f28c28; --on-ask: #1c1000;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { overflow-x: hidden; }
@@ -71,9 +74,45 @@
   .bar .add:active span { transform: scale(0.94); }
   .bar .add svg { width: 28px; height: 28px; stroke-width: 2.4; }
   .bar .add input { display: none; }
+  /* Two kinds of mark, two colours (the owner, 2026-10-13): an accent-blue dot
+     is a receipt not opened yet; a warm orange count is questions for you. */
   .dot { position: absolute; top: 0; left: calc(50% + 6px); min-width: 17px; height: 17px;
-    padding: 0 4px; border-radius: 9px; background: var(--bad); color: #fff;
+    padding: 0 4px; border-radius: 9px; background: var(--ask); color: var(--on-ask);
     font-size: 11px; font-weight: 700; line-height: 17px; text-align: center; }
+  .fresh { position: absolute; top: 3px; right: calc(50% + 9px); width: 9px; height: 9px;
+    border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--card); }
+  .is-new { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); margin-right: 7px; vertical-align: 1px; flex: none; }
+  .asking { display: inline-block; min-width: 18px; height: 18px; padding: 0 5px;
+    border-radius: 9px; background: var(--ask); color: var(--on-ask); font-size: 11px;
+    font-weight: 700; line-height: 18px; text-align: center; margin-left: 6px;
+    vertical-align: 1px; font-variant-numeric: tabular-nums; }
+  /* A receipt being read: a slim note that comes and goes, never the focus,
+     nothing counting (the owner, 2026-10-13). */
+  .note { position: fixed; top: calc(17px + env(safe-area-inset-top)); z-index: 8;
+    right: max(16px, calc(50% - 224px)); transform: translateY(-8px); opacity: 0;
+    pointer-events: none; display: flex; align-items: center; gap: 8px;
+    max-width: min(300px, calc(100% - 120px));
+    padding: 6px 13px; border-radius: 999px; font-size: 13px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; color: var(--ink2);
+    background: color-mix(in srgb, var(--card) 94%, transparent);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    transition: opacity 0.45s ease, transform 0.45s ease; }
+  .note.shown { opacity: 1; transform: none; }
+  .note::before, .failed-note::before { content: ""; flex: none; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--accent); }
+  .note.failed::before, .failed-note::before { background: var(--bad); }
+  .failed-note { display: flex; align-items: center; gap: 8px; margin: 6px 0;
+    padding: 6px 4px 6px 12px; border-radius: 12px; font-size: 13px; color: var(--ink2);
+    background: var(--card); border: 1px solid var(--border); }
+  .failed-note .text { flex: 1; min-width: 0; }
+  .failed-note .meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .failed-note button { border: 0; background: none; color: var(--muted); padding: 2px 10px;
+    font-size: 17px; line-height: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .note { transition: none; transform: none; }
+  }
   /* Home: a few things at a glance, not analysis (2026-10-12). */
   .card.hero { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #6a3fd6));
     color: #fff; border: 0; padding: 18px; }
@@ -282,6 +321,7 @@
   </nav>
 </div>
 <div class="toast" id="toast"></div>
+<div class="note" id="note" role="status" aria-live="polite"></div>
 <div class="viewer" id="viewer" hidden></div>
 <!-- The demo's welcome (Parham, 2026-10-12): whoever opens the link may not
      know what this is, so every visit starts by saying so. -->
@@ -304,7 +344,8 @@
 // All text from receipts and the model goes in with textContent, never as HTML.
 const state = { tab: "home", checks: null, questions: null, receipts: null, open: null,
                 copyAt: null, removing: new Set(), step: {}, monthOpen: {}, year: null,
-                insights: null, jobs: null, sending: [], notSent: [], uploaded: new Set() };
+                insights: null, jobs: null, sending: [], notSent: [], uploaded: new Set(),
+                noted: new Set(), dismissed: new Set(), lineAsk: null };
 const TABS = ["home", "receipts", "insights", "you"];
 const TITLES = { home: "Home", receipts: "Receipts", insights: "Insights", you: "You" };
 
@@ -334,6 +375,18 @@ function toast(text, undo) {
   box.style.display = "flex";
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => { box.style.display = "none"; }, undo ? 8000 : 3500);
+}
+
+// A slim note at the top that stays a few seconds and fades: a receipt is
+// being processed, or one could not be read (the owner, 2026-10-13). Never
+// the focus, and nothing in it counts.
+function note(text, failed) {
+  const box = document.getElementById("note");
+  box.textContent = text;
+  box.classList.toggle("failed", !!failed);
+  box.classList.add("shown");
+  clearTimeout(note.timer);
+  note.timer = setTimeout(() => box.classList.remove("shown"), failed ? 6000 : 3500);
 }
 
 // The server's password (GROCERY_TOKEN), typed once into the page and kept
@@ -679,16 +732,48 @@ function waitingCard() {
     open ? deckCard(all[0]) : null);
 }
 
+// What is waiting, as marks (the owner, 2026-10-13). A receipt not opened
+// yet is new (`seen_at`, kept on the server so every device agrees); what
+// the app asks about is counted per receipt and per line from the same list
+// the cards are drawn from, so a mark goes when its card is answered.
+function unseen() {
+  return (state.receipts || []).filter(r => !r.seen_at && !state.removing.has(r.receipt_id));
+}
+
+function asksOn(receiptId) {
+  return state.checks ? asks().filter(a => a.item.receipt_id === receiptId) : [];
+}
+
+function newMark() {
+  return el("span", { class: "is-new", role: "img", "aria-label": "new", title: "New" });
+}
+
+function askMark(count, label) {
+  return el("span", { class: "asking", "aria-label": label, title: label }, String(count));
+}
+
+// Opening a receipt is what takes its "new" mark away, here at once and on
+// the server for the other devices. Never on a mere look (a GET).
+function markSeen(receiptId) {
+  const summary = (state.receipts || []).find(r => r.receipt_id === receiptId);
+  if (!summary || summary.seen_at) return;
+  summary.seen_at = new Date().toISOString();
+  api(`/v1/receipts/${receiptId}/seen`, { method: "PUT" })
+    .then(doc => { summary.seen_at = doc.seen_at; saveCopy(); })
+    .catch(() => { summary.seen_at = null; render(); });  // still new: say so
+}
+
 // Open one receipt (never toggling it shut) with its lines as they are now.
 async function showReceipt(receiptId) {
   state.open = receiptId;
   // Its month opens, in its year, wherever the receipt is opened from (the
-  // drill-down, a job's "Open the receipt").
+  // drill-down).
   const summary = (state.receipts || []).find(r => r.receipt_id === receiptId);
   if (summary) {
     state.monthOpen[monthOf(summary)] = true;
     if (summary.date) state.year = summary.date.slice(0, 4);
   }
+  markSeen(receiptId);
   await refreshReceipt(receiptId);
 }
 
@@ -703,6 +788,7 @@ async function refreshReceipt(receiptId) {
 
 async function openReceipt(receiptId) {
   state.open = state.open === receiptId ? null : receiptId;
+  if (state.open !== null) markSeen(receiptId);
   if (state.open !== null && !state.receiptLines?.[receiptId]) {
     try {
       const doc = await api(`/v1/receipts/${receiptId}`);
@@ -736,9 +822,13 @@ function removeReceipt(receiptId) {
 
 function receiptCard(summary) {
   const card = el("div", { class: "card" });
+  const waiting = asksOn(summary.receipt_id);
   const head = el("div", { class: "line" },
     el("div", {},
-       el("div", { class: "what" }, summary.store || "Unknown shop"),
+       el("div", { class: "what" }, summary.seen_at ? null : newMark(),
+          summary.store || "Unknown shop",
+          waiting.length ? askMark(waiting.length, waiting.length === 1
+            ? "1 question for you" : `${waiting.length} questions for you`) : null),
        el("div", { class: "meta" }, summary.date || "", " · ", summary.product_lines,
           summary.product_lines === 1 ? " item" : " items",
           // Who said what is a detail for the owner (the redesign, step 3).
@@ -789,13 +879,15 @@ function receiptCard(summary) {
     for (const line of (state.receiptLines?.[summary.receipt_id] || [])) {
       if (line.type !== "product") continue;
       const counted = !line.not_counted;
+      const ask = waiting.find(a => a.item.position === line.position);
+      const key = `${summary.receipt_id}:${line.position}`;
       const act = el("button", { class: "act", onclick: () => {
         act.disabled = true;
         setCounted(summary.receipt_id, line.position, !counted);
       } }, counted ? "Leave out" : "Count again");
       const row = el("div", { class: (counted ? "line" : "line off") +
                                      (marked.includes(line.position) ? " hit" : "") },
-        el("div", {}, ...lineText(line, counted)),
+        el("div", {}, ...lineText(line, counted, ask)),
         el("div", { class: "money" }, euro(line.net_paid)));
       const wrap = el("div", { class: counted ? "swipe" : "swipe out" }, act, row);
       swipeable(wrap, row);
@@ -803,6 +895,11 @@ function receiptCard(summary) {
         if (wrap.classList.contains("open") || editing) {  // a tap closes it, as on iOS
           wrap.classList.remove("open");
           return;
+        }
+        // A line the app asks about opens its yes/no cards; a second tap shuts them.
+        if (ask || state.lineAsk === key) {
+          state.lineAsk = state.lineAsk === key ? null : key;
+          return render();
         }
         // A second tap on the line closes what the first one opened.
         if (wrap.nextSibling?.classList?.contains("picker")) return wrap.nextSibling.remove();
@@ -814,6 +911,14 @@ function receiptCard(summary) {
           el("div", {}, takeBack, el("div", { class: "meta" }, "Correct what this line is:"))));
       });
       card.append(wrap);
+      if (ask && state.lineAsk === key) {
+        const box = el("div", {}, deckCard(ask), el("button", { class: "link", onclick: () => {
+          state.lineAsk = null;
+          box.replaceWith(picker(summary.receipt_id, line.position,
+            el("div", { class: "meta" }, "Correct what this line is:")));
+        } }, "Search the catalog instead"));
+        card.append(box);
+      }
       // Under the line the drill-down opened: back up a level, or on to the paper.
       if (marked[0] === line.position && (state.cameFrom || summary.photo)) {
         card.append(el("div", { class: "trail" },
@@ -833,7 +938,7 @@ function receiptCard(summary) {
 // the owner. A line nothing placed shows the photo reading's guess, marked
 // as one (a guess is never passed off as an answer), or else what the paper
 // printed, in grey.
-function lineText(line, counted) {
+function lineText(line, counted, ask) {
   const owner = isOwner();
   const guess = !line.product && line.first_guess;
   const name = line.product ? el("span", {}, line.product)
@@ -849,7 +954,9 @@ function lineText(line, counted) {
   return [
     el("div", { class: "what" }, name,
        guess && guess.name ? el("span", { class: "badge guess" }, "guess") : null,
-       counted ? null : el("span", { class: "badge none" }, "left out")),
+       counted ? null : el("span", { class: "badge none" }, "left out"),
+       ask ? askMark("?", ask.check ? "A random check for you: tap to answer"
+                                    : "A question for you: tap to answer") : null),
     kind ? el("div", { class: "meta" }, kind) : null,
     owner ? el("div", { class: "meta" }, details,
                line.product || !guess ? badge(line.said_by) : null) : null,
@@ -918,10 +1025,14 @@ async function upload(files) {
       const body = new FormData();
       body.append("file", file);
       const job = await api("/v1/receipts", { method: "POST", body });
+      state.noted.add(job.job_id);  // its note is up already
       if (job.status === "done") toast("This photo is already in your receipts");
       else state.uploaded.add(job.job_id);
     } catch (error) {
-      state.notSent.push({ name: file.name, error: error.message });
+      state.notSent.push({ id: "sent:" + state.notSent.length, name: file.name,
+                           error: error.message });
+      if (state.tab !== "home") note("A photo could not be sent", true);
+      render();
     }
     state.sending = state.sending.filter(item => item !== sending);
     await refreshJobs();
@@ -957,8 +1068,8 @@ async function refreshJobsOnce() {
     const job = now.get(old.job_id);
     return !job || job.status !== old.status || job.receipt_id !== old.receipt_id;
   });
-  // A receipt this browser sent opens as soon as it is read, if it is the
-  // only one in progress and the shopper is still looking at the Add tab.
+  // A receipt that has just been read stays where it is: it is marked new on
+  // Receipts, never opened in the shopper's face (the owner, 2026-10-13).
   const justRead = doc.jobs.find(job => job.receipt_id != null && state.uploaded.has(job.job_id)
     && before.get(job.job_id) && before.get(job.job_id).receipt_id == null);
   // A photo turned away says so once, in a message that fades, and leaves no
@@ -966,15 +1077,24 @@ async function refreshJobsOnce() {
   const turnedAway = doc.jobs.find(job => job.turned_away && (
     (before.get(job.job_id) && !before.get(job.job_id).turned_away) ||
     (state.uploaded.has(job.job_id) && !before.has(job.job_id))));
+  // One that failed says so, in a note of its own, and stays on Home.
+  const failed = doc.jobs.find(job => job.status === "failed" && (
+    (before.get(job.job_id) && before.get(job.job_id).status !== "failed") ||
+    (state.uploaded.has(job.job_id) && !before.has(job.job_id))));
+  // A receipt on its way in that this page has not said anything about yet,
+  // sent from here or from another device: the note, once.
+  const fresh = inProgress().filter(job => !state.noted.has(job.job_id));
+  for (const job of fresh) state.noted.add(job.job_id);
   if (changed) await load({ jobs: false });
   if (turnedAway) toast(`Not added: ${TURNED_AWAY[turnedAway.turned_away] || "not a shop receipt"}`);
   if (justRead && justRead.already_added) toast("Already in your receipts");
-  if (justRead && state.tab === "home" && inProgress().length <= 1) {
-    state.tab = "receipts";
-    await showReceipt(justRead.receipt_id);
-  } else if (inProgress().some(job => job.receipt_id === state.open) && state.tab === "receipts") {
-    await refreshReceipt(state.open);  // the lines placed so far
-  } else if (changed || state.tab === "home") {
+  // On Home the note in the page says it already; elsewhere it comes and goes.
+  if (failed) { if (state.tab !== "home") note("A receipt could not be read", true); }
+  else if (fresh.length) note(fresh.length > 1 ? "Your receipts are being processed"
+                                                : "Your receipt is being processed");
+  if (inProgress().some(job => job.receipt_id === state.open) && state.tab === "receipts") {
+    await refreshReceipt(state.open);  // the lines placed so far, quietly
+  } else if (changed) {
     render();  // only when it shows something new: a redraw loses a text selection
   }
   if (state.sending.length || inProgress().length) {
@@ -1000,54 +1120,10 @@ async function waitForPictures() {
   }, PICTURE_POLL_MS);
 }
 
-function elapsed(since) {
-  const seconds = Math.max(0, Math.round((Date.now() - since) / 1000));
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
-
-function clock(iso) {
-  const at = new Date(iso);
-  return isNaN(at) ? "" : at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
 // Where the reader says a photo is from, when it is not a shop (`receipt_from`).
 const TURNED_AWAY = { restaurant_or_cafe: "a restaurant or café bill, not a shop receipt",
                       other_business: "a bill for a service, not a shop receipt",
                       not_a_receipt: "this is not a receipt" };
-
-function jobCard(job) {
-  const added = "Added " + clock(job.created_at);
-  if (job.status === "failed") {
-    return el("div", { class: "card" }, el("h2", {}, "Not read"),
-      el("div", { class: "meta" }, added), el("div", { class: "why" }, job.error || ""));
-  }
-  if (job.turned_away) return null;  // said once, in a message (refreshJobsOnce)
-  const summary = (state.receipts || []).find(r => r.receipt_id === job.receipt_id);
-  if (job.already_added) {
-    return el("div", { class: "card" }, el("h2", {}, "Already added"),
-      el("div", { class: "meta" }, [summary && summary.store, summary && summary.date, added]
-        .filter(Boolean).join(" · ")),
-      el("div", { class: "why" }, "This receipt is already in your history, so nothing new " +
-        "was saved."),
-      el("div", { class: "row" }, el("button", { onclick: () => {
-        state.tab = "receipts";
-        showReceipt(job.receipt_id);
-      } }, "Open the receipt")));
-  }
-  const since = Date.parse(job.created_at) || Date.now();
-  if (job.receipt_id == null) {
-    return el("div", { class: "card" }, el("h2", {}, `Reading the photo… ${elapsed(since)}`),
-      el("div", { class: "meta" }, added));
-  }
-  return el("div", { class: "card" },
-    el("h2", {}, `Read. Placing the lines… ${elapsed(since)}`),
-    el("div", { class: "meta" }, [summary && summary.store, summary && summary.date, added]
-      .filter(Boolean).join(" · ")),
-    el("div", { class: "row" }, el("button", { class: "primary", onclick: () => {
-      state.tab = "receipts";
-      showReceipt(job.receipt_id);
-    } }, "Open the receipt")));
-}
 
 // What processing receipts cost, from the model calls the server wrote down
 // (Parham, 2026-10-11): reading the photos, and finding what the lines are,
@@ -1169,23 +1245,35 @@ function costsCard() {
       `${d.finding_recorded_from}.`));
 }
 
-// Receipts on their way in, on Home, where the + leaves the shopper.
-function uploadCards() {
-  return [
-    ...state.sending.map(item => el("div", { class: "card" },
-      el("h2", {}, "Sending the photo…"), el("div", { class: "meta" }, item.name))),
-    ...state.notSent.map(item => el("div", { class: "card" },
-      el("h2", {}, "Not sent"), el("div", { class: "meta" }, item.name),
-      el("div", { class: "why" }, item.error))),
-    ...(state.jobs || []).map(jobCard),
+// A photo that could not be sent or read, as a small note at the top of
+// Home, until it is put away (or, for one not read, until the server stops
+// listing it after an hour). Honest, but not the focus (2026-10-13). A
+// receipt on its way in has no card at all: the note at the top said so.
+function failedNotes() {
+  const failed = [
+    ...state.notSent.map(item => ({ id: item.id, what: "A photo could not be sent",
+                                    why: [item.name, item.error] })),
+    ...(state.jobs || []).filter(job => job.status === "failed").map(job => ({
+      id: job.job_id, what: "A receipt could not be read",
+      why: [job.original_filename, job.error] })),
   ];
+  return failed.filter(item => !state.dismissed.has(item.id)).map(item => {
+    const why = item.why.filter(Boolean).join(": ");
+    return el("div", { class: "failed-note", role: "status" },
+      el("div", { class: "text" }, el("div", {}, item.what),
+         why ? el("div", { class: "meta", title: why }, why) : null),
+      el("button", { "aria-label": "Put away", onclick: () => {
+        state.dismissed.add(item.id);
+        render();
+      } }, "×"));
+  });
 }
 
 // Home, at a glance (the designer's advice, 2026-10-12): what this month cost
 // so far, one price that moved, one fact. The analysis stays on Insights.
 function homeView() {
   const d = state.insights;
-  const cards = uploadCards();
+  const cards = failedNotes();
   if (!d) return [...cards, el("div", { class: "empty" }, "Loading…")];
   if (!d.months.length) {
     return [...cards, el("div", { class: "card" }, el("h2", {}, "Add your first receipt"),
@@ -1787,6 +1875,7 @@ function receiptsView() {
             const open = key in state.monthOpen ? state.monthOpen[key]
               : key === newest || list.some(r => r.receipt_id === state.open);
             const totals = list.filter(r => r.printed_total != null);
+            const asked = list.reduce((n, r) => n + asksOn(r.receipt_id).length, 0);
             const name = !key ? "No date"
               : yearSwitch || key.slice(0, 4) === thisYear ? monthName(key).replace(/ \d+$/, "")
               : monthName(key);
@@ -1794,12 +1883,15 @@ function receiptsView() {
               "aria-expanded": String(open),
               onclick: () => { state.monthOpen[key] = !open; render(); } },
               el("div", {},
-                el("div", { class: "name" }, name),
+                el("div", { class: "name" },
+                   !open && list.some(r => !r.seen_at) ? newMark() : null, name),
                 el("div", { class: "meta" }, plural(list.length, "receipt", "receipts") +
                    // A total the paper did not give is not guessed: say it is missing.
                    (totals.length < list.length
                      ? `, ${list.length - totals.length} without a total` : ""))),
               el("div", { class: "end" },
+                asked && !open ? askMark(asked, `${asked} ${asked === 1 ? "question"
+                  : "questions"} for you in ${name}`) : null,
                 el("span", { class: "money" },
                    euro(totals.reduce((sum, r) => sum + r.printed_total, 0))),
                 el("span", { class: "chev", "aria-hidden": "true" }, "›")));
@@ -1822,10 +1914,15 @@ function render() {
   if (!state.checks) return;
   // What waits for the shopper is a badge on Receipts, not a tab of its own:
   // answering is a contribution, not a chore (2026-10-12).
+  // A new receipt is a blue dot beside it, apart in kind and colour (2026-10-13).
   const waiting = asks().length;
+  const fresh = unseen().length;
   const receiptsTab = document.getElementById("tab-receipts");
-  receiptsTab.querySelector(".dot")?.remove();
-  if (waiting) receiptsTab.append(el("span", { class: "dot" }, String(waiting)));
+  receiptsTab.querySelectorAll(".dot, .fresh").forEach(mark => mark.remove());
+  if (fresh) receiptsTab.append(el("span", { class: "fresh", role: "img",
+    "aria-label": fresh === 1 ? "a new receipt" : `${fresh} new receipts` }));
+  if (waiting) receiptsTab.append(el("span", { class: "dot", "aria-label":
+    `${waiting} ${waiting === 1 ? "question" : "questions"} for you` }, String(waiting)));
   // Never redraw under someone typing: it took the text box away mid-word and
   // jumped the page (2026-10-08). Drawn once they leave the box.
   if (view.contains(document.activeElement) && document.activeElement.tagName === "INPUT") {
@@ -1916,12 +2013,13 @@ document.getElementById("demo").addEventListener("click", () => {
 document.getElementById("welcome-close").addEventListener("click", () => {
   document.getElementById("welcome").hidden = true;
 });
-// The + : the camera or a file, then Home shows it being read.
+// The + : the camera or a file. A note at the top says it is on its way; the
+// shopper stays wherever they were.
 document.getElementById("add-file").addEventListener("change", event => {
   const files = [...event.target.files];
   event.target.value = "";
-  state.tab = "home";
-  render();
+  if (!files.length) return;
+  note(files.length > 1 ? "Your receipts are being processed" : "Your receipt is being processed");
   upload(files);
 });
 for (const tab of TABS) {

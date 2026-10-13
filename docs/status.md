@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, receipts by month (zoom step 1).
+**Last updated:** 2026-10-13, quiet processing and marks for new receipts and questions.
 
 ## Now
 
@@ -23,6 +23,18 @@ session (laptop or cloud) can pick up from here. How we work is in
   Brands are the owner's only, on Home too. `insights.json` gained
   `coverage.products` (different products placed), so "18 of 24 products
   bought again" can be said. The squarified tiles are gone.
+- Done (owner, 2026-10-13): **processing is quiet; new receipts and
+  questions are marks**. A receipt on its way in is a slim note at the top
+  ("Your receipt is being processed") that fades after a few seconds;
+  nothing counts or ticks. A failure is a small note on Home until put
+  away. A finished receipt never opens by itself: a blue dot on the
+  Receipts tab, the receipt and its folded month says it is new, from the
+  first reading on; opening it takes the mark away on every device
+  (`receipts.seen_at`, migration 0021, existing receipts count as seen;
+  `PUT /v1/receipts/{id}/seen`, the asker's receipts only). Open questions
+  and spot checks are an orange count on the tab, each receipt and folded
+  month, and an orange "?" on the line; tapping that line opens its cards.
+  Page counts come from `/v1/questions` and `/v1/checks`, no new count API.
 - Done (owner, 2026-10-09; designer, 2026-10-12): **receipts by month**,
   step 1 of zooming through time (year → month → week → day, one level at a
   time). Receipts shows one compact row per month, newest first: the month,

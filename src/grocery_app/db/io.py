@@ -15,7 +15,7 @@ the developer's data and losing part of it on the way in would be a lie.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -320,6 +320,8 @@ def import_receipts(session: Session, paths: Any,
             existing.lines = [line_from_dict(i, line) for i, line in enumerate(d.get("lines", []))]
             summary["receipts"]["updated"] += 1
         else:
+            # Typed in on the laptop, not sent from the page: nothing to mark as new.
+            new.seen_at = datetime.now(UTC)
             session.add(new)
             summary["receipts"]["added"] += 1
     session.flush()

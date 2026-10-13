@@ -109,6 +109,9 @@ class Receipt(Base):
     tax_buckets: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  server_default=func.now())
+    # When its owner first opened it on the page; empty while it is new to
+    # them (the "new" mark, 2026-10-13). Set by `PUT /v1/receipts/{id}/seen`.
+    seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     lines: Mapped[list[ReceiptLine]] = relationship(
         back_populates="receipt", cascade="all, delete-orphan",

@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
-from sqlalchemy import create_engine, text, update
+from sqlalchemy import create_engine, func, text, update
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -163,8 +163,10 @@ def main() -> None:
         done = client.get(f"/v1/jobs/{job.json()['job_id']}").json()
         print(f"{path.stem}: {done['status']} {done.get('error') or ''}", flush=True)
 
-    with factory() as session:  # said plainly: nobody read these off a photo
-        session.execute(update(Receipt).values(transcribed_by="made-up"))
+    # Said plainly: nobody read these off a photo. And a guest starts with no
+    # "new" marks: the made-up receipts are already there, not just arrived.
+    with factory() as session:
+        session.execute(update(Receipt).values(transcribed_by="made-up", seen_at=func.now()))
         session.commit()
 
     if args.retry_pictures:
