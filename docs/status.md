@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, quiet processing and marks for new receipts and questions.
+**Last updated:** 2026-10-13, end of the cloud session: open decisions and research.
 
 ## Now
 
@@ -125,6 +125,41 @@ session (laptop or cloud) can pick up from here. How we work is in
    needs the paid developer account).
 4. ~~Insights screen.~~ Done (2026-10-13): five cards, one question each,
    with their coverage; every product opens the drill-down (see Now).
+
+## Open decisions (the owner's), as of 2026-10-13
+
+Nothing is being built. The next session starts by putting these to the owner:
+
+1. **Who to win first.** The research (below) found that the idea itself is
+   not unique; what is: each line tied to the shop's real product, a memory
+   kept per shop, every figure saying how much of it is known, budget-brand
+   share, and restock dates that admit thin evidence. Pick one person and one
+   promise: the saver ("see exactly where your money went, no typing, it says
+   what it isn't sure of") or the deal hunter ("your own basket priced at
+   every shop near you this week"). Recommendation: the saver.
+2. **Next build.** Recommendation: talk through barcodes first (parked
+   above; the step none of 75 open-source projects takes, and the base for
+   the next two). Then "this receipt at the other chain" for ALDI SÜD and
+   GLOBUS, from the prices the catalog fetch already has.
+3. **Live prices from other chains** (owner's question): full shelf prices
+   per branch exist for ALDI SÜD and GLOBUS (fetched today) and REWE
+   (unofficial app API, with barcodes); EDEKA, Kaufland, ALDI Nord and Lidl
+   give weekly offers only (Korbuino, BSD; marktguru). Unofficial APIs can
+   break, and no shop's terms are checked yet.
+4. The research page's three questions: a business model; whether digital
+   receipts (REWE eBon, the 2028 German digital receipt, a draft) belong in
+   the pipeline; whether the shops' terms allow fetching their catalogues.
+
+Research (private claude.ai pages, the owner's account): the landscape of
+apps and 75 open-source projects, with "Where your app wins",
+https://claude.ai/artifact/4hVAEvSZi814KQNWH3d8F6; the open-questions list,
+https://claude.ai/artifact/WHW7obc3X2YrQYAnpwvSJs.
+
+**The owner's to-dos** (none blocks building): use the app for two weeks
+with every receipt from the phone; a second person with real receipts;
+Google sign-in setup (steps above; later); the demo pictures laptop run
+(above); the billing alert; two receipt questions on the open-questions
+list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Milestone: Ready for iOS (target 2026-11-02)
 
