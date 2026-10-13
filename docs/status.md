@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, end of the cloud session: open decisions and research.
+**Last updated:** 2026-10-13, laptop: Google consent screen made; backlog items added.
 
 ## Now
 
@@ -120,6 +120,8 @@ session (laptop or cloud) can pick up from here. How we work is in
    3. Run the deploy workflow.
    4. Add each person's Google address on the People card (and as a test
       user while the consent screen is in Testing).
+   Progress (2026-10-13): the consent screen exists, in Testing (only its
+   test users can sign in; the People card still gates the app).
    No route removes a user yet (their receipts would go with them); a
    removed user's sign-ins end with the row. Apple sign-in is deferred (it
    needs the paid developer account).
@@ -178,9 +180,19 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 - Attention follows seriousness and freshness (a level-4 line right after
   the scan asks loudly; a random check waits). The levels it would use are
   counted (`GET /v1/sureness`).
-- Lifestyle, personas, deals, dislikes, and zooming through time in insights
+- Lifestyle, personas (the owner's three, 2026-10-12: the trend lover, the
+  saver, the deal hunter; features are checked against who they serve), deals, dislikes, and zooming through time in insights
   (Receipts zooms by month now; weeks and days are next there).
 - Cleanup: old English-named products, doubles from early catalog work.
+- A grocery budget (owner, 2026-10-13): set one for the month and see how far
+  off you are, or the app suggests one from past months. Serves the saver.
+- Privacy page and account deletion (owner, 2026-10-13: backlog, not now).
+  Needed before Google sign-in leaves Testing: publishing asks for a homepage
+  and a privacy policy URL (`/privacy` on the server; Google may refuse a
+  `run.app` address, then a domain of our own, about 10 EUR a year). GDPR
+  starts with the second person's data: say what is stored, where (Frankfurt,
+  read by Gemini) and who sees it (the owner), and let a person delete their
+  account and receipts (no route does that yet).
 
 ## Gotchas
 
