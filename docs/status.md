@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, the Insights screen redesigned.
+**Last updated:** 2026-10-13, spot checks labelled as random checks.
 
 ## Now
 
@@ -23,6 +23,9 @@ session (laptop or cloud) can pick up from here. How we work is in
   Brands are the owner's only, on Home too. `insights.json` gained
   `coverage.products` (different products placed), so "18 of 24 products
   bought again" can be said. The squarified tiles are gone.
+- Done (owner, 2026-10-03, from `Minze 15g`): a spot check card says
+  "Random check: the app placed this itself. Right?", so it no longer reads
+  like a confused question. Questions keep "Did you buy this?".
 - Earlier: **redesign step 2** (#108). Spot checks and questions are
   yes/no cards with pictures, one at a time, behind the Receipts badge
   (swipe right for Yes, left for No; Undo restores). A question shows up to 5
