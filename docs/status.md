@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, laptop: end of session; the typed-hint real check.
+**Last updated:** 2026-10-13, laptop: a family line is named, not counted.
 
 ## Now
 
@@ -23,6 +23,11 @@ session (laptop or cloud) can pick up from here. How we work is in
   Brands are the owner's only, on Home too. `insights.json` gained
   `coverage.products` (different products placed), so "18 of 24 products
   bought again" can be said. The squarified tiles are gone.
+- Done (owner, 2026-10-13, `JT Tortilla Wraps`): **a family line is named,
+  not counted**. A line the receipt leaves at several products showed "2
+  candidates"; it now shows the words every member's name starts with
+  (`Tortilla Wraps`), else the deepest category they share, and only then a
+  count (`normalizer.family_name`).
 - Done (owner, 2026-10-13): **a typed answer is a hint**, not the product.
   Words typed in a line's fix box ("None of these: save my description")
   are searched with the printed line and the shop, and the reader takes the

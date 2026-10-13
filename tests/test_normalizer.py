@@ -37,9 +37,23 @@ def test_family_keeps_what_the_candidates_agree_on_and_nothing_else():
     # catalog never says so: the answer is derived from this line's store.
     assert record["brand"] == "Dove" and record["is_budget_brand"] is False
     assert record["details"] == [], "only the details every candidate has"
-    assert record["product"] == "2 candidates"
+    assert record["product"] == "Dusche", "the words every member's name starts with"
     # Pack sizes may differ across a family, so no unit price is derived.
     assert record["unit_price"] is None
+
+
+def test_a_family_is_named_by_what_its_members_share_never_by_a_count():
+    """`2 candidates` confused the owner (2026-10-13)."""
+    from grocery_app.normalizer import family_name
+
+    wraps = [{"name": "Tortilla Wraps, Classic"}, {"name": "Tortilla Wraps Mehrkorn"}]
+    assert family_name(wraps, ["Brot & Backwaren", "Brot"]) == "Tortilla Wraps"
+    unlike = [{"name": "Gouda jung"}, {"name": "Emmentaler"}]
+    assert family_name(unlike, ["Käse", "Schnittkäse"]) == "Schnittkäse", \
+        "no shared first word: the deepest shared category"
+    assert family_name(unlike, None) == "2 candidates", "nothing shared at all"
+    assert family_name([{"name": "Tortilla"}, {"name": "Tortillas"}], None) == \
+        "2 candidates", "whole words only, never a cut one"
 
 
 def test_single_candidate_is_an_exact_resolution():

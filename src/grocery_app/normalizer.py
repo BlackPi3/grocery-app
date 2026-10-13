@@ -475,8 +475,36 @@ def shared_attributes(candidates: list[dict[str, Any]]) -> dict[str, Any]:
     # legible to a human reading it.
     names = {c.get("name") for c in candidates}
     shared["product"] = (candidates[0].get("name") if len(names) == 1
-                         else f"{len(candidates)} candidates")
+                         else family_name(candidates, shared["category_path"]))
     return shared
+
+
+def family_name(candidates: list[dict[str, Any]], category_path: list[str] | None) -> str:
+    """What a family can be called without guessing which member it was.
+
+    "2 candidates" confused the owner (2026-10-13, `JT Tortilla Wraps`): the
+    words every member's name starts with say the kind (`Tortilla Wraps,
+    Classic` and `Tortilla Wraps Mehrkorn` are `Tortilla Wraps`). When the
+    names share no first word, the deepest category the members share says
+    it; only when there is neither is the family counted.
+    """
+    def words(name: str | None) -> list[str]:
+        return (name or "").split()
+
+    def bare(word: str) -> str:
+        return word.rstrip(",;:-").casefold()
+
+    first, *others = [words(c.get("name")) for c in candidates]
+    common = 0
+    while common < len(first) and all(
+            common < len(w) and bare(w[common]) == bare(first[common]) for w in others):
+        common += 1
+    shared = " ".join(first[:common]).rstrip(",;:- ")
+    if shared:
+        return shared
+    if category_path:
+        return category_path[-1]
+    return f"{len(candidates)} candidates"
 
 
 def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str], list[str]],
