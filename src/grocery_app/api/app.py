@@ -40,9 +40,10 @@ import time
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
 from grocery_app.api.google_sign_in import (
@@ -120,7 +121,7 @@ PAGE_WORKER = Path(__file__).with_name("sw.js")
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 # The /v1 routes that answer without a password: they are how one gets one.
-SIGN_IN_PATHS = frozenset({"/v1/auth/config", "/v1/auth/google"})
+SIGN_IN_PATHS = frozenset({"/v1/auth/config", "/v1/auth/google", "/v1/auth/google/redirect"})
 
 
 def create_app(repository: Repository, image_store: ImageStore | None = None,
@@ -613,30 +614,58 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         Google button is shown only when this names a client id. Open."""
         return AuthConfig(google_client_id=google.client_id if google else None)
 
+    def sign_in_with(credential: str) -> SignedIn:
+        """A sign-in token for the address Google's ID token is for.
+        Invite-only: the owner's address (`GROCERY_OWNER_EMAIL`) or one the
+        owner added on the People card; any other verified address is a 403."""
+        if not writes_available:
+            raise HTTPException(status_code=503,
+                                detail="signing in needs the database (DATABASE_URL)")
+        try:
+            email = google.email(credential)
+        except NotSignedIn as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        except GoogleUnavailable as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        user = None if google.is_owner(email) else repository.user_for_email(email)
+        if user is None and not google.is_owner(email):
+            raise HTTPException(status_code=403,
+                                detail=f"{email} has not been invited: ask the owner "
+                                       "to add it on their People card")
+        made = repository.start_sign_in(user, email)
+        return SignedIn(token=made["token"], role="user" if user else "owner",
+                        name=user["name"] if user else None, expires_at=made["expires_at"])
+
     if google is not None:
         @app.post("/v1/auth/google", response_model=SignedIn)
         def sign_in_with_google(body: GoogleSignInRequest) -> SignedIn:
-            """Trade the ID token Google gave the page for a sign-in token,
-            sent as `Authorization: Bearer` from then on. Invite-only: the
-            owner's address (`GROCERY_OWNER_EMAIL`) or one the owner added on
-            the People card; any other verified address is a 403. Open."""
-            if not writes_available:
-                raise HTTPException(status_code=503,
-                                    detail="signing in needs the database (DATABASE_URL)")
+            """Trade an ID token from Google for a sign-in token, sent as
+            `Authorization: Bearer` from then on (for an app; the page uses
+            the redirect below). Open."""
+            return sign_in_with(body.credential)
+
+        @app.post("/v1/auth/google/redirect", include_in_schema=False)
+        async def sign_in_with_google_redirect(request: Request) -> RedirectResponse:
+            """Where Google sends the page's sign-in (its "redirect" mode): a
+            form with the ID token, and a `g_csrf_token` that must match the
+            cookie of that name Google's script set on this site, so another
+            site cannot sign this browser in as someone else. Answers with
+            the page, the sign-in token (or what went wrong) after the `#`,
+            which never reaches a server; the page keeps it and clears it.
+            Redirect, not Google's pop-up: on phones the pop-up often never
+            hands its answer back to the page (2026-10-13)."""
+            form = await request.form()
+            sent, kept = form.get("g_csrf_token"), request.cookies.get("g_csrf_token")
+            if not isinstance(sent, str) or not sent or not kept \
+                    or not hmac.compare_digest(sent, kept):
+                return RedirectResponse("/#google-error=" + quote(
+                    "Google sign-in could not be checked: try again"), status_code=303)
             try:
-                email = google.email(body.credential)
-            except NotSignedIn as exc:
-                raise HTTPException(status_code=401, detail=str(exc)) from exc
-            except GoogleUnavailable as exc:
-                raise HTTPException(status_code=503, detail=str(exc)) from exc
-            user = None if google.is_owner(email) else repository.user_for_email(email)
-            if user is None and not google.is_owner(email):
-                raise HTTPException(status_code=403,
-                                    detail=f"{email} has not been invited: ask the owner "
-                                           "to add it on their People card")
-            made = repository.start_sign_in(user, email)
-            return SignedIn(token=made["token"], role="user" if user else "owner",
-                            name=user["name"] if user else None, expires_at=made["expires_at"])
+                made = await run_in_threadpool(sign_in_with, str(form.get("credential", "")))
+            except HTTPException as exc:
+                return RedirectResponse("/#google-error=" + quote(str(exc.detail)),
+                                        status_code=303)
+            return RedirectResponse("/#google=" + quote(made.token), status_code=303)
 
     @app.post("/v1/auth/sign-out", status_code=204)
     def sign_out(request: Request) -> Response:

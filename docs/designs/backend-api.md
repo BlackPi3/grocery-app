@@ -258,7 +258,12 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
   2. APIs & Services → Credentials → Create credentials → OAuth client ID →
      Web application. Under Authorized JavaScript origins add the server's
      address, e.g. `https://grocery-<hash>.europe-west3.run.app` (the address
-     the phone opens; no path, no trailing slash). No redirect URI is needed.
+     the phone opens; no path, no trailing slash). Under Authorized redirect
+     URIs add the same address followed by `/v1/auth/google/redirect`: the
+     page uses Google's redirect mode, where Google sends the chosen account
+     there (the pop-up mode never handed its answer back on the owner's phone,
+     2026-10-13). List every address the server answers on; Cloud Run gives
+     two (`gcloud run services describe grocery --region europe-west3`).
      Copy the client id (`<numbers>-<letters>.apps.googleusercontent.com`).
   3. GitHub → the repo → Settings → Secrets and variables → Actions: a
      **variable** `GOOGLE_CLIENT_ID` with the client id, and a **secret**
