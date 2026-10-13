@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, spot checks labelled as random checks.
+**Last updated:** 2026-10-13, how sure the app is, counted by level.
 
 ## Now
 
@@ -23,6 +23,16 @@ session (laptop or cloud) can pick up from here. How we work is in
   Brands are the owner's only, on Home too. `insights.json` gained
   `coverage.products` (different products placed), so "18 of 24 products
   bought again" can be said. The squarified tiles are gone.
+- Done (owner, 2026-10-12): **how sure the app is**, counted. Every
+  counted product line, everyone's receipts, by level, from fields that
+  already exist (`grocery_app.sureness`): answered (a person said it, "none
+  of these" too) apart; 1 sure (`exact`, `produce`); 2 unclear print,
+  product found (`price`); 3 only the kind (`family` with a category); 4
+  needs an answer (`none`, or a family with no shared category). Unclear
+  print is told apart only where the line records it (price, family); in
+  level 4 the till's catch-all names and the reading's guessed kinds are
+  counted. Owner-only `GET /v1/sureness` (per month, with the random
+  checks' yes rate), shown on "How the app is doing" (You).
 - Done (owner, 2026-10-03, from `Minze 15g`): a spot check card says
   "Random check: the app placed this itself. Right?", so it no longer reads
   like a confused question. Questions keep "Did you buy this?".
@@ -99,7 +109,9 @@ session (laptop or cloud) can pick up from here. How we work is in
 - A "none of these" answer used as a search hint (see the working agreement).
 - Barcodes: connect every packaged product to a real barcode (shop barcode,
   Open Food Facts name search, a barcode photo from the user).
-- Sureness levels (4 levels; attention follows seriousness and freshness).
+- Attention follows seriousness and freshness (a level-4 line right after
+  the scan asks loudly; a random check waits). The levels it would use are
+  counted (`GET /v1/sureness`).
 - Lifestyle, personas, deals, dislikes, and zooming through time in insights.
 - Cleanup: old English-named products, doubles from early catalog work.
 
