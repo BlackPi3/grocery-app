@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, laptop: a family line is named, not counted.
+**Last updated:** 2026-10-13, laptop: Google sign-in is switched on.
 
 ## Now
 
@@ -99,8 +99,12 @@ session (laptop or cloud) can pick up from here. How we work is in
   paper is how the item was sold. A word like `lose` or `Stück`
   (`normalizer.SOLD_AS_WORDS`) is not a claim, so `Bananen` placed as
   Bananen, lose is not checked; such checks picked earlier are not shown.
-- Waiting on the owner: **Google sign-in** is built and off; the owner
-  switches it on later (steps under Next build, item 3).
+- Switched on (2026-10-13): **Google sign-in**. The deploy carries
+  `GOOGLE_CLIENT_ID` and `GROCERY_OWNER_EMAIL`; `/v1/auth/config` names the
+  client id on both server addresses (both are Authorized JavaScript origins).
+  The consent screen is still in Testing. A first real sign-in by the owner is
+  not confirmed yet. The OAuth client secret is not used (the browser gets an
+  ID token, which the server checks) and is stored nowhere.
 - Demo pictures: #112 is merged and deployed (a failed search stays due,
   searches wait 180 s, the demo looks up only guests' products). 7 of 24 demo
   products have a picture; filling the rest is a **laptop step** (some 20
@@ -124,8 +128,7 @@ session (laptop or cloud) can pick up from here. How we work is in
    receipt with the line marked (fix it there), then its photo
    (`GET /v1/products/{id}/purchases`, `GET /v1/receipts/{id}/photo`, the
    asker's receipts only; the demo shows only the made-up receipts' photos).
-3. ~~Google sign-in on the web.~~ Built, **off until the owner switches it
-   on**. Who may sign up was decided by the lead while the owner was away, as
+3. ~~Google sign-in on the web.~~ Built, and **switched on 2026-10-13**. Who may sign up was decided by the lead while the owner was away, as
    the safe default (reversible): **invite-only**. The owner's address is
    `GROCERY_OWNER_EMAIL`; anyone else needs their address added on the People
    card. Passwords keep working. Sign-ins last 90 days (migration 0020,
@@ -139,7 +142,7 @@ session (laptop or cloud) can pick up from here. How we work is in
    3. Run the deploy workflow.
    4. Add each person's Google address on the People card (and as a test
       user while the consent screen is in Testing).
-   Progress (2026-10-13): the consent screen exists, in Testing (only its
+   Done 2026-10-13: steps 1-3. The consent screen is in Testing (only its
    test users can sign in; the People card still gates the app).
    No route removes a user yet (their receipts would go with them); a
    removed user's sign-ins end with the row. Apple sign-in is deferred (it
@@ -185,7 +188,7 @@ https://claude.ai/artifact/WHW7obc3X2YrQYAnpwvSJs.
 
 **The owner's to-dos** (none blocks building): use the app for two weeks
 with every receipt from the phone; a second person with real receipts;
-Google sign-in setup (steps above; later); the demo pictures laptop run
+a first Google sign-in on the phone; the demo pictures laptop run
 (above); the billing alert; two receipt questions on the open-questions
 list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
@@ -195,7 +198,7 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   All screens are redesigned as of 2026-10-13 (Insights last); the two weeks
   run from there.
 - 2 weeks of real use with no database fix by hand.
-- Google sign-in on the web (built; the owner switches it on).
+- Google sign-in on the web (switched on 2026-10-13; a first real sign-in to confirm).
 - A second person using it with real receipts.
 
 ## Parked (later, not now)
