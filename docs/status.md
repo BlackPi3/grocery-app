@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, laptop: Google consent screen made; backlog items added.
+**Last updated:** 2026-10-13, laptop: database backups switched on.
 
 ## Now
 
@@ -195,6 +195,14 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   account and receipts (no route does that yet).
 
 ## Gotchas
+
+- Database backups (on since 2026-10-13, owner: top priority): Cloud SQL
+  takes one a day at 01:00 UTC and keeps the last 7, stored in the EU
+  multi-region; a first one was taken by hand the same day. Automated backups
+  are deleted with the instance. Restore:
+  `gcloud sql backups list --instance=grocery`, then
+  `gcloud sql backups restore <id> --restore-instance=grocery` (overwrites
+  the database).
 
 - `grocery-app serve` on a laptop starts no picture thread and serves no
   `/pictures`. Only the deployed app (`default_app`) does.
