@@ -179,6 +179,11 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Open decisions (the owner's), as of 2026-10-13
 
+- **Barcodes: keep exact-only (A)?** Asked 2026-10-13 after the first run
+  (see Now), unanswered. Recommendation: yes; the gap is the unknown size,
+  not the rule, so the next barcode step would be a size for products read
+  from a receipt (e.g. from the price paid). Then run `db barcodes` on live
+  and `--write` what it finds.
 0. **Ready for iOS criteria** (owner, 2026-10-13: "no hand database fixes"
    is not needed, and "two weeks unchanged" was the lead's stand-in).
    Proposed: the owner says the screens are settled, Google sign-in is on,
