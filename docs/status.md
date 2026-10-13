@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, laptop: Google sign-in is switched on.
+**Last updated:** 2026-10-13, laptop: Google sign-in works on the owner's phone.
 
 ## Now
 
@@ -108,8 +108,12 @@ session (laptop or cloud) can pick up from here. How we work is in
   pop-up never handed its answer back; no request reached the server). The
   page now uses Google's **redirect mode** (`POST /v1/auth/google/redirect`,
   the sign-in comes back after the `#`). Needs both addresses +
-  `/v1/auth/google/redirect` as Authorized redirect URIs (owner); a first
-  real sign-in is still to confirm.
+  `/v1/auth/google/redirect` as Authorized redirect URIs (done by the owner).
+  Second try worked (16:47): the owner signed in with Google, though through
+  the pop-up (the phone still ran the page from before the redirect change).
+  The redirect itself is tested but not yet used on the phone. The 16 s wait
+  was the server waking up; the bottom bar is now hidden under the sign-in
+  card (#127), where its tabs looked live and did nothing.
 - Demo pictures: #112 is merged and deployed (a failed search stays due,
   searches wait 180 s, the demo looks up only guests' products). 7 of 24 demo
   products have a picture; filling the rest is a **laptop step** (some 20
@@ -193,7 +197,7 @@ https://claude.ai/artifact/WHW7obc3X2YrQYAnpwvSJs.
 
 **The owner's to-dos** (none blocks building): use the app for two weeks
 with every receipt from the phone; a second person with real receipts;
-a first Google sign-in on the phone; the demo pictures laptop run
+the demo pictures laptop run
 (above); the billing alert; two receipt questions on the open-questions
 list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
@@ -203,7 +207,7 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   All screens are redesigned as of 2026-10-13 (Insights last); the two weeks
   run from there.
 - 2 weeks of real use with no database fix by hand.
-- Google sign-in on the web (switched on 2026-10-13; a first real sign-in to confirm).
+- ~~Google sign-in on the web.~~ Works (2026-10-13, the owner's phone).
 - A second person using it with real receipts.
 
 ## Parked (later, not now)
