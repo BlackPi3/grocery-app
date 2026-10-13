@@ -9,7 +9,14 @@ checks go first.
 The lookup (`grocery_app.pictures`) reads web pages, so it runs on a thread
 of its own and never inside a request or a receipt job: a product appears
 straight away and its picture within a pass or two. A product with no
-picture anywhere is looked up again only when its picture is due anyway.
+picture anywhere is looked up again only when its picture is due anyway; one
+whose lookup could not be made (`pictures.LookupFailed`) is looked up again
+on the next pass.
+
+The demo looks only at products new since its start (`refresh=False`): it
+starts from the seed every time, so a refreshed picture would be gone by
+the next start and paid for again after it. The seed's pictures are found
+when the seed is built (`fill_all_pictures`).
 """
 
 from __future__ import annotations
@@ -84,11 +91,13 @@ def media_type(data: bytes) -> str:
     return Image.MIME.get(kind, "application/octet-stream")
 
 
-def products_wanting_pictures(session: Session, now: datetime | None = None) -> list[str]:
+def products_wanting_pictures(session: Session, now: datetime | None = None,
+                              refresh: bool = True) -> list[str]:
     """Products whose picture is due: never looked up, looked up longer than
-    `REFRESH_AFTER` ago, or found before the app kept copies. Those on open
-    spot checks first, then those a shop or a barcode gives a picture for in
-    a second; a web search takes half a minute, so those come last."""
+    `REFRESH_AFTER` ago (unless not `refresh`), or found before the app kept
+    copies. Those on open spot checks first, then those a shop or a barcode
+    gives a picture for in a second; a web search takes half a minute, so
+    those come last."""
     now = now or datetime.now(UTC)
     answered = select(LineResolution.id).where(
         and_(LineResolution.receipt_id == Check.receipt_id,
@@ -99,7 +108,7 @@ def products_wanting_pictures(session: Session, now: datetime | None = None) -> 
     listed = set(session.scalars(select(StoreListing.product_id)))
     due = session.execute(select(Product.id, Product.eans).where(or_(
         Product.picture_checked_at.is_(None),
-        Product.picture_checked_at < now - REFRESH_AFTER,
+        *([Product.picture_checked_at < now - REFRESH_AFTER] if refresh else []),
         and_(Product.picture.is_not(None), Product.picture["file"].astext.is_(None)),
     )).order_by(Product.id)).all()
     return [product_id for product_id, eans in sorted(due, key=lambda row: (
@@ -107,22 +116,35 @@ def products_wanting_pictures(session: Session, now: datetime | None = None) -> 
 
 
 def fill_pictures(session_factory: sessionmaker[Session], service: Pictures,
-                  limit: int = 20, now: datetime | None = None) -> int:
-    """Look up pictures for up to `limit` due products; returns how many.
+                  limit: int = 20, now: datetime | None = None, refresh: bool = True,
+                  failed: set[str] | None = None) -> int:
+    """Look up pictures for up to `limit` due products; returns how many were
+    settled (marked as looked up).
 
     A photo found is fetched and kept. When a look finds nothing, or the
     photo cannot be fetched, a picture the product already has stays: an old
-    pack beats no pack.
+    pack beats no pack. A lookup that could not be made settles nothing: the
+    product stays due. With `failed` (the server's thread), such a product is
+    added to it and passed over while it is in it, so a lookup that keeps
+    failing is not paid for again every pass, nor keeps the others waiting.
     """
+    settled = 0
     with session_factory() as session:
-        product_ids = products_wanting_pictures(session, now)[:limit]
+        product_ids = [product_id for product_id in products_wanting_pictures(
+            session, now, refresh) if failed is None or product_id not in failed][:limit]
         for product_id in product_ids:
             product = session.get(Product, product_id)
             listings = [{"store": listing.store, "article_number": listing.article_number,
                          "url": listing.url}
                         for listing in session.scalars(select(StoreListing).where(
                             StoreListing.product_id == product_id).order_by(StoreListing.id))]
-            found = service.find(product_to_dict(product), listings)
+            try:
+                found = service.find(product_to_dict(product), listings)
+            except pictures.LookupFailed as error:
+                log.warning("no picture lookup for %s this time: %s", product_id, error)
+                if failed is not None:
+                    failed.add(product_id)
+                continue
             if found:
                 try:
                     data = service.download(found["url"])
@@ -137,7 +159,33 @@ def fill_pictures(session_factory: sessionmaker[Session], service: Pictures,
                 product.picture = None  # found before copies were kept, and not again
             product.picture_checked_at = now or datetime.now(UTC)
             session.commit()
-        return len(product_ids)
+            settled += 1
+        return settled
+
+
+def fill_all_pictures(session_factory: sessionmaker[Session], service: Pictures,
+                      most_passes: int = 5) -> list[str]:
+    """Pass after pass until every due product is settled, or a pass settles
+    none, or `most_passes`; returns the products whose lookup still could not
+    be made. For a batch (the demo seed's build), which must not end with a
+    product whose picture nobody knows."""
+    for _ in range(most_passes):
+        if not fill_pictures(session_factory, service, limit=10_000):
+            break
+    with session_factory() as session:
+        return list(session.scalars(select(Product.id).where(
+            Product.picture_checked_at.is_(None)).order_by(Product.id)))
+
+
+def forget_missing_pictures(session: Session) -> int:
+    """Mark every product without a picture as never looked up, so the next
+    pass looks again (after a lookup was improved). The caller commits."""
+    missing = list(session.scalars(select(Product).where(
+        Product.picture_checked_at.is_not(None),
+        or_(Product.picture.is_(None), Product.picture["file"].astext.is_(None)))))
+    for product in missing:
+        product.picture_checked_at = None
+    return len(missing)
 
 
 def open_questions(session: Session) -> list[Question]:
@@ -146,7 +194,7 @@ def open_questions(session: Session) -> list[Question]:
 
 
 def fill_question_pictures(session_factory: sessionmaker[Session], service: Pictures,
-                           limit: int = 20) -> int:
+                           limit: int = 20, failed: set[str] | None = None) -> int:
     """Look up pictures for up to `limit` shop listings on open questions'
     cards; returns how many were looked up.
 
@@ -173,16 +221,24 @@ def fill_question_pictures(session_factory: sessionmaker[Session], service: Pict
             changed = False
             for card in cards:
                 candidate = offered[card["candidate"] - 1] if "candidate" in card else None
+                key = f"{question.id}:{card['candidate']}" if candidate is not None else ""
                 if candidate is None or candidate.get("product_id") \
-                        or candidate.get("picture_checked") or looked >= limit:
+                        or candidate.get("picture_checked") or looked >= limit \
+                        or (failed is not None and key in failed):
                     continue
                 # Named as the receipt names the shop: the photo says "GLOBUS".
                 listings = ([{"store": receipt.store or candidate.get("source") or "",
                               "article_number": candidate["article"], "url": candidate.get("url")}]
                             if candidate.get("article") else [])
-                found = service.find({"name": candidate.get("name"),
-                                      "brand": candidate.get("brand")}, listings)
                 looked += 1
+                try:
+                    found = service.find({"name": candidate.get("name"),
+                                          "brand": candidate.get("brand")}, listings)
+                except pictures.LookupFailed as error:  # looked again next pass
+                    log.warning("no picture lookup for a card this time: %s", error)
+                    if failed is not None:
+                        failed.add(key)
+                    continue
                 if found:
                     try:
                         data = service.download(found["url"])
@@ -202,27 +258,32 @@ def fill_question_pictures(session_factory: sessionmaker[Session], service: Pict
 
 
 def keep_filling(session_factory: sessionmaker[Session], service: Pictures,
-                 every: float = PASS_EVERY_SECONDS) -> None:
-    """The server's picture thread: a pass, a pause, for as long as it runs."""
+                 every: float = PASS_EVERY_SECONDS, refresh: bool = True) -> None:
+    """The server's picture thread: a pass, a pause, for as long as it runs.
+    Without `refresh` (the demo), a picture once looked up is never looked
+    up again. A lookup that could not be made is tried again on the server's
+    next start, not every pass: each try may be a paid search."""
+    failed: set[str] = set()
     while True:
         try:
             with spend.tagged("pictures"):
-                fill_pictures(session_factory, service)
-                fill_question_pictures(session_factory, service)
+                fill_pictures(session_factory, service, refresh=refresh, failed=failed)
+                fill_question_pictures(session_factory, service, failed=failed)
         except Exception:  # noqa: BLE001 - a picture is never worth the server
             log.exception("looking up pictures failed")
         time.sleep(every)
 
 
 def limited(search: Callable[[str], list[str]], most: int) -> Callable[[str], list[str]]:
-    """`search`, until it has run `most` times; then nothing is searched.
+    """`search`, until it has run `most` times; then nothing is searched, and
+    a search asked for fails (`LookupFailed`) rather than finding nothing.
     Each search is paid for, so a fault cannot spend without limit."""
     count = 0
 
     def run(text: str) -> list[str]:
         nonlocal count
         if count >= most:
-            return []
+            raise pictures.LookupFailed(f"the run's {most} picture searches are spent")
         count += 1
         return search(text)
 

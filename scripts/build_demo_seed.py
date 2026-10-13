@@ -13,6 +13,13 @@ Writes src/grocery_app/demo_seed.sql (the demo server loads it on every start,
 `grocery_app.demo`) and, under data/demo/, the receipt pictures (uploads/)
 and product pictures (pictures/) that go to the bucket. Costs a few cents of
 model calls; they are recorded in the seed, so the demo shows what it cost.
+
+Every product's picture is settled before the seed is written: the demo
+never looks up a seeded product's picture itself (`api.pictures`), since a
+picture found there is gone at its next start. When a picture search could
+not be made, nothing is written; run again with `--resume` to try those once
+more. `--retry-pictures` (with `--resume`) looks again for every product that
+has no picture, after the lookup was improved; each search costs some 20 cents.
 """
 
 from __future__ import annotations
@@ -20,6 +27,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -43,7 +51,12 @@ from grocery_app.api.app import (  # noqa: E402
 )
 from grocery_app.api.images import DiskImageStore, sha256_of  # noqa: E402
 from grocery_app.api.matching import line_identifier, line_matcher  # noqa: E402
-from grocery_app.api.pictures import Pictures, default_pictures, fill_pictures  # noqa: E402
+from grocery_app.api.pictures import (  # noqa: E402
+    Pictures,
+    default_pictures,
+    fill_all_pictures,
+    forget_missing_pictures,
+)
 from grocery_app.api.repository import PostgresRepository  # noqa: E402
 from grocery_app.db.migrate import upgrade  # noqa: E402
 from grocery_app.db.models import Receipt  # noqa: E402
@@ -112,7 +125,11 @@ def main() -> None:
     parser.add_argument("--files", default=str(ROOT / "data" / "demo"))
     parser.add_argument("--resume", action="store_true",
                         help="keep the database and skip the receipts already in it")
+    parser.add_argument("--retry-pictures", action="store_true",
+                        help="look again for every product that has no picture")
     args = parser.parse_args()
+    logging.basicConfig(format="%(message)s")
+    logging.getLogger("grocery_app.pictures").setLevel(logging.INFO)  # why none was found
 
     if not args.resume:
         fresh_database(args.url)
@@ -150,11 +167,18 @@ def main() -> None:
         session.execute(update(Receipt).values(transcribed_by="made-up"))
         session.commit()
 
+    if args.retry_pictures:
+        with factory() as session:
+            print("pictures: looking again for", forget_missing_pictures(session), flush=True)
+            session.commit()
     service = default_pictures(model=GEMINI_MODEL)
     service = Pictures(find=service.find, download=service.download,
                        store=DiskImageStore(files / "pictures"))
-    while fill_pictures(factory, service):
-        print("pictures: a pass", flush=True)
+    with spend.tagged("pictures"):
+        unknown = fill_all_pictures(factory, service)
+    if unknown:
+        sys.exit(f"pictures: the lookup could not be made for {', '.join(unknown)}; "
+                 "no seed written. Run again with --resume.")
 
     dump = subprocess.run(["pg_dump", "--inserts", "--no-owner", "--no-privileges",
                            "--no-comments", args.url.replace("+psycopg", "")],

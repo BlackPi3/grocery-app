@@ -14,6 +14,7 @@ them when the iOS client needs to bind to them.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -334,6 +335,41 @@ class ReceiptSummary(BaseModel):
     unplaced: int = Field(description="Product lines nothing placed, not counting those the "
                                       "shopper left out")
     not_counted: int = Field(description="Product lines the shopper left out of their numbers")
+    photo: bool = Field(default=False,
+                        description="The photo or PDF it was read from can be fetched "
+                                    "(`GET /v1/receipts/{receipt_id}/photo`)")
+
+
+class ProductPurchase(BaseModel):
+    """One receipt line placed as the product: where to open it, and what it cost."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    receipt_id: int
+    position: int = Field(description="The line on that receipt, as `GET /v1/receipts/{id}` "
+                                      "numbers it")
+    date: str | None
+    store: str | None
+    raw_name: str = Field(description="What the paper printed")
+    qty: float
+    net_paid: float
+    unit_price: UnitPrice | None = None
+    sold_as: SoldAs | None = None
+    said_by: Literal["you", "app"] | None
+    not_counted: bool = False
+
+
+class ProductPurchases(BaseModel):
+    """Every purchase of one product, oldest first: what an insight about it
+    was computed from, line by line (the drill-down, 2026-10-12)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    product_id: str
+    product: str | None
+    brand: str | None
+    category_path: list[str] | None
+    purchases: list[ProductPurchase]
 
 
 class ProductMatch(BaseModel):
@@ -446,6 +482,8 @@ class UserSummary(BaseModel):
 
     id: int
     name: str
+    email: str | None = Field(None, description="The Google address they sign in with; "
+                                                "none when they have a password only")
     receipts: int
 
 
@@ -453,6 +491,17 @@ class NewUserRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=60)
+    email: str | None = Field(None, max_length=254,
+                              description="Their Google address, to sign in with Google. "
+                                          "Nobody can sign in with Google uninvited.")
+
+
+class UserPatch(BaseModel):
+    """Give a user a Google address, change it, or take it away (null)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str | None = Field(max_length=254)
 
 
 class NewUser(BaseModel):
@@ -462,7 +511,37 @@ class NewUser(BaseModel):
 
     id: int
     name: str
+    email: str | None = None
     password: str
+
+
+class AuthConfig(BaseModel):
+    """How one may sign in here; open, so the page can ask before it has a password."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    google_client_id: str | None = Field(
+        description="The Google OAuth client id the page's Google button uses; none when "
+                    "Google sign-in is off (not configured, or the demo)")
+
+
+class GoogleSignInRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    credential: str = Field(min_length=1, max_length=8192,
+                            description="The ID token Google Identity Services handed the page")
+
+
+class SignedIn(BaseModel):
+    """A sign-in: `token` goes in `Authorization: Bearer`, like a password.
+    Shown this once; only its hash is kept."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str
+    role: Literal["owner", "user"]
+    name: str | None = Field(description="A user's name; none for the owner")
+    expires_at: datetime
 
 
 class MonthCost(BaseModel):

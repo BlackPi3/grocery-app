@@ -55,8 +55,32 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, unique=True)
     token_sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    # The Google account they sign in with, lowercased; none for a password
+    # only. Invite-only (2026-10-12): an address nobody added gets no account.
+    email: Mapped[str | None] = mapped_column(String, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  server_default=func.now())
+
+
+class SignIn(Base):
+    """One Google sign-in: the token the page keeps and sends as its password.
+
+    Only the token's sha256 is kept, as with passwords. It ends at
+    `expires_at`, when its user is removed (the row goes with them), and when
+    the address it was made for is no longer theirs: a user's `email`
+    changed, or the owner's `GROCERY_OWNER_EMAIL`. `user_id` empty: the owner.
+    """
+
+    __tablename__ = "sign_ins"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    email: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class Receipt(Base):

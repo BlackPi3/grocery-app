@@ -515,6 +515,39 @@ def test_a_line_where_the_app_says_only_what_the_paper_prints_is_not_checked(ser
     assert pick_checks(session, receipt) == 0
 
 
+def test_how_the_line_was_sold_is_not_a_claim_worth_a_check(server):
+    """2026-10-12: the receipt says `Bananen`, the app says Bananen, lose. How
+    it was sold is the purchase, not the product, so there is nothing to ask;
+    a line where the app claims more is still checked."""
+    from grocery_app.api.checks import pick_checks
+    from grocery_app.db.models import Check
+
+    _, session = server
+    receipt = add_receipt(session, "IMG_9.jpeg", ["Drachenfrucht", "Himbeeren 250g"])
+    match_receipt(session, receipt, TableMatcher({}), reads_as(
+        **{"Drachenfrucht": {"name": "Drachenfrucht", "details": ["lose"]},
+           "Himbeeren 250g": {"name": "Himbeeren", "brand": "Muster"}}))
+    session.commit()
+    assert pick_checks(session, receipt) == 1
+    assert [c.raw_name for c in session.scalars(select(Check))] == ["Himbeeren 250g"]
+
+
+def test_a_check_on_how_the_line_was_sold_picked_earlier_is_not_shown(server):
+    from grocery_app.db.models import Check
+
+    client, session = server
+    receipt = add_receipt(session, "IMG_9.jpeg", ["Drachenfrucht"])
+    match_receipt(session, receipt, TableMatcher({}), reads_as(
+        Drachenfrucht={"name": "Drachenfrucht", "details": ["lose"]}))
+    session.commit()
+    product = client.get(f"/v1/receipts/{receipt}").json()["lines"][0]["product_id"]
+    assert session.get(Product, product).details == ["lose"]
+    session.add(Check(receipt_id=receipt, position=0, raw_name="Drachenfrucht",
+                      app_product_id=product))
+    session.commit()
+    assert client.get("/v1/checks").json()["checks"] == []
+
+
 def test_a_pointless_check_picked_earlier_is_not_shown(server):
     from grocery_app.db.models import Check
 
@@ -733,6 +766,11 @@ def test_says_more_than_print():
                                                        "unit": "l"}}), "another size"
     assert not more("Sandkuchen", {"name": "Sandkuchen", "category": "kuchen"}), \
         "the category is not a claim"
+    assert not more("Bananen", {"name": "Bananen", "details": ["lose"]}), \
+        "how it was sold is not a claim"
+    assert not more("Brezel", {"name": "Brezel", "details": ["Stück"]}), "nor by the piece"
+    assert more("Bananen", {"name": "Bananen", "details": ["lose", "Cavendish"]}), \
+        "a claim beside it still counts"
 
 
 def test_spot_checks_are_two_lines_the_app_placed_itself_chosen_once(server):
@@ -1041,3 +1079,123 @@ def test_a_reread_does_not_keep_a_detail_twice(server):
         **{"MU Zig Orig": {"name": "Zigaretten", "brand": "Muster", "details": ["Blau"]}}))
     assert said["after"] == {"name": "Zigaretten", "details": ["Blau", "original"]}, \
         "a detail only the old reading had stays, after the new ones"
+
+
+def failing_for(names, asked):
+    """A picture finder whose search cannot be made for `names`."""
+    from grocery_app.pictures import LookupFailed
+
+    def found(product):
+        if product["name"] in names:
+            raise LookupFailed("Gemini did not answer: timed out")
+        return {"url": "https://laden.example/media/red", "from": "Musterladen", "page": None}
+    return found
+
+
+def test_a_picture_lookup_that_could_not_be_made_is_made_again(server, tmp_path):
+    """2026-10-12: three demo products were marked as looked up, with no
+    picture, after their searches timed out."""
+    from grocery_app.api.pictures import (
+        fill_all_pictures,
+        fill_pictures,
+        products_wanting_pictures,
+    )
+
+    _, session = server
+    session.add(Product(id="p-0901", name="Zwieback", brand="Muster"))
+    session.commit()
+    factory = make_session_factory(session.get_bind())
+    every = len(products_wanting_pictures(session))
+
+    asked = []
+    assert fill_pictures(factory, picture_service(tmp_path, failing_for({"Zwieback"}, asked),
+                                                  asked), limit=100) == every - 1
+    assert products_wanting_pictures(session) == ["p-0901"], "still due"
+
+    asked.clear()
+    stuck = picture_service(tmp_path, failing_for({"Zwieback"}, asked), asked)
+    assert fill_all_pictures(factory, stuck) == ["p-0901"], "said, not hidden"
+    assert asked == ["Zwieback"], "a pass that settles nothing is the last"
+
+    works = picture_service(tmp_path, failing_for(set(), []), [])
+    assert fill_all_pictures(factory, works) == []
+    product = session.get(Product, "p-0901")
+    session.refresh(product)
+    assert product.picture["from"] == "Musterladen"
+
+
+def test_a_failed_picture_lookup_is_not_tried_again_every_pass(server, tmp_path):
+    """The server's thread passes every 30 seconds, and each try may be a
+    paid search: a lookup that failed waits for the next start, and keeps no
+    other product waiting meanwhile."""
+    from grocery_app.api.pictures import fill_pictures, products_wanting_pictures
+
+    _, session = server
+    session.add_all([Product(id="p-0901", name="Zwieback", brand="Muster"),
+                     Product(id="p-0902", name="Knäckebrot", brand="Muster")])
+    session.commit()
+    factory = make_session_factory(session.get_bind())
+    failed: set[str] = set()
+    asked = []
+    service = picture_service(tmp_path, failing_for({"Zwieback"}, asked), asked)
+
+    fill_pictures(factory, service, limit=100, failed=failed)
+    assert failed == {"p-0901"}
+    tries = asked.count("Zwieback")
+    assert tries == 1
+
+    fill_pictures(factory, service, limit=100, failed=failed)
+    assert asked.count("Zwieback") == tries, "not tried again in the same run"
+    assert "p-0902" not in products_wanting_pictures(session)
+    assert products_wanting_pictures(session) == ["p-0901"], "still due at the next start"
+
+
+def test_the_demo_never_looks_up_a_picture_its_seed_already_settled(server, tmp_path,
+                                                                     monkeypatch):
+    """The demo starts from its seed every time: a picture looked up again
+    would be lost at the next start and paid for again after it."""
+    from datetime import UTC, datetime, timedelta
+
+    from grocery_app.api import app as app_module
+    from grocery_app.api.pictures import fill_pictures, products_wanting_pictures
+
+    _, session = server
+    factory = make_session_factory(session.get_bind())
+    fill_pictures(factory, picture_service(tmp_path, lambda p: None, []), limit=100)
+    session.add(Product(id="p-0901", name="Zwieback", brand="Muster"))  # a guest's
+    session.commit()
+
+    later = datetime.now(UTC) + timedelta(days=200)
+    assert "p-0001" in products_wanting_pictures(session, later)
+    assert products_wanting_pictures(session, later, refresh=False) == ["p-0901"]
+
+    started = []
+    monkeypatch.setattr(app_module, "keep_filling",
+                        lambda *args, **kwargs: started.append(kwargs.get("refresh", True)))
+    service = picture_service(tmp_path, lambda p: None, [])
+    for demo in (True, False):
+        with TestClient(create_app(PostgresRepository(factory), pictures=service, demo=demo)):
+            pass
+    assert started == [False, True]
+
+
+def test_looking_again_for_the_missing_pictures_keeps_the_found_ones(server, tmp_path):
+    from grocery_app.api.pictures import (
+        fill_pictures,
+        forget_missing_pictures,
+        products_wanting_pictures,
+    )
+
+    _, session = server
+    factory = make_session_factory(session.get_bind())
+    fill_pictures(factory, picture_service(tmp_path, lambda p: None, []), limit=100)
+    session.add(Product(id="p-0901", name="Zwieback", brand="Muster"))
+    session.commit()
+    fill_pictures(factory, picture_service(tmp_path, failing_for(set(), []), []), limit=100)
+    assert products_wanting_pictures(session) == []
+
+    without = session.query(Product).count() - 1
+    assert forget_missing_pictures(session) == without
+    session.commit()
+    again = products_wanting_pictures(session)
+    assert len(again) == without and "p-0901" not in again, "a found picture is kept"

@@ -23,6 +23,7 @@ guest never touches a real history, catalog or memory.
 from __future__ import annotations
 
 import os
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -88,6 +89,18 @@ def reset(url: str, seed: Path = SEED) -> None:
                 seed_statements(seed.read_text(encoding="utf-8")))
     finally:  # the dump empties the search path: no connection of it is reused
         engine.dispose()
+
+
+def seeded_photos(seed: Path | None = None) -> frozenset[str]:
+    """The photos the seed's receipts were read from, by hash: the only
+    receipt photos the demo shows (`GET /v1/receipts/{id}/photo`). In the
+    demo every guest is the owner, so a photo a guest sent would be anyone's
+    to see; the made-up receipts' drawings are no one's."""
+    found: set[str] = set()
+    for line in (seed or SEED).read_text(encoding="utf-8").splitlines():
+        if line.startswith("INSERT INTO public.receipts VALUES"):
+            found.update(re.findall(r"'([0-9a-f]{64})'", line))
+    return frozenset(found)
 
 
 def prune_uploads(url: str, root: Path) -> int:

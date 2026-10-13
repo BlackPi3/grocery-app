@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, redesign step 3.
+**Last updated:** 2026-10-12, why the demo has few pictures, and the fix.
 
 ## Now
 
@@ -19,6 +19,30 @@ session (laptop or cloud) can pick up from here. How we work is in
   check leaves the line unplaced, counts a mistake, and forgets the *machine's*
   memory entry for that printed name (a person's entry is never forgotten).
   #109: a card without a photo shows no empty box.
+- Decided and done (owner: yes): no spot check whose only claim beyond the
+  paper is how the item was sold. A word like `lose` or `Stück`
+  (`normalizer.SOLD_AS_WORDS`) is not a claim, so `Bananen` placed as
+  Bananen, lose is not checked; such checks picked earlier are not shown.
+
+- Demo pictures (open item 2026-10-12: 7 of 24 products have one; branch
+  `claude/youthful-fermi-kt22jk`, not merged yet). Found:
+  the demo has no shop listings or barcodes (the matcher accepts a pick only
+  when the price paid matches the shelf; none of the made-up prices did), so
+  every picture must come from a web search. 6 products have no brand
+  (Bananen, Salatgurke, Rispentomaten, Hähnchenbrustfilet, Gouda, Bio
+  Haferflocken) and get none on purpose. Of the 18 searched, 7 found one, 8
+  found no page showing the product, and 3 (Weihenstephan, Kerrygold,
+  Kokett) timed out twice and were wrongly marked as looked up. The demo's
+  picture thread never fills them: every seeded product is marked looked up,
+  and from April 2027 it would have searched them again at every start and
+  lost the result. Fixed: a failed search stays due, searches wait 180 s,
+  the demo looks up only guests' products, and the build writes no seed with
+  an unknown picture. **Laptop step** (some 20 cents a search, 11 searches):
+  `GEMINI_VERTEX_PROJECT=<project> .venv/bin/python scripts/build_demo_seed.py --resume --retry-pictures`
+  (without `--resume` if the local `grocery_demo` database is gone), then
+  copy `data/demo/pictures/` to the bucket's `demo/pictures/`, commit
+  `demo_seed.sql`. Its log says why each search found nothing; if the 8 stay
+  empty, the matching rule (`pictures.same_product`) is the next suspect.
 
 ## Next build (agreed)
 
@@ -28,22 +52,35 @@ session (laptop or cloud) can pick up from here. How we work is in
    grey. The brand, size, details, who said it and the printed line are the
    owner's only; the receipt header says "6 items" (owner: "6 items: 2 you,
    4 app").
-2. **Drill-down.** Tap an insight to see a calendar of purchase dots
-   (GitHub/Anki style), then the receipt line (fix it there), then the receipt
-   photo. There is no photo endpoint for users yet.
-3. **Google sign-in** on the web. Still open: who may sign up. Apple sign-in
-   is deferred (it needs the paid developer account).
-
-## Open decision (the owner's)
-
-- Should the app stop spot checks whose only claim beyond the paper is how
-  the item was sold (`lose`, loose)? Recommendation: yes.
+2. ~~Drill-down.~~ Done: the price that moved, your regular and a product
+   tile open the product's purchases (calendar of dots and a list), then the
+   receipt with the line marked (fix it there), then its photo
+   (`GET /v1/products/{id}/purchases`, `GET /v1/receipts/{id}/photo`, the
+   asker's receipts only; the demo shows only the made-up receipts' photos).
+3. ~~Google sign-in on the web.~~ Built, **off until the owner switches it
+   on**. Who may sign up was decided by the lead while the owner was away, as
+   the safe default (reversible): **invite-only**. The owner's address is
+   `GROCERY_OWNER_EMAIL`; anyone else needs their address added on the People
+   card. Passwords keep working. Sign-ins last 90 days (migration 0020,
+   `api/google_sign_in.py`). The owner's steps (details in
+   `docs/designs/backend-api.md`, "Switching on Sign in with Google"):
+   1. Google Cloud Console: an OAuth consent screen, then an OAuth client
+      (Web application) with the server's address as Authorized JavaScript
+      origin.
+   2. GitHub repo settings: variable `GOOGLE_CLIENT_ID`, secret
+      `GROCERY_OWNER_EMAIL`.
+   3. Run the deploy workflow.
+   4. Add each person's Google address on the People card (and as a test
+      user while the consent screen is in Testing).
+   No route removes a user yet (their receipts would go with them); a
+   removed user's sign-ins end with the row. Apple sign-in is deferred (it
+   needs the paid developer account).
 
 ## Milestone: Ready for iOS (target 2026-11-02)
 
 - The screens are settled: unchanged for 2 weeks after the designer's input.
 - 2 weeks of real use with no database fix by hand.
-- Google sign-in on the web.
+- Google sign-in on the web (built; the owner switches it on).
 - A second person using it with real receipts.
 
 ## Parked (later, not now)
