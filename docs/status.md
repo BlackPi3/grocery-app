@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, laptop: a shopper's typed words are a search hint.
+**Last updated:** 2026-10-13, laptop: end of session; the typed-hint real check.
 
 ## Now
 
@@ -30,8 +30,11 @@ session (laptop or cloud) can pick up from here. How we work is in
   when nothing found fits do the words make the product (the Pepsi case:
   "Pepsi. Not cola" had become a product "Pepsi · Pepsi"). A failed search
   reads the words alone, never leaves the answer waiting. One extra search
-  per typed answer, which the minimum-input rule keeps rare. Checked with
-  fake models only; no real reading of a typed answer yet.
+  per typed answer, which the minimum-input rule keeps rare. One real check
+  (Gemini, 2026-10-13, `PEPSI 1,25l` with "Pepsi. Not cola"): it searched
+  the words, then read **Limonade, Pepsi**: better than "Pepsi · Pepsi", but
+  it followed "not cola" over the pages (Cola, Pepsi was right). Open, the
+  owner's call: when the pages and the typed words disagree, which wins.
 - Done (owner, 2026-10-13): **processing is quiet; new receipts and
   questions are marks**. A receipt on its way in is a slim note at the top
   ("Your receipt is being processed") that fades after a few seconds;
@@ -140,6 +143,13 @@ session (laptop or cloud) can pick up from here. How we work is in
    with their coverage; every product opens the drill-down (see Now).
 
 ## Open decisions (the owner's), as of 2026-10-13
+
+0. **Ready for iOS criteria** (owner, 2026-10-13: "no hand database fixes"
+   is not needed, and "two weeks unchanged" was the lead's stand-in).
+   Proposed: the owner says the screens are settled, Google sign-in is on,
+   a second person uses it. Unanswered. Also: GDPR items (privacy page,
+   deleting users, what the owner sees of others) wait until the legal side
+   is clear (owner).
 
 Nothing is being built. The next session starts by putting these to the owner:
 
