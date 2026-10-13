@@ -102,9 +102,14 @@ session (laptop or cloud) can pick up from here. How we work is in
 - Switched on (2026-10-13): **Google sign-in**. The deploy carries
   `GOOGLE_CLIENT_ID` and `GROCERY_OWNER_EMAIL`; `/v1/auth/config` names the
   client id on both server addresses (both are Authorized JavaScript origins).
-  The consent screen is still in Testing. A first real sign-in by the owner is
-  not confirmed yet. The OAuth client secret is not used (the browser gets an
-  ID token, which the server checks) and is stored nowhere.
+  The consent screen is still in Testing. The OAuth client secret is not used
+  (the server checks the ID token Google signs) and is stored nowhere.
+  First try on the owner's phone: picking the account did nothing (the
+  pop-up never handed its answer back; no request reached the server). The
+  page now uses Google's **redirect mode** (`POST /v1/auth/google/redirect`,
+  the sign-in comes back after the `#`). Needs both addresses +
+  `/v1/auth/google/redirect` as Authorized redirect URIs (owner); a first
+  real sign-in is still to confirm.
 - Demo pictures: #112 is merged and deployed (a failed search stays due,
   searches wait 180 s, the demo looks up only guests' products). 7 of 24 demo
   products have a picture; filling the rest is a **laptop step** (some 20

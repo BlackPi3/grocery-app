@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import io
 import time
+from urllib.parse import unquote
 
 import pytest
 from fastapi.testclient import TestClient
@@ -172,6 +173,43 @@ def test_nobody_gets_in_uninvited_or_unverified(server):
         assert client.post("/v1/auth/google",
                            json={"credential": credential}).status_code == 401, credential
     assert session.execute(text("SELECT count(*) FROM sign_ins")).scalar() == 0
+
+
+def from_google(client: TestClient, credential: str, form_token: str = "csrf-1",
+                cookie: str | None = "csrf-1") -> dict[str, str]:
+    """What Google's redirect mode does: a form POST with the ID token and a
+    CSRF token that must match the cookie Google's script set. Returns what
+    the page receives after the "#"."""
+    client.cookies.clear()
+    if cookie is not None:
+        client.cookies.set("g_csrf_token", cookie)
+    answer = client.post("/v1/auth/google/redirect", follow_redirects=False,
+                         data={"credential": credential, "g_csrf_token": form_token})
+    assert answer.status_code == 303
+    place, _, after = answer.headers["location"].partition("#")
+    assert place == "/"
+    key, _, value = after.partition("=")
+    return {key: unquote(value)}
+
+
+@pytestmark_db
+def test_the_page_signs_in_through_google_s_redirect(server):
+    """2026-10-13: on the owner's phone the pop-up never handed its answer
+    back, so the page sends Google's answer to the server instead."""
+    make, _, session = server
+    client = make()
+    client.post("/v1/users", headers=OWNER, json={"name": "Sara", "email": "sara@example.com"})
+    chef = from_google(client, "chef")
+    assert client.get("/v1/me", headers=bearer({"token": chef["google"]})).json()["role"] \
+        == "owner"
+    assert from_google(client, "stranger") == {
+        "google-error": "stranger@example.com has not been invited: ask the owner "
+                        "to add it on their People card"}
+    assert "not a valid Google sign-in" in from_google(client, "forged")["google-error"]
+    for form_token, cookie in (("csrf-1", None), ("csrf-1", "csrf-2"), ("", "")):
+        assert "could not be checked" in \
+            from_google(client, "sara", form_token, cookie)["google-error"], "another site's form"
+    assert session.execute(text("SELECT count(*) FROM sign_ins")).scalar() == 1
 
 
 @pytestmark_db

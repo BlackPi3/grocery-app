@@ -441,10 +441,15 @@ function loadGoogle() {
   }
   return loadGoogle.ready;
 }
+// Google's "redirect" mode: picking an account leaves this page for Google,
+// which sends the answer to the server; the server sends the page back with
+// the sign-in after the "#" (googleAnswer below). Not the pop-up: on phones
+// it often never handed its answer back (2026-10-13).
 function googleButton(clientId) {
   const box = el("div", { class: "google" });
   loadGoogle().then(google => {
-    google.accounts.id.initialize({ client_id: clientId, callback: signedInWithGoogle,
+    google.accounts.id.initialize({ client_id: clientId, ux_mode: "redirect",
+                                    login_uri: location.origin + "/v1/auth/google/redirect",
                                     auto_select: false });
     google.accounts.id.renderButton(box, { theme: "outline", size: "large", shape: "pill",
       text: "signin_with", width: Math.max(200, Math.min(box.clientWidth || 300, 400)) });
@@ -452,23 +457,15 @@ function googleButton(clientId) {
     error.message + ". Use a password, or try again later.")));
   return box;
 }
-async function signedInWithGoogle(answer) {
-  const stats = document.getElementById("stats");
-  stats.textContent = "Signing in…";
-  try {
-    const response = await fetch("/v1/auth/google", { method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credential: answer.credential }) });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      stats.textContent = response.status === 403 ? body.detail + "."
-        : "Google sign-in did not work: " + (body.detail || response.statusText);
-      return;
-    }
-    keepToken(body.token, "google");
-    stats.textContent = "Loading…";
-    load();
-  } catch (error) { stats.textContent = "Google sign-in did not work: " + error.message; }
+// The server's answer to a Google sign-in, after the "#": the token is kept
+// and taken out of the address at once; a refusal is said on the sign-in card.
+let googleError = null;
+function googleAnswer() {
+  const answer = new URLSearchParams(location.hash.slice(1));
+  if (!answer.has("google") && !answer.has("google-error")) return;
+  history.replaceState(null, "", location.pathname + location.search);
+  if (answer.has("google")) keepToken(answer.get("google"), "google");
+  else googleError = answer.get("google-error");
 }
 
 // What this phone last saw, drawn at once while the server starts up (12-20 s
@@ -1984,7 +1981,8 @@ async function load({ jobs = true } = {}) {
 
 async function askPassword(why) {
   const clientId = (await signInOptions()).google_client_id;
-  document.getElementById("stats").textContent = why === "wrong password"
+  document.getElementById("stats").textContent = googleError
+    ? "Google sign-in did not work: " + googleError : why === "wrong password"
     ? "That password is wrong." : why === "sign-in ended"
     ? "Your sign-in has ended. Sign in again." : clientId
     ? "Sign in to see your receipts." : "This server needs its password.";
@@ -2056,6 +2054,7 @@ if ("serviceWorker" in navigator) {
     reloadWhenIdle();
   });
 }
+googleAnswer();  // before the kept copy: a new sign-in may be another person
 const copy = savedCopy();
 if (copy && copy.checks && copy.questions && copy.receipts) {
   Object.assign(state, { checks: copy.checks, questions: copy.questions, receipts: copy.receipts,
