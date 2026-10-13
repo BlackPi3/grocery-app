@@ -14,7 +14,10 @@ cannot place goes to `matcher.propose`, and its verdict is acted on here:
   one with the same name, brand and details, else a new one in that format
   (`docs/designs/what-a-line-is.md`). Only when it cannot tell does the line
   become a **question**, with everything the matcher and identify saw, for
-  the shopper to answer (5c lists them).
+  the shopper to answer (5c lists them). So does a line whose brand no shop
+  has been seen with and is one letter from a brand this shop sells
+  (`identify.misread_brand`): it is asked with that brand's products as the
+  cards (`brand_question`), never saved as a new brand.
 
 The matcher's answers are not final: a shopper's answer overrules one and the
 mistake is counted (`memory.learn`, `corrections`). Names a till prints for
@@ -36,6 +39,7 @@ with Parham 2026-09-30, option A).
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import asdict, replace
 from datetime import date
 from typing import Any
 
@@ -143,6 +147,67 @@ def identified_product(session: Session, identity: identifying.Identity,
     session.flush()
     inputs["products"][product_id] = made
     return product_id
+
+
+def placed_at(session: Session, inputs: dict[str, Any]) -> dict[str, set[str]]:
+    """Shop -> the products seen there: placed on a line in the memory or by
+    a person's answer (anyone's receipts), or listed by the shop. A product
+    no line points at any more (its lines corrected) is not seen."""
+    placed: dict[str, set[str]] = {}
+    for (store, _), ids in inputs["resolution"].items():
+        placed.setdefault(store, set()).update(ids)
+    stores = {r["source_image"]: store_key(r.get("store")) for r in inputs["receipts"]}
+    for (image, _), said in inputs["line_resolutions"].items():
+        if said.get("product_id") and image in stores:
+            placed.setdefault(stores[image], set()).add(said["product_id"])
+    for listing in session.scalars(select(StoreListing)):
+        placed.setdefault(store_key(listing.store), set()).add(listing.product_id)
+    return placed
+
+
+def brands_seen(placed: dict[str, set[str]],
+                products: dict[str, dict[str, Any]]) -> dict[str, set[str]]:
+    """Shop -> the brands of the products seen there (`placed_at`)."""
+    return {store: {brand for pid in ids if (brand := (products.get(pid) or {}).get("brand"))}
+            for store, ids in placed.items()}
+
+
+def brand_question(proposal: dict[str, Any], identity: identifying.Identity,
+                   near: list[str], store_products: set[str],
+                   inputs: dict[str, Any]) -> dict[str, Any]:
+    """The question for a line whose brand reads one letter from a brand this
+    shop sells (`identify.misread_brand`): is it that brand's product?
+
+    The cards: this shop's products of the near brand, the one with the
+    name identify read first (the pick); when the shop has no such product,
+    the reading with the near brand, as a choice. Then the reading as it
+    stands, so a brand that really is new is one Yes away too. The matcher's
+    candidates follow.
+    """
+    keys = {identifying.brand_key(b) for b in near}
+    name = _fold(identity.name)
+    ours = sorted((pid for pid in store_products
+                   if identifying.brand_key((inputs["products"].get(pid) or {}).get("brand"))
+                   in keys),
+                  key=lambda pid: (_fold(inputs["products"][pid].get("name")) != name, pid))
+    candidates = [asdict(matching.catalog_candidate(pid, inputs["products"],
+                                                    inputs["shelf_prices"]))
+                  for pid in ours]
+    same_name = [c for c in candidates if _fold(c["name"]) == name]
+    candidates += [c for c in proposal.get("candidates") or []
+                   if not c.get("product_id") or c["product_id"] not in ours]
+    said = " ".join([identity.name, *identity.details])
+    choices = ([] if same_name else [f"{said}, {brand}" for brand in near]) \
+        + [f"{said}, {identity.brand}"]
+    read = ", ".join(f"`{b}`" for b in near)
+    asked = replace(identity, can_tell=False, choices=choices,
+                    reason=f"read the brand `{identity.brand}`, which no shop has been seen "
+                           f"with; {read}, one letter from it, is sold here, so it may be "
+                           f"misread: {identity.reason}")
+    return {**proposal, "candidates": candidates,
+            "pick": same_name[0] if same_name else proposal.get("pick"),
+            "misread_brand": {"read": identity.brand, "near": near},
+            "identity": asked.as_dict()}
 
 
 def article_index(session: Session) -> dict[str, str]:
@@ -271,6 +336,9 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
         select(Question).where(Question.receipt_id == receipt_id))} | set(session.scalars(
             select(LineResolution.position).where(LineResolution.receipt_id == receipt_id)))
     doc = receipt_to_dict(receipt)
+    shop = store_key(receipt.store)
+    placed = placed_at(session, inputs)
+    seen = brands_seen(placed, inputs["products"])
 
     for position, line in enumerate(doc["lines"]):
         # Read again each time: an answer saved for an earlier line of this
@@ -290,7 +358,14 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
                 # reads it again.
                 counts["unsearched"] += 1
                 continue
-            if identity.can_tell:
+            near = (identifying.misread_brand(identity.brand, shop, seen)
+                    if identity.can_tell else [])
+            if near:
+                # One letter from a brand sold here, and seen nowhere: asked,
+                # with that brand's products as the cards, never saved as new.
+                proposal = brand_question(proposal, identity, near, placed.get(shop, set()),
+                                          inputs)
+            elif identity.can_tell:
                 before = len(inputs["products"])
                 product_id = identified_product(session, identity, inputs)
                 counts["products"] += len(inputs["products"]) - before
@@ -299,13 +374,16 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
                     product_id=product_id, product_ids=[],
                     confirmed_by="identify", confirmed_at=date.today(),
                     source=f"identify {identifying.PROMPT_VERSION}"))
-                inputs["resolution"][(store_key(receipt.store), line["raw_name"])] = \
-                    [product_id]
+                inputs["resolution"][(shop, line["raw_name"])] = [product_id]
+                placed.setdefault(shop, set()).add(product_id)
+                if identity.brand:
+                    seen.setdefault(shop, set()).add(identity.brand)
                 counts["identified"] += 1
                 if checkpoint:
                     checkpoint()
                 continue
-            proposal = {**proposal, "identity": identity.as_dict()}
+            else:
+                proposal = {**proposal, "identity": identity.as_dict()}
         if verdict == "ask":
             session.add(Question(receipt_id=receipt_id, position=position,
                                  raw_name=line["raw_name"], proposal=proposal))
@@ -325,7 +403,10 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
             status="ambiguous_on_receipt" if family else None,
             confirmed_by="matcher", confirmed_at=date.today(),
             source=f"matcher {matching.PROMPT_VERSION}"))
-        inputs["resolution"][(store_key(receipt.store), line["raw_name"])] = ids
+        inputs["resolution"][(shop, line["raw_name"])] = ids
+        placed.setdefault(shop, set()).update(ids)
+        seen.setdefault(shop, set()).update(
+            b for pid in ids if (b := (inputs["products"].get(pid) or {}).get("brand")))
         counts["families" if family else "accepted"] += 1
         if checkpoint:
             checkpoint()

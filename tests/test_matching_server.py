@@ -1210,3 +1210,86 @@ def test_looking_again_for_the_missing_pictures_keeps_the_found_ones(server, tmp
     session.commit()
     again = products_wanting_pictures(session)
     assert len(again) == without and "p-0901" not in again, "a found picture is kept"
+
+
+# --- a brand one letter from a brand the shop sells is asked, not made ------------------
+
+def sold_here(session, *products, store="Musterladen"):
+    """Products of brand MUSTA the shop has been seen with: each placed on a
+    line in the memory, on a person's word."""
+    for product_id, name in products:
+        session.add(Product(id=product_id, name=name, brand="MUSTA", details=[]))
+        session.flush()
+        session.add(Resolution(store=store, raw_name=f"MUSTA {name}", line_type="product",
+                               product_id=product_id, product_ids=[], confirmed_by="test"))
+    session.commit()
+
+
+def reads_brand(brand, **names):
+    """An identifier that reads every line as `names[raw]`, of `brand`, searched."""
+    from grocery_app.identify import Identity
+
+    def identify(position, receipt, proposal, inputs):
+        raw_name = receipt["lines"][position]["raw_name"]
+        return Identity(names[raw_name], "haushalt", brand, None, None, True, "read it",
+                        searched=[f"{raw_name} Musterladen"])
+    return identify
+
+
+def test_a_new_brand_one_letter_from_one_sold_here_is_asked_with_its_products(server):
+    """Owner, 2026-10-03: faint print read the shop's brand one letter wrong on
+    two lines, and identify made a new brand beside six of the real one. Now
+    neither line makes a product: each is asked, the shop's own product first."""
+    client, session = server
+    sold_here(session, ("p-0901", "Müllbeutel"), ("p-0902", "Spültücher"))
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MUSKA Spültücher", "MUSKA Schwamm"])
+    counts = match_receipt(session, receipt, TableMatcher({}), reads_brand(
+        "MUSKA", **{"MUSKA Spültücher": "Spültücher", "MUSKA Schwamm": "Schwamm"}))
+    session.commit()
+
+    assert (counts["identified"], counts["questions"], counts["products"]) == (0, 2, 0)
+    assert session.scalars(select(Product).where(Product.brand == "MUSKA")).all() == []
+    questions = {q["raw_name"]: q for q in client.get("/v1/questions?searched=true")
+                 .json()["questions"] if q["receipt_id"] == receipt}
+    spül = questions["MUSKA Spültücher"]
+    first = spül["candidates"][spül["cards"][0]["candidate"] - 1]
+    assert (first["product_id"], first["name"], first["brand"]) == \
+        ("p-0902", "Spültücher", "MUSTA"), "the shop's own Spültücher, first"
+    assert "`MUSTA`" in spül["unclear"]
+    assert spül["choices"] == ["Spültücher, MUSKA"], "a really new brand is one Yes away"
+    assert questions["MUSKA Schwamm"]["choices"] == ["Schwamm, MUSTA", "Schwamm, MUSKA"], \
+        "no Schwamm of MUSTA here: the reading with the shop's brand is offered"
+
+    number = spül["cards"][0]["candidate"]
+    line = client.put(f"/v1/receipts/{receipt}/lines/0/resolution",
+                      json={"candidate": number}).json()["lines"][0]
+    assert (line["product_id"], line["said_by"]) == ("p-0902", "you"), "one Yes"
+
+
+def test_a_new_brand_near_one_only_another_shop_sells_is_saved(server):
+    client, session = server
+    sold_here(session, ("p-0902", "Spültücher"), store="Anderladen")
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MUSKA Spültücher"])
+    counts = match_receipt(session, receipt, TableMatcher({}),
+                           reads_brand("MUSKA", **{"MUSKA Spültücher": "Spültücher"}))
+    session.commit()
+
+    assert (counts["identified"], counts["questions"]) == (1, 0)
+    (_, product_id, _), = reading(client, receipt)
+    assert session.get(Product, product_id).brand == "MUSKA"
+
+
+def test_a_brand_one_letter_from_one_sold_here_but_seen_elsewhere_is_real(server):
+    client, session = server
+    sold_here(session, ("p-0902", "Spültücher"))
+    session.add(Product(id="p-0903", name="Schwamm", brand="MUSKA", details=[]))
+    session.add(StoreListing(store="Anderladen", article_number="77", product_id="p-0903",
+                             prices=[]))
+    session.commit()
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MUSKA Spültücher"])
+    counts = match_receipt(session, receipt, TableMatcher({}),
+                           reads_brand("MUSKA", **{"MUSKA Spültücher": "Spültücher"}))
+    session.commit()
+
+    assert (counts["identified"], counts["questions"]) == (1, 0), \
+        "another shop lists MUSKA: a brand of its own, not a misread"
