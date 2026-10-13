@@ -363,6 +363,50 @@ def _stands_for(short: str, brand: str) -> bool:
     return all(letter in rest for letter in s)
 
 
+# A brand this short is never taken for a misread of another. At two letters
+# one letter is half the brand, and real short brands are often one letter
+# apart (`JT`, `JA`), so a difference of one says nothing.
+MIN_MISREAD_BRAND = 3
+
+
+def brand_key(brand: str | None) -> str:
+    """A brand as compared: letter case, spaces and punctuation aside
+    (`K-Classic` is `K Classic`)."""
+    return re.sub(r"\W|_", "", brand or "").casefold()
+
+
+def one_letter_apart(a: str, b: str) -> bool:
+    """Whether two keys differ by one letter or digit read wrong, added or
+    lost (edit distance 1): `oho` and `cho`, `musta` and `muska`, `m0lke` and
+    `molke`. Two letters read as one (`rn` as `m`) is two edits, not this."""
+    if a == b or abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        return sum(x != y for x, y in zip(a, b, strict=True)) == 1
+    short, long = sorted((a, b), key=len)
+    return any(long[:i] + long[i + 1:] == short for i in range(len(long)))
+
+
+def misread_brand(brand: str | None, store: str,
+                  seen: dict[str, set[str]]) -> list[str]:
+    """The brands this shop sells that `brand` is likely a misread of.
+
+    Knowing when to ask (owner, 2026-10-03): faint print read `OHO` as `CHO`,
+    and identify made a new brand beside six products of the real one at the
+    same shop. A brand no shop has been seen with (`seen`: shop -> brands, see
+    `api.matching.brands_seen`), one letter from a brand seen at this shop, is
+    likelier a misread than a new brand, so the line is asked rather than
+    saved. A brand seen anywhere is real and never doubted; one under
+    `MIN_MISREAD_BRAND` letters is never near anything.
+    """
+    key = brand_key(brand)
+    if len(key) < MIN_MISREAD_BRAND \
+            or any(key == brand_key(b) for brands in seen.values() for b in brands):
+        return []
+    return sorted({b for b in seen.get(store, ()) if len(brand_key(b)) >= MIN_MISREAD_BRAND
+                   and one_letter_apart(key, brand_key(b))})
+
+
 def abbreviations(resolution: dict[tuple[str, str], list[str]],
                   products: dict[str, dict[str, Any]]) -> dict[str, dict[str, Counter]]:
     """store -> printed abbreviation -> brand -> how many confirmed names show it.

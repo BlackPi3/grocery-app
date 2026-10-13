@@ -698,3 +698,43 @@ def test_a_gemini_call_that_times_out_is_tried_again_then_fails_cleanly(monkeypa
     with pytest.raises(gemini.GeminiError, match="did not answer"):
         gemini.generate("gemini-test", {"contents": []}, api_key="k")
     assert len(calls) == 2
+
+
+# --- a brand one letter from a brand the shop sells (knowing when to ask) ----------
+
+def test_a_new_brand_one_letter_from_one_sold_at_this_shop_is_doubted():
+    """Owner, 2026-10-03: faint print read the shop's brand one letter wrong,
+    and identify made a new brand beside it. Swapped, added and lost letters,
+    a digit for a letter, letter case aside."""
+    from grocery_app.identify import misread_brand
+
+    seen = {"musterladen": {"MUSTA", "Jeden Tag"}}
+    assert misread_brand("MUSKA", "musterladen", seen) == ["MUSTA"]
+    assert misread_brand("MUSTAA", "musterladen", seen) == ["MUSTA"]
+    assert misread_brand("MUST", "musterladen", seen) == ["MUSTA"]
+    assert misread_brand("musta", "musterladen", {"musterladen": {"MU5TA"}}) == ["MU5TA"]
+    assert misread_brand("Jeden Tog", "musterladen", seen) == ["Jeden Tag"]
+
+
+def test_a_brand_seen_anywhere_or_two_letters_off_is_not_doubted():
+    from grocery_app.identify import misread_brand
+
+    seen = {"musterladen": {"MUSTA"}, "anderladen": {"MUSKA"}}
+    assert misread_brand("MUSTA", "musterladen", seen) == [], "the shop's own brand"
+    assert misread_brand("MUSKA", "musterladen", seen) == [], "a real brand, sold elsewhere"
+    assert misread_brand("musta", "anderladen", seen) == [], "seen, whatever the case"
+    assert misread_brand("MUSKO", "musterladen", seen) == [], "two letters off"
+    assert misread_brand("MUSKE", "anderladen", {"musterladen": {"MUSKA"}}) == [], \
+        "near a brand of another shop only"
+    assert misread_brand(None, "musterladen", seen) == []
+
+
+def test_brands_under_three_letters_are_never_near_anything():
+    """At two letters, one letter is half the brand: `JT` and `JA` are both real."""
+    from grocery_app.identify import misread_brand
+
+    assert misread_brand("JA", "musterladen", {"musterladen": {"JT"}}) == []
+    assert misread_brand("JTX", "musterladen", {"musterladen": {"JT"}}) == [], \
+        "nor a longer reading of a short brand"
+    assert misread_brand("OHO", "musterladen", {"musterladen": {"CHO"}}) == ["CHO"], \
+        "three letters are enough"
