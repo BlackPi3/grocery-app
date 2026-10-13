@@ -897,6 +897,17 @@ def test_the_review_page_is_served_at_the_root(server):
         assert route in page.text, f"the page reads {route}"
 
 
+def test_a_spot_check_card_says_it_is_a_random_check_of_the_apps_own_answer(server):
+    """A spot check read like a confused question (Parham, 2026-10-03): it
+    says it is a random check of a line the app placed itself. A question,
+    a line the app could not place, keeps its own plain wording."""
+    client, _ = server
+    page = client.get("/").text
+    assert 'ask.check ? "Random check: the app placed this itself. Right?"' in page
+    assert ': "Did you buy this?"' in page, "a question still asks plainly"
+    assert "Is this what you bought?" not in page, "the old wording asked like a question"
+
+
 
 # --- answers in the shopper's own words ---------------------------------------------------
 

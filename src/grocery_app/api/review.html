@@ -547,13 +547,13 @@ function picker(receiptId, position, extra) {
 // --- yes/no cards ----------------------------------------------------------
 
 // What the app asks, one product at a time: its picture, Yes or No, nothing
-// to type (the redesign, 2026-10-12). A spot check is one card. A question is
-// a short run of cards, the one that costs what was paid first (`api.cards`
-// on the server). A No on a spot check, or on every card of a question, says
+// to type (the redesign, 2026-10-12). A spot check is one card, labelled as a
+// random check. A question is a short run of cards, the one that costs what
+// was paid first (`api.cards` on the server). A No on a spot check, or on every card of a question, says
 // "none of these": the line stays not placed and is not asked about again.
 // Swipe right for Yes, left for No.
 function asks() {
-  const checks = state.checks.checks.map(c => ({ item: c, cards: [{
+  const checks = state.checks.checks.map(c => ({ item: c, check: true, cards: [{
     name: c.app_product || c.app_product_id, brand: c.brand,
     more: { details: c.details, sold_as: c.sold_as }, picture: c.picture,
     category_path: c.category_path, yes: { product_id: c.app_product_id } }] }));
@@ -591,8 +591,11 @@ function deckCard(ask) {
     el("div", { class: "meta" }, [line.store, line.date, line.paid != null ? euro(line.paid)
        : null].filter(Boolean).join(" · "),
        ask.cards.length > 1 ? ` · ${step + 1} of ${ask.cards.length}` : ""),
-    el("div", { class: "ask" }, ask.cards.length > 1 || !shown.yes.product_id
-       ? "Did you buy this?" : "Is this what you bought?"),
+    // A spot check says what it is: a random check of a line the app placed
+    // itself, not a question it could not answer (Parham, 2026-10-03, from a
+    // check on `Minze 15g` that read like a confused question).
+    el("div", { class: "ask" }, ask.check ? "Random check: the app placed this itself. Right?"
+       : "Did you buy this?"),
     // No photo, no empty box: a loose banana gets no stock photo, which would
     // claim more than the app knows, and a gap only looked broken (2026-10-12).
     shown.picture
