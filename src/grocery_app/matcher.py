@@ -129,6 +129,22 @@ def printed_names(resolution: dict[tuple[str, str], list[str]]) -> dict[str, lis
     return names
 
 
+def catalog_candidate(product_id: str, products: dict[str, dict[str, Any]],
+                      shelf_prices: dict[str, set[float]],
+                      printed: dict[str, list[str]] | None = None) -> Candidate:
+    """One of our products as a candidate: its name, brand, pack and the
+    shelf prices it has been seen at."""
+    product = products[product_id]
+    size = product.get("size") or {}
+    return Candidate(
+        source="catalog", name=product.get("name") or product_id,
+        brand=product.get("brand"), product_id=product_id,
+        pack_size=(f"{size['value']:g} {size['unit']}"
+                   if size.get("value") and size.get("unit") else None),
+        prices=sorted(shelf_prices.get(product_id, ())),
+        printed_as=(printed or {}).get(product_id, [])[:3])
+
+
 def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]],
            resolution: dict[tuple[str, str], list[str]],
            shelf_prices: dict[str, set[float]], index: dict[str, str],
@@ -145,15 +161,7 @@ def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]]
 
     def ours(product_id: str) -> Candidate:
         if product_id not in by_id:
-            product = products[product_id]
-            size = product.get("size") or {}
-            by_id[product_id] = Candidate(
-                source="catalog", name=product.get("name") or product_id,
-                brand=product.get("brand"), product_id=product_id,
-                pack_size=(f"{size['value']:g} {size['unit']}"
-                           if size.get("value") and size.get("unit") else None),
-                prices=sorted(shelf_prices.get(product_id, ())),
-                printed_as=printed.get(product_id, [])[:3])
+            by_id[product_id] = catalog_candidate(product_id, products, shelf_prices, printed)
             found.append(by_id[product_id])
         return by_id[product_id]
 
