@@ -40,7 +40,7 @@ def test_receipts_become_purchases_become_insights(data):
         "a line with no product gains no attributes, this one included"
 
     insights = build_insights(purchases)
-    assert insights["contract_version"] == 8
+    assert insights["contract_version"] == 9
     assert insights["as_of"] == "2026-02-05"
     assert insights["coverage"]["resolved_lines"] == 4
     assert insights["coverage"]["products"] == 2, \
@@ -81,7 +81,7 @@ def test_the_cli_runs_the_same_path(data, monkeypatch, capsys):
     written = json.loads(out_insights.read_text(encoding="utf-8"))
     assert set(written) == {"contract_version", "as_of", "coverage", "repurchase",
                             "price_changes", "price_moves", "basket_index", "budget_brand",
-                            "cross_store", "months"}
+                            "cross_store", "months", "discounts"}
 
 
 def test_the_server_serves_what_the_normalizer_built(data):

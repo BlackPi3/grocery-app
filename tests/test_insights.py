@@ -9,6 +9,7 @@ from grocery_app.insights import (
     build_insights,
     compare_month,
     cross_store,
+    discounts,
     price_changes,
     price_move,
     price_moves,
@@ -523,3 +524,48 @@ def test_home_tells_only_real_moves_newest_first():
                          change("old", 1.00, 1.20, 1.20, 1.20, 1.20),
                          change("new", 1.00, 1.00, 1.00, 0.80, 0.80)])
     assert [m["product_id"] for m in moves] == ["new", "old"]
+
+
+# --- what discounts saved -------------------------------------------------------
+
+def discounted(day, gross, discount, store="Musterladen", pid="p-1"):
+    r = row(pid, day, round(gross + discount, 2), store=store)
+    r.update(gross=gross, discount=discount)
+    return r
+
+
+def test_discounts_saved_per_month_newest_first_against_the_shelf_price():
+    rows = [discounted("2026-01-05", 10.0, -1.0), discounted("2026-01-20", 10.0, 0.0),
+            discounted("2026-02-03", 4.0, -2.0)]
+    out = discounts(rows)
+    assert out["saved"] == 3.0
+    assert out["lines"] == 2
+    assert out["months"] == [
+        {"month": "2026-02", "saved": 2.0, "shelf": 4.0, "share": 0.5, "lines": 1},
+        {"month": "2026-01", "saved": 1.0, "shelf": 20.0, "share": 0.05, "lines": 1}]
+
+
+def test_a_month_with_no_discount_says_nothing_was_saved():
+    out = discounts([discounted("2026-03-01", 5.0, 0.0)])
+    assert out["months"] == [
+        {"month": "2026-03", "saved": 0.0, "shelf": 5.0, "share": 0.0, "lines": 0}]
+    assert out["by_store"] == []
+
+
+def test_discounts_per_shop_whatever_the_receipt_spelled_most_saved_first():
+    rows = [discounted("2026-01-05", 10.0, -1.0, store="GLOBUS"),
+            discounted("2026-01-06", 10.0, -1.0, store="Globus"),
+            discounted("2026-01-06", 10.0, -1.0, store="GLOBUS"),
+            discounted("2026-01-07", 5.0, -0.5, store="Lidl"),
+            discounted("2026-01-07", 5.0, 0.0, store="ALDI SÜD")]
+    assert discounts(rows)["by_store"] == [
+        {"store": "GLOBUS", "saved": 3.0, "lines": 3},
+        {"store": "Lidl", "saved": 0.5, "lines": 1}]
+
+
+def test_a_line_bought_for_someone_else_saves_the_shopper_nothing():
+    gift = discounted("2026-01-05", 10.0, -1.0, pid="p-2")
+    gift["not_counted"] = True
+    doc = build_insights({"purchases": [discounted("2026-01-05", 2.0, -0.2), gift]})
+    assert doc["discounts"]["saved"] == 0.2
+    assert doc["discounts"]["months"][0]["shelf"] == 2.0
