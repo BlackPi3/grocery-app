@@ -4,13 +4,13 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: shelf prices and the turning price tile in review; then discounts saved, then the product's price line.
+**Last updated:** 2026-10-14, laptop: shelf prices and the turning price tile merged (#148); next, discounts saved, then the product's price line.
 
 ## Now
 
 - Everything is merged. `main` deploys the server and the public demo on every
   merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
-- In review (step 2, piece 1 of 3): **prices on the shelf price, and Home's
+- Done (owner, 2026-10-14, "makes sense" on the six live moves): **prices on the shelf price, and Home's
   price tile turns.** Every price measure (price changes, the basket, the
   same item at other shops) uses the shelf price per unit before printed
   discounts (`insights._shelf_unit_price`); spend stays what was paid. Live:
@@ -22,7 +22,7 @@ session (laptop or cloud) can pick up from here. How we work is in
   10%+, not an offer, newest move first): every 6 s, a swipe either way, a
   tap opens the product, "Up on 4 Sep, and stayed" / "Up in 2 steps since 21
   Jul" / "Down on 29 Sep, the last time" / "Keeps changing". Live: 6 moves.
-  Insights contract 8. Not merged until the owner has seen it.
+  Insights contract 8. Merged as #148.
 - Done (owner, 2026-10-14, after five rounds of screenshots): **Home's
   month tile says the pace.** This month so far and one word ("Faster than
   usual", "About as usual", "Slower than usual"; within a tenth either way is
@@ -287,8 +287,8 @@ session (laptop or cloud) can pick up from here. How we work is in
    deleting users, what the owner sees of others) wait until the legal side
    is clear (owner).
 
-**Next session: build step 2 below** (step 1 is built; the owner comments on
-seeing it). Nothing is mid-flight.
+**Next session: build step 2's next piece below, what discounts saved you**
+(step 1 is built; piece 1 of step 2 merged as #148). Nothing is mid-flight.
 
 ## Next build (agreed 2026-10-14): insights about the past, done right
 
@@ -309,7 +309,7 @@ A comparison must be like for like, and an insight must have one meaning.
    prices." The owner: "do it, then I'll comment" (build it and show him;
    he decides on seeing it).
 2. **Prices on the shelf price, and the price tile that rotates.**
-   - (Built, in review.) Price changes are measured on the **shelf price before printed
+   - (Done, #148.) Price changes are measured on the **shelf price before printed
      discounts** (`gross`), not on what was paid: on the owner's first 27
      receipts, 109 of 237 product lines carry a printed discount, many 10%
      (likely his GLOBUS staff discount), and today each counts as a price
