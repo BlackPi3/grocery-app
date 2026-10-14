@@ -1036,6 +1036,14 @@ function inProgress() {
   return (state.jobs || []).filter(job => job.status === "queued" || job.status === "running");
 }
 
+// Whether the open receipt is still being read. A job gets its receipt id
+// only once the photo is read, so with no receipt open (null) a queued job's
+// null must not match: it did, and the page asked for /v1/receipts/null every
+// 3 s, showing "Input should be a valid integer" (the owner, 2026-10-14).
+function openBeingRead() {
+  return state.open != null && inProgress().some(job => job.receipt_id === state.open);
+}
+
 async function upload(files) {
   for (const file of files) {
     const sending = { name: file.name };
@@ -1112,7 +1120,7 @@ async function refreshJobsOnce() {
   if (failed) { if (state.tab !== "home") note("A receipt could not be read", true); }
   else if (fresh.length) note(fresh.length > 1 ? "Your receipts are being processed"
                                                 : "Your receipt is being processed");
-  if (inProgress().some(job => job.receipt_id === state.open) && state.tab === "receipts") {
+  if (openBeingRead() && state.tab === "receipts") {
     await refreshReceipt(state.open);  // the lines placed so far, quietly
   } else if (changed) {
     render();  // only when it shows something new: a redraw loses a text selection
