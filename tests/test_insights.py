@@ -563,7 +563,9 @@ def test_discounts_per_shop_whatever_the_receipt_spelled_most_saved_first():
         {"store": "Lidl", "saved": 0.5, "lines": 1}]
 
 
-def test_a_returned_bottle_is_not_a_saving():
-    bottle = row(None, "2026-01-05", -0.25, type_="deposit_return")
-    doc = build_insights({"purchases": [discounted("2026-01-05", 2.0, -0.2), bottle]})
+def test_a_line_bought_for_someone_else_saves_the_shopper_nothing():
+    gift = discounted("2026-01-05", 10.0, -1.0, pid="p-2")
+    gift["not_counted"] = True
+    doc = build_insights({"purchases": [discounted("2026-01-05", 2.0, -0.2), gift]})
     assert doc["discounts"]["saved"] == 0.2
+    assert doc["discounts"]["months"][0]["shelf"] == 2.0
