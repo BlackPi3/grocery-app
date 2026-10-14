@@ -122,11 +122,11 @@
   .hero .meta, .hero .label { color: rgba(255,255,255,0.8); }
   .hero .stat { font-size: 34px; }
   .hero .pace { font-size: 17px; font-weight: 600; margin-top: 2px; }
-  .hero .track { position: relative; height: 8px; border-radius: 4px; margin: 12px 0 8px;
-    background: rgba(255,255,255,0.25); }
-  .hero .track .fill { height: 100%; border-radius: 4px; background: #fff; }
-  .hero .track .tick { position: absolute; top: -4px; width: 2px; height: 16px;
-    border-radius: 1px; background: rgba(255,255,255,0.9); box-shadow: 0 0 0 1px rgba(0,0,0,0.15); }
+  .hero .bars { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px;
+    align-items: center; margin-top: 8px; font-size: 13px; color: rgba(255,255,255,0.85); }
+  .hero .bars .spend { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.45); }
+  .hero .bars .spend.now { background: #fff; }
+  .hero .bars .money { text-align: right; font-variant-numeric: tabular-nums; }
   .label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
     color: var(--muted); margin-bottom: 4px; }
   .glance { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1324,8 +1324,7 @@ function homeView() {
 // Am I going too fast, about as usual, or saving? (the owner, 2026-10-14). This
 // month so far against what is usual by the same day (the mean of the whole
 // months before, `insights.usual_by_day`), else against last month by the same
-// day. Within a tenth either way is "about as usual". The bar is this month;
-// the tick is where the usual stands.
+// day. Within a tenth either way is "about as usual".
 const PACE_BAND = 0.1;
 function paceLines(month, running) {
   const c = month.compared, usual = month.usual;
@@ -1339,15 +1338,21 @@ function paceLines(month, running) {
     : ratio < 1 - PACE_BAND ? (running ? "Slower than " : "Less than ") + than
     : (usual ? "About as usual" : `About as in ${versus}`);
   const day = (c && c.through_day) || (usual && usual.through_day);
-  const scale = Math.max(month.spend, yardstick) * 1.15 || 1;
+  // Bars side by side, the longest the biggest amount: there is no limit to
+  // fill, so no track behind them (the owner, 2026-10-14).
+  const rows = [[monthName(month.month).replace(/ \d+$/, ""), month.spend, true],
+                usual ? ["Usually", usual.spend] : null,
+                c ? [versus, c.versus_spend] : null].filter(Boolean);
+  const longest = Math.max(...rows.map(([, amount]) => amount)) || 1;
   return [
     el("div", { class: "pace" }, pace),
-    el("div", { class: "track", "aria-hidden": "true" },
-      el("div", { class: "fill", style: `width:${100 * month.spend / scale}%` }),
-      el("div", { class: "tick", style: `left:${100 * yardstick / scale}%` })),
-    el("div", { class: "meta" }, (day ? `By the ${ordinal(day)}: ` : "") +
-      [usual ? `usually ${euro(usual.spend)}` : null,
-       c ? `${versus} ${euro(c.versus_spend)}` : null].filter(Boolean).join(" · ")),
+    el("div", { class: "bars" }, rows.flatMap(([name, amount, now]) => [
+      el("span", {}, name),
+      el("div", {}, el("div", { class: "spend" + (now ? " now" : ""),
+        style: `width:${Math.max(2, 100 * amount / longest)}%` })),
+      el("span", { class: "money" }, euro(amount))])),
+    day ? el("div", { class: "meta", style: "margin-top: 8px" },
+      `Each by the ${ordinal(day)} of the month`) : null,
   ];
 }
 function ordinal(n) {

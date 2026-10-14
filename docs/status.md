@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: Home's pace card in review; a phone preview of branches waits for the owner's OK.
+**Last updated:** 2026-10-14, laptop: Home's pace card in review (#146), shown by screenshot.
 
 ## Now
 
@@ -14,8 +14,9 @@ session (laptop or cloud) can pick up from here. How we work is in
   these are important to me. Am I going too fast, ok, or saving?"): **Home's
   month card says the pace.** This month so far, one word ("Faster than
   usual", "Slower than usual", "About as usual"; within a tenth either way is
-  about as usual), a bar with a tick where the usual stands, and "By the
-  14th: usually 119,28 € · September 145,21 €". The usual is the mean of up
+  about as usual), then three bars side by side, each by the same day: this
+  month, usually, last month (no track behind them: the owner, "it seems
+  the max is known, which isn't true"). The usual is the mean of up
   to 6 whole months before, each cut at the same day (`insights.usual_by_day`;
   the month the history starts in and months without a receipt do not
   count; needs two months, else the card sets against last month only).
@@ -330,6 +331,18 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 - A second person using it with real receipts.
 
 ## Parked (later, not now)
+
+- A phone preview of a branch (owner, 2026-10-14: "having it deployed is
+  best, it can support many possibilities; backlog, not now"). A Cloud Run
+  service `grocery-preview` of its own, deployed by hand from a branch, on
+  the live data but looking only (no migrations, no jobs or pictures, every
+  write refused but signing in), a strip naming the branch. Needs: the
+  owner's OK on the risk (unmerged code reading live data, a second public
+  address), GitHub's deploy permission widened to hand-started runs, and the
+  preview address added to the Google sign-in client. A first version of
+  the server part is in a git stash (`preview-mode`) on the laptop. Until
+  then, screens are shown by screenshot (`scripts/preview.py --shot`), or a
+  short video for a flow.
 
 - Barcodes, the rest: a barcode photo from the user (after the milestone),
   and a known size for products read from a receipt (see Now).
