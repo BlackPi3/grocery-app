@@ -308,6 +308,11 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   saver, the deal hunter; features are checked against who they serve), deals, dislikes, and zooming through time in insights
   (Receipts zooms by month now; weeks and days are next there).
 - Cleanup: old English-named products, doubles from early catalog work.
+- Fuel (owner, 2026-10-14): supermarkets often sit next to a petrol or
+  charging station, and filling up repeats like shopping. Track fuel
+  receipts and prices, so a later recommendation can weigh the station's
+  price too. Germany publishes every station's fuel prices live (the
+  Markttransparenzstelle, open through Tankerkönig).
 - Families (owner, 2026-10-14): connect people, so a household sees its
   shopping together as well as each person's own.
 - A grocery budget (owner, 2026-10-13): set one for the month and see how far
