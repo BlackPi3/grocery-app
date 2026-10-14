@@ -310,7 +310,12 @@
     padding: 10px 14px; font-size: 14px; display: none; align-items: center; gap: 12px; }
   .toast span { flex: 1; }
   .toast button.undo { background: none; border: 0; color: var(--page); font-weight: 600;
-    padding: 4px 0; text-decoration: underline; }
+    padding: 4px 0; display: inline-flex; align-items: center; gap: 7px; }
+  /* The time left to undo, as a ring that empties like a clock hand. */
+  .undo-ring { width: 18px; height: 18px; flex: none; transform: rotate(-90deg); }
+  .undo-ring circle { fill: none; stroke: currentColor; stroke-width: 2.5;
+    stroke-dasharray: 50.27; stroke-dashoffset: 0; animation: undo-drain linear forwards; }
+  @keyframes undo-drain { to { stroke-dashoffset: -50.27; } }
 </style>
 </head>
 <body>
@@ -375,17 +380,24 @@ function el(tag, attrs, ...children) {
 }
 
 // `undo`, when given, puts an Undo button in the message and keeps it up
-// longer: a tap by accident is taken back where it happened (2026-10-08).
+// longer: a tap by accident is taken back where it happened (2026-10-08). A
+// ring beside it empties as the time to undo runs out (the owner, 2026-10-14).
+const UNDO_MS = 8000;
 function toast(text, undo) {
   const box = document.getElementById("toast");
   box.replaceChildren(el("span", {}, text));
-  if (undo) box.append(el("button", { class: "undo", onclick: () => {
-    box.style.display = "none";
-    undo();
-  } }, "Undo"));
+  if (undo) {
+    const ring = el("span", { "aria-hidden": "true" });
+    ring.innerHTML = '<svg class="undo-ring" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" ' +
+      `style="animation-duration:${UNDO_MS}ms"/></svg>`;
+    box.append(el("button", { class: "undo", onclick: () => {
+      box.style.display = "none";
+      undo();
+    } }, ring.firstChild, "Undo"));
+  }
   box.style.display = "flex";
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => { box.style.display = "none"; }, undo ? 8000 : 3500);
+  toast.timer = setTimeout(() => { box.style.display = "none"; }, undo ? UNDO_MS : 3500);
 }
 
 // A slim note at the top that stays a few seconds and fades: a receipt is
@@ -832,7 +844,7 @@ function removeReceipt(receiptId) {
   state.removing.add(receiptId);
   if (state.open === receiptId) state.open = null;
   render();
-  removals.set(receiptId, setTimeout(() => sendRemoval(receiptId), 8000));
+  removals.set(receiptId, setTimeout(() => sendRemoval(receiptId), UNDO_MS));
   toast("Receipt removed", () => {
     clearTimeout(removals.get(receiptId));
     removals.delete(receiptId);
@@ -1083,47 +1095,6 @@ async function upload(files) {
     state.sending = state.sending.filter(item => item !== sending);
     await refreshJobs();
   }
-}
-
-// Paste a receipt (the owner, 2026-10-14): a shop app's PDF, copied from its
-// share menu, without saving it to Files first. Whether an iPhone hands a
-// copied PDF to a web page is not documented, so when the clipboard holds no
-// PDF or picture the page says what it does hold: that is the test's answer.
-const PASTABLE = ["application/pdf", "image/jpeg", "image/png", "image/heic", "image/webp"];
-function pastedType(types) {
-  return PASTABLE.find(type => types.includes(type))
-    || types.find(type => type.startsWith("image/")) || null;
-}
-function canPaste() {
-  return !!(navigator.clipboard && navigator.clipboard.read);
-}
-function sendPasted(files) {
-  note(files.length > 1 ? "Your receipts are being processed" : "Your receipt is being processed");
-  upload(files);
-}
-async function pasteReceipt() {
-  let items;
-  try {
-    items = await navigator.clipboard.read();
-  } catch (error) {
-    return toast("The clipboard could not be read: " + error.message);
-  }
-  const files = [], held = [];
-  for (const item of items) {
-    held.push(...item.types);
-    const type = pastedType(item.types);
-    if (type) files.push(new File([await item.getType(type)], "pasted." + type.split("/")[1],
-                                  { type }));
-  }
-  if (!files.length) {
-    return toast(held.length ? "No PDF or picture to paste. The clipboard holds: " +
-      held.join(", ") : "The clipboard is empty");
-  }
-  sendPasted(files);
-}
-function pasteButton() {
-  return canPaste() ? el("button", { class: "link", onclick: pasteReceipt },
-    "Paste a receipt (a PDF or picture you copied)") : null;
 }
 
 // One at a time: an upload, the timer and a tab switch may all ask at once.
@@ -1976,7 +1947,7 @@ function monthOf(summary) {
 
 function receiptsView() {
   if (!state.receipts.length) return [el("div", { class: "empty" }, "No receipts yet. Tap + " +
-    "below: a photo of a whole receipt, or a shop's PDF."), pasteButton()];
+    "below: a photo of a whole receipt, or a shop's PDF.")];
   const from = state.cameFrom;
   const shown = state.receipts.filter(r => !state.removing.has(r.receipt_id));
   const reading = new Set(inProgress().map(job => job.receipt_id));
@@ -2000,7 +1971,6 @@ function receiptsView() {
   return [from ? el("button", { class: "back", onclick: backToProduct }, `‹ Back to ${from.name}`)
             : null,
           from ? null : waitingCard(),
-          from ? null : pasteButton(),
           ...shown.filter(r => reading.has(r.receipt_id)).map(receiptCard),
           yearSwitch,
           ...groups.flatMap(key => {
@@ -2157,15 +2127,6 @@ document.getElementById("add-file").addEventListener("change", event => {
   if (!files.length) return;
   note(files.length > 1 ? "Your receipts are being processed" : "Your receipt is being processed");
   upload(files);
-});
-// A paste anywhere but a text box (Cmd+V on a laptop) is a receipt too.
-document.addEventListener("paste", event => {
-  if (event.target.closest && event.target.closest("input, textarea")) return;
-  const files = [...(event.clipboardData ? event.clipboardData.files : [])]
-    .filter(file => pastedType([file.type]));
-  if (!files.length) return;
-  event.preventDefault();
-  sendPasted(files);
 });
 for (const tab of TABS) {
   document.getElementById("tab-" + tab).addEventListener("click", () => {
