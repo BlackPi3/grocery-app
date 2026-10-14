@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-13, laptop: barcodes step 1 (Open Food Facts by name, exact only).
+**Last updated:** 2026-10-14, laptop: the offline message says the connection failed.
 
 ## Now
 
@@ -27,6 +27,12 @@ session (laptop or cloud) can pick up from here. How we work is in
   live not run**: the owner looks first. The user's barcode photo waits until
   after the Ready-for-iOS milestone (it adds a button, which restarts the
   screens-unchanged clock).
+- Fixed (owner, 2026-10-14): offline, the page said "Cannot load: Load
+  failed" (the browser's words), as if the app broke. A request that never
+  reached the server now says "no internet connection" (or "the server could
+  not be reached; check your connection" when the phone thinks it is online),
+  everywhere the page talks to the server, and the page loads again by itself
+  when the connection comes back (`reach` in `review.html`).
 - Just shipped: **the Insights screen** (the last screen of the redesign).
   A short scroll of cards, each answering one question and saying what it
   rests on: where the money went this month (ranked bars by part of the shop,

@@ -488,11 +488,23 @@ function savedCopy() {
   try { return JSON.parse(localStorage.getItem(COPY_KEY) || "null"); } catch (_) { return null; }
 }
 
+// A request that never reached the server. The browser's own words for it
+// ("Load failed", "Failed to fetch") read like the app broke; offline, the
+// network is what failed, so say that (the owner, 2026-10-14).
+async function reach(path, opts) {
+  try {
+    return await fetch(path, opts);
+  } catch (error) {
+    throw new Error(navigator.onLine === false ? "no internet connection"
+      : "the server could not be reached; check your connection");
+  }
+}
+
 async function api(path, options) {
   const opts = { ...(options || {}) };
   const token = savedToken();
   if (token) opts.headers = { ...(opts.headers || {}), Authorization: "Bearer " + token };
-  const response = await fetch(path, opts);
+  const response = await reach(path, opts);
   if (response.status === 401) {
     const error = new Error(!token ? "password needed"
       : tokenKind() === "google" ? "sign-in ended" : "wrong password");
@@ -1552,7 +1564,7 @@ async function showPhoto(receiptId) {
   document.body.style.overflow = "hidden";
   try {
     const token = savedToken();
-    const response = await fetch(`/v1/receipts/${receiptId}/photo`,
+    const response = await reach(`/v1/receipts/${receiptId}/photo`,
       token ? { headers: { Authorization: "Bearer " + token } } : {});
     if (!response.ok) {
       let detail = response.statusText;
@@ -2043,6 +2055,8 @@ document.getElementById("view").addEventListener("focusout", () => {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && state.checks) refreshJobs();
 });
+// The connection is back: load what could not be loaded without it.
+window.addEventListener("online", () => load());
 // The phone keeps the page itself as well (sw.js); over plain http, as on
 // the laptop, the browser refuses and the page simply waits.
 if ("serviceWorker" in navigator) {
