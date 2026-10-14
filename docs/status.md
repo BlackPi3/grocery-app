@@ -381,6 +381,30 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+**Backlog from the owner (2026-10-14, after seeing the price line), not
+agreed to build yet:**
+
+- **Three levels from the price tile.** A tap on Home's turning price tile
+  opens a page listing every move it turns through; a tap on one of those
+  opens the product. Today the tap goes straight to the one product shown.
+- **Long lists load in pages, as a standard.** The product page's purchase
+  list, and the Receipts screen, show the latest few and a "show more"; never
+  everything at once (thousands of buys, memory). Applies to every list.
+- **Calendar.** He did not see the days (the weekday letters were on the
+  open branch, not yet live); a day bought several times should be clearly
+  deeper in colour than a day bought once (it is, `b2`, but too faint).
+- **A found product with no category** on a receipt line surprised him (he
+  read it as "not found"); find out why it happens, and how the line says it.
+- **"2 candidates" still shows**, he thinks on the tortilla line, although a
+  family line is named since 2026-10-13 (`normalizer.family_name`); find
+  where the old text survives.
+- **"Due again soon" reads as a recommendation**, made from two or three
+  buys: too little to say someone will buy it again. Rework or remove (it
+  conflicts with "insights before recommendations").
+- **"Same item at other shops" compares prices far apart in time.** Only
+  compare prices bought within a short window of each other, since the app
+  has no live prices.
+
 - A phone preview of a branch (owner, 2026-10-14: "having it deployed is
   best, it can support many possibilities; backlog, not now"). A Cloud Run
   service `grocery-preview` of its own, deployed by hand from a branch, on
