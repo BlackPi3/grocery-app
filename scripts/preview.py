@@ -35,7 +35,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from dev_inbox import TIMEOUT_S, server_and_token  # noqa: E402
 
-from grocery_app.insights import build_insights  # noqa: E402
+from grocery_app.insights import build_insights, shelf_unit_price  # noqa: E402
 
 PAGE = ROOT / "src" / "grocery_app" / "api" / "review.html"
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
@@ -78,6 +78,8 @@ def handler(live: str, token: str, then: str | None = None) -> type[BaseHTTPRequ
                     return
                 doc = build_insights(json.loads(body))
                 self.send(200, "application/json", json.dumps(doc).encode())
+            elif path.startswith("/v1/products/") and path.endswith("/purchases"):
+                self.send(*with_shelf_prices(fetch(path), fetch("/v1/purchases")))
             else:
                 self.send(*fetch(path))
 
@@ -91,6 +93,28 @@ def handler(live: str, token: str, then: str | None = None) -> type[BaseHTTPRequ
             pass
 
     return Preview
+
+
+def with_shelf_prices(product: tuple[int, str, bytes], history: tuple[int, str, bytes]
+                      ) -> tuple[int, str, bytes]:
+    """A product's purchases with the shelf price per unit the working tree
+    computes, for a live server older than that field: each purchase is
+    matched to its line in the live history by product, date, printed name
+    and price paid."""
+    if product[0] != 200 or history[0] != 200:
+        return product
+    doc = json.loads(product[2])
+    lines: dict[tuple, list] = {}
+    for row in json.loads(history[2])["purchases"]:
+        key = (row.get("product_id"), row.get("date"), row.get("raw_name"), row.get("net_paid"))
+        lines.setdefault(key, []).append(row)
+    for buy in doc["purchases"]:
+        if "shelf_unit_price" in buy:
+            continue
+        same = lines.get((doc["product_id"], buy["date"], buy["raw_name"], buy["net_paid"]))
+        priced = shelf_unit_price(same.pop(0)) if same else None
+        buy["shelf_unit_price"] = {"amount": priced[0], "per": priced[1]} if priced else None
+    return 200, "application/json", json.dumps(doc).encode()
 
 
 def screenshot(url: str, out: Path) -> None:

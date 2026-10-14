@@ -51,7 +51,9 @@ PURCHASES_CONTRACT_VERSION = 8
 # count as prices), and `coverage.not_counted` says what was left out.
 # Insights bumped to 9 on 2026-10-14: `discounts` says what printed discounts
 # saved, per month and per shop.
-INSIGHTS_CONTRACT_VERSION = 9
+# Insights bumped to 10 on 2026-10-14: `regulars`, the products bought on 3
+# days or more, for Home's rotating tile.
+INSIGHTS_CONTRACT_VERSION = 10
 
 
 class UnitPrice(BaseModel):
@@ -153,6 +155,7 @@ class InsightsDocument(BaseModel):
     as_of: str
     coverage: dict[str, Any]
     repurchase: list[dict[str, Any]]
+    regulars: list[dict[str, Any]]
     price_changes: list[dict[str, Any]]
     price_moves: list[dict[str, Any]]
     basket_index: dict[str, Any]
@@ -362,6 +365,9 @@ class ProductPurchase(BaseModel):
     qty: float
     net_paid: float
     unit_price: UnitPrice | None = None
+    shelf_unit_price: UnitPrice | None = Field(
+        None, description="The shelf price per unit before printed discounts, as every "
+                          "price insight reads it (`insights.shelf_unit_price`)")
     sold_as: SoldAs | None = None
     said_by: Literal["you", "app"] | None
     not_counted: bool = False

@@ -38,6 +38,7 @@ from grocery_app.db.models import (
     User,
 )
 from grocery_app.db.session import database_url, make_engine, make_session_factory
+from grocery_app.insights import shelf_unit_price
 from grocery_app.normalizer import (
     assemble_purchases,
     never_remembered,
@@ -896,6 +897,7 @@ class PostgresRepository:
                         "store": row.store, "raw_name": record["raw_name"],
                         "qty": record["qty"], "net_paid": record["net_paid"],
                         "unit_price": record.get("unit_price"),
+                        "shelf_unit_price": _per_unit(shelf_unit_price(record)),
                         "sold_as": record.get("sold_as"), "said_by": record["said_by"],
                         "not_counted": bool(record.get("not_counted"))})
         found.sort(key=lambda p: (p["date"] or "", p["receipt_id"], p["position"]))
@@ -1182,6 +1184,11 @@ class PostgresRepository:
 
 # Enough to catch a name typed into the address box; Google is the real check.
 EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+
+
+def _per_unit(priced: tuple[float, str] | None) -> dict[str, Any] | None:
+    """`(6.08, "kg")` as the contract's unit price, `{"amount": 6.08, "per": "kg"}`."""
+    return {"amount": priced[0], "per": priced[1]} if priced else None
 
 
 def new_password() -> str:

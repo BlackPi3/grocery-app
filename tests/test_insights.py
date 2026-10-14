@@ -13,6 +13,7 @@ from grocery_app.insights import (
     price_changes,
     price_move,
     price_moves,
+    regulars,
     repurchase,
     running_totals,
     usual_by_day,
@@ -52,6 +53,18 @@ def test_repurchase_is_due_when_the_expected_date_has_passed():
 def test_two_lines_on_one_day_are_one_trip():
     rows = [row("p-1", "2026-01-01", 1.0), row("p-1", "2026-01-01", 1.0)]
     assert repurchase(rows, as_of=date(2026, 1, 2)) == []
+
+
+def test_regulars_are_bought_on_three_days_or_more_most_days_first():
+    rows = [*(row("milk", f"2026-01-{d:02d}", 1.0) for d in (1, 8, 15, 22)),
+            *(row("bread", f"2026-01-{d:02d}", 2.0) for d in (10, 17, 24)),
+            *(row("eggs", f"2026-01-{d:02d}", 2.0) for d in (2, 30, 31)),  # 3 days, longer
+            row("tea", "2026-01-03", 3.0), row("tea", "2026-01-29", 3.0),   # 2 days: no habit
+            row("milk", "2026-01-22", 1.0)]                                  # one day, two lines
+    out = regulars(rows, as_of=date(2026, 1, 31))
+    assert [(r["product_id"], r["trips"], r["days"]) for r in out] == [
+        ("milk", 4, 31), ("bread", 3, 22), ("eggs", 3, 30)]
+    assert (out[0]["first_bought"], out[0]["last_bought"]) == ("2026-01-01", "2026-01-22")
 
 
 # --- price over time ---------------------------------------------------------

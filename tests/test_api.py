@@ -62,7 +62,7 @@ def client():
 def test_health_reports_contract_versions_and_receipts(client):
     body = client.get("/health").json()
     assert body == {"status": "ok", "purchases_contract_version": 8,
-                    "insights_contract_version": 9, "receipts": 2,
+                    "insights_contract_version": 10, "receipts": 2,
                     "uploads": False, "writes": False}
     assert (body["uploads"], body["writes"]) == (False, False), \
         "a file-backed server can do neither, and says so rather than 404ing later"
@@ -243,7 +243,7 @@ def test_a_newcomer_s_home_fills_a_bar_to_ten_receipts_and_each_stop_opens_its_c
     assert out == ["0 10 1- 5- 10-", "1 10 1+ 5- 10-", "4 10 1+ 5- 10-", "5 10 1+ 5+ 10-",
                    "9 10 1+ 5+ 10-", "10 none", "31 none"]
     assert "reached(START_GOAL) ? priceCard(d) : null" in page, "price moves open at 10"
-    assert "reached(5) ? factCard(d) : null" in page, "your regular opens at 5"
+    assert "reached(5) ? regularsCard(d) : null" in page, "your regular opens at 5"
 
 
 def test_empty_screens_say_they_are_empty_and_how_to_fill_them(client):
