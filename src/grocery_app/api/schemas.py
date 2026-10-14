@@ -573,6 +573,10 @@ class MonthCost(BaseModel):
     per_receipt_usd: float | None = Field(
         description="Average reading + finding cost of this month's receipts whose finding "
                     "was recorded; null when there is none")
+    billed_usd: float = Field(
+        description="`total_usd` less the month's free searches: what Google bills")
+    billed_per_receipt_usd: float | None = Field(
+        description="`per_receipt_usd` less each receipt's share of the free searches")
 
 
 class ReceiptCost(BaseModel):

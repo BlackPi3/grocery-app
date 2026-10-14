@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: the offline message says the connection failed.
+**Last updated:** 2026-10-14, laptop: the costs card shows what is billed.
 
 ## Now
 
@@ -27,6 +27,12 @@ session (laptop or cloud) can pick up from here. How we work is in
   live not run**: the owner looks first. The user's barcode photo waits until
   after the Ready-for-iOS milestone (it adds a button, which restarts the
   screens-unchanged clock).
+- Done (owner, 2026-10-14): the costs card shows **what is billed** beside
+  the list price. List price counts every web search at 1.4 cents, but the
+  first 5,000 a month are free: October so far read as 21 cents a receipt at
+  list price, about 3 cents billed. `/v1/costs` gained `billed_usd` and
+  `billed_per_receipt_usd` (free searches shared evenly over the month's
+  searches). Prices double on 2027-01-01 (`spend.py`).
 - Fixed (owner, 2026-10-14): offline, the page said "Cannot load: Load
   failed" (the browser's words), as if the app broke. A request that never
   reached the server now says "no internet connection" (or "the server could

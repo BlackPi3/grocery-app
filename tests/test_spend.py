@@ -127,6 +127,13 @@ def test_a_receipt_costs_its_reading_and_finding_its_items(engine, session, tmp_
     assert this_month["searches"] == 4
     assert this_month["receipts"] == 1
     assert this_month["per_receipt_usd"] == pytest.approx(reading + finding, abs=1e-5)
+    # Its 4 searches are inside the month's free ones: billed without them
+    # (the owner, 2026-10-14: list price alone read as 21 cents a receipt).
+    assert this_month["billed_usd"] == pytest.approx(
+        reading + 2 * finding - 4 * spend.SEARCH_PRICE_USD, abs=1e-5)
+    assert this_month["billed_per_receipt_usd"] == pytest.approx(
+        reading + finding - 2 * spend.SEARCH_PRICE_USD, abs=1e-5)
+    assert september["billed_usd"] == 0.004 and september["billed_per_receipt_usd"] is None
 
     (now, before) = sorted(doc["receipts"], key=lambda r: r["month"], reverse=True)
     assert now["receipt_id"] == receipt_id and now["finding_recorded"]
@@ -150,3 +157,27 @@ def test_a_day_past_each_spend_mark_says_so_once(engine, session, monkeypatch, c
     alerts = [r.getMessage() for r in caplog.records if spend.ALERT_MARK in r.getMessage()]
     assert len(alerts) == 2, alerts
     assert "$1.10 today" in alerts[0] and "$2.20 today" in alerts[1]
+
+
+@pytestmark_db
+def test_past_the_free_searches_the_rest_are_billed_shared_over_every_search(
+        engine, session, tmp_path, monkeypatch):
+    monkeypatch.setattr(spend, "FREE_SEARCHES_PER_MONTH", 3)
+    factory = make_session_factory(engine)
+    client = TestClient(create_app(PostgresRepository(factory), DiskImageStore(tmp_path),
+                                   FakeExtractor()))
+    job_id = client.post("/v1/receipts", files={"file": ("r.jpg", a_photo(), "image/jpeg")}
+                         ).json()["job_id"]
+    write = spend.database_sink(factory)
+    with spend.tagged("finding", job_id):
+        write(spend.call_record("gemini-3.8-flash", SEARCHED))
+    with spend.tagged("pictures"):
+        write(spend.call_record("gemini-3.8-flash", SEARCHED))
+
+    (month,) = client.get("/v1/costs").json()["months"]
+    tokens = 0.75 + 0.2 * 3.75
+    assert month["searches"] == 4
+    assert month["billed_usd"] == pytest.approx(2 * tokens + 1 * spend.SEARCH_PRICE_USD,
+                                                abs=1e-5), "3 of 4 free, the 4th billed"
+    assert month["billed_per_receipt_usd"] == pytest.approx(
+        tokens + 2 * 0.25 * spend.SEARCH_PRICE_USD, abs=1e-5), "a quarter of its 2 billed"

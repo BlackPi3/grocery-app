@@ -1248,13 +1248,15 @@ function costsCard() {
           `${usd(m.finding_usd)} · pictures ${usd(m.pictures_usd)}` +
           (m.other_usd ? ` · other ${usd(m.other_usd)}` : "")),
         el("div", { class: "meta" }, `${m.receipts} ${m.receipts === 1 ? "receipt" : "receipts"}` +
-          (m.per_receipt_usd != null ? `, ${usd(m.per_receipt_usd)} each` : "") +
+          (m.billed_per_receipt_usd != null ? `, ${usd(m.billed_per_receipt_usd)} each billed ` +
+            `(${usd(m.per_receipt_usd)} at list price)` : "") +
           ` · ${m.searches} web searches (${d.free_searches_per_month.toLocaleString("en")} ` +
           "a month are free)")),
-      el("div", { class: "money" }, usd(m.total_usd)))),
-    el("div", { class: "why" }, "Model calls at list price, in dollars. The server and the " +
-      "database are billed by Google on top. Finding items is counted from " +
-      `${d.finding_recorded_from}.`));
+      el("div", { class: "money" }, usd(m.billed_usd),
+        el("div", { class: "meta" }, usd(m.total_usd) + " list")))),
+    el("div", { class: "why" }, "Model calls in dollars: billed is the list price less the " +
+      "month's free searches. The server and the database are billed by Google on top. " +
+      `Finding items is counted from ${d.finding_recorded_from}.`));
 }
 
 // A photo that could not be sent or read, as a small note at the top of
