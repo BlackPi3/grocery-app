@@ -22,7 +22,7 @@ The four insights promised in CLAUDE.md, in the order they are computed:
 plus the same-item comparison across stores, which is honest about having no
 data until a product resolves at two stores, and the month view (`months`):
 what the money went on, by kind of thing, and against the same days of the
-month before (`compare_month`).
+month before (`compare_month`), and what printed discounts saved (`discounts`).
 
 Only groceries count. A café breakfast, flowers or a birthday card stays in the
 history, but a basket index or a budget-brand share that included them would
@@ -32,7 +32,9 @@ money it was, so the exclusion is visible rather than silent.
 
 The month view is the exception: it counts everything the shopper bought,
 groceries or not, because its question is "what did I spend it on last month?"
-(Parham, 2026-10-09) and a café breakfast is part of that answer.
+(Parham, 2026-10-09) and a café breakfast is part of that answer. What
+discounts saved counts the same lines: a café breakfast's discount was money
+saved too.
 
 Only the shopper's own shopping counts towards spend and habits. A line they
 marked `not_counted` (a wine bought for a friend) leaves spend, cadence, the
@@ -52,7 +54,7 @@ from typing import Any
 from grocery_app import categories
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 8
+CONTRACT_VERSION = 9
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -485,6 +487,47 @@ def cross_store(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return {"products": out, "note": note}
 
 
+# --- what discounts saved -------------------------------------------------------
+
+def _saved(p: dict[str, Any]) -> float:
+    """What a line's printed discount took off (`discount` is negative)."""
+    return max(0.0, -(p.get("discount") or 0.0))
+
+
+def discounts(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """What printed discounts saved, per month (newest first) and per shop
+    (the owner, 2026-10-14: "tell me how much I saved with the discount").
+
+    Only a discount printed on a product line counts: an offer, a shop card or
+    a staff discount. A returned bottle is not a saving and is not a product
+    line; an offer that only lowers the shelf price is printed as the price,
+    so the receipt cannot say it was one. `share` is the saving against the
+    shelf price of everything bought that month, discounted or not.
+    """
+    labels = _store_labels(rows)
+    by_month: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    by_store: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for p in rows:
+        if p.get("date"):
+            by_month[p["date"][:7]].append(p)
+        if _saved(p):
+            by_store[_store(p, labels)].append(p)
+    out = []
+    for month in sorted(by_month, reverse=True):
+        lines = by_month[month]
+        saved = sum(_saved(p) for p in lines)
+        shelf = sum(_shelf(p) for p in lines)
+        out.append({"month": month, "saved": round(saved, 2), "shelf": round(shelf, 2),
+                    "share": round(saved / shelf, 3) if shelf > 0 else None,
+                    "lines": sum(1 for p in lines if _saved(p))})
+    stores = [{"store": store, "saved": round(sum(_saved(p) for p in group), 2),
+               "lines": len(group)} for store, group in by_store.items()]
+    return {"saved": round(sum(_saved(p) for p in rows), 2),
+            "lines": sum(1 for p in rows if _saved(p)),
+            "months": out,
+            "by_store": sorted(stores, key=lambda s: (-s["saved"], s["store"]))}
+
+
 # --- the month view ------------------------------------------------------------
 
 def _spend(rows: list[dict[str, Any]]) -> float:
@@ -768,6 +811,7 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None,
         "budget_brand": budget_brand(rows),
         "cross_store": cross_store(groceries),
         "months": _compared(months(counted), counted, today or date.today()),
+        "discounts": discounts(counted),
     }
 
 

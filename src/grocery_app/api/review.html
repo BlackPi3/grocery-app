@@ -140,6 +140,7 @@
   .stop.reached .at { color: var(--accent); font-weight: 650; }
   .card.closed .q { color: var(--ink2); }
   .glance .card { margin: 0; }
+  .label.sub { margin: 14px 0 2px; }
   .glance .big { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; margin: 2px 0; }
   .turning .how { margin-top: 4px; color: var(--ink2); }
   .turning .dots { display: flex; gap: 5px; margin-top: 10px; }
@@ -1980,6 +1981,33 @@ function pricesCard(d) {
       "one comparison: it can be an offer, or a different pack."));
 }
 
+// What discounts saved (the owner, 2026-10-14): the newest month first, then
+// month by month and shop by shop. Only discounts printed on a receipt line.
+function savedCard(d) {
+  const s = d.discounts;
+  if (!s) return null;  // a copy from an older server
+  if (!s.lines) return closedCard("What discounts saved you",
+    "Shows once a receipt prints a discount on a line: an offer, a shop card, a coupon.");
+  const latest = s.months[0];
+  const shown = s.months.slice(0, 6);
+  const most = Math.max(...shown.map(m => m.saved), 0.01);
+  const top = Math.max(...s.by_store.map(x => x.saved), 0.01);
+  return el("div", { class: "card" },
+    el("h2", { class: "q" }, "What discounts saved you"),
+    el("div", { class: "stat" }, euro(latest.saved)),
+    el("div", { class: "meta" }, monthName(latest.month).replace(/ \d+$/, "") +
+      (latest.share ? ` · ${Math.round(latest.share * 100)}% off the shelf price of what you bought`
+        : " · nothing off yet")),
+    el("div", { class: "label sub" }, "By month"),
+    el("div", { class: "rank" }, shown.map(m =>
+      rankRow(monthName(m.month).replace(/ \d+$/, ""), m.saved, most, { lang: "en" }))),
+    el("div", { class: "label sub" }, `By shop, ${euro(s.saved)} in all`),
+    el("div", { class: "rank" }, s.by_store.map(x => rankRow(x.store, x.saved, top))),
+    el("div", { class: "cover" }, "Only discounts printed on a receipt line. Returned " +
+      "bottles are not counted, nor an offer that only lowers the shelf price: the receipt " +
+      "prints that as the price."));
+}
+
 // 3. Due again soon: the next things to run out, by how often they were
 // bought. A product not bought for longer than its usual gap is left out of
 // the list and named under it: perhaps it is no longer bought.
@@ -2110,7 +2138,7 @@ function insightsView() {
       (cov.resolved_share_of_spend == null ? "" : `${Math.round(cov.resolved_share_of_spend * 100)}% ` +
         "of the grocery money is placed on a product; the rest counts as money only.") +
       (aside.length ? ` After the month, the cards leave out ${aside.join(" and ")}.` : "")),
-    moneyCard(d), pricesCard(d), dueCard(d), numbersCard(d), shopsCard(d)];
+    moneyCard(d), pricesCard(d), savedCard(d), dueCard(d), numbersCard(d), shopsCard(d)];
 }
 
 // Receipts by month, newest first (the owner, 2026-10-09): one compact row a
