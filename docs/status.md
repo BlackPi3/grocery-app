@@ -4,13 +4,13 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: Home's pace card in review (#146), shown by screenshot.
+**Last updated:** 2026-10-14, laptop: Home's pace tile live (#146); next is shelf prices (step 2).
 
 ## Now
 
 - Everything is merged. `main` deploys the server and the public demo on every
   merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
-- In review (owner, 2026-10-14, after five rounds of screenshots): **Home's
+- Done (owner, 2026-10-14, after five rounds of screenshots): **Home's
   month tile says the pace.** This month so far and one word ("Faster than
   usual", "About as usual", "Slower than usual"; within a tenth either way is
   about as usual; nothing said before the 7th). The tile's colour says how
@@ -27,9 +27,8 @@ session (laptop or cloud) can pick up from here. How we work is in
   The usual is the mean of up to 6 whole months before, each cut at the
   same day (`insights.usual_by_day`, `usual.running`, each month's
   `running`); the split into causes (#145) stays in `insights.json`, off
-  Home. Branch `feat/home-pace` (#146): **not merged until the owner has
-  seen it.** Seen only in its orange case (the live data); green and "about
-  as usual" are untested on screen.
+  Home. Merged as #146 on the owner's "good". Seen only in its coral case
+  (the live data); green and "about as usual" are untested on screen.
 - Built (owner, 2026-10-13: barcodes first, **exact matches only**, "might
   move to best guess, let's see how it looks"): `grocery-app db barcodes`
   searches Open Food Facts (free) by brand and name, sold in Germany, for
