@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: a newcomer's Home is a bar to 10 receipts.
+**Last updated:** 2026-10-14, laptop: the privacy line is agreed, waiting to be built today.
 
 ## Now
 
@@ -203,11 +203,12 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Open decisions (the owner's), as of 2026-10-14
 
-- **Privacy line on You** (owner, 2026-10-14: "we don't read your receipts,
-  you have full privacy", small, at the bottom). Not built: it is not true
-  today. Photos go to Gemini (Google) to be read, `/v1/inbox` hands other
-  people's uploads to development, and the owner can read the database.
-  Asked: write what is true instead, or change those first.
+- **Privacy line on You: agreed, to be built today** (owner, 2026-10-14:
+  "we don't read your receipts, you have full privacy", small, at the
+  bottom). Before writing it, settle with the owner what makes it true:
+  photos go to Gemini (Google) to be read, `/v1/inbox` hands other people's
+  uploads to development, and the owner can read the database. Either the
+  line says what is true, or those change first.
 
 - **Barcodes: keep exact-only (A)?** Asked 2026-10-13 after the first run
   (see Now), unanswered. Recommendation: yes; the gap is the unknown size,
