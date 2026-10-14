@@ -4,14 +4,13 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: what discounts saved, in review (owner tired, sees it next session); then the product's price line.
+**Last updated:** 2026-10-14, laptop: what discounts saved merged (#150); next, the product's price line.
 
 ## Now
 
 - Everything is merged. `main` deploys the server and the public demo on every
   merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
-- In review (step 2, piece 2 of 3, built while the owner rested; **not
-  merged until he has seen it**): **what discounts saved you**, a card on
+- Done (owner, 2026-10-14, "looks good" on the screenshot; #150): **what discounts saved you**, a card on
   Insights after "Prices that moved". This month's saving and its share of
   the shelf price, then the last 6 months and the shops, most saved first
   (`insights.discounts`, insights contract 9). Only discounts printed on a
@@ -299,8 +298,8 @@ session (laptop or cloud) can pick up from here. How we work is in
    deleting users, what the owner sees of others) wait until the legal side
    is clear (owner).
 
-**Next session: show the owner the discounts card (in review, see Now), then
-build the product's price line** (step 2, piece 3). Nothing else is mid-flight.
+**Next session: build the product's price line** (step 2, piece 3; pieces 1
+and 2 merged as #148 and #150). Nothing is mid-flight.
 
 ## Next build (agreed 2026-10-14): insights about the past, done right
 
@@ -326,7 +325,7 @@ A comparison must be like for like, and an insight must have one meaning.
      receipts, 109 of 237 product lines carry a printed discount, many 10%
      (likely his GLOBUS staff discount), and today each counts as a price
      change (`insights._paid_unit_price` uses `net_paid`).
-   - (Built, in review.) **A new insight: what discounts saved you** (owner: "tell me how much I
+   - (Done, #150.) **A new insight: what discounts saved you** (owner: "tell me how much I
      saved with the discount"; Kaufland's receipt prints it too), from the
      printed discounts, per shop and per month.
    - Home's price tile **rotates** through several products (auto-advance,
