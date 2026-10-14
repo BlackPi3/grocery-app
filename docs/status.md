@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: the privacy line is parked.
+**Last updated:** 2026-10-14, laptop: wrap-up; next is the month comparison, then shelf prices.
 
 ## Now
 
@@ -255,27 +255,45 @@ session (laptop or cloud) can pick up from here. How we work is in
    deleting users, what the owner sees of others) wait until the legal side
    is clear (owner).
 
-Nothing is being built. The next session starts by putting these to the owner:
+**Next session: build step 1 below, then step 2.** Nothing is mid-flight.
 
-1. **Who to win first.** The research (below) found that the idea itself is
-   not unique; what is: each line tied to the shop's real product, a memory
-   kept per shop, every figure saying how much of it is known, budget-brand
-   share, and restock dates that admit thin evidence. Pick one person and one
-   promise: the saver ("see exactly where your money went, no typing, it says
-   what it isn't sure of") or the deal hunter ("your own basket priced at
-   every shop near you this week"). Recommendation: the saver.
-2. **Next build.** Recommendation: talk through barcodes first (parked
-   above; the step none of 75 open-source projects takes, and the base for
-   the next two). Then "this receipt at the other chain" for ALDI SÜD and
-   GLOBUS, from the prices the catalog fetch already has.
-3. **Live prices from other chains** (owner's question): full shelf prices
-   per branch exist for ALDI SÜD and GLOBUS (fetched today) and REWE
-   (unofficial app API, with barcodes); EDEKA, Kaufland, ALDI Nord and Lidl
-   give weekly offers only (Korbuino, BSD; marktguru). Unofficial APIs can
-   break, and no shop's terms are checked yet.
-4. The research page's three questions: a business model; whether digital
-   receipts (REWE eBon, the 2028 German digital receipt, a draft) belong in
-   the pipeline; whether the shops' terms allow fetching their catalogues.
+## Next build (agreed 2026-10-14): insights about the past, done right
+
+The owner: past and present first, no recommendations until the insights are
+complete ("this receipt at the other chain" is a recommendation: parked).
+A comparison must be like for like, and an insight must have one meaning.
+
+1. **Home's month comparison, split into its causes.** Today Home sets
+   "October so far" (14 days) against all of September. Instead: the same
+   days of both months (1-14 Oct against 1-14 Sep), and the difference split
+   so every euro lands in one part: **different things** (bought in only one
+   of the two periods), **more or less of the same things** (bought in both,
+   in other amounts), and **prices** (the same things, priced now against
+   then; shelf price, see 2). Lines not placed on a product are their own
+   small amount. Example: "+40 € against 1-14 Sep: 25 € from things you
+   didn't buy then, 12 € from buying more of the same, 3 € from higher
+   prices." The owner: "do it, then I'll comment" (build it and show him;
+   he decides on seeing it).
+2. **Prices on the shelf price, and the price tile that rotates.**
+   - Price changes are measured on the **shelf price before printed
+     discounts** (`gross`), not on what was paid: on the owner's first 27
+     receipts, 109 of 237 product lines carry a printed discount, many 10%
+     (likely his GLOBUS staff discount), and today each counts as a price
+     change (`insights._paid_unit_price` uses `net_paid`).
+   - **A new insight: what discounts saved you** (owner: "tell me how much I
+     saved with the discount"; Kaufland's receipt prints it too), from the
+     printed discounts, per shop and per month.
+   - Home's price tile **rotates** through several products (auto-advance,
+     swipe back and forth, tap opens that product). Only real changes:
+     bought at least 3 times and moved at least 10% (live, 2026-10-14: 35
+     products changed, 21 of them on just two buys, e.g. Cola 1,07 -> 0,54,
+     an offer). Each says **when** and **how**: "went up 4 Jul and stayed",
+     "dropped once, then back (probably an offer, not counted)", "keeps
+     changing". No fixed window: the date of the change is the window.
+   - The product page opens with a **price line** (date across, price up)
+     over the whole history, the purchase list under it; the calendar gets
+     **weekday letters**.
+3. **Your regulars, rotating** like the price tile ("7× in 6 weeks").
 
 Research (private claude.ai pages, the owner's account): the landscape of
 apps and 75 open-source projects, with "Where your app wins",
@@ -308,6 +326,19 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   saver, the deal hunter; features are checked against who they serve), deals, dislikes, and zooming through time in insights
   (Receipts zooms by month now; weeks and days are next there).
 - Cleanup: old English-named products, doubles from early catalog work.
+- Insight tiles people choose (owner, 2026-10-14): remove a tile, add
+  another from the insights there are. Worth building once there are more
+  insights than Home fits.
+- Offers not printed on the receipt (owner, 2026-10-14): a lower shelf
+  price, a near-expiry sticker, the shops' weekly offer lists; and an
+  optional "Was this on offer?" when a known product's price differs, asked
+  only behind the questions button with its badge, never forced, and never
+  again for someone who doesn't answer.
+- Health-related insights (owner, 2026-10-14): later.
+- "This receipt at the other chain" (2026-10-14): a recommendation, parked
+  until the insights are complete. Checked: under 5% of the owner's products
+  exist at the other chain as the same product, so it needs the closest
+  equivalent (same kind, size, price tier), the owner's call when it comes.
 - Fuel (owner, 2026-10-14): supermarkets often sit next to a petrol or
   charging station, and filling up repeats like shopping. Track fuel
   receipts and prices, so a later recommendation can weigh the station's
