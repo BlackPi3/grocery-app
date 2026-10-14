@@ -186,6 +186,44 @@ def test_the_page_worker_is_served_for_the_page_to_register(client):
         "a page shown from the phone's copy is replaced once the server's newer one arrives"
 
 
+
+def run_page_function(page, name, script):
+    """Runs one function of the phone page in Node, with `script` after it.
+    Its console.log lines come back."""
+    import re
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.fail("node is needed to run the page's code")
+    match = re.search(rf"^async function {name}\(.*?^}}$", page, re.S | re.M)
+    assert match, f"the page has {name}()"
+    done = subprocess.run([node, "-e", match.group(0) + "\n" + script],
+                          capture_output=True, text=True, timeout=30)
+    assert done.returncode == 0, done.stderr
+    return done.stdout.splitlines()
+
+
+@pytest.mark.parametrize("online, said", [
+    (False, "no internet connection"),
+    (True, "the server could not be reached; check your connection"),
+])
+def test_a_request_that_never_left_the_phone_says_so(client, online, said):
+    """Offline, the page said "Cannot load: Load failed", the browser's words,
+    as if the app had broken (the owner, 2026-10-14)."""
+    page = client.get("/").text
+    out = run_page_function(page, "reach", f"""
+        Object.defineProperty(globalThis, "navigator",
+                              {{ value: {{ onLine: {str(online).lower()} }} }});
+        globalThis.fetch = async () => {{ throw new TypeError("Load failed"); }};
+        reach("/v1/receipts").catch(error => console.log(error.message));
+    """)
+    assert out == [said]
+    assert page.count("await fetch(path, opts)") == 1 and "await reach(path, opts)" in page, \
+        "every request of the page goes through it"
+    assert 'addEventListener("online", () => load())' in page, "and loads again once back"
+
 def test_the_repository_is_chosen_by_the_environment(tmp_path, monkeypatch):
     """Which store production reads from. Without a URL it is the file; with
     one it is PostgreSQL, and no connection is made to decide that."""
