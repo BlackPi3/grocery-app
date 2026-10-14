@@ -1048,6 +1048,14 @@ class PostgresRepository:
                 entry["receipts"] = sum(1 for r in receipts if r["month"] == entry["month"])
                 entry["per_receipt_usd"] = (round(sum(r["total_usd"] for r in whole)
                                                   / len(whole), 5) if whole else None)
+                # What Google bills: the month's first free searches cost
+                # nothing, shared out evenly over the searches that were run.
+                free = min(entry["searches"], spend.FREE_SEARCHES_PER_MONTH)
+                share = free / entry["searches"] if entry["searches"] else 0.0
+                entry["billed_usd"] = round(entry["total_usd"] - free * spend.SEARCH_PRICE_USD, 5)
+                entry["billed_per_receipt_usd"] = (round(sum(
+                    r["total_usd"] - r["searches"] * share * spend.SEARCH_PRICE_USD
+                    for r in whole) / len(whole), 5) if whole else None)
             return {"months": sorted(months.values(), key=lambda m: m["month"], reverse=True),
                     "receipts": sorted(receipts, key=lambda r: r["receipt_id"]),
                     "free_searches_per_month": spend.FREE_SEARCHES_PER_MONTH,
