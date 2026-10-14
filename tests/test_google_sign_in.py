@@ -1,9 +1,10 @@
 """Sign in with Google, on made-up addresses and a fake Google.
 
-2026-10-12: invite-only. The owner's address is configuration
-(`GROCERY_OWNER_EMAIL`); a user's is what the owner typed on the People card;
-any other verified address is turned away. A sign-in is a token kept as a
-hash, with an end date. No test reaches Google: the verifier is passed in.
+The owner's address is configuration (`GROCERY_OWNER_EMAIL`); since
+2026-10-14 any other verified address is a user, made at its first sign-in
+(who may sign in at all is Google's to say: its test users while in Testing).
+A sign-in is a token kept as a hash, with an end date. No test reaches
+Google: the verifier is passed in.
 """
 
 from __future__ import annotations
@@ -102,6 +103,8 @@ def server(engine, session, tmp_path):
     repository = PostgresRepository(make_session_factory(engine))
     tokens = {"chef": claims("chef@example.com"), "sara": claims("sara@example.com"),
               "stranger": claims("stranger@example.com"),
+              "lea": claims("lea@example.com", given_name="Lea", name="Lea Muster"),
+              "other-lea": claims("lea.b@example.com", given_name="Lea"),
               "sara-unverified": claims("sara@example.com", email_verified="false"),
               "sara-other-app": claims("sara@example.com", aud="9999-other")}
 
@@ -163,17 +166,35 @@ def test_an_invited_person_signs_in_and_sees_only_their_receipts(server):
 
 
 @pytestmark_db
-def test_nobody_gets_in_uninvited_or_unverified(server):
+def test_a_first_google_sign_in_makes_the_person_s_account(server):
+    """The owner, 2026-10-14: no People card. Who may sign in is Google's to
+    say (its test users while the consent screen is in Testing); a first
+    sign-in makes the user, named as Google names them."""
+    make, _, _ = server
+    client = make()
+    lea = client.post("/v1/auth/google", json={"credential": "lea"}).json()
+    assert (lea["role"], lea["name"]) == ("user", "Lea")
+    again = client.post("/v1/auth/google", json={"credential": "lea"}).json()
+    assert again["name"] == "Lea", "the same account the next time"
+    other = client.post("/v1/auth/google", json={"credential": "other-lea"}).json()
+    assert other["name"] == "Lea (lea.b@example.com)", "a name taken gets the address beside it"
+    nameless = client.post("/v1/auth/google", json={"credential": "stranger"}).json()
+    assert nameless["name"] == "stranger", "no name on Google: the address's first part"
+    assert client.get("/v1/receipts", headers=bearer(lea)).json() == [], "their own, empty"
+    assert [(u["name"], u["email"]) for u in client.get("/v1/users", headers=OWNER).json()] == [
+        ("Lea", "lea@example.com"), ("Lea (lea.b@example.com)", "lea.b@example.com"),
+        ("stranger", "stranger@example.com")]
+
+
+@pytestmark_db
+def test_nobody_gets_in_unverified_or_forged(server):
     make, _, session = server
     client = make()
-    client.post("/v1/users", headers=OWNER, json={"name": "Sara", "email": "sara@example.com"})
-    stranger = client.post("/v1/auth/google", json={"credential": "stranger"})
-    assert stranger.status_code == 403 and "stranger@example.com" in stranger.json()["detail"]
     for credential in ("sara-unverified", "sara-other-app", "forged"):
         assert client.post("/v1/auth/google",
                            json={"credential": credential}).status_code == 401, credential
     assert session.execute(text("SELECT count(*) FROM sign_ins")).scalar() == 0
-
+    assert session.execute(text("SELECT count(*) FROM users")).scalar() == 0
 
 def from_google(client: TestClient, credential: str, form_token: str = "csrf-1",
                 cookie: str | None = "csrf-1") -> dict[str, str]:
@@ -202,17 +223,14 @@ def test_the_page_signs_in_through_google_s_redirect(server, caplog):
     chef = from_google(client, "chef")
     assert client.get("/v1/me", headers=bearer({"token": chef["google"]})).json()["role"] \
         == "owner"
-    assert from_google(client, "stranger") == {
-        "google-error": "stranger@example.com has not been invited: ask the owner "
-                        "to add it on their People card"}
     assert "not a valid Google sign-in" in from_google(client, "forged")["google-error"]
     for form_token, cookie in (("csrf-1", None), ("csrf-1", "csrf-2"), ("", "")):
         assert "could not be checked" in \
             from_google(client, "sara", form_token, cookie)["google-error"], "another site's form"
     assert session.execute(text("SELECT count(*) FROM sign_ins")).scalar() == 1
     refused = [r.getMessage() for r in caplog.records if "sign-in refused" in r.getMessage()]
-    assert refused[0] == "Google sign-in refused: stranger@example.com has not been invited: " \
-        "ask the owner to add it on their People card", "why is in the server's log"
+    assert refused[0].startswith("Google sign-in refused: not a valid Google sign-in"), \
+        "why is in the server's log"
     assert "Google sign-in refused: the CSRF cookie is missing" in refused
 
 

@@ -65,7 +65,12 @@ class GoogleSignIn:
     verify: Verifier
 
     def email(self, credential: str, now: float | None = None) -> str:
-        """The verified address `credential` was issued for, or NotSignedIn.
+        """The verified address `credential` was issued for, or NotSignedIn."""
+        return self.identity(credential, now)[0]
+
+    def identity(self, credential: str, now: float | None = None) -> tuple[str, str | None]:
+        """The verified address `credential` was issued for and the person's
+        first name on Google (else their whole name, else None), or NotSignedIn.
 
         The library checks the claims too; they are checked again here so
         the rule is in this code, where a test can hold it, whatever verifier
@@ -90,7 +95,9 @@ class GoogleSignIn:
             raise NotSignedIn("this Google sign-in carries no address")
         if claims.get("email_verified") not in (True, "true"):
             raise NotSignedIn("Google has not verified this address")
-        return normal_email(email)
+        name = next((str(claims[key]).strip() for key in ("given_name", "name")
+                     if str(claims.get(key) or "").strip()), None)
+        return normal_email(email), name
 
     def is_owner(self, email: str) -> bool:
         return self.owner_email is not None and normal_email(email) == self.owner_email
@@ -122,7 +129,7 @@ def configured(environ: Mapping[str, str] | None = None,
                verify: Verifier | None = None) -> GoogleSignIn | None:
     """Google sign-in as the environment sets it up, or None (off) when
     `GOOGLE_CLIENT_ID` is not set. `GROCERY_OWNER_EMAIL` is the owner's
-    Google address; without it, only invited users can sign in with Google."""
+    Google address; everyone else who signs in is a user."""
     environ = os.environ if environ is None else environ
     client_id = environ.get("GOOGLE_CLIENT_ID", "").strip()
     if not client_id:
