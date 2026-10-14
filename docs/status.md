@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: fixed the page asking for receipt "null" during a reading.
+**Last updated:** 2026-10-14, laptop: paste a receipt, for the owner to try on the iPhone.
 
 ## Now
 
@@ -27,6 +27,18 @@ session (laptop or cloud) can pick up from here. How we work is in
   live not run**: the owner looks first. The user's barcode photo waits until
   after the Ready-for-iOS milestone (it adds a button, which restarts the
   screens-unchanged clock).
+- Built, **waiting for the owner's test on the iPhone** (2026-10-14): **paste
+  a receipt**. A shop app's PDF is shared, then Save to Files, then +; the
+  owner asked whether copy and paste could skip Files. "Paste a receipt" on
+  Receipts reads the clipboard (`navigator.clipboard.read`) and sends a PDF
+  or picture like +; a paste outside a text box (Cmd+V) does too. Apple
+  documents pasting text and pictures only, so whether a copied PDF arrives
+  is the test: with no PDF or picture the page names what the clipboard
+  holds. If PDFs don't arrive, the button stays for pictures or goes (the
+  owner's call). Researched the same day: REWE emails each eBon as a PDF, so
+  a per-user forwarding address could import REWE without a tap (later,
+  not agreed); Kaufland and Lidl keep receipts in their apps only, and
+  fetching them would mean holding users' shop passwords (recommended no).
 - Fixed (owner, 2026-10-14, a Kaufland app PDF): while a receipt was being
   read, with no receipt open, the page asked for `/v1/receipts/null` every
   3 s and showed "Input should be a valid integer". A queued job has no

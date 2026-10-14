@@ -1067,6 +1067,47 @@ async function upload(files) {
   }
 }
 
+// Paste a receipt (the owner, 2026-10-14): a shop app's PDF, copied from its
+// share menu, without saving it to Files first. Whether an iPhone hands a
+// copied PDF to a web page is not documented, so when the clipboard holds no
+// PDF or picture the page says what it does hold: that is the test's answer.
+const PASTABLE = ["application/pdf", "image/jpeg", "image/png", "image/heic", "image/webp"];
+function pastedType(types) {
+  return PASTABLE.find(type => types.includes(type))
+    || types.find(type => type.startsWith("image/")) || null;
+}
+function canPaste() {
+  return !!(navigator.clipboard && navigator.clipboard.read);
+}
+function sendPasted(files) {
+  note(files.length > 1 ? "Your receipts are being processed" : "Your receipt is being processed");
+  upload(files);
+}
+async function pasteReceipt() {
+  let items;
+  try {
+    items = await navigator.clipboard.read();
+  } catch (error) {
+    return toast("The clipboard could not be read: " + error.message);
+  }
+  const files = [], held = [];
+  for (const item of items) {
+    held.push(...item.types);
+    const type = pastedType(item.types);
+    if (type) files.push(new File([await item.getType(type)], "pasted." + type.split("/")[1],
+                                  { type }));
+  }
+  if (!files.length) {
+    return toast(held.length ? "No PDF or picture to paste. The clipboard holds: " +
+      held.join(", ") : "The clipboard is empty");
+  }
+  sendPasted(files);
+}
+function pasteButton() {
+  return canPaste() ? el("button", { class: "link", onclick: pasteReceipt },
+    "Paste a receipt (a PDF or picture you copied)") : null;
+}
+
 // One at a time: an upload, the timer and a tab switch may all ask at once.
 async function refreshJobs() {
   if (refreshJobs.busy) { refreshJobs.again = true; return; }
@@ -1917,7 +1958,7 @@ function monthOf(summary) {
 
 function receiptsView() {
   if (!state.receipts.length) return [el("div", { class: "empty" }, "No receipts yet. Tap + " +
-    "below: a photo of a whole receipt, or a shop's PDF.")];
+    "below: a photo of a whole receipt, or a shop's PDF."), pasteButton()];
   const from = state.cameFrom;
   const shown = state.receipts.filter(r => !state.removing.has(r.receipt_id));
   const reading = new Set(inProgress().map(job => job.receipt_id));
@@ -1941,6 +1982,7 @@ function receiptsView() {
   return [from ? el("button", { class: "back", onclick: backToProduct }, `‹ Back to ${from.name}`)
             : null,
           from ? null : waitingCard(),
+          from ? null : pasteButton(),
           ...shown.filter(r => reading.has(r.receipt_id)).map(receiptCard),
           yearSwitch,
           ...groups.flatMap(key => {
@@ -2097,6 +2139,15 @@ document.getElementById("add-file").addEventListener("change", event => {
   if (!files.length) return;
   note(files.length > 1 ? "Your receipts are being processed" : "Your receipt is being processed");
   upload(files);
+});
+// A paste anywhere but a text box (Cmd+V on a laptop) is a receipt too.
+document.addEventListener("paste", event => {
+  if (event.target.closest && event.target.closest("input, textarea")) return;
+  const files = [...(event.clipboardData ? event.clipboardData.files : [])]
+    .filter(file => pastedType([file.type]));
+  if (!files.length) return;
+  event.preventDefault();
+  sendPasted(files);
 });
 for (const tab of TABS) {
   document.getElementById("tab-" + tab).addEventListener("click", () => {

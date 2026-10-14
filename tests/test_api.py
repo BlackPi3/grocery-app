@@ -271,6 +271,22 @@ def test_a_receipt_still_being_read_is_not_asked_for_when_none_is_open(client):
     assert 'if (openBeingRead() && state.tab === "receipts")' in page, \
         "the refresh asks openBeingRead()"
 
+
+def test_a_pasted_pdf_or_picture_is_a_receipt_and_anything_else_is_named(client):
+    """The owner, 2026-10-14: a shop app's PDF, copied and pasted, without
+    saving it to Files first. What the clipboard holds decides what is sent."""
+    page = client.get("/").text
+    start = page[page.index("const PASTABLE"):page.index("function pastedType")]
+    out = run_page_function(page, "pastedType", start + """
+        for (const types of [["text/plain", "application/pdf"], ["image/png", "image/jpeg"],
+                             ["image/tiff"], ["text/uri-list", "text/plain"], []]) {
+          console.log(String(pastedType(types)));
+        }
+    """)
+    assert out == ["application/pdf", "image/jpeg", "image/tiff", "null", "null"]
+    assert "The clipboard holds: " in page, "anything else is named, so a test on a phone says what"
+    assert "onclick: pasteReceipt" in page and 'addEventListener("paste"' in page
+
 def test_the_repository_is_chosen_by_the_environment(tmp_path, monkeypatch):
     """Which store production reads from. Without a URL it is the file; with
     one it is PostgreSQL, and no connection is made to decide that."""
