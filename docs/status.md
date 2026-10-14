@@ -315,9 +315,9 @@ session (laptop or cloud) can pick up from here. How we work is in
    is clear (owner).
 
 **Next session:** merge `feat/price-line-and-regulars` on the owner's yes
-(or change it as he says). After that the agreed list is empty; the owner
-asked (2026-10-14) for no new features before the milestone, privacy and
-account deletion possibly moved up (his call).
+(or change it as he says). After that the agreed list is empty. Proposed
+(2026-10-14, unanswered): no new features until the milestone, except
+privacy and account deletion, moved up before a second person.
 
 ## Next build (agreed 2026-10-14): insights about the past, done right
 
