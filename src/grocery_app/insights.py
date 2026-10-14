@@ -472,6 +472,24 @@ def _month_end(year: int, month: int) -> date:
     return following - timedelta(days=1)
 
 
+def running_totals(rows: list[dict[str, Any]], month: str,
+                   through_day: int | None = None) -> list[float]:
+    """What had been spent by the end of each day of `month`, from the 1st to
+    `through_day` (or the month's last day): the line the month draws."""
+    year, number = int(month[:4]), int(month[5:7])
+    end = _month_end(year, number)
+    days = min(through_day, end.day) if through_day else end.day
+    per_day = [0.0] * days
+    for p in rows:
+        if p.get("date", "")[:7] == month and (day := _parse(p["date"]).day) <= days:
+            per_day[day - 1] += p.get("net_paid") or 0.0
+    out, total = [], 0.0
+    for amount in per_day:
+        total += amount
+        out.append(round(total, 2))
+    return out
+
+
 # How many months before make "your usual": recent enough to be today's habits.
 USUAL_MONTHS = 6
 
@@ -483,6 +501,10 @@ def usual_by_day(rows: list[dict[str, Any]], month: str,
     (the 31st is a shorter month's last day), or whole when `through_day` is
     None. The owner, 2026-10-14: "am I going too fast, ok, or saving?"
 
+    `running` is the usual month's line: for every day of `month`, the mean
+    of what those months had spent by that day (a shorter month stays at its
+    total after its last day).
+
     A month counts only when the history covers all of it: the month the
     history starts in is partial, and a month without a receipt was not
     tracked, not a month of spending nothing. None with fewer than two such
@@ -493,6 +515,7 @@ def usual_by_day(rows: list[dict[str, Any]], month: str,
         return None
     year, number = int(month[:4]), int(month[5:7])
     counted: list[tuple[str, float]] = []
+    lines_of: list[list[float]] = []
     start = date(year, number, 1)
     while len(counted) < USUAL_MONTHS:
         end = start - timedelta(days=1)
@@ -504,10 +527,14 @@ def usual_by_day(rows: list[dict[str, Any]], month: str,
         if lines:
             counted.append((start.strftime("%Y-%m"),
                             _spend([p for p in lines if _parse(p["date"]) <= cut])))
+            lines_of.append(running_totals(lines, start.strftime("%Y-%m")))
     if len(counted) < 2:
         return None
+    days = _month_end(year, number).day
+    running = [round(statistics.mean(line[min(day, len(line)) - 1] for line in lines_of), 2)
+               for day in range(1, days + 1)]
     return {"through_day": through_day, "months": [m for m, _ in counted],
-            "spend": round(statistics.mean(v for _, v in counted), 2)}
+            "spend": round(statistics.mean(v for _, v in counted), 2), "running": running}
 
 
 # The parts a month's difference is split into, in the order they are told.
@@ -681,6 +708,13 @@ def _compared(out: list[dict[str, Any]], rows: list[dict[str, Any]],
         day = today.day if entry["month"] == this_month else None
         entry["compared"] = compare_month(rows, entry["month"], day)
         entry["usual"] = usual_by_day(rows, entry["month"], day)
+        # The lines a month's chart draws: this month to today, the month
+        # before whole (when there is a comparison at all); the usual month's
+        # is `usual.running`.
+        entry["running"] = {
+            "this": running_totals(rows, entry["month"], day),
+            "before": running_totals(rows, entry["compared"]["versus"])
+            if entry["compared"] else None}
     return out
 
 

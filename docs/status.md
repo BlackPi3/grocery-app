@@ -14,9 +14,12 @@ session (laptop or cloud) can pick up from here. How we work is in
   these are important to me. Am I going too fast, ok, or saving?"): **Home's
   month card says the pace.** This month so far, one word ("Faster than
   usual", "Slower than usual", "About as usual"; within a tenth either way is
-  about as usual), then three bars side by side, each by the same day: this
-  month, usually, last month (no track behind them: the owner, "it seems
-  the max is known, which isn't true"). The usual is the mean of up
+  about as usual), then one chart of running totals over the month's days
+  (owner: one figure that holds them all, not three bars, and no bar
+  whose end reads as a limit): this month to today, bright, with a dot;
+  the usual month dashed; last month faint; a key with the usual and last
+  month by today's date. `running_totals`, `usual.running`, each month's
+  `running`. The usual is the mean of up
   to 6 whole months before, each cut at the same day (`insights.usual_by_day`;
   the month the history starts in and months without a receipt do not
   count; needs two months, else the card sets against last month only).

@@ -122,11 +122,17 @@
   .hero .meta, .hero .label { color: rgba(255,255,255,0.8); }
   .hero .stat { font-size: 34px; }
   .hero .pace { font-size: 17px; font-weight: 600; margin-top: 2px; }
-  .hero .bars { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px;
-    align-items: center; margin-top: 8px; font-size: 13px; color: rgba(255,255,255,0.85); }
-  .hero .bars .spend { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.45); }
-  .hero .bars .spend.now { background: #fff; }
-  .hero .bars .money { text-align: right; font-variant-numeric: tabular-nums; }
+  .hero .chart { margin: 14px 0 4px; }
+  .hero .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .hero .days { position: relative; display: flex; justify-content: space-between;
+    font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+  .hero .days .today { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .hero .key { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; font-size: 13px;
+    color: rgba(255,255,255,0.85); }
+  .hero .key span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .hero .key i { display: inline-block; width: 16px; height: 0; border-top: 2.5px solid #fff; }
+  .hero .key i.usual { border-top: 2px dashed rgba(255,255,255,0.8); }
+  .hero .key i.before { border-top: 2px solid rgba(255,255,255,0.4); }
   .label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
     color: var(--muted); margin-bottom: 4px; }
   .glance { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1338,22 +1344,54 @@ function paceLines(month, running) {
     : ratio < 1 - PACE_BAND ? (running ? "Slower than " : "Less than ") + than
     : (usual ? "About as usual" : `About as in ${versus}`);
   const day = (c && c.through_day) || (usual && usual.through_day);
-  // Bars side by side, the longest the biggest amount: there is no limit to
-  // fill, so no track behind them (the owner, 2026-10-14).
-  const rows = [[monthName(month.month).replace(/ \d+$/, ""), month.spend, true],
-                usual ? ["Usually", usual.spend] : null,
-                c ? [versus, c.versus_spend] : null].filter(Boolean);
-  const longest = Math.max(...rows.map(([, amount]) => amount)) || 1;
+  const name = monthName(month.month).replace(/ \d+$/, "");
+  const by = day ? ` by the ${ordinal(day)}` : "";
   return [
     el("div", { class: "pace" }, pace),
-    el("div", { class: "bars" }, rows.flatMap(([name, amount, now]) => [
-      el("span", {}, name),
-      el("div", {}, el("div", { class: "spend" + (now ? " now" : ""),
-        style: `width:${Math.max(2, 100 * amount / longest)}%` })),
-      el("span", { class: "money" }, euro(amount))])),
-    day ? el("div", { class: "meta", style: "margin-top: 8px" },
-      `Each by the ${ordinal(day)} of the month`) : null,
+    ...paceChart(month, usual, day),
+    el("div", { class: "key" },
+      el("span", {}, el("i", {}), running ? `${name} so far` : name),
+      usual ? el("span", {}, el("i", { class: "usual" }), `Usually ${euro(usual.spend)}${by}`) : null,
+      c ? el("span", {}, el("i", { class: "before" }), `${versus} ${euro(c.versus_spend)}${by}`)
+        : null),
   ];
+}
+
+// The month as running totals, one line each (the owner, 2026-10-14: one
+// figure that holds them all): this month to today, bright, with a dot where
+// it stands; the usual month dashed; last month faint. Above the usual line
+// is faster than usual. The top is the highest line, not a limit.
+function paceChart(month, usual, today) {
+  // A copy kept on the phone from an older server has no lines to draw.
+  if (!month.running) return [];
+  const series = [
+    usual && { values: usual.running, cls: "usual" },
+    month.running.before && { values: month.running.before, cls: "before" },
+    { values: month.running.this, cls: "this" },
+  ].filter(Boolean);
+  const days = Math.max(...series.map(s => s.values.length), 2);
+  const top = Math.max(...series.flatMap(s => s.values), 1) * 1.08;
+  const W = 300, H = 110;
+  const x = d => (d / (days - 1)) * W;
+  const y = v => H - (v / top) * H;
+  const path = values => values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+  const style = {
+    usual: 'stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-dasharray="5 4"',
+    before: 'stroke="rgba(255,255,255,0.4)" stroke-width="1.75"',
+    this: 'stroke="#fff" stroke-width="3"',
+  };
+  const now = month.running.this, last = now.length - 1;
+  const area = now.length > 1
+    ? `<path d="${path(now)}L${x(last).toFixed(1)},${H}L0,${H}Z" fill="rgba(255,255,255,0.14)"/>` : "";
+  const box = el("div", { class: "chart", "aria-hidden": "true" });
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${area}` +
+    series.map(s => `<path d="${path(s.values)}" fill="none" stroke-linecap="round" ` +
+      `stroke-linejoin="round" ${style[s.cls]}/>`).join("") +
+    `<circle cx="${x(last).toFixed(1)}" cy="${y(now[last]).toFixed(1)}" r="4.5" fill="#fff"/></svg>`;
+  return [box, el("div", { class: "days" }, el("span", {}, "1"),
+    today && today > 3 && today < days - 3 ? el("span", { class: "today",
+      style: `left:${(100 * last / (days - 1)).toFixed(1)}%` }, `today, ${ordinal(today)}`) : null,
+    el("span", {}, String(days)))];
 }
 function ordinal(n) {
   const tail = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th";
