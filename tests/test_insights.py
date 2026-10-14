@@ -11,6 +11,7 @@ from grocery_app.insights import (
     cross_store,
     price_changes,
     repurchase,
+    usual_by_day,
 )
 
 
@@ -392,6 +393,30 @@ def test_loose_goods_are_split_by_weight_on_the_shelf_price():
     parts = compare_month(rows, "2026-10")["parts"]
     assert (parts["amounts"], parts["prices"], parts["discounts"]) == (1.00, 0.20, -0.22), \
         "half a kilo more at 2,00, the shelf 20 cents up, the discount apart"
+
+
+def test_the_usual_by_this_day_is_the_mean_of_whole_tracked_months():
+    rows = [row("p-1", "2026-06-20", 50.00),                          # history starts: partial
+            row("p-1", "2026-07-10", 10.00), row("p-1", "2026-07-20", 99.00),
+            row("p-1", "2026-09-03", 30.00), row("p-1", "2026-09-28", 1.00),
+            row("p-1", "2026-10-05", 7.00)]
+    usual = usual_by_day(rows, "2026-10", through_day=14)
+    assert usual == {"through_day": 14, "months": ["2026-09", "2026-07"], "spend": 20.00}, \
+        "August has no receipt (not tracked) and June is where the history starts"
+    assert usual_by_day(rows, "2026-10")["spend"] == 70.00
+
+
+def test_one_month_before_is_not_a_usual():
+    rows = [row("p-1", "2026-08-31", 1.00), row("p-1", "2026-09-05", 2.00),
+            row("p-1", "2026-10-05", 3.00)]
+    assert usual_by_day(rows, "2026-10", through_day=14) is None, \
+        "only September is whole: that is last month, not a habit"
+
+
+def test_a_month_with_nothing_by_this_day_counts_as_nothing_spent():
+    rows = [row("p-1", "2026-07-31", 1.00), row("p-1", "2026-08-02", 8.00),
+            row("p-1", "2026-09-25", 4.00), row("p-1", "2026-10-05", 3.00)]
+    assert usual_by_day(rows, "2026-10", through_day=14)["spend"] == 4.00
 
 
 def test_this_month_stops_today_and_older_months_are_whole():

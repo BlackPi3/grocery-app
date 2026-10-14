@@ -472,6 +472,44 @@ def _month_end(year: int, month: int) -> date:
     return following - timedelta(days=1)
 
 
+# How many months before make "your usual": recent enough to be today's habits.
+USUAL_MONTHS = 6
+
+
+def usual_by_day(rows: list[dict[str, Any]], month: str,
+                 through_day: int | None = None) -> dict[str, Any] | None:
+    """What the shopper usually spends by this day of a month: the mean of the
+    months before `month` (up to `USUAL_MONTHS`), each cut at the same day
+    (the 31st is a shorter month's last day), or whole when `through_day` is
+    None. The owner, 2026-10-14: "am I going too fast, ok, or saving?"
+
+    A month counts only when the history covers all of it: the month the
+    history starts in is partial, and a month without a receipt was not
+    tracked, not a month of spending nothing. None with fewer than two such
+    months: one month is already "last month".
+    """
+    dates = sorted(_parse(p["date"]) for p in rows if p.get("date"))
+    if not dates:
+        return None
+    year, number = int(month[:4]), int(month[5:7])
+    counted: list[tuple[str, float]] = []
+    start = date(year, number, 1)
+    while len(counted) < USUAL_MONTHS:
+        end = start - timedelta(days=1)
+        start = end.replace(day=1)
+        if start < dates[0]:
+            break
+        cut = end.replace(day=min(through_day, end.day)) if through_day else end
+        lines = [p for p in rows if p.get("date") and start <= _parse(p["date"]) <= end]
+        if lines:
+            counted.append((start.strftime("%Y-%m"),
+                            _spend([p for p in lines if _parse(p["date"]) <= cut])))
+    if len(counted) < 2:
+        return None
+    return {"through_day": through_day, "months": [m for m, _ in counted],
+            "spend": round(statistics.mean(v for _, v in counted), 2)}
+
+
 # The parts a month's difference is split into, in the order they are told.
 COMPARE_PARTS = ("new", "gone", "amounts", "prices", "discounts", "not_placed")
 
@@ -640,8 +678,9 @@ def _compared(out: list[dict[str, Any]], rows: list[dict[str, Any]],
               today: date) -> list[dict[str, Any]]:
     this_month = today.strftime("%Y-%m")
     for entry in out:
-        entry["compared"] = compare_month(
-            rows, entry["month"], today.day if entry["month"] == this_month else None)
+        day = today.day if entry["month"] == this_month else None
+        entry["compared"] = compare_month(rows, entry["month"], day)
+        entry["usual"] = usual_by_day(rows, entry["month"], day)
     return out
 
 

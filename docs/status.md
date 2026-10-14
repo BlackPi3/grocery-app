@@ -4,28 +4,24 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: Home's month comparison built; next is shelf prices (step 2).
+**Last updated:** 2026-10-14, laptop: Home's pace card in review; a phone preview of branches waits for the owner's OK.
 
 ## Now
 
 - Everything is merged. `main` deploys the server and the public demo on every
   merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
-- Built (owner, 2026-10-14: "do it, then I'll comment"; **his comments
-  pending**): **Home's month against the same days of the month before**,
-  the difference split so every euro lands in one part
-  (`insights.compare_month`, each month's `compared`, insights contract 7):
-  things bought only now, things bought only then, more or less of the same
-  things, shelf prices, printed discounts, and lines not placed. A "same
-  thing" is one product at one shop, sold the same way: the same milk at
-  another shop is a new thing, not a price (the `price_changes` rule). This
-  month stops today; older months are compared whole. No comparison when the
-  month before has no receipt in those days. Discounts are a part of their
-  own because prices are shelf prices (step 2's rule, used here already).
-  Live, 1-14 Oct against 1-14 Sep: +56,71 €, of which +165,22 € new things,
-  −99,02 € things not bought again, −3,83 € less of the same, +0,46 € prices,
-  −0,16 € discounts, −5,96 € unplaced lines: nearly all of it is *which*
-  things, not prices. The old "September: 295 €" beside October so far is
-  gone.
+- In review (owner, 2026-10-14, on seeing the split: "confusing; not all of
+  these are important to me. Am I going too fast, ok, or saving?"): **Home's
+  month card says the pace.** This month so far, one word ("Faster than
+  usual", "Slower than usual", "About as usual"; within a tenth either way is
+  about as usual), a bar with a tick where the usual stands, and "By the
+  14th: usually 119,28 € · September 145,21 €". The usual is the mean of up
+  to 6 whole months before, each cut at the same day (`insights.usual_by_day`;
+  the month the history starts in and months without a receipt do not
+  count; needs two months, else the card sets against last month only).
+  The split into causes (#145, `compared.parts`) stays in `insights.json` and
+  is off Home. Branch `feat/home-pace`: **not merged until the owner has seen
+  it** (screenshot sent).
 - Built (owner, 2026-10-13: barcodes first, **exact matches only**, "might
   move to best guess, let's see how it looks"): `grocery-app db barcodes`
   searches Open Food Facts (free) by brand and name, sold in Germany, for
@@ -280,8 +276,8 @@ The owner: past and present first, no recommendations until the insights are
 complete ("this receipt at the other chain" is a recommendation: parked).
 A comparison must be like for like, and an insight must have one meaning.
 
-1. ~~**Home's month comparison, split into its causes.**~~ Built 2026-10-14
-   (see Now). Today Home sets
+1. ~~**Home's month comparison, split into its causes.**~~ Built 2026-10-14,
+   then replaced on Home by the pace (see Now). Today Home sets
    "October so far" (14 days) against all of September. Instead: the same
    days of both months (1-14 Oct against 1-14 Sep), and the difference split
    so every euro lands in one part: **different things** (bought in only one

@@ -121,10 +121,12 @@
     color: #fff; border: 0; padding: 18px; }
   .hero .meta, .hero .label { color: rgba(255,255,255,0.8); }
   .hero .stat { font-size: 34px; }
-  .hero .versus { margin-top: 12px; font-weight: 600; }
-  .hero .part { display: flex; justify-content: space-between; gap: 12px; font-size: 14px;
-    padding-top: 4px; color: rgba(255,255,255,0.9); }
-  .hero .part .money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hero .pace { font-size: 17px; font-weight: 600; margin-top: 2px; }
+  .hero .track { position: relative; height: 8px; border-radius: 4px; margin: 12px 0 8px;
+    background: rgba(255,255,255,0.25); }
+  .hero .track .fill { height: 100%; border-radius: 4px; background: #fff; }
+  .hero .track .tick { position: absolute; top: -4px; width: 2px; height: 16px;
+    border-radius: 1px; background: rgba(255,255,255,0.9); box-shadow: 0 0 0 1px rgba(0,0,0,0.15); }
   .label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
     color: var(--muted); margin-bottom: 4px; }
   .glance { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1310,8 +1312,7 @@ function homeView() {
     el("div", { class: "label" }, monthName(month.month).replace(/ \d+$/, "") +
        (thisMonth ? " so far" : "")),
     el("div", { class: "stat" }, euro(month.spend)),
-    el("div", { class: "meta" }, `${month.receipts} ${month.receipts === 1 ? "receipt" : "receipts"}`),
-    comparedLines(month.compared)));
+    paceLines(month, thisMonth)));
   // What a stop promises opens when the stop is reached.
   const reached = at => !start || start.count >= at;
   const glance = [reached(START_GOAL) ? priceCard(d) : null,
@@ -1320,31 +1321,38 @@ function homeView() {
   return cards;
 }
 
-// The month against the same days of the month before, the difference split
-// so every euro lands in one part (the owner, 2026-10-14: like for like, one
-// meaning). The split is the server's (`insights.compare_month`).
-const COMPARED_PARTS = [
-  ["new", "things you didn't buy then", "things you didn't buy then"],
-  ["gone", "things you bought then, not now", "things you bought then, not now"],
-  ["amounts", "more of the same things", "less of the same things"],
-  ["prices", "higher prices", "lower prices"],
-  ["discounts", "less saved by discounts", "more saved by discounts"],
-  ["not_placed", "lines not placed yet", "lines not placed yet"],
-];
-function signedEuro(amount) {
-  return (amount < 0 ? "− " : "+ ") + euro(Math.abs(amount));
-}
-function comparedLines(c) {
-  if (!c) return null;
-  const versus = monthName(c.versus).replace(/ \d+$/, "");
-  const days = c.through_day ? `1–${c.through_day} ${versus}` : versus;
+// Am I going too fast, about as usual, or saving? (the owner, 2026-10-14). This
+// month so far against what is usual by the same day (the mean of the whole
+// months before, `insights.usual_by_day`), else against last month by the same
+// day. Within a tenth either way is "about as usual". The bar is this month;
+// the tick is where the usual stands.
+const PACE_BAND = 0.1;
+function paceLines(month, running) {
+  const c = month.compared, usual = month.usual;
+  const versus = c && monthName(c.versus).replace(/ \d+$/, "");
+  const yardstick = usual ? usual.spend : c ? c.versus_spend : null;
+  if (yardstick == null) return el("div", { class: "meta" },
+    `${month.receipts} ${month.receipts === 1 ? "receipt" : "receipts"}`);
+  const than = usual ? "usual" : versus;
+  const ratio = yardstick ? month.spend / yardstick : Infinity;
+  const pace = ratio > 1 + PACE_BAND ? (running ? "Faster than " : "More than ") + than
+    : ratio < 1 - PACE_BAND ? (running ? "Slower than " : "Less than ") + than
+    : (usual ? "About as usual" : `About as in ${versus}`);
+  const day = (c && c.through_day) || (usual && usual.through_day);
+  const scale = Math.max(month.spend, yardstick) * 1.15 || 1;
   return [
-    el("div", { class: "versus" }, `${signedEuro(c.difference)} against ${days}`),
-    ...COMPARED_PARTS.filter(([key]) => Math.abs(c.parts[key]) >= 0.005)
-      .map(([key, more, less]) => el("div", { class: "part" },
-        el("span", {}, c.parts[key] > 0 ? more : less),
-        el("span", { class: "money" }, signedEuro(c.parts[key])))),
+    el("div", { class: "pace" }, pace),
+    el("div", { class: "track", "aria-hidden": "true" },
+      el("div", { class: "fill", style: `width:${100 * month.spend / scale}%` }),
+      el("div", { class: "tick", style: `left:${100 * yardstick / scale}%` })),
+    el("div", { class: "meta" }, (day ? `By the ${ordinal(day)}: ` : "") +
+      [usual ? `usually ${euro(usual.spend)}` : null,
+       c ? `${versus} ${euro(c.versus_spend)}` : null].filter(Boolean).join(" · ")),
   ];
+}
+function ordinal(n) {
+  const tail = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th";
+  return n + tail;
 }
 
 // The price that moved most, among products bought at least three times, the

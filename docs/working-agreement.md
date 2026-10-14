@@ -46,6 +46,10 @@ this is the long one. The current state of the work is in `docs/status.md`.
   `gh pr create`, wait for CI, `gh pr merge N --merge --delete-branch`, watch
   the deploy, then report. Don't ask about any of these steps. If the owner
   dislikes the result, revert it.
+- **Anything the owner sees is shown before it is merged** (owner,
+  2026-10-14). A screen or a card: open the PR, show it with his real data
+  (`scripts/preview.py --shot`: the branch's page, live data, read only),
+  and merge on his yes. Code he never sees still merges on green CI.
 - Every branch ends in a PR. Never merge, fast-forward or push into `main`
   directly. The PR history is part of the portfolio.
 - Commit in small, logical steps.
