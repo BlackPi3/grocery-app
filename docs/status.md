@@ -4,28 +4,32 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: Home's month comparison built; next is shelf prices (step 2).
+**Last updated:** 2026-10-14, laptop: Home's pace card in review (#146), shown by screenshot.
 
 ## Now
 
 - Everything is merged. `main` deploys the server and the public demo on every
   merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
-- Built (owner, 2026-10-14: "do it, then I'll comment"; **his comments
-  pending**): **Home's month against the same days of the month before**,
-  the difference split so every euro lands in one part
-  (`insights.compare_month`, each month's `compared`, insights contract 7):
-  things bought only now, things bought only then, more or less of the same
-  things, shelf prices, printed discounts, and lines not placed. A "same
-  thing" is one product at one shop, sold the same way: the same milk at
-  another shop is a new thing, not a price (the `price_changes` rule). This
-  month stops today; older months are compared whole. No comparison when the
-  month before has no receipt in those days. Discounts are a part of their
-  own because prices are shelf prices (step 2's rule, used here already).
-  Live, 1-14 Oct against 1-14 Sep: +56,71 €, of which +165,22 € new things,
-  −99,02 € things not bought again, −3,83 € less of the same, +0,46 € prices,
-  −0,16 € discounts, −5,96 € unplaced lines: nearly all of it is *which*
-  things, not prices. The old "September: 295 €" beside October so far is
-  gone.
+- In review (owner, 2026-10-14, after five rounds of screenshots): **Home's
+  month tile says the pace.** This month so far and one word ("Faster than
+  usual", "About as usual", "Slower than usual"; within a tenth either way is
+  about as usual; nothing said before the 7th). The tile's colour says how
+  far off the usual the month is: green when consistent or spending less,
+  through orange to a soft coral from 70% above, never a warning red ("an
+  insight; we don't want users to feel bad"). Only when the month is
+  noticeably off (beyond a tenth, from the 7th) does the tile show a small
+  chart: running totals over the last 10 days, this month bright with a dot,
+  the usual dashed, last month faint, each named at its end (no legend),
+  smoothed through the real totals every 4 days (monotone, so a total never
+  dips; the dot exact), the gap shaded with the difference ("+82,64 €").
+  Otherwise one line: "Usually 119,28 € by the 14th · September 145,21 €".
+  A tap opens the whole month's chart and "A usual month ends at …".
+  The usual is the mean of up to 6 whole months before, each cut at the
+  same day (`insights.usual_by_day`, `usual.running`, each month's
+  `running`); the split into causes (#145) stays in `insights.json`, off
+  Home. Branch `feat/home-pace` (#146): **not merged until the owner has
+  seen it.** Seen only in its orange case (the live data); green and "about
+  as usual" are untested on screen.
 - Built (owner, 2026-10-13: barcodes first, **exact matches only**, "might
   move to best guess, let's see how it looks"): `grocery-app db barcodes`
   searches Open Food Facts (free) by brand and name, sold in Germany, for
@@ -280,8 +284,8 @@ The owner: past and present first, no recommendations until the insights are
 complete ("this receipt at the other chain" is a recommendation: parked).
 A comparison must be like for like, and an insight must have one meaning.
 
-1. ~~**Home's month comparison, split into its causes.**~~ Built 2026-10-14
-   (see Now). Today Home sets
+1. ~~**Home's month comparison, split into its causes.**~~ Built 2026-10-14,
+   then replaced on Home by the pace (see Now). Today Home sets
    "October so far" (14 days) against all of September. Instead: the same
    days of both months (1-14 Oct against 1-14 Sep), and the difference split
    so every euro lands in one part: **different things** (bought in only one
@@ -334,6 +338,18 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 - A second person using it with real receipts.
 
 ## Parked (later, not now)
+
+- A phone preview of a branch (owner, 2026-10-14: "having it deployed is
+  best, it can support many possibilities; backlog, not now"). A Cloud Run
+  service `grocery-preview` of its own, deployed by hand from a branch, on
+  the live data but looking only (no migrations, no jobs or pictures, every
+  write refused but signing in), a strip naming the branch. Needs: the
+  owner's OK on the risk (unmerged code reading live data, a second public
+  address), GitHub's deploy permission widened to hand-started runs, and the
+  preview address added to the Google sign-in client. A first version of
+  the server part is in a git stash (`preview-mode`) on the laptop. Until
+  then, screens are shown by screenshot (`scripts/preview.py --shot`), or a
+  short video for a flow.
 
 - Barcodes, the rest: a barcode photo from the user (after the milestone),
   and a known size for products read from a receipt (see Now).

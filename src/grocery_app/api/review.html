@@ -121,10 +121,13 @@
     color: #fff; border: 0; padding: 18px; }
   .hero .meta, .hero .label { color: rgba(255,255,255,0.8); }
   .hero .stat { font-size: 34px; }
-  .hero .versus { margin-top: 12px; font-weight: 600; }
-  .hero .part { display: flex; justify-content: space-between; gap: 12px; font-size: 14px;
-    padding-top: 4px; color: rgba(255,255,255,0.9); }
-  .hero .part .money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hero .pace { font-size: 17px; font-weight: 600; margin-top: 2px; }
+  .hero .chart { margin: 14px 0 0; }
+  .hero .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .hero .usually { margin-top: 6px; }
+  .pace-page .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .pace-page .chart { margin: 16px 0 6px; }
+  .pace-page .says { margin-top: 10px; }
   .label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
     color: var(--muted); margin-bottom: 4px; }
   .glance { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1306,12 +1309,7 @@ function homeView() {
   const at = d.months.findIndex(m => m.month === now);
   const month = d.months[at];
   const thisMonth = now === new Date().toISOString().slice(0, 7);
-  cards.push(el("div", { class: "card hero" },
-    el("div", { class: "label" }, monthName(month.month).replace(/ \d+$/, "") +
-       (thisMonth ? " so far" : "")),
-    el("div", { class: "stat" }, euro(month.spend)),
-    el("div", { class: "meta" }, `${month.receipts} ${month.receipts === 1 ? "receipt" : "receipts"}`),
-    comparedLines(month.compared)));
+  cards.push(paceCard(month, thisMonth));
   // What a stop promises opens when the stop is reached.
   const reached = at => !start || start.count >= at;
   const glance = [reached(START_GOAL) ? priceCard(d) : null,
@@ -1320,31 +1318,197 @@ function homeView() {
   return cards;
 }
 
-// The month against the same days of the month before, the difference split
-// so every euro lands in one part (the owner, 2026-10-14: like for like, one
-// meaning). The split is the server's (`insights.compare_month`).
-const COMPARED_PARTS = [
-  ["new", "things you didn't buy then", "things you didn't buy then"],
-  ["gone", "things you bought then, not now", "things you bought then, not now"],
-  ["amounts", "more of the same things", "less of the same things"],
-  ["prices", "higher prices", "lower prices"],
-  ["discounts", "less saved by discounts", "more saved by discounts"],
-  ["not_placed", "lines not placed yet", "lines not placed yet"],
-];
-function signedEuro(amount) {
-  return (amount < 0 ? "− " : "+ ") + euro(Math.abs(amount));
+// Am I going too fast, about as usual, or saving? (the owner, 2026-10-14). This
+// month so far against what is usual by the same day (the mean of the whole
+// months before, `insights.usual_by_day`), else against last month by the same
+// day. It is an insight, not an alarm: the tile's colour says how far off the
+// usual the month is, green when consistent (or spending less), through orange
+// to a soft coral when far above; never a warning red. Nothing is said in the
+// first days of a month, when one shop is already "+50%".
+const PACE_BAND = 0.1;     // within a tenth either way is "about as usual"
+const PACE_FROM_DAY = 7;   // no verdict before the 7th: too few days to mean anything
+const PACE_WINDOW = 10;    // days before today the tile's chart shows
+function paceOf(month, running) {
+  const c = month.compared, usual = month.usual;
+  const versus = c && monthName(c.versus).replace(/ \d+$/, "");
+  const yardstick = usual ? usual.spend : c ? c.versus_spend : null;
+  const day = (c && c.through_day) || (usual && usual.through_day) || null;
+  if (yardstick == null || !yardstick) return { day, usual, c, versus };
+  const ratio = month.spend / yardstick;
+  const than = usual ? "usual" : versus;
+  const word = ratio > 1 + PACE_BAND ? (running ? "Faster than " : "More than ") + than
+    : ratio < 1 - PACE_BAND ? (running ? "Slower than " : "Less than ") + than
+    : (usual ? "About as usual" : `About as in ${versus}`);
+  const early = running && day && day < PACE_FROM_DAY;
+  return { day, usual, c, versus, yardstick, ratio, word: early ? null : word,
+           notable: !early && Math.abs(ratio - 1) > PACE_BAND };
 }
-function comparedLines(c) {
-  if (!c) return null;
-  const versus = monthName(c.versus).replace(/ \d+$/, "");
-  const days = c.through_day ? `1–${c.through_day} ${versus}` : versus;
-  return [
-    el("div", { class: "versus" }, `${signedEuro(c.difference)} against ${days}`),
-    ...COMPARED_PARTS.filter(([key]) => Math.abs(c.parts[key]) >= 0.005)
-      .map(([key, more, less]) => el("div", { class: "part" },
-        el("span", {}, c.parts[key] > 0 ? more : less),
-        el("span", { class: "money" }, signedEuro(c.parts[key])))),
-  ];
+// Green at a tenth above the usual or less, orange at a quarter, a soft coral
+// from 70% above: the hue says how much, the colours stay calm.
+function paceColour(ratio) {
+  const over = ratio - 1;
+  const hue = over <= PACE_BAND ? 150
+    : over <= 0.25 ? 150 - (over - PACE_BAND) / 0.15 * 112
+    : Math.max(12, 38 - (over - 0.25) / 0.45 * 26);
+  return `background: linear-gradient(135deg, hsl(${hue.toFixed(0)},48%,44%), ` +
+    `hsl(${(hue + 10).toFixed(0)},50%,52%))`;
+}
+function usuallyText(pace) {
+  const by = pace.day ? ` by the ${ordinal(pace.day)}` : "";
+  return [pace.usual ? `Usually ${euro(pace.usual.spend)}${by}` : null,
+          pace.c ? `${pace.versus} ${euro(pace.c.versus_spend)}` : null].filter(Boolean).join(" · ");
+}
+function paceCard(month, running) {
+  const pace = paceOf(month, running);
+  const name = monthName(month.month).replace(/ \d+$/, "");
+  const canOpen = !!month.running && pace.yardstick != null;
+  return el("div", { class: "card hero" + (canOpen ? " tap" : ""),
+      style: pace.word ? paceColour(pace.ratio) : "",
+      onclick: canOpen ? () => openPace(month, running) : null },
+    el("div", { class: "label" }, name + (running ? " so far" : "")),
+    el("div", { class: "stat" }, euro(month.spend)),
+    pace.word ? el("div", { class: "pace" }, pace.word) : null,
+    // A chart only when the month is noticeably off its usual; else a line.
+    pace.notable && month.running
+      ? paceChart(month, pace, { window: PACE_WINDOW, H: 62 })
+      : el("div", { class: "meta usually" }, usuallyText(pace)));
+}
+
+// The whole month, a tap away from Home's tile.
+function openPace(month, running) {
+  state.pace = { month: month.month, running, scroll: window.scrollY };
+  render();
+  window.scrollTo(0, 0);
+}
+function closePace() {
+  const scroll = state.pace && state.pace.scroll;
+  state.pace = null;
+  render();
+  if (scroll) window.scrollTo(0, scroll);
+}
+function paceView() {
+  const back = el("button", { class: "back", onclick: closePace }, "‹ Back");
+  const month = state.insights && state.insights.months.find(m => m.month === state.pace.month);
+  if (!month || !month.running) return [back];
+  const pace = paceOf(month, state.pace.running);
+  const name = monthName(month.month).replace(/ \d+$/, "");
+  const ends = month.usual && month.usual.running[month.usual.running.length - 1];
+  return [back, el("div", { class: "card hero pace-page",
+      style: pace.word ? paceColour(pace.ratio) : "" },
+    el("div", { class: "label" }, name + (state.pace.running ? " so far" : "")),
+    el("div", { class: "stat" }, euro(month.spend)),
+    pace.word ? el("div", { class: "pace" }, pace.word) : null,
+    paceChart(month, pace, { H: 120 }),
+    el("div", { class: "meta says" }, usuallyText(pace)),
+    ends && state.pace.running ? el("div", { class: "meta" },
+      `A usual month ends at ${euro(ends)}.`) : null)];
+}
+
+// Running totals as lines (the owner, 2026-10-14: one figure that holds them
+// all; simple lines, "not a scientific paper", but "not dummy lines either"):
+// this month to today, bright, with a dot where it stands; the usual month
+// dashed; last month faint; each named at its end, no legend. Each line passes
+// through the real totals every few days and is smoothed between them, never
+// going down; today's dot is exact. A gap beyond PACE_BAND is shaded, with
+// the difference above the dot. `window` shows only that many days before
+// today (and two after), scaled to what it shows, so the tile stays small.
+const PACE_STEP = 4;  // days between the points a line passes through
+function samples(from, to) {
+  const at = [];
+  for (let i = from; i < to; i += PACE_STEP) if (to - i >= 2 || i === from) at.push(i);
+  if (to > from) at.push(to);
+  return at;
+}
+// A monotone cubic through the points (Fritsch-Carlson): smooth, and a total
+// that only grows never dips between two points.
+function curve(points) {
+  const n = points.length, segments = [];
+  if (n < 2) return segments;
+  const dx = [], slope = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(points[i + 1][0] - points[i][0]);
+    slope.push((points[i + 1][1] - points[i][1]) / dx[i]);
+  }
+  const t = [slope[0]];
+  for (let i = 1; i < n - 1; i++)
+    t.push(slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2);
+  t.push(slope[n - 2]);
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) { t[i] = t[i + 1] = 0; continue; }
+    const a = t[i] / slope[i], b = t[i + 1] / slope[i], h = a * a + b * b;
+    if (h > 9) { const k = 3 / Math.sqrt(h); t[i] = k * a * slope[i]; t[i + 1] = k * b * slope[i]; }
+  }
+  for (let i = 0; i < n - 1; i++) {
+    const [x0, y0] = points[i], [x1, y1] = points[i + 1], third = dx[i] / 3;
+    segments.push([[x0, y0], [x0 + third, y0 + t[i] * third], [x1 - third, y1 - t[i + 1] * third], [x1, y1]]);
+  }
+  return segments;
+}
+const pt = ([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`;
+function forward(segments) {
+  return segments.length ? `M${pt(segments[0][0])}` +
+    segments.map(([, c1, c2, p1]) => `C${pt(c1)} ${pt(c2)} ${pt(p1)}`).join("") : "";
+}
+function backward(segments) {
+  return segments.slice().reverse().map(([p0, c1, c2]) => `C${pt(c2)} ${pt(c1)} ${pt(p0)}`).join("");
+}
+function paceChart(month, pace, { window: span, H }) {
+  const now = month.running.this, before = month.running.before;
+  const usual = pace.usual && pace.usual.running;
+  const yard = usual || before;
+  const last = now.length - 1;
+  const length = Math.max(now.length, usual ? usual.length : 0, before ? before.length : 0);
+  const from = span ? Math.max(0, last - span) : 0;
+  const to = span ? Math.min(length - 1, last + 2) : length - 1;
+  const value = (values, i) => values[Math.min(i, values.length - 1)];
+  const shown = [[now, last], [usual, to], [before, to]].filter(([v]) => v)
+    .flatMap(([v, end]) => samples(from, end).map(i => value(v, i)));
+  const low = span ? Math.min(...shown) : 0, high = Math.max(...shown, low + 1);
+  const W = 300, plot = W - 34;  // room on the right for the names
+  const x = i => ((i - from) / Math.max(to - from, 1)) * plot;
+  const y = v => H - ((v - low) / (high - low)) * (H - 4) - 2;
+  const line = (values, end) => curve(samples(from, end).map(i => [x(i), y(value(values, i))]));
+  const stroke = 'fill="none" stroke-linecap="round" stroke-linejoin="round"';
+  const out = [];
+  let pill = null;
+  if (yard && last > from && pace.notable) {
+    const here = value(yard, last), gap = now[last] - here;
+    out.push(`<path d="${forward(line(now, last))}L${pt([x(last), y(here)])}` +
+      `${backward(line(yard, last))}Z" ` +
+      'fill="#fff" fill-opacity="0.28"/>');
+    pill = (gap > 0 ? "+" : "−") + euro(Math.abs(gap));
+  }
+  // Each line's name at its end; two ends close together are pushed apart.
+  const ends = { usual: usual && y(value(usual, to)), before: before && y(value(before, to)) };
+  if (usual && before && Math.abs(ends.usual - ends.before) < 11) {
+    const middle = (ends.usual + ends.before) / 2, up = ends.usual <= ends.before ? -1 : 1;
+    ends.usual = middle + up * 5.5;
+    ends.before = middle - up * 5.5;
+  }
+  const name = (which, label, opacity) =>
+    `<text x="${(x(to) + 5).toFixed(1)}" y="${(ends[which] + 3.5).toFixed(1)}" font-size="10" ` +
+    `fill="#fff" fill-opacity="${opacity}">${label}</text>`;
+  if (before) out.push(`<path d="${forward(line(before, to))}" ${stroke} ` +
+    'stroke="#fff" stroke-opacity="0.45" stroke-width="1.75"/>', name("before", pace.versus.slice(0, 3), 0.7));
+  if (usual) out.push(`<path d="${forward(line(usual, to))}" ${stroke} ` +
+    'stroke="#fff" stroke-opacity="0.9" stroke-width="2" stroke-dasharray="5 4"/>', name("usual", "usual", 0.95));
+  out.push(`<path d="${forward(line(now, last))}" ${stroke} stroke="#fff" stroke-width="3"/>`,
+    `<circle cx="${x(last).toFixed(1)}" cy="${y(now[last]).toFixed(1)}" r="4.5" fill="#fff"/>`);
+  if (pill) {
+    const width = pill.length * 6.4 + 12, mid = y(now[last]) - 16;
+    const left = Math.min(Math.max(x(last) - width / 2, 0), plot - width);
+    out.push(`<rect x="${left.toFixed(1)}" y="${(mid - 9).toFixed(1)}" width="${width.toFixed(1)}" ` +
+      `height="18" rx="9" fill="#fff"/><text x="${(left + width / 2).toFixed(1)}" ` +
+      `y="${(mid + 4).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" ` +
+      `fill="#0b0b0b">${pill}</text>`);
+  }
+  const box = el("div", { class: "chart", "aria-hidden": "true" });
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${out.join("")}</svg>`;
+  return box;
+}
+function ordinal(n) {
+  const tail = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th";
+  return n + tail;
 }
 
 // The price that moved most, among products bought at least three times, the
@@ -1995,7 +2159,8 @@ function render() {
   render.pending = false;
   const views = { home: homeView, receipts: receiptsView, insights: insightsView,
                   you: youView };
-  const shown = state.product && state.product.tab === state.tab ? productView : views[state.tab];
+  const shown = state.product && state.product.tab === state.tab ? productView
+    : state.pace && state.tab === "home" ? paceView : views[state.tab];
   view.replaceChildren(...shown().filter(Boolean));  // a view may skip a card
   document.getElementById("stats").textContent = state.copyAt
     ? "As of your last visit (" + new Date(state.copyAt).toLocaleString([],
@@ -2088,7 +2253,7 @@ document.getElementById("add-file").addEventListener("change", event => {
 for (const tab of TABS) {
   document.getElementById("tab-" + tab).addEventListener("click", () => {
     state.tab = tab;
-    state.product = state.cameFrom = state.highlight = null;  // a tab starts from its top
+    state.product = state.cameFrom = state.highlight = state.pace = null;  // a tab starts from its top
     render();
     window.scrollTo(0, 0);
     if (tab === "home") refreshJobs();

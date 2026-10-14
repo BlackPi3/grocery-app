@@ -11,6 +11,8 @@ from grocery_app.insights import (
     cross_store,
     price_changes,
     repurchase,
+    running_totals,
+    usual_by_day,
 )
 
 
@@ -394,6 +396,50 @@ def test_loose_goods_are_split_by_weight_on_the_shelf_price():
         "half a kilo more at 2,00, the shelf 20 cents up, the discount apart"
 
 
+def test_the_usual_by_this_day_is_the_mean_of_whole_tracked_months():
+    rows = [row("p-1", "2026-06-20", 50.00),                          # history starts: partial
+            row("p-1", "2026-07-10", 10.00), row("p-1", "2026-07-20", 99.00),
+            row("p-1", "2026-09-03", 30.00), row("p-1", "2026-09-28", 1.00),
+            row("p-1", "2026-10-05", 7.00)]
+    usual = usual_by_day(rows, "2026-10", through_day=14)
+    assert {k: usual[k] for k in ("through_day", "months", "spend")} == \
+        {"through_day": 14, "months": ["2026-09", "2026-07"], "spend": 20.00}, \
+        "August has no receipt (not tracked) and June is where the history starts"
+    assert usual_by_day(rows, "2026-10")["spend"] == 70.00
+
+
+def test_a_month_s_line_is_what_was_spent_by_the_end_of_each_day():
+    rows = [row("p-1", "2026-10-02", 1.50), row("p-1", "2026-10-02", 0.50),
+            row("p-1", "2026-10-04", 3.00), row("p-1", "2026-10-09", 9.00),
+            row("p-1", "2026-09-30", 7.00)]
+    assert running_totals(rows, "2026-10", through_day=5) == [0.0, 2.0, 2.0, 5.0, 5.0]
+    assert len(running_totals(rows, "2026-10")) == 31
+    assert running_totals(rows, "2026-10")[-1] == 14.00
+
+
+def test_the_usual_line_is_the_mean_of_the_months_and_a_short_month_stays_at_its_total():
+    rows = [row("p-1", "2026-01-31", 1.00),                           # history starts
+            row("p-1", "2026-02-01", 2.00), row("p-1", "2026-02-28", 4.00),   # 28 days
+            row("p-1", "2026-03-01", 6.00), row("p-1", "2026-03-31", 8.00)]
+    running = usual_by_day(rows, "2026-05", through_day=10)["running"]
+    assert len(running) == 31, "the line runs over May's days"
+    assert (running[0], running[27], running[29], running[30]) == (4.00, 6.00, 6.00, 10.00), \
+        "on the 30th February has long ended at 6,00 and March is still at 6,00"
+
+
+def test_one_month_before_is_not_a_usual():
+    rows = [row("p-1", "2026-08-31", 1.00), row("p-1", "2026-09-05", 2.00),
+            row("p-1", "2026-10-05", 3.00)]
+    assert usual_by_day(rows, "2026-10", through_day=14) is None, \
+        "only September is whole: that is last month, not a habit"
+
+
+def test_a_month_with_nothing_by_this_day_counts_as_nothing_spent():
+    rows = [row("p-1", "2026-07-31", 1.00), row("p-1", "2026-08-02", 8.00),
+            row("p-1", "2026-09-25", 4.00), row("p-1", "2026-10-05", 3.00)]
+    assert usual_by_day(rows, "2026-10", through_day=14)["spend"] == 4.00
+
+
 def test_this_month_stops_today_and_older_months_are_whole():
     rows = [row("p-1", "2026-08-31", 1.00), row("p-1", "2026-09-10", 2.00),
             row("p-1", "2026-09-25", 4.00), row("p-1", "2026-10-05", 3.00)]
@@ -403,3 +449,6 @@ def test_this_month_stops_today_and_older_months_are_whole():
     assert (september["compared"]["through_day"], september["compared"]["difference"]) == \
         (None, 5.00)
     assert august["compared"] is None
+    assert october["running"]["this"][-1] == 3.00 and len(october["running"]["this"]) == 14
+    assert len(october["running"]["before"]) == 30, "September drawn whole"
+    assert august["running"]["before"] is None
