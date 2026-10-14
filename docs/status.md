@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: the costs card shows what is billed.
+**Last updated:** 2026-10-14, laptop: a newcomer's Home is a bar to 10 receipts.
 
 ## Now
 
@@ -27,6 +27,18 @@ session (laptop or cloud) can pick up from here. How we work is in
   live not run**: the owner looks first. The user's barcode photo waits until
   after the Ready-for-iOS milestone (it adds a button, which restarts the
   screens-unchanged clock).
+- Done (owner, 2026-10-14): **a newcomer's Home is a bar to 10 receipts**
+  ("2 of 10 receipts") with three stops, each a promise: 1, where your money
+  goes; 5, your regulars; 10, the full picture with prices that moved. A
+  stop's Home card opens when it is reached (the month at 1, "your regular"
+  at 5, "price up/down" at 10), and only if its data is real. From 10 the bar
+  is gone. Stops from replaying the owner's first 27 receipts: a regular at 2
+  (4 by 5), a price that moved at 11, Home's price card (3 buys) at 15.
+  "What's due" is not promised (the owner: looking forward is a later
+  stage). Insights shows a card with nothing yet closed, saying what opens it;
+  Insights and Receipts say plainly when empty. Insights is not gated by the
+  stops: a card shows as soon as its data is real. The demo has 10 receipts,
+  so no bar.
 - Done (owner, 2026-10-14): the costs card shows **what is billed** beside
   the list price. List price counts every web search at 1.4 cents, but the
   first 5,000 a month are free: October so far read as 21 cents a receipt at
@@ -189,7 +201,13 @@ session (laptop or cloud) can pick up from here. How we work is in
 4. ~~Insights screen.~~ Done (2026-10-13): five cards, one question each,
    with their coverage; every product opens the drill-down (see Now).
 
-## Open decisions (the owner's), as of 2026-10-13
+## Open decisions (the owner's), as of 2026-10-14
+
+- **Privacy line on You** (owner, 2026-10-14: "we don't read your receipts,
+  you have full privacy", small, at the bottom). Not built: it is not true
+  today. Photos go to Gemini (Google) to be read, `/v1/inbox` hands other
+  people's uploads to development, and the owner can read the database.
+  Asked: write what is true instead, or change those first.
 
 - **Barcodes: keep exact-only (A)?** Asked 2026-10-13 after the first run
   (see Now), unanswered. Recommendation: yes; the gap is the unknown size,
