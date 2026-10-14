@@ -6,9 +6,11 @@ carries its coverage: how many lines and how much money it is based on, and
 what was left out. Unresolved lines have money but no identity, so they count
 towards spend and never towards a product-level insight.
 
-Prices are what was paid, per unit, after discounts: `unit_price` when the
-normalizer could compute one (per kg, per l, per piece), else the paid amount
-per item. A personal inflation index has to follow what the person pays.
+Prices are shelf prices, per unit, before printed discounts (the owner,
+2026-10-14: "a price change is the shelf price moving"): an offer, a shop card
+or a staff discount printed on the receipt is not the price moving, and what
+discounts saved is told on its own. The unit is the one `unit_price` is in
+(per kg, per l, per piece), else per item. Spend is what was paid.
 
 The four insights promised in CLAUDE.md, in the order they are computed:
 
@@ -50,7 +52,7 @@ from typing import Any
 from grocery_app import categories
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 7
+CONTRACT_VERSION = 8
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -71,16 +73,32 @@ def _by_product(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     return groups
 
 
-def _paid_unit_price(p: dict[str, Any]) -> tuple[float, str] | None:
-    """What was paid per unit, and the unit: (6.08, "kg"), (1.44, "piece"), (0.76, "item")."""
+def _shelf(p: dict[str, Any]) -> float:
+    """What the shelf asked for the line, before printed discounts."""
+    if p.get("gross") is not None:
+        return p["gross"]
+    return (p.get("net_paid") or 0.0) - (p.get("discount") or 0.0)
+
+
+def _quantity(p: dict[str, Any]) -> tuple[float, str]:
+    """How much the line bought, in the unit its price is in: (0.65, "kg"),
+    (2, "item"). Paid money over paid unit price, so a kilo is a kilo
+    whatever the discount was."""
     unit = p.get("unit_price") or {}
-    if unit.get("amount"):
-        return float(unit["amount"]), unit.get("per") or "item"
-    qty = p.get("qty") or 1
-    net = p.get("net_paid")
-    if net is None or net <= 0:
+    net = p.get("net_paid") or 0.0
+    if unit.get("amount") and net > 0:
+        return net / unit["amount"], unit.get("per") or "item"
+    return p.get("qty") or 1, "item"
+
+
+def _shelf_unit_price(p: dict[str, Any]) -> tuple[float, str] | None:
+    """The shelf price per unit, and the unit: (6.08, "kg"), (1.44, "piece"),
+    (0.76, "item"). A discount printed on the line does not lower it."""
+    shelf = _shelf(p)
+    quantity, unit = _quantity(p)
+    if shelf <= 0 or not quantity:
         return None
-    return round(net / qty, 2), "item"
+    return round(shelf / quantity, 2), unit
 
 
 def _form(p: dict[str, Any]) -> str | None:
@@ -169,11 +187,11 @@ def repurchase(rows: list[dict[str, Any]], as_of: date) -> list[dict[str, Any]]:
 # --- 2. price over time ------------------------------------------------------
 
 def _observations(group: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str] | None:
-    """One paid unit price per date for a product, or None when the unit differs."""
+    """One shelf unit price per date for a product, or None when the unit differs."""
     by_date: dict[str, list[float]] = defaultdict(list)
     units = set()
     for p in group:
-        priced = _paid_unit_price(p)
+        priced = _shelf_unit_price(p)
         if priced is None or not p.get("date"):
             continue
         amount, unit = priced
@@ -217,8 +235,77 @@ def price_changes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "last": obs[-1],
             "change_pct": pct,
             "observations": obs,
+            "move": price_move(obs),
         })
     out.sort(key=lambda r: -abs(r["change_pct"] or 0))
+    return out
+
+
+# Two shelf prices this close are one price: a cent of rounding, or a few
+# cents on a weighed item, is not the price moving.
+SAME_PRICE = 0.03
+# A move smaller than this is not told (the owner, 2026-10-14: "only real
+# changes"), nor one on fewer buys than MOVE_BUYS.
+MOVE_AT_LEAST = 0.10
+MOVE_BUYS = 3
+
+
+def _same(a: float, b: float) -> bool:
+    return abs(a - b) <= SAME_PRICE * max(a, b)
+
+
+def price_move(obs: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """How a product's shelf price moved over its dates, and when (the owner,
+    2026-10-14: each move says when and how; no fixed window, the date of
+    the change is the window). The dates are read as runs of one price:
+
+    - `stayed`: the price only went one way (in one step or several, `steps`
+      dates) and the last price was paid at least twice;
+    - `latest`: the same, but the last price is only the last date so far;
+    - `offer`: one date off the price before and after, then back (probably an
+      offer not printed as a discount: not a change);
+    - `keeps_changing`: up and down;
+    - None: the price held (within `SAME_PRICE`).
+
+    `before` and `after` are the first and the last price; `since` is the
+    first change (for `keeps_changing`, the first date).
+    """
+    runs: list[list[Any]] = []  # [price, index of its first date, dates]
+    for i, o in enumerate(obs):
+        if runs and _same(o["price"], runs[-1][0]):
+            runs[-1][2] += 1
+        else:
+            runs.append([o["price"], i, 1])
+    if len(runs) < 2:
+        return None
+    before, after = runs[0][0], runs[-1][0]
+    if len(runs) == 3 and runs[1][2] == 1 and _same(before, after):
+        return {"kind": "offer", "since": obs[runs[1][1]]["date"], "steps": [],
+                "before": before, "after": runs[1][0], "change_pct": None}
+    rises = [b[0] > a[0] for a, b in zip(runs, runs[1:], strict=False)]
+    if all(rises) or not any(rises):
+        kind = "stayed" if runs[-1][2] >= 2 else "latest"
+        steps = [obs[run[1]]["date"] for run in runs[1:]]
+    else:
+        kind, steps = "keeps_changing", []
+    pct = round((after - before) / before * 100, 1) if before else None
+    return {"kind": kind, "since": steps[0] if steps else obs[0]["date"], "steps": steps,
+            "before": before, "after": after, "change_pct": pct}
+
+
+def price_moves(changes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The real moves among `price_changes`, for Home's rotating price tile:
+    bought at least `MOVE_BUYS` times, a move that is not an offer, at least
+    `MOVE_AT_LEAST` either way. Newest move first."""
+    out = []
+    for change in changes:
+        move = change.get("move")
+        if (len(change["observations"]) >= MOVE_BUYS and move and move["kind"] != "offer"
+                and move["change_pct"] is not None
+                and abs(move["change_pct"]) >= MOVE_AT_LEAST * 100):
+            out.append({k: change[k] for k in
+                        ("product_id", "product", "brand", "store", "sold_as", "per")} | move)
+    out.sort(key=lambda m: (m["since"], abs(m["change_pct"])), reverse=True)
     return out
 
 
@@ -228,7 +315,7 @@ Key = tuple[str, str | None, str]  # product, form, unit of the price
 
 
 def _month_prices(rows: list[dict[str, Any]]) -> dict[str, dict[Key, dict[str, float]]]:
-    """month -> (product, form, unit) -> {"price": mean paid unit price, "quantity": units}.
+    """month -> (product, form, unit) -> {"price": mean shelf unit price, "quantity": units}.
 
     Keyed on the form as well as the product, so the basket compares like
     with like; and on the unit, so a price per kilo is never averaged with a
@@ -243,13 +330,13 @@ def _month_prices(rows: list[dict[str, Any]]) -> dict[str, dict[Key, dict[str, f
     for p in rows:
         if not p.get("product_id") or not p.get("date"):
             continue
-        priced = _paid_unit_price(p)
+        priced = _shelf_unit_price(p)
         if priced is None:
             continue
         month = p["date"][:7]
         key = (p["product_id"], _form(p), priced[1])
         acc[month][key]["prices"].append(priced[0])
-        acc[month][key]["spend"].append(p.get("net_paid") or 0.0)
+        acc[month][key]["spend"].append(_shelf(p))
     out: dict[str, dict[Key, dict[str, float]]] = {}
     for month, products in acc.items():
         out[month] = {}
@@ -304,7 +391,7 @@ def basket_index(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "base": 100.0,
         "series": series,
         "method": "Laspeyres, month over month, chained; quantities from the earlier month; "
-                  "prices are paid unit prices after discounts",
+                  "prices are shelf unit prices, before printed discounts",
     }
 
 
@@ -373,7 +460,7 @@ def budget_brand(rows: list[dict[str, Any]]) -> dict[str, Any]:
 # --- 5. same item across stores ---------------------------------------------
 
 def cross_store(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """Products resolved at more than one store, with the latest paid unit price at each."""
+    """Products resolved at more than one store, with the latest shelf unit price at each."""
     labels = _store_labels(rows)
     out = []
     for pid, group in _by_product(rows).items():
@@ -385,7 +472,7 @@ def cross_store(rows: list[dict[str, Any]]) -> dict[str, Any]:
         latest = {}
         for store, g in stores.items():
             g = sorted(g, key=lambda p: p.get("date") or "")
-            priced = _paid_unit_price(g[-1])
+            priced = _shelf_unit_price(g[-1])
             latest[store] = {"date": g[-1].get("date"),
                              "price": priced[0] if priced else None,
                              "per": priced[1] if priced else None}
@@ -448,24 +535,6 @@ def months(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 # --- a month against the one before ---------------------------------------------
-
-def _shelf(p: dict[str, Any]) -> float:
-    """What the shelf asked for the line, before printed discounts."""
-    if p.get("gross") is not None:
-        return p["gross"]
-    return (p.get("net_paid") or 0.0) - (p.get("discount") or 0.0)
-
-
-def _quantity(p: dict[str, Any]) -> tuple[float, str]:
-    """How much the line bought, in the unit its price is in: (0.65, "kg"),
-    (2, "item"). Paid money over paid unit price, so a kilo is a kilo
-    whatever the discount was."""
-    unit = p.get("unit_price") or {}
-    net = p.get("net_paid") or 0.0
-    if unit.get("amount") and net > 0:
-        return net / unit["amount"], unit.get("per") or "item"
-    return p.get("qty") or 1, "item"
-
 
 def _month_end(year: int, month: int) -> date:
     following = date(year + month // 12, month % 12 + 1, 1)
@@ -693,7 +762,8 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None,
         "as_of": as_of.isoformat(),
         "coverage": coverage(purchases, rows, left_out, not_counted),
         "repurchase": repurchase(rows, as_of),
-        "price_changes": price_changes(groceries),
+        "price_changes": (changes := price_changes(groceries)),
+        "price_moves": price_moves(changes),
         "basket_index": basket_index(rows),
         "budget_brand": budget_brand(rows),
         "cross_store": cross_store(groceries),
