@@ -18,7 +18,11 @@ session (laptop or cloud) can pick up from here. How we work is in
   (owner: one figure that holds them all, not three bars, and no bar
   whose end reads as a limit): this month to today, bright, with a dot;
   the usual month dashed; last month faint; a key with the usual and last
-  month by today's date. `running_totals`, `usual.running`, each month's
+  month by today's date. Lines are smoothed through the real totals every 4
+  days (monotone, so a total never dips; today's dot exact): "not a
+  scientific paper", "not dummy lines either". Only a gap beyond 10% is
+  stressed: the space between this month and the usual turns amber (faster)
+  or green (slower), with the difference at today ("+82,64 €"). `running_totals`, `usual.running`, each month's
   `running`. The usual is the mean of up
   to 6 whole months before, each cut at the same day (`insights.usual_by_day`;
   the month the history starts in and months without a receipt do not
