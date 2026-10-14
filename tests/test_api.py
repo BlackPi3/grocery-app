@@ -287,6 +287,43 @@ def test_a_pasted_pdf_or_picture_is_a_receipt_and_anything_else_is_named(client)
     assert "The clipboard holds: " in page, "anything else is named, so a test on a phone says what"
     assert "onclick: pasteReceipt" in page and 'addEventListener("paste"' in page
 
+
+def test_a_removed_receipt_is_removed_when_the_page_is_left_before_undo_runs_out(client):
+    """2026-10-14: the removal waited 8 s for Undo and a reload dropped it, so
+    removed receipts came back. Leaving the page now sends it; Undo still
+    sends nothing, and the receipt's questions go with it at once."""
+    page = client.get("/").text
+    start = page[page.index("const removals"):page.index("function removeReceipt")]
+    out = run_page_function(page, "asks removeReceipt sendRemoval sendRemovalsNow", start + """
+        const sent = [];
+        let undo = null;
+        globalThis.api = async (path, opts) => {
+          sent.push(opts.method + " " + path + (opts.keepalive ? " keepalive" : ""));
+        };
+        globalThis.toast = (text, onUndo) => { undo = onUndo; };
+        globalThis.render = () => {};
+        globalThis.load = async () => {};
+        globalThis.state = { removing: new Set(), open: 5,
+          checks: { checks: [{ receipt_id: 5, app_product: "Feigen" },
+                             { receipt_id: 6, app_product: "Milch" }] },
+          questions: { questions: [] } };
+        removeReceipt(5);
+        console.log(asks().map(a => a.item.app_product).join(","), state.open);
+        sendRemovalsNow();
+        removeReceipt(6);
+        undo();
+        sendRemovalsNow();
+        setTimeout(() => { console.log(sent.join(" | ")); process.exit(0); }, 10);
+    """)
+    assert out == ["Milch null", "DELETE /v1/receipts/5 keepalive"]
+    assert 'addEventListener("pagehide", sendRemovalsNow)' in page
+
+
+def test_a_question_thanks_the_shopper(client):
+    page = client.get("/").text
+    assert "Thank you: your answer helps the app learn." in page
+    assert "Each answer helps the app learn what you buy" in page
+
 def test_the_repository_is_chosen_by_the_environment(tmp_path, monkeypatch):
     """Which store production reads from. Without a URL it is the file; with
     one it is PostgreSQL, and no connection is made to decide that."""

@@ -652,7 +652,9 @@ function asks() {
                     picture: c.picture, yes: { candidate: c.number } };
     }).filter(Boolean) }));
   // A question with nothing to show could only be answered by typing: not asked.
-  return [...checks, ...questions].filter(a => a.cards.length);
+  // Nor one on a receipt being removed (the owner, 2026-10-14).
+  return [...checks, ...questions].filter(a => a.cards.length
+    && !(state.removing && state.removing.has(a.item.receipt_id)));
 }
 
 function deckCard(ask) {
@@ -698,7 +700,9 @@ function deckCard(ask) {
     owner ? el("div", { class: "printed" }, line.raw_name) : null,
     el("div", { class: "row" },
        el("button", { class: "bad", onclick: () => say(false) }, "No"),
-       el("button", { class: "good", onclick: () => say(true) }, "Yes")));
+       el("button", { class: "good", onclick: () => say(true) }, "Yes")),
+    // Kind, and short (the owner, 2026-10-14).
+    el("div", { class: "cover" }, "Thank you: your answer helps the app learn."));
   flingable(card, say);
   return card;
 }
@@ -747,7 +751,7 @@ function waitingCard() {
       el("div", {},
         el("div", { class: "what" }, `${all.length} ${all.length === 1 ? "line" : "lines"} ` +
            "to confirm"),
-        el("div", { class: "meta" }, "Help the app learn what you bought")),
+        el("div", { class: "meta" }, "Each answer helps the app learn what you buy")),
       el("div", { class: "money" }, open ? "Hide" : "Show")),
     open ? deckCard(all[0]) : null);
 }
@@ -819,25 +823,39 @@ async function openReceipt(receiptId) {
   render();
 }
 
-// A removed receipt goes from the page at once and from the server only when
-// its Undo has run out, so Undo never needs the server (2026-10-11). A page
-// closed before then removes nothing.
+// A removed receipt goes from the page at once and from the server when its
+// Undo has run out, so Undo never needs the server (2026-10-11). Leaving the
+// page ends the Undo: the removal is sent then. It used to be dropped, and a
+// reload (or a new version of the page) brought receipts back (2026-10-14).
+const removals = new Map();  // receipt id -> its Undo timer
 function removeReceipt(receiptId) {
   state.removing.add(receiptId);
   if (state.open === receiptId) state.open = null;
   render();
-  const timer = setTimeout(async () => {
-    try {
-      await api(`/v1/receipts/${receiptId}`, { method: "DELETE" });
-    } catch (error) { toast("Not removed: " + error.message); }
-    state.removing.delete(receiptId);
-    await load();
-  }, 8000);
+  removals.set(receiptId, setTimeout(() => sendRemoval(receiptId), 8000));
   toast("Receipt removed", () => {
-    clearTimeout(timer);
+    clearTimeout(removals.get(receiptId));
+    removals.delete(receiptId);
     state.removing.delete(receiptId);
     render();
   });
+}
+
+async function sendRemoval(receiptId, leaving) {
+  clearTimeout(removals.get(receiptId));
+  removals.delete(receiptId);
+  // keepalive: the request outlives a page that is going away.
+  const sent = api(`/v1/receipts/${receiptId}`, { method: "DELETE", keepalive: true });
+  if (leaving) return sent.catch(() => {});
+  try {
+    await sent;
+  } catch (error) { toast("Not removed: " + error.message); }
+  state.removing.delete(receiptId);
+  await load();
+}
+
+function sendRemovalsNow() {
+  for (const receiptId of [...removals.keys()]) sendRemoval(receiptId, true);
 }
 
 function receiptCard(summary) {
@@ -2162,6 +2180,11 @@ for (const tab of TABS) {
 // box by tapping a result must reach that button before it is redrawn away.
 document.getElementById("view").addEventListener("focusout", () => {
   setTimeout(() => { if (render.pending) render(); }, 400);
+});
+// Leaving the page, or hiding it, ends every Undo still running.
+window.addEventListener("pagehide", sendRemovalsNow);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") sendRemovalsNow();
 });
 // Back on the page: another device may have added a receipt meanwhile.
 document.addEventListener("visibilitychange", () => {

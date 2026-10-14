@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: paste a receipt, for the owner to try on the iPhone.
+**Last updated:** 2026-10-14, laptop: removing a receipt survives a reload; questions say thank you.
 
 ## Now
 
@@ -27,6 +27,12 @@ session (laptop or cloud) can pick up from here. How we work is in
   live not run**: the owner looks first. The user's barcode photo waits until
   after the Ready-for-iOS milestone (it adds a button, which restarts the
   screens-unchanged clock).
+- Fixed (owner, 2026-10-14): **removed receipts came back** after a reload.
+  The removal waits 8 s for Undo and was dropped when the page reloaded or
+  closed first (a new deploy reloads the phone's page too). Leaving or hiding
+  the page now sends it (`keepalive`). A receipt being removed takes its
+  questions and checks with it at once. Question cards say "Thank you: your
+  answer helps the app learn." (owner: kinder, short).
 - Built, **waiting for the owner's test on the iPhone** (2026-10-14): **paste
   a receipt**. A shop app's PDF is shared, then Save to Files, then +; the
   owner asked whether copy and paste could skip Files. "Paste a receipt" on
