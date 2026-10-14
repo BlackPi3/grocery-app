@@ -40,7 +40,7 @@ def test_receipts_become_purchases_become_insights(data):
         "a line with no product gains no attributes, this one included"
 
     insights = build_insights(purchases)
-    assert insights["contract_version"] == 6
+    assert insights["contract_version"] == 7
     assert insights["as_of"] == "2026-02-05"
     assert insights["coverage"]["resolved_lines"] == 4
     assert insights["coverage"]["products"] == 2, \

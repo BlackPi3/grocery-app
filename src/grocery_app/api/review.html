@@ -121,6 +121,10 @@
     color: #fff; border: 0; padding: 18px; }
   .hero .meta, .hero .label { color: rgba(255,255,255,0.8); }
   .hero .stat { font-size: 34px; }
+  .hero .versus { margin-top: 12px; font-weight: 600; }
+  .hero .part { display: flex; justify-content: space-between; gap: 12px; font-size: 14px;
+    padding-top: 4px; color: rgba(255,255,255,0.9); }
+  .hero .part .money { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
     color: var(--muted); margin-bottom: 4px; }
   .glance { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1300,20 +1304,47 @@ function homeView() {
   if (!d.months.length) return cards;
   const now = defaultMonth(d.months);
   const at = d.months.findIndex(m => m.month === now);
-  const month = d.months[at], before = d.months[at + 1];
+  const month = d.months[at];
   const thisMonth = now === new Date().toISOString().slice(0, 7);
   cards.push(el("div", { class: "card hero" },
     el("div", { class: "label" }, monthName(month.month).replace(/ \d+$/, "") +
        (thisMonth ? " so far" : "")),
     el("div", { class: "stat" }, euro(month.spend)),
-    el("div", { class: "meta" }, `${month.receipts} ${month.receipts === 1 ? "receipt" : "receipts"}` +
-       (before ? ` · ${monthName(before.month).replace(/ \d+$/, "")}: ${euro(before.spend)}` : ""))));
+    el("div", { class: "meta" }, `${month.receipts} ${month.receipts === 1 ? "receipt" : "receipts"}`),
+    comparedLines(month.compared)));
   // What a stop promises opens when the stop is reached.
   const reached = at => !start || start.count >= at;
   const glance = [reached(START_GOAL) ? priceCard(d) : null,
                   reached(5) ? factCard(d) : null].filter(Boolean);
   if (glance.length) cards.push(el("div", { class: "glance" }, glance));
   return cards;
+}
+
+// The month against the same days of the month before, the difference split
+// so every euro lands in one part (the owner, 2026-10-14: like for like, one
+// meaning). The split is the server's (`insights.compare_month`).
+const COMPARED_PARTS = [
+  ["new", "things you didn't buy then", "things you didn't buy then"],
+  ["gone", "things you bought then, not now", "things you bought then, not now"],
+  ["amounts", "more of the same things", "less of the same things"],
+  ["prices", "higher prices", "lower prices"],
+  ["discounts", "less saved by discounts", "more saved by discounts"],
+  ["not_placed", "lines not placed yet", "lines not placed yet"],
+];
+function signedEuro(amount) {
+  return (amount < 0 ? "− " : "+ ") + euro(Math.abs(amount));
+}
+function comparedLines(c) {
+  if (!c) return null;
+  const versus = monthName(c.versus).replace(/ \d+$/, "");
+  const days = c.through_day ? `1–${c.through_day} ${versus}` : versus;
+  return [
+    el("div", { class: "versus" }, `${signedEuro(c.difference)} against ${days}`),
+    ...COMPARED_PARTS.filter(([key]) => Math.abs(c.parts[key]) >= 0.005)
+      .map(([key, more, less]) => el("div", { class: "part" },
+        el("span", {}, c.parts[key] > 0 ? more : less),
+        el("span", { class: "money" }, signedEuro(c.parts[key])))),
+  ];
 }
 
 // The price that moved most, among products bought at least three times, the
