@@ -124,6 +124,14 @@
   .label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
     color: var(--muted); margin-bottom: 4px; }
   .glance { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .progress { height: 10px; border-radius: 5px; background: var(--grid); margin: 10px 0 12px;
+    overflow: hidden; }
+  .progress > div { height: 100%; background: var(--accent); border-radius: 5px; }
+  .stop { display: flex; gap: 10px; align-items: baseline; padding: 4px 0; color: var(--muted); }
+  .stop .at { flex: none; width: 22px; text-align: right; font-variant-numeric: tabular-nums; }
+  .stop.reached { color: var(--ink); }
+  .stop.reached .at { color: var(--accent); font-weight: 650; }
+  .card.closed .q { color: var(--ink2); }
   .glance .card { margin: 0; }
   .glance .big { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; margin: 2px 0; }
   button { font: inherit; font-size: 14px; border-radius: 10px; padding: 9px 12px;
@@ -1285,15 +1293,44 @@ function failedNotes() {
 
 // Home, at a glance (the designer's advice, 2026-10-12): what this month cost
 // so far, one price that moved, one fact. The analysis stays on Insights.
+// Until a newcomer has enough receipts for the insights to say something, Home
+// is a bar that fills with each receipt and promises what comes next (the
+// owner, 2026-10-14). Stops from replaying the owner's own first receipts:
+// a regular showed at 2 (4 by 5), a price that moved at 11. Each card still
+// shows only when its data is real; the stops are the promise.
+const START_GOAL = 10;
+const START_STOPS = [
+  [1, "Where your money goes"],
+  [5, "Your regulars"],
+  [START_GOAL, "The full picture: prices that moved"],
+];
+function gettingStarted(count) {
+  if (count >= START_GOAL) return null;
+  return { count, goal: START_GOAL,
+           stops: START_STOPS.map(([at, text]) => ({ at, text, reached: count >= at })) };
+}
+
+function startCard(start) {
+  return el("div", { class: "card" },
+    el("div", { class: "label" }, "Getting started"),
+    el("div", { class: "stat" }, `${start.count} of ${start.goal} receipts`),
+    el("div", { class: "progress", role: "progressbar", "aria-valuemin": "0",
+      "aria-valuemax": String(start.goal), "aria-valuenow": String(start.count) },
+      el("div", { style: `width:${100 * start.count / start.goal}%` })),
+    start.stops.map(stop => el("div", { class: "stop" + (stop.reached ? " reached" : "") },
+      el("span", { class: "at" }, stop.reached ? "✓" : String(stop.at)),
+      el("span", {}, stop.text))),
+    el("div", { class: "why" }, "Tap + below: a photo of a whole receipt, or a shop's PDF. " +
+      "Older receipts count too, and they show price changes sooner."));
+}
+
 function homeView() {
   const d = state.insights;
   const cards = failedNotes();
   if (!d) return [...cards, el("div", { class: "empty" }, "Loading…")];
-  if (!d.months.length) {
-    return [...cards, el("div", { class: "card" }, el("h2", {}, "Add your first receipt"),
-      el("div", { class: "why" }, "Tap + below: a photo of a whole receipt, flat and in " +
-         "focus, or a shop's PDF invoice."))];
-  }
+  const start = gettingStarted((state.receipts || []).length);
+  if (start) cards.push(startCard(start));
+  if (!d.months.length) return cards;
   const now = defaultMonth(d.months);
   const at = d.months.findIndex(m => m.month === now);
   const month = d.months[at], before = d.months[at + 1];
@@ -1304,7 +1341,10 @@ function homeView() {
     el("div", { class: "stat" }, euro(month.spend)),
     el("div", { class: "meta" }, `${month.receipts} ${month.receipts === 1 ? "receipt" : "receipts"}` +
        (before ? ` · ${monthName(before.month).replace(/ \d+$/, "")}: ${euro(before.spend)}` : ""))));
-  const glance = [priceCard(d), factCard(d)].filter(Boolean);
+  // What a stop promises opens when the stop is reached.
+  const reached = at => !start || start.count >= at;
+  const glance = [reached(START_GOAL) ? priceCard(d) : null,
+                  reached(5) ? factCard(d) : null].filter(Boolean);
   if (glance.length) cards.push(el("div", { class: "glance" }, glance));
   return cards;
 }
@@ -1687,10 +1727,18 @@ function moneyCard(d) {
       : "Every line is placed.")));
 }
 
+// A card with nothing to show yet stays, closed, and says what opens it.
+function closedCard(question, needs) {
+  return el("div", { class: "card closed" }, el("h2", { class: "q" }, question),
+    el("div", { class: "meta" }, needs));
+}
+
 // 2. Prices that moved: one product at one shop, first price against the
 // latest, the biggest moves first.
 function pricesCard(d) {
   const moved = d.price_changes.filter(c => c.change_pct);
+  if (!moved.length) return closedCard("Prices that moved", "Shows once something you buy " +
+    "at the same shop changes price. Older receipts bring this sooner.");
   const shown = state.allPrices ? moved : moved.slice(0, 5);
   const seen = d.price_changes.length;
   return el("div", { class: "card" },
@@ -1711,11 +1759,9 @@ function pricesCard(d) {
       state.allPrices = !state.allPrices;
       render();
     } }, state.allPrices ? "Show fewer" : `Show all ${moved.length}`) : null,
-    el("div", { class: "cover" }, seen
-      ? `${moved.length} of ${plural(seen, "product", "products")} bought on two or more days at ` +
-        "the same shop changed price. A move seen on two days is one comparison: it can be an " +
-        "offer, or a different pack."
-      : "Nothing bought twice at the same shop yet."));
+    el("div", { class: "cover" }, `${moved.length} of ${plural(seen, "product", "products")} ` +
+      "bought on two or more days at the same shop changed price. A move seen on two days is " +
+      "one comparison: it can be an offer, or a different pack."));
 }
 
 // 3. Due again soon: the next things to run out, by how often they were
@@ -1732,6 +1778,8 @@ function dueCard(d) {
       : `${-days} ${days === -1 ? "day" : "days"} late`;
   };
   const products = d.coverage.products;
+  if (!d.repurchase.length) return closedCard("Due again soon",
+    "Shows once you have bought the same thing on two days. Add more receipts.");
   return el("div", { class: "card" },
     el("h2", { class: "q" }, "Due again soon"),
     el("div", { class: "meta" }, `Counted from your last receipt, ${shortDate(d.as_of)}.`),
@@ -1752,8 +1800,7 @@ function dueCard(d) {
     el("div", { class: "cover" },
       (products ? `${d.repurchase.length} of ${plural(products, "product", "products")} were ` +
         "bought on two or more days. " : "") +
-      (d.repurchase.length ? `${d.repurchase.filter(r => r.gaps_observed === 1).length} of those ` +
-        "rest on a single gap." : "A product shows here once it is bought on two days."),
+      `${d.repurchase.filter(r => r.gaps_observed === 1).length} of those rest on a single gap.`,
       stale.length ? el("div", {}, "Not bought for longer than usual: ",
         stale.flatMap((r, i) => [i ? ", " : "", el("span", { class: "link", role: "button",
           onclick: () => openProduct(r.product_id) }, r.product)])) : null));
@@ -1804,6 +1851,8 @@ function numbersCard(d) {
 // 5. The same item at other shops: the latest price at each.
 function shopsCard(d) {
   const products = d.cross_store.products;
+  if (!products.length) return closedCard("Same item, other shops",
+    "Shows once you have bought the same item at two shops. Add receipts from other shops.");
   return el("div", { class: "card" },
     el("h2", { class: "q" }, "Same item, other shops"),
     products.map(c => {
@@ -1831,7 +1880,8 @@ function shopsCard(d) {
 function insightsView() {
   const d = state.insights;
   if (!d) return [el("div", { class: "empty" }, "Loading insights…")];
-  if (!d.months.length) return [el("div", { class: "empty" }, "No receipts yet.")];
+  if (!d.months.length) return [el("div", { class: "empty" }, "No insights yet: they come " +
+    "from your receipts. Tap + below to add one.")];
   const cov = d.coverage;
   const range = cov.date_range;
   const aside = [
@@ -1858,7 +1908,8 @@ function monthOf(summary) {
 }
 
 function receiptsView() {
-  if (!state.receipts.length) return [el("div", { class: "empty" }, "No receipts yet.")];
+  if (!state.receipts.length) return [el("div", { class: "empty" }, "No receipts yet. Tap + " +
+    "below: a photo of a whole receipt, or a shop's PDF.")];
   const from = state.cameFrom;
   const shown = state.receipts.filter(r => !state.removing.has(r.receipt_id));
   const reading = new Set(inProgress().map(job => job.receipt_id));

@@ -188,8 +188,8 @@ def test_the_page_worker_is_served_for_the_page_to_register(client):
 
 
 def run_page_function(page, name, script):
-    """Runs one function of the phone page in Node, with `script` after it.
-    Its console.log lines come back."""
+    """Runs functions of the phone page in Node (`name`: their names, spaces
+    between), with `script` after them. Its console.log lines come back."""
     import re
     import shutil
     import subprocess
@@ -197,9 +197,12 @@ def run_page_function(page, name, script):
     node = shutil.which("node")
     if node is None:
         pytest.fail("node is needed to run the page's code")
-    match = re.search(rf"^async function {name}\(.*?^}}$", page, re.S | re.M)
-    assert match, f"the page has {name}()"
-    done = subprocess.run([node, "-e", match.group(0) + "\n" + script],
+    found = []
+    for each in name.split():
+        match = re.search(rf"^(?:async )?function {each}\(.*?^}}$", page, re.S | re.M)
+        assert match, f"the page has {each}()"
+        found.append(match.group(0))
+    done = subprocess.run([node, "-e", "\n".join(found) + "\n" + script],
                           capture_output=True, text=True, timeout=30)
     assert done.returncode == 0, done.stderr
     return done.stdout.splitlines()
@@ -223,6 +226,32 @@ def test_a_request_that_never_left_the_phone_says_so(client, online, said):
     assert page.count("await fetch(path, opts)") == 1 and "await reach(path, opts)" in page, \
         "every request of the page goes through it"
     assert 'addEventListener("online", () => load())' in page, "and loads again once back"
+
+
+def test_a_newcomer_s_home_fills_a_bar_to_ten_receipts_and_each_stop_opens_its_card(client):
+    """The owner, 2026-10-14: a newcomer saw one lone number. Until 10
+    receipts, Home is a bar with stops at 1, 5 and 10, each a promise."""
+    page = client.get("/").text
+    start = page[page.index("const START_GOAL"):page.index("function gettingStarted")]
+    out = run_page_function(page, "gettingStarted", start + """
+        for (const n of [0, 1, 4, 5, 9, 10, 31]) {
+          const s = gettingStarted(n);
+          console.log(n, s ? s.goal + " " + s.stops.map(x => x.at + (x.reached ? "+" : "-"))
+            .join(" ") : "none");
+        }
+    """)
+    assert out == ["0 10 1- 5- 10-", "1 10 1+ 5- 10-", "4 10 1+ 5- 10-", "5 10 1+ 5+ 10-",
+                   "9 10 1+ 5+ 10-", "10 none", "31 none"]
+    assert "reached(START_GOAL) ? priceCard(d) : null" in page, "price moves open at 10"
+    assert "reached(5) ? factCard(d) : null" in page, "your regular opens at 5"
+
+
+def test_empty_screens_say_they_are_empty_and_how_to_fill_them(client):
+    page = client.get("/").text
+    assert '"No receipts yet. Tap + " +' in page
+    assert '"No insights yet: they come " +' in page
+    for question in ("Prices that moved", "Due again soon", "Same item, other shops"):
+        assert f'closedCard("{question}",' in page, f"{question}: closed, saying what opens it"
 
 def test_the_repository_is_chosen_by_the_environment(tmp_path, monkeypatch):
     """Which store production reads from. Without a URL it is the file; with
