@@ -4,12 +4,22 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: the product's price line and the rotating regulars merged (#152).
+**Last updated:** 2026-10-14, laptop: new products are sorted by the server; next, the owner's backlog (below Parked), one item at a time.
 
 ## Now
 
 - Everything is merged. `main` deploys the server and the public demo on every
   merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
+- Fixed (owner, 2026-10-14): **a found product with no category**, and the
+  "2 candidates" it caused. Products made from a shop page with no shelf,
+  or from an answer, got no category until `db categorize` was run by hand,
+  last on 2026-10-09: 6 live products from 9-10 October had none, and a
+  family of two of them (a tuna line) could only be counted. The server now
+  sorts every product with no category within a minute
+  (`matching.keep_sorting`, a thread like the pictures'; the same rule as
+  `db categorize`: shelf and name must agree, else it stays unsorted and is
+  not asked again until the next start). One model call per new batch,
+  counted under "finding items".
 - Done (owner, 2026-10-14, "I like this chart" on the onions; #152): **the product's price
   line, and your regulars, rotating.** The product page opens with the shelf
   price per unit before discounts over the whole history (each purchase
@@ -312,7 +322,9 @@ session (laptop or cloud) can pick up from here. How we work is in
    deleting users, what the owner sees of others) wait until the legal side
    is clear (owner).
 
-**Next session:** the agreed list is empty (#152 merged). Proposed
+**Next session:** the owner's backlog (below Parked), one item at a time,
+screens shown before merge (owner, 2026-10-14: "we should be building
+non-stop"). Proposed
 (2026-10-14, unanswered): no new features until the milestone, except
 privacy and account deletion, moved up before a second person.
 
@@ -390,11 +402,8 @@ agreed to build yet:**
 - **Calendar.** He did not see the days (the weekday letters were on the
   open branch, not yet live); a day bought several times should be clearly
   deeper in colour than a day bought once (it is, `b2`, but too faint).
-- **A found product with no category** on a receipt line surprised him (he
-  read it as "not found"); find out why it happens, and how the line says it.
-- **"2 candidates" still shows**, he thinks on the tortilla line, although a
-  family line is named since 2026-10-13 (`normalizer.family_name`); find
-  where the old text survives.
+- ~~A found product with no category; "2 candidates" still showing.~~
+  Fixed, one cause (see Now).
 - **"Due again soon" reads as a recommendation**, made from two or three
   buys: too little to say someone will buy it again. Rework or remove (it
   conflicts with "insights before recommendations").

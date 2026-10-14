@@ -472,7 +472,8 @@ def reread_product(session: Session, product_id: str,
 
 
 def sort_products(session: Session, decider: Any,
-                  aldi_shelves: dict[str, str] | None = None) -> list[dict[str, Any]]:
+                  aldi_shelves: dict[str, str] | None = None,
+                  skip: set[str] | frozenset[str] = frozenset()) -> list[dict[str, Any]]:
     """Give every product with no category one, where the shop's shelf and a
     model reading the name agree (`categorize.sort`). The caller commits.
 
@@ -482,13 +483,14 @@ def sort_products(session: Session, decider: Any,
     crawl's article number -> category path: an ALDI URL carries no shelf, so
     the shelf is looked up and recorded on the product (`provenance.shelf`).
     A product whose shelf and name disagree keeps no category and is reported.
+    Products in `skip` are left as they are.
     """
     from grocery_app import categories, categorize
 
     listings = {listing.product_id: {"url": listing.url}
                 for listing in session.scalars(select(StoreListing)) if listing.url}
     unsorted = [p for p in session.scalars(select(Product).order_by(Product.id))
-                if p.category not in categories.CATEGORIES]
+                if p.category not in categories.CATEGORIES and p.id not in skip]
     for product in unsorted:
         provenance = product.provenance or {}
         url = provenance.get("source") or ""
@@ -512,6 +514,46 @@ def sort_products(session: Session, decider: Any,
                                       if q != categorize.CATEGORY_UNKNOWN]
             product.provenance = {**(product.provenance or {}), "category_from": how}
     return report
+
+
+# How often the server looks for products with no category.
+SORT_EVERY_SECONDS = 60
+
+
+def sort_new_products(session_factory: Any, decider: Any,
+                      tried: set[str]) -> list[dict[str, Any]]:
+    """One pass of the server's sorting: every product with no category, but
+    those already `tried`, sorted by `sort_products`, and saved.
+
+    The owner, 2026-10-14: a found product showed no category, and a family
+    of two such products read "2 candidates". A product made from a shop
+    page with no shelf, or from an answer, waited for `db categorize`, a step
+    run by hand. Now it is sorted within a minute of being made. One that
+    stays unsorted (its shelf and name disagree) is added to `tried`, so the
+    model is not asked again until the server's next start."""
+    with session_factory() as session:
+        report = sort_products(session, decider, skip=tried)
+        session.commit()
+    tried.update(row["product_id"] for row in report if not row["category"])
+    return report
+
+
+def keep_sorting(session_factory: Any, decider: Any,
+                 every: float = SORT_EVERY_SECONDS) -> None:
+    """The server's sorting thread: a pass, a pause, for as long as it runs."""
+    import logging
+    import time
+
+    from grocery_app import spend
+
+    tried: set[str] = set()
+    while True:
+        try:
+            with spend.tagged("finding"):
+                sort_new_products(session_factory, decider, tried)
+        except Exception:  # noqa: BLE001 - a category is never worth the server
+            logging.getLogger(__name__).exception("sorting products failed")
+        time.sleep(every)
 
 
 def find_barcodes(session: Session, search: Any) -> list[dict[str, Any]]:
