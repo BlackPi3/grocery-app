@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: no People card; a first Google sign-in makes the account.
+**Last updated:** 2026-10-14, laptop: the privacy line is parked.
 
 ## Now
 
@@ -243,13 +243,6 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Open decisions (the owner's), as of 2026-10-14
 
-- **Privacy line on You: agreed, to be built today** (owner, 2026-10-14:
-  "we don't read your receipts, you have full privacy", small, at the
-  bottom). Before writing it, settle with the owner what makes it true:
-  photos go to Gemini (Google) to be read, `/v1/inbox` hands other people's
-  uploads to development, and the owner can read the database. Either the
-  line says what is true, or those change first.
-
 - **Barcodes: keep exact-only (A)?** Asked 2026-10-13 after the first run
   (see Now), unanswered. Recommendation: yes; the gap is the unknown size,
   not the rule, so the next barcode step would be a size for products read
@@ -319,6 +312,10 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   shopping together as well as each person's own.
 - A grocery budget (owner, 2026-10-13): set one for the month and see how far
   off you are, or the app suggests one from past months. Serves the saver.
+- A privacy line on You (owner, 2026-10-14: parked, "we are making the app
+  better"). Proposed wording, true today: only you see your receipts in the
+  app; photos are read by Google's Gemini and stored in Frankfurt; the
+  developer may look at an upload to fix reading mistakes; nothing is sold.
 - Privacy page and account deletion (owner, 2026-10-13: backlog, not now).
   Needed before Google sign-in leaves Testing: publishing asks for a homepage
   and a privacy policy URL (`/privacy` on the server; Google may refuse a
