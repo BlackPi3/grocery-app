@@ -123,6 +123,21 @@ These are the owner's decisions. Each one came from a real case.
   category-level answer. That is not a failure.
 - **Nothing the app writes is permanent.** Every line says who said what it
   is (you or the app), and spot checks measure the app's error rate.
+- **Like for like.** A comparison sets equal things side by side (the same
+  days of two months, not 14 days against 30), and an insight has one
+  meaning: when a number could move for several reasons (more trips, other
+  things, higher prices), it is split into those reasons, not shown as a
+  fun fact the user cannot read.
+- **Insights before recommendations.** The past and the present come first;
+  nothing recommends until the insights are complete.
+- **Shelf price, not discount.** A price change is the shelf price moving.
+  A printed discount (an offer, a card, a staff discount) is not one; what
+  discounts saved is its own insight.
+- **Questions are optional.** They wait behind a button with a badge, are
+  never pushed in front of the user, and someone who doesn't answer is left
+  alone.
+- **The owner sees it, then decides.** For a screen or an insight's look,
+  build it and show it; his comments come on seeing it.
 - **No per-mistake rules.** Each improvement uses one of five levers:
   evidence, tools, model, knowing when to ask, and learning from
   confirmations.
