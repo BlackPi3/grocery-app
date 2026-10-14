@@ -771,3 +771,48 @@ def test_a_spot_check_shows_everything_the_app_claims(engine, session, tmp_path)
     assert (check["app_product"], check["brand"], check["details"]) == \
         ("Butter", "Muster", ["Alm", "gesalzen"])
     assert check["sold_as"] == {"form": "pack", "size": {"count": 1, "value": 250.0, "unit": "g"}}
+
+
+def test_many_uploads_are_taken_at_once_and_read_a_few_at_a_time(engine, session, tmp_path):
+    """The owner, 2026-10-14: take every receipt from the user at once, read
+    them as the server can. Each upload answers straight away; the reading
+    line reads at most `at_once` together, and every one gets read."""
+    import threading
+    import time
+
+    from grocery_app.api.jobs import reading_line
+
+    class Held(FakeExtractor):
+        """Reads only once let go, then slowly, counting how many read together."""
+
+        def __init__(self):
+            super().__init__()
+            self.now = self.most = self.done = 0
+            self.lock = threading.Lock()
+            self.go = threading.Event()
+
+        def __call__(self, path):
+            self.go.wait(timeout=5)
+            with self.lock:
+                self.now += 1
+                self.most = max(self.most, self.now)
+            time.sleep(0.1)
+            with self.lock:
+                self.now -= 1
+                self.done += 1
+            return super().__call__(path)
+
+    extractor = Held()
+    line = reading_line(at_once=2)
+    client = TestClient(create_app(PostgresRepository(make_session_factory(engine)),
+                                   DiskImageStore(tmp_path / "uploads"), extractor, readers=line))
+    colours = ["red", "green", "blue", "yellow", "purple", "orange"]
+    sent = [client.post("/v1/receipts", files={"file": (f"{c}.jpg", a_photo(c), "image/jpeg")})
+            for c in colours]
+    assert extractor.done == 0, "every upload answered before any reading ended"
+    extractor.go.set()
+    assert [r.status_code for r in sent] == [202] * len(colours)
+    line.shutdown(wait=True)
+    finished = [client.get(f"/v1/jobs/{r.json()['job_id']}").json()["status"] for r in sent]
+    assert finished == ["done"] * len(colours)
+    assert extractor.most == 2, "never more than two read together"

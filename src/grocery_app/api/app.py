@@ -29,14 +29,20 @@ sent like a password. It locks `/v1` even without `token`. Never in the demo.
 `resume_after`, when set, makes a starting server finish the jobs the last
 one left half done, that many seconds after it starts (`jobs.resume_unfinished`).
 Off by default, so a test's app never sets work off on its own.
+
+`readers`, when given, is the line uploads wait in to be read
+(`jobs.reading_line`: a few at a time). Without it a job runs straight after
+its upload's response, as a test wants.
 """
 
 from __future__ import annotations
 
 import hmac
+import logging
 import re
 import threading
 import time
+from concurrent.futures import Executor, Future
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -58,7 +64,13 @@ from grocery_app.api.images import (
     looks_readable,
     sha256_of,
 )
-from grocery_app.api.jobs import Extractor, configured_extractor, resume_unfinished, run_job
+from grocery_app.api.jobs import (
+    Extractor,
+    configured_extractor,
+    reading_line,
+    resume_unfinished,
+    run_job,
+)
 from grocery_app.api.matching import LineIdentifier, LineMatcher, line_identifier, line_matcher
 from grocery_app.api.pictures import (
     CHECK_WAITS_UP_TO,
@@ -118,7 +130,16 @@ PAGE_WORKER = Path(__file__).with_name("sw.js")
 # A receipt photo off a phone is a few megabytes. The cap is not a security
 # boundary, it is a promise that one request cannot read an arbitrary amount
 # into memory before anyone has looked at it.
+log = logging.getLogger(__name__)
+
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+
+def _said_if_failed(done: Future) -> None:
+    """A job that crashed past its own error handling is logged, not lost in
+    the reading line's thread. Its row stays unfinished for the next start."""
+    if done.exception() is not None:
+        log.error("a reading crashed", exc_info=done.exception())
 
 # The /v1 routes that answer without a password: they are how one gets one.
 SIGN_IN_PATHS = frozenset({"/v1/auth/config", "/v1/auth/google", "/v1/auth/google/redirect"})
@@ -130,7 +151,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                identify: LineIdentifier | None = None,
                token: str | None = None, resume_after: float | None = None,
                pictures: Pictures | None = None, demo: bool = False,
-               google: GoogleSignIn | None = None) -> FastAPI:
+               google: GoogleSignIn | None = None, readers: Executor | None = None) -> FastAPI:
     if demo:
         google = None  # the demo has no accounts: every guest is the owner
     @asynccontextmanager
@@ -337,8 +358,12 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         job = repo.create_job(digest, file.filename)
         # Only now, with the row committed, is there something to poll and
         # something to recover.
-        background.add_task(run_job, repo.session_factory, image_store, extractor,
-                            job["job_id"], matcher, identify)
+        work = (run_job, repo.session_factory, image_store, extractor, job["job_id"], matcher,
+                identify)
+        if readers is None:
+            background.add_task(*work)
+        else:
+            readers.submit(*work).add_done_callback(_said_if_failed)
         return JobDocument.model_validate(job)
 
     @app.get("/v1/jobs", response_model=JobsDocument)
@@ -656,13 +681,19 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
             hands its answer back to the page (2026-10-13)."""
             form = await request.form()
             sent, kept = form.get("g_csrf_token"), request.cookies.get("g_csrf_token")
+            # Why a sign-in was refused is logged: the answer after the `#`
+            # never reaches a server, and a friend's failed sign-in could
+            # only be guessed at (2026-10-14).
             if not isinstance(sent, str) or not sent or not kept \
                     or not hmac.compare_digest(sent, kept):
+                log.warning("Google sign-in refused: the CSRF cookie %s",
+                            "is missing" if not kept else "does not match")
                 return RedirectResponse("/#google-error=" + quote(
                     "Google sign-in could not be checked: try again"), status_code=303)
             try:
                 made = await run_in_threadpool(sign_in_with, str(form.get("credential", "")))
             except HTTPException as exc:
+                log.warning("Google sign-in refused: %s", exc.detail)
                 return RedirectResponse("/#google-error=" + quote(str(exc.detail)),
                                         status_code=303)
             return RedirectResponse("/#google=" + quote(made.token), status_code=303)
@@ -784,7 +815,8 @@ def default_app() -> FastAPI:
                       pictures=default_pictures(model=GEMINI_MODEL)
                       if type(repository).__name__ == "PostgresRepository" else None,
                       demo=demo.is_demo(),
-                      google=None if demo.is_demo() else google_configured())
+                      google=None if demo.is_demo() else google_configured(),
+                      readers=reading_line())
 
 
 # A deploy stops the old server within ten seconds of starting the new one

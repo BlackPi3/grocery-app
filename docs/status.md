@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: Undo has a countdown ring; paste is gone.
+**Last updated:** 2026-10-14, laptop: uploads are read 3 at a time; refused sign-ins are logged.
 
 ## Now
 
@@ -40,6 +40,18 @@ session (laptop or cloud) can pick up from here. How we work is in
   receipts in their apps only, and fetching them would mean holding users'
   shop passwords (recommended no). One tap per receipt comes with the iOS
   app's share extension.
+- Done (owner, 2026-10-14): **uploads are read 3 at a time**. Every upload
+  is taken and stored at once and waits as `queued`; a reading line
+  (`jobs.reading_line`, `READING_AT_ONCE`) reads three together, oldest
+  first. Before, every upload was read at the same moment, and a batch of 20
+  or 30 could run out of database connections (about 15), memory (1 GB) or
+  the model's rate. A restart loses nothing: waiting jobs are rows, and
+  `resume_unfinished` reads them. Tests read straight away (no line).
+- Done (2026-10-14): **a refused Google sign-in is logged** with its reason
+  ("… has not been invited", a missing CSRF cookie), in the server's log.
+  A friend's sign-in reached Google and came back three times (11:19-11:22
+  UTC) and was refused; the People card has no Google address but the
+  owner's, so "not invited" is the likely reason, not yet confirmed.
 - Done (owner, 2026-10-14): **Undo shows a ring** that empties like a clock
   as its 8 s run out (`UNDO_MS`, the same time the removal waits).
 - Fixed (owner, 2026-10-14, a Kaufland app PDF): while a receipt was being
@@ -297,6 +309,8 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   saver, the deal hunter; features are checked against who they serve), deals, dislikes, and zooming through time in insights
   (Receipts zooms by month now; weeks and days are next there).
 - Cleanup: old English-named products, doubles from early catalog work.
+- Families (owner, 2026-10-14): connect people, so a household sees its
+  shopping together as well as each person's own.
 - A grocery budget (owner, 2026-10-13): set one for the month and see how far
   off you are, or the app suggests one from past months. Serves the saver.
 - Privacy page and account deletion (owner, 2026-10-13: backlog, not now).
