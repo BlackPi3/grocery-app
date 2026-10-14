@@ -152,7 +152,8 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                identify: LineIdentifier | None = None,
                token: str | None = None, resume_after: float | None = None,
                pictures: Pictures | None = None, demo: bool = False,
-               google: GoogleSignIn | None = None, readers: Executor | None = None) -> FastAPI:
+               google: GoogleSignIn | None = None, readers: Executor | None = None,
+               sorter: Any | None = None) -> FastAPI:
     if demo:
         google = None  # the demo has no accounts: every guest is the owner
     @asynccontextmanager
@@ -167,6 +168,15 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
             app.state.pictures.start()
             if hasattr(repository, "picture_wait"):
                 repository.picture_wait = CHECK_WAITS_UP_TO  # checks come with theirs
+        if sorter is not None and writes_available:
+            # A product made with no category is sorted within a minute
+            # (`matching.keep_sorting`): a thread, as for the pictures.
+            from grocery_app.api.matching import keep_sorting
+
+            app.state.sorting = threading.Thread(
+                target=keep_sorting, args=(repository.session_factory, sorter),
+                name="sorting", daemon=True)
+            app.state.sorting.start()
         if resume_after is not None and uploads_available:
             started = datetime.now(UTC)
 
@@ -825,7 +835,9 @@ def default_app() -> FastAPI:
                       if type(repository).__name__ == "PostgresRepository" else None,
                       demo=demo.is_demo(),
                       google=None if demo.is_demo() else google_configured(),
-                      readers=reading_line())
+                      readers=reading_line(),
+                      sorter=sorting_decider()
+                      if type(repository).__name__ == "PostgresRepository" else None)
 
 
 # A deploy stops the old server within ten seconds of starting the new one
@@ -893,6 +905,15 @@ def matcher_decider(kind: str | None = None,
         return GeminiDecider(GEMINI_MODEL, "data/matched", matching.PROMPT_VERSION,
                              search=False)
     return ClaudeCodeDecider(model)
+
+
+def sorting_decider(kind: str | None = None) -> ClaudeCodeDecider | GeminiDecider:
+    """Who reads a product's name for its category (`categorize.read_names`),
+    on the identify reader, cached under data/categorized/ as `db categorize`
+    caches it."""
+    if identify_reader_kind(kind) == "gemini":
+        return GeminiDecider(GEMINI_MODEL, "data/categorized", "names-v1", search=False)
+    return ClaudeCodeDecider("sonnet", "data/categorized", version="names-v1")
 
 
 def identify_decider(kind: str | None = None) -> ClaudeCodeDecider | GeminiDecider:

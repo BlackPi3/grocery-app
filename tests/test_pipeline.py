@@ -336,6 +336,43 @@ def test_a_product_never_sorted_is_sorted_by_its_shelf_and_name(session):
     assert (lavash.category, report["p-0003"]["how"]) == ("brot", "name")
 
 
+def test_the_server_sorts_a_new_product_and_asks_once_about_one_it_cannot(engine, session):
+    """2026-10-14: a found product showed no category, and a family of two
+    such products read "2 candidates": sorting waited for a step run by hand.
+    The server's pass sorts every product with no category; one whose shelf
+    and name disagree is not asked about again on the next pass."""
+    from grocery_app.api.matching import sort_new_products
+    from grocery_app.db.models import Product
+    from grocery_app.db.session import make_session_factory
+
+    page = "https://produkte.globus.de/dudweiler/getraenke/milch-molkereiprodukte/h-milch/1/x"
+    session.add_all([
+        Product(id="p-0001", name="Thunfischfilet in Öl", category=None,
+                open_questions=["category unknown"], provenance={"attributes": "shopper"}),
+        Product(id="p-0002", name="Haferdrink", category=None, provenance={"source": page}),
+    ])
+    session.commit()
+    said = {"p-0001": "fisch-kat", "p-0002": "pflanzendrink"}
+    asked: list[list[str]] = []
+
+    def decider(system, prompt, schema):
+        ids = [line.split(":")[0][2:] for line in prompt.splitlines()]
+        asked.append(ids)
+        return {"products": [{"id": i, "category": said[i]} for i in ids]}
+
+    tried: set[str] = set()
+    factory = make_session_factory(engine)
+    sort_new_products(factory, decider, tried)
+    with factory() as fresh:
+        tuna, oat = fresh.get(Product, "p-0001"), fresh.get(Product, "p-0002")
+        assert (tuna.category, tuna.open_questions) == ("fisch-kat", []), "saved"
+        assert oat.category is None, "the milk shelf and the name disagree: not filed"
+    assert tried == {"p-0002"}
+
+    sort_new_products(factory, decider, tried)
+    assert asked == [["p-0001", "p-0002"]], "nothing left to ask on the second pass"
+
+
 def test_only_unsearched_open_questions_are_dropped_for_a_retry(session):
     """2026-10-09: questions from before search was a step are matched again;
     a searched question and anything the shopper answered stay."""
