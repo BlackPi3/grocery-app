@@ -253,6 +253,24 @@ def test_empty_screens_say_they_are_empty_and_how_to_fill_them(client):
     for question in ("Prices that moved", "Due again soon", "Same item, other shops"):
         assert f'closedCard("{question}",' in page, f"{question}: closed, saying what opens it"
 
+
+def test_a_receipt_still_being_read_is_not_asked_for_when_none_is_open(client):
+    """A queued job has no receipt id yet; with no receipt open the page took
+    null for null and asked for /v1/receipts/null every 3 s (2026-10-14)."""
+    page = client.get("/").text
+    out = run_page_function(page, "inProgress openBeingRead", """
+        const queued = { status: "queued", receipt_id: null };
+        const reading = { status: "running", receipt_id: 7 };
+        for (const [open, jobs] of [[null, [queued]], [undefined, [queued]], [7, [queued]],
+                                    [7, [reading]], [8, [reading]]]) {
+          globalThis.state = { open, jobs };
+          console.log(String(open), openBeingRead());
+        }
+    """)
+    assert out == ["null false", "undefined false", "7 false", "7 true", "8 false"]
+    assert 'if (openBeingRead() && state.tab === "receipts")' in page, \
+        "the refresh asks openBeingRead()"
+
 def test_the_repository_is_chosen_by_the_environment(tmp_path, monkeypatch):
     """Which store production reads from. Without a URL it is the file; with
     one it is PostgreSQL, and no connection is made to decide that."""

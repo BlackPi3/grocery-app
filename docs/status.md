@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: the privacy line is agreed, waiting to be built today.
+**Last updated:** 2026-10-14, laptop: fixed the page asking for receipt "null" during a reading.
 
 ## Now
 
@@ -27,6 +27,13 @@ session (laptop or cloud) can pick up from here. How we work is in
   live not run**: the owner looks first. The user's barcode photo waits until
   after the Ready-for-iOS milestone (it adds a button, which restarts the
   screens-unchanged clock).
+- Fixed (owner, 2026-10-14, a Kaufland app PDF): while a receipt was being
+  read, with no receipt open, the page asked for `/v1/receipts/null` every
+  3 s and showed "Input should be a valid integer". A queued job has no
+  receipt id yet, and null matched the closed receipt's null
+  (`openBeingRead`). Any upload on the Receipts tab did it. The PDF itself
+  read perfectly: 10 of 10 lines, the total, the tax classes, both deposit
+  returns, and the Kaufland Card discount on its line.
 - Done (owner, 2026-10-14): **a newcomer's Home is a bar to 10 receipts**
   ("2 of 10 receipts") with three stops, each a promise: 1, where your money
   goes; 5, your regulars; 10, the full picture with prices that moved. A
