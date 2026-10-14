@@ -4,15 +4,13 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: the product's price line and the rotating regulars built (PR open, shown to the owner, waiting for his look).
+**Last updated:** 2026-10-14, laptop: the product's price line and the rotating regulars merged (#152).
 
 ## Now
 
-- `main` deploys the server and the public demo on every merge
-  (`.github/workflows/deploy.yml`). **Mid-flight:** the branch
-  `feat/price-line-and-regulars` (PR open), shown to the owner by
-  screenshot; merge on his yes.
-- Built, waiting for the owner's look (2026-10-14): **the product's price
+- Everything is merged. `main` deploys the server and the public demo on every
+  merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
+- Done (owner, 2026-10-14, "I like this chart" on the onions; #152): **the product's price
   line, and your regulars, rotating.** The product page opens with the shelf
   price per unit before discounts over the whole history (each purchase
   carries `shelf_unit_price`, the price every price insight reads): one line
@@ -314,8 +312,7 @@ session (laptop or cloud) can pick up from here. How we work is in
    deleting users, what the owner sees of others) wait until the legal side
    is clear (owner).
 
-**Next session:** merge `feat/price-line-and-regulars` on the owner's yes
-(or change it as he says). After that the agreed list is empty. Proposed
+**Next session:** the agreed list is empty (#152 merged). Proposed
 (2026-10-14, unanswered): no new features until the milestone, except
 privacy and account deletion, moved up before a second person.
 
@@ -353,10 +350,10 @@ A comparison must be like for like, and an insight must have one meaning.
      an offer). Each says **when** and **how**: "went up 4 Jul and stayed",
      "dropped once, then back (probably an offer, not counted)", "keeps
      changing". No fixed window: the date of the change is the window.
-   - (Built, PR open.) The product page opens with a **price line** (date
+   - (Done, #152.) The product page opens with a **price line** (date
      across, price up) over the whole history, the purchase list under it;
      the calendar gets **weekday letters**.
-3. (Built, PR open.) **Your regulars, rotating** like the price tile ("7× in
+3. (Done, #152.) **Your regulars, rotating** like the price tile ("7× in
    6 weeks").
 
 Research (private claude.ai pages, the owner's account): the landscape of
@@ -401,6 +398,12 @@ agreed to build yet:**
 - **"Due again soon" reads as a recommendation**, made from two or three
   buys: too little to say someone will buy it again. Rework or remove (it
   conflicts with "insights before recommendations").
+- **Which shop is cheaper for a kind of thing** (owner, 2026-10-14, from the
+  onions' price line: "milk products are cheaper at GLOBUS overall"). A chart
+  of where each shop lands, per category. Caution: a plain mean of a
+  category's prices compares different baskets (premium milk at one shop,
+  budget milk at another), so it needs like for like: the same products, or
+  the same kind, size and price tier, and prices close in time.
 - **"Same item at other shops" compares prices far apart in time.** Only
   compare prices bought within a short window of each other, since the app
   has no live prices.
