@@ -19,7 +19,8 @@ The four insights promised in CLAUDE.md, in the order they are computed:
 
 plus the same-item comparison across stores, which is honest about having no
 data until a product resolves at two stores, and the month view (`months`):
-what the money went on, by kind of thing.
+what the money went on, by kind of thing, and against the same days of the
+month before (`compare_month`).
 
 Only groceries count. A café breakfast, flowers or a birthday card stays in the
 history, but a basket index or a budget-brand share that included them would
@@ -49,7 +50,7 @@ from typing import Any
 from grocery_app import categories
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 6
+CONTRACT_VERSION = 7
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -446,6 +447,111 @@ def months(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+# --- a month against the one before ---------------------------------------------
+
+def _shelf(p: dict[str, Any]) -> float:
+    """What the shelf asked for the line, before printed discounts."""
+    if p.get("gross") is not None:
+        return p["gross"]
+    return (p.get("net_paid") or 0.0) - (p.get("discount") or 0.0)
+
+
+def _quantity(p: dict[str, Any]) -> tuple[float, str]:
+    """How much the line bought, in the unit its price is in: (0.65, "kg"),
+    (2, "item"). Paid money over paid unit price, so a kilo is a kilo
+    whatever the discount was."""
+    unit = p.get("unit_price") or {}
+    net = p.get("net_paid") or 0.0
+    if unit.get("amount") and net > 0:
+        return net / unit["amount"], unit.get("per") or "item"
+    return p.get("qty") or 1, "item"
+
+
+def _month_end(year: int, month: int) -> date:
+    following = date(year + month // 12, month % 12 + 1, 1)
+    return following - timedelta(days=1)
+
+
+# The parts a month's difference is split into, in the order they are told.
+COMPARE_PARTS = ("new", "gone", "amounts", "prices", "discounts", "not_placed")
+
+
+def compare_month(rows: list[dict[str, Any]], month: str,
+                  through_day: int | None = None) -> dict[str, Any] | None:
+    """`month` (days 1 to `through_day`, or all of it) against the same days
+    of the month before, with the difference split so every euro lands in
+    one part (the owner, 2026-10-14: like for like, one meaning):
+
+    - `new`: things bought now and not then (all they cost now);
+    - `gone`: things bought then and not now (minus all they cost then);
+    - `amounts`: the same things, more or less of them, at the old shelf price;
+    - `prices`: the same things, the shelf price now against then, on what was
+      bought now;
+    - `discounts`: the same things, printed discounts now against then
+      (negative when they saved more);
+    - `not_placed`: lines nothing placed on a product, now against then.
+
+    A "same thing" is one product at one shop, sold the same way and priced in
+    the same unit: the milk bought at another shop this month is a new thing,
+    not a price change (the rule `price_changes` keeps). Prices are shelf
+    prices, before printed discounts: a discount is not the price moving.
+
+    None when the month before has no receipt in those days: against nothing
+    tracked, a difference means nothing. A history that starts within those
+    days is compared as it is.
+    """
+    year, number = int(month[:4]), int(month[5:7])
+    end = _month_end(year, number)
+    day = min(through_day, end.day) if through_day else end.day
+    before = date(year, number, 1) - timedelta(days=1)
+    then_end = before.replace(day=min(day, before.day)) if through_day else before
+    now_from, now_end = date(year, number, 1), end.replace(day=day)
+    then_from = before.replace(day=1)
+    now = [p for p in rows if p.get("date") and now_from <= _parse(p["date"]) <= now_end]
+    then = [p for p in rows if p.get("date") and then_from <= _parse(p["date"]) <= then_end]
+    if not then:
+        return None
+
+    def things(lines: list[dict[str, Any]]) -> dict[tuple, list[dict[str, Any]]]:
+        groups: dict[tuple, list[dict[str, Any]]] = defaultdict(list)
+        for p in lines:
+            if p.get("product_id"):
+                groups[(p["product_id"], _form(p), _quantity(p)[1],
+                        store_key(p.get("store")))].append(p)
+        return groups
+
+    now_things, then_things = things(now), things(then)
+    parts = dict.fromkeys(COMPARE_PARTS, 0.0)
+    parts["not_placed"] = (_spend([p for p in now if not p.get("product_id")])
+                           - _spend([p for p in then if not p.get("product_id")]))
+    for key, lines in now_things.items():
+        if key not in then_things:
+            parts["new"] += _spend(lines)
+    for key, lines in then_things.items():
+        if key not in now_things:
+            parts["gone"] -= _spend(lines)
+            continue
+        current = now_things[key]
+        q_then = sum(_quantity(p)[0] for p in lines)
+        q_now = sum(_quantity(p)[0] for p in current)
+        shelf_then = sum(_shelf(p) for p in lines)
+        shelf_now = sum(_shelf(p) for p in current)
+        price_then = shelf_then / q_then if q_then else 0.0
+        price_now = shelf_now / q_now if q_now else 0.0
+        parts["prices"] += (price_now - price_then) * q_now
+        parts["discounts"] += (sum(p.get("discount") or 0.0 for p in current)
+                               - sum(p.get("discount") or 0.0 for p in lines))
+    spend, versus_spend = _spend(now), _spend(then)
+    difference = round(spend - versus_spend, 2)
+    parts = {k: round(v, 2) for k, v in parts.items()}
+    # What is left is the amounts, (q_now - q_then) x price_then for every
+    # thing bought in both, so the parts add up to the difference to the cent.
+    parts["amounts"] = round(difference - sum(v for k, v in parts.items() if k != "amounts"), 2)
+    return {"through_day": day if through_day else None,
+            "versus": before.strftime("%Y-%m"), "spend": spend,
+            "versus_spend": versus_spend, "difference": difference, "parts": parts}
+
+
 # --- coverage and assembly ---------------------------------------------------
 
 def _not_grocery(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -499,8 +605,13 @@ def coverage(purchases: dict[str, Any], rows: list[dict[str, Any]],
     }
 
 
-def build_insights(purchases: dict[str, Any], as_of: date | None = None) -> dict[str, Any]:
-    """The insights contract, from a purchases.json document."""
+def build_insights(purchases: dict[str, Any], as_of: date | None = None,
+                   today: date | None = None) -> dict[str, Any]:
+    """The insights contract, from a purchases.json document.
+
+    `today` (default: the server's date) is where this month stops: on the
+    14th, a month's `compared` sets 1-14 of it against 1-14 of the month
+    before. Every other month is compared whole."""
     lines = _product_rows(purchases.get("purchases", []))
     groceries = [p for p in lines if categories.is_grocery(p.get("category"))]
     left_out = [p for p in lines if not categories.is_grocery(p.get("category"))]
@@ -508,6 +619,7 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None) -> dict
     # shopper's own shopping.
     rows = [p for p in groceries if not p.get("not_counted")]
     not_counted = [p for p in groceries if p.get("not_counted")]
+    counted = [p for p in lines if not p.get("not_counted")]
     dates = sorted(p["date"] for p in lines if p.get("date"))
     if as_of is None:
         as_of = _parse(dates[-1]) if dates else date.today()
@@ -520,8 +632,17 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None) -> dict
         "basket_index": basket_index(rows),
         "budget_brand": budget_brand(rows),
         "cross_store": cross_store(groceries),
-        "months": months([p for p in lines if not p.get("not_counted")]),
+        "months": _compared(months(counted), counted, today or date.today()),
     }
+
+
+def _compared(out: list[dict[str, Any]], rows: list[dict[str, Any]],
+              today: date) -> list[dict[str, Any]]:
+    this_month = today.strftime("%Y-%m")
+    for entry in out:
+        entry["compared"] = compare_month(
+            rows, entry["month"], today.day if entry["month"] == this_month else None)
+    return out
 
 
 def load_purchases(path: str | Path) -> dict[str, Any]:

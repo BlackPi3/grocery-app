@@ -7,6 +7,7 @@ from grocery_app.insights import (
     basket_index,
     budget_brand,
     build_insights,
+    compare_month,
     cross_store,
     price_changes,
     repurchase,
@@ -327,3 +328,78 @@ def test_a_line_the_shopper_left_out_is_not_in_the_month():
             row("p-2", "2026-09-02", 7.0, category="wasser") | {"not_counted": True}]
     (september,) = build_insights({"meta": {}, "purchases": rows})["months"]
     assert september["spend"] == 1.0
+
+
+# --- a month against the one before ----------------------------------------------
+# The owner, 2026-10-14: the same days of both months, and the difference split
+# so every euro lands in one part.
+
+def shelf(r, gross, discount=0.0):
+    """A row with its shelf price and printed discount: net = gross + discount."""
+    return r | {"gross": gross, "discount": discount}
+
+
+def test_a_month_s_difference_is_split_into_its_causes_to_the_cent():
+    then = [shelf(row("p-1", "2026-09-03", 2.00, qty=2), 2.00),          # milk, 2 at 1,00
+            shelf(row("p-2", "2026-09-03", 2.00), 2.00),                 # butter, then only
+            shelf(row("p-3", "2026-09-04", 2.00), 2.00),                 # coffee, no discount
+            row(None, "2026-09-04", 3.00) | {"raw_name": "XY Unklar"}]
+    now = [shelf(row("p-1", "2026-10-03", 3.30, qty=3), 3.30),           # 3 at 1,10
+           shelf(row("p-4", "2026-10-03", 5.00), 5.00),                  # cheese, now only
+           shelf(row("p-3", "2026-10-04", 1.80), 2.00, -0.20),           # coffee, 10 % off
+           row(None, "2026-10-04", 4.00) | {"raw_name": "XY Unklar"}]
+    out = compare_month(then + now, "2026-10")
+
+    assert (out["versus"], out["spend"], out["versus_spend"], out["difference"]) == \
+        ("2026-09", 14.10, 9.00, 5.10)
+    assert out["parts"] == {"new": 5.00, "gone": -2.00, "amounts": 1.00, "prices": 0.30,
+                            "discounts": -0.20, "not_placed": 1.00}
+    assert round(sum(out["parts"].values()), 2) == out["difference"]
+
+
+def test_a_month_so_far_is_set_against_the_same_days_of_the_month_before():
+    rows = [row("p-1", "2026-09-14", 1.00), row("p-1", "2026-09-15", 9.00),
+            row("p-1", "2026-10-14", 2.00)]
+    so_far = compare_month(rows, "2026-10", through_day=14)
+    assert (so_far["through_day"], so_far["versus_spend"]) == (14, 1.00), \
+        "15 September is after the 14th"
+    whole = compare_month(rows, "2026-10")
+    assert (whole["through_day"], whole["versus_spend"]) == (None, 10.00)
+
+
+def test_the_31st_is_set_against_the_end_of_a_shorter_month():
+    rows = [row("p-1", "2026-02-28", 1.00), row("p-1", "2026-03-31", 2.00)]
+    assert compare_month(rows, "2026-03", through_day=31)["versus_spend"] == 1.00
+
+
+def test_no_receipt_in_those_days_before_is_no_comparison():
+    rows = [row("p-1", "2026-09-20", 1.00), row("p-1", "2026-10-05", 2.00)]
+    assert compare_month(rows, "2026-10", through_day=14) is None, \
+        "against nothing tracked, +2 € means nothing"
+    assert compare_month(rows, "2026-09") is None
+
+
+def test_the_same_product_at_another_shop_is_another_thing_not_a_price():
+    rows = [shelf(row("p-1", "2026-09-03", 1.00, store="Billigmarkt"), 1.00),
+            shelf(row("p-1", "2026-10-03", 1.50, store="Großmarkt"), 1.50)]
+    parts = compare_month(rows, "2026-10")["parts"]
+    assert (parts["new"], parts["gone"], parts["prices"]) == (1.50, -1.00, 0.0)
+
+
+def test_loose_goods_are_split_by_weight_on_the_shelf_price():
+    rows = [shelf(row("p-1", "2026-09-03", 1.00, unit=2.00, per="kg"), 1.00),   # 0,5 kg
+            shelf(row("p-1", "2026-10-03", 1.98, unit=1.98, per="kg"), 2.20, -0.22)]  # 1 kg
+    parts = compare_month(rows, "2026-10")["parts"]
+    assert (parts["amounts"], parts["prices"], parts["discounts"]) == (1.00, 0.20, -0.22), \
+        "half a kilo more at 2,00, the shelf 20 cents up, the discount apart"
+
+
+def test_this_month_stops_today_and_older_months_are_whole():
+    rows = [row("p-1", "2026-08-31", 1.00), row("p-1", "2026-09-10", 2.00),
+            row("p-1", "2026-09-25", 4.00), row("p-1", "2026-10-05", 3.00)]
+    october, september, august = build_insights(
+        {"meta": {}, "purchases": rows}, today=date(2026, 10, 14))["months"]
+    assert (october["compared"]["through_day"], october["compared"]["versus_spend"]) == (14, 2.00)
+    assert (september["compared"]["through_day"], september["compared"]["difference"]) == \
+        (None, 5.00)
+    assert august["compared"] is None
