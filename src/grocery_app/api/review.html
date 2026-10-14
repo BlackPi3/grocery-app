@@ -141,6 +141,12 @@
   .card.closed .q { color: var(--ink2); }
   .glance .card { margin: 0; }
   .glance .big { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; margin: 2px 0; }
+  .turning .how { margin-top: 4px; color: var(--ink2); }
+  .turning .dots { display: flex; gap: 5px; margin-top: 10px; }
+  .turning .dots span { width: 6px; height: 6px; border-radius: 3px; background: var(--grid); }
+  .turning .dots span.on { width: 14px; background: var(--muted); }
+  .turning.fade > * { animation: turn-in 0.35s ease; }
+  @keyframes turn-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; } }
   button { font: inherit; font-size: 14px; border-radius: 10px; padding: 9px 12px;
     border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer; }
   button.on, button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -1511,21 +1517,70 @@ function ordinal(n) {
   return n + tail;
 }
 
-// The price that moved most, among products bought at least three times, the
-// last time within three months: one odd reading is not a trend.
+// Prices that really moved, one at a time (the owner, 2026-10-14): bought at
+// least three times and moved at least 10% on the shelf, not an offer; the
+// server picks them (`insights.price_moves`), newest move first. The tile
+// turns to the next by itself, a swipe turns it either way, a tap opens the
+// product. Each says when and how it moved.
+const PRICE_TURN_MS = 6000;
+let priceTimer = null;
+function moveText(m) {
+  const up = m.change_pct > 0, word = up ? "Up" : "Down";
+  const on = shortDate(m.since);
+  if (m.kind === "keeps_changing") return "Keeps changing";
+  if (m.kind === "latest") return `${word} on ${on}, the last time`;
+  return m.steps.length > 1 ? `${word} in ${m.steps.length} steps since ${on}`
+    : `${word} on ${on}, and stayed`;
+}
 function priceCard(d) {
-  const since = new Date(Date.parse(d.as_of) - 92 * 864e5).toISOString().slice(0, 10);
-  const moved = d.price_changes.filter(c => c.observations.length >= 3 && c.last.date >= since
-    && c.change_pct).sort((a, b) => Math.abs(b.change_pct) - Math.abs(a.change_pct))[0];
-  if (!moved) return null;
-  const up = moved.change_pct > 0;
-  return el("div", { class: "card tap", onclick: () => openProduct(moved.product_id) },
-    el("div", { class: "label" }, "Price " + (up ? "up" : "down")),
-    el("div", { class: "big " + (up ? "up" : "down") },
-       (up ? "▲ " : "▼ ") + Math.round(Math.abs(moved.change_pct)) + "%"),
-    el("div", { class: "what" }, easyName(moved.product, moved.brand)),
-    el("div", { class: "meta" }, `${euro(moved.first.price)} → ${euro(moved.last.price)}` +
-       ` per ${moved.per} at ${moved.store}`));
+  const moves = d.price_moves;
+  if (!moves || !moves.length) return null;  // none, or a copy from an older server
+  state.priceAt = (state.priceAt || 0) % moves.length;
+  const card = el("div", { class: "card tap turning" });
+  const fill = () => {
+    const m = moves[state.priceAt], up = m.change_pct > 0;
+    card.onclick = () => openProduct(m.product_id);
+    card.replaceChildren(
+      el("div", { class: "label" }, "Price " + (up ? "up" : "down")),
+      el("div", { class: "big " + (up ? "up" : "down") },
+         (up ? "▲ " : "▼ ") + Math.round(Math.abs(m.change_pct)) + "%"),
+      el("div", { class: "what" }, easyName(m.product, m.brand)),
+      el("div", { class: "meta" }, `${euro(m.before)} → ${euro(m.after)} per ${m.per} · ${m.store}`),
+      el("div", { class: "meta how" }, moveText(m)),
+      moves.length > 1 ? el("div", { class: "dots" }, moves.map((_, i) =>
+        el("span", { class: i === state.priceAt ? "on" : "" }))) : null);
+  };
+  const turn = by => {
+    state.priceAt = (state.priceAt + by + moves.length) % moves.length;
+    card.classList.remove("fade");
+    void card.offsetWidth;  // restart the fade
+    card.classList.add("fade");
+    fill();
+  };
+  const start = () => {
+    clearInterval(priceTimer);
+    if (moves.length < 2) return;
+    priceTimer = setInterval(() => {
+      if (!card.isConnected) return clearInterval(priceTimer);
+      if (!document.hidden) turn(1);
+    }, PRICE_TURN_MS);
+  };
+  let touch = null;
+  card.addEventListener("touchstart", e => { touch = e.touches[0].clientX; }, { passive: true });
+  card.addEventListener("touchend", e => {
+    const dx = e.changedTouches[0].clientX - (touch ?? e.changedTouches[0].clientX);
+    if (Math.abs(dx) > 40) {
+      turn(dx < 0 ? 1 : -1);
+      start();  // a swipe waits a full turn before the next
+      card.dataset.swiped = "1";
+      setTimeout(() => delete card.dataset.swiped, 350);
+    }
+  });
+  card.addEventListener("click", e => { if (card.dataset.swiped) e.stopImmediatePropagation(); },
+                        { capture: true });
+  fill();
+  start();
+  return card;
 }
 
 // What the shopper buys most often.

@@ -10,6 +10,8 @@ from grocery_app.insights import (
     compare_month,
     cross_store,
     price_changes,
+    price_move,
+    price_moves,
     repurchase,
     running_totals,
     usual_by_day,
@@ -53,7 +55,7 @@ def test_two_lines_on_one_day_are_one_trip():
 
 # --- price over time ---------------------------------------------------------
 
-def test_price_change_follows_the_paid_unit_price():
+def test_price_change_follows_the_unit_price():
     rows = [row("p-1", "2026-01-01", 1.60, unit=1.60, per="piece"),
             row("p-1", "2026-02-01", 1.65, unit=1.65, per="piece")]
     (change,) = price_changes(rows)
@@ -452,3 +454,72 @@ def test_this_month_stops_today_and_older_months_are_whole():
     assert october["running"]["this"][-1] == 3.00 and len(october["running"]["this"]) == 14
     assert len(october["running"]["before"]) == 30, "September drawn whole"
     assert august["running"]["before"] is None
+
+
+# --- prices on the shelf -----------------------------------------------------------
+# The owner, 2026-10-14: a price change is the shelf price moving; a discount
+# printed on the receipt (an offer, a card, a staff discount) is not one.
+
+def test_a_printed_discount_is_not_a_price_change():
+    rows = [shelf(row("p-1", "2026-09-01", 1.00), 1.00),
+            shelf(row("p-1", "2026-09-08", 0.90), 1.00, -0.10),     # 10 % off at the till
+            shelf(row("p-1", "2026-09-15", 1.10), 1.10)]            # the shelf moved
+    (change,) = price_changes(rows)
+    assert [o["price"] for o in change["observations"]] == [1.00, 1.00, 1.10]
+    assert change["move"]["kind"] == "latest" and change["move"]["since"] == "2026-09-15"
+
+
+def test_the_basket_is_priced_on_the_shelf():
+    rows = [shelf(row(f"p-{i}", "2026-01-05", 1.00), 1.00) for i in range(3)] + \
+           [shelf(row(f"p-{i}", "2026-02-05", 0.80), 1.00, -0.20) for i in range(3)]
+    (step,) = basket_index(rows)["series"]
+    assert step["month_over_month_pct"] == 0.0, "20 % off at the till is not inflation"
+
+
+def obs(*prices):
+    return [{"date": f"2026-0{1 + i // 28}-{1 + i % 28:02d}", "price": p}
+            for i, p in enumerate(prices)]
+
+
+def test_a_price_that_went_up_and_stayed():
+    move = price_move(obs(1.00, 1.00, 1.20, 1.20))
+    assert (move["kind"], move["since"], move["before"], move["after"], move["change_pct"]) == \
+        ("stayed", "2026-01-03", 1.00, 1.20, 20.0)
+
+
+def test_a_price_that_went_up_in_steps_dates_each_step():
+    move = price_move(obs(0.85, 0.85, 1.10, 1.19, 1.19))
+    assert (move["kind"], move["steps"], move["change_pct"]) == \
+        ("stayed", ["2026-01-03", "2026-01-04"], 40.0)
+
+
+def test_a_new_price_seen_once_is_the_latest_not_stayed():
+    assert price_move(obs(1.00, 1.00, 0.89))["kind"] == "latest"
+
+
+def test_one_date_off_and_back_is_an_offer_not_a_change():
+    move = price_move(obs(2.00, 2.00, 1.49, 2.00))
+    assert (move["kind"], move["since"], move["change_pct"]) == ("offer", "2026-01-03", None)
+
+
+def test_up_and_down_keeps_changing():
+    move = price_move(obs(2.50, 3.67, 2.98, 1.97))
+    assert (move["kind"], move["since"], move["change_pct"]) == \
+        ("keeps_changing", "2026-01-01", -21.2)
+
+
+def test_a_cent_of_rounding_is_no_move():
+    assert price_move(obs(1.99, 2.00, 1.99)) is None
+
+
+def test_home_tells_only_real_moves_newest_first():
+    def change(pid, *prices):
+        o = obs(*prices)
+        return {"product_id": pid, "product": pid, "brand": None, "store": "Musterladen",
+                "sold_as": None, "per": "item", "observations": o, "move": price_move(o)}
+    moves = price_moves([change("two-buys", 1.00, 1.50),          # too few buys
+                         change("small", 1.00, 1.00, 1.05, 1.05),  # under 10 %
+                         change("offer", 2.00, 1.00, 2.00),        # not a change
+                         change("old", 1.00, 1.20, 1.20, 1.20, 1.20),
+                         change("new", 1.00, 1.00, 1.00, 0.80, 0.80)])
+    assert [m["product_id"] for m in moves] == ["new", "old"]
