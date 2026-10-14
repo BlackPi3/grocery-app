@@ -10,26 +10,26 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 - Everything is merged. `main` deploys the server and the public demo on every
   merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
-- In review (owner, 2026-10-14, on seeing the split: "confusing; not all of
-  these are important to me. Am I going too fast, ok, or saving?"): **Home's
-  month card says the pace.** This month so far, one word ("Faster than
-  usual", "Slower than usual", "About as usual"; within a tenth either way is
-  about as usual), then one chart of running totals over the month's days
-  (owner: one figure that holds them all, not three bars, and no bar
-  whose end reads as a limit): this month to today, bright, with a dot;
-  the usual month dashed; last month faint; a key with the usual and last
-  month by today's date. Lines are smoothed through the real totals every 4
-  days (monotone, so a total never dips; today's dot exact): "not a
-  scientific paper", "not dummy lines either". Only a gap beyond 10% is
-  stressed: the space between this month and the usual turns amber (faster)
-  or green (slower), with the difference at today ("+82,64 €"). `running_totals`, `usual.running`, each month's
-  `running`. The usual is the mean of up
-  to 6 whole months before, each cut at the same day (`insights.usual_by_day`;
-  the month the history starts in and months without a receipt do not
-  count; needs two months, else the card sets against last month only).
-  The split into causes (#145, `compared.parts`) stays in `insights.json` and
-  is off Home. Branch `feat/home-pace`: **not merged until the owner has seen
-  it** (screenshot sent).
+- In review (owner, 2026-10-14, after five rounds of screenshots): **Home's
+  month tile says the pace.** This month so far and one word ("Faster than
+  usual", "About as usual", "Slower than usual"; within a tenth either way is
+  about as usual; nothing said before the 7th). The tile's colour says how
+  far off the usual the month is: green when consistent or spending less,
+  through orange to a soft coral from 70% above, never a warning red ("an
+  insight; we don't want users to feel bad"). Only when the month is
+  noticeably off (beyond a tenth, from the 7th) does the tile show a small
+  chart: running totals over the last 10 days, this month bright with a dot,
+  the usual dashed, last month faint, each named at its end (no legend),
+  smoothed through the real totals every 4 days (monotone, so a total never
+  dips; the dot exact), the gap shaded with the difference ("+82,64 €").
+  Otherwise one line: "Usually 119,28 € by the 14th · September 145,21 €".
+  A tap opens the whole month's chart and "A usual month ends at …".
+  The usual is the mean of up to 6 whole months before, each cut at the
+  same day (`insights.usual_by_day`, `usual.running`, each month's
+  `running`); the split into causes (#145) stays in `insights.json`, off
+  Home. Branch `feat/home-pace` (#146): **not merged until the owner has
+  seen it.** Seen only in its orange case (the live data); green and "about
+  as usual" are untested on screen.
 - Built (owner, 2026-10-13: barcodes first, **exact matches only**, "might
   move to best guess, let's see how it looks"): `grocery-app db barcodes`
   searches Open Food Facts (free) by brand and name, sold in Germany, for

@@ -10,6 +10,8 @@ a preview never writes to the live data.
 
     .venv/bin/python scripts/preview.py            # http://localhost:8765/
     .venv/bin/python scripts/preview.py --shot home.png   # and a phone-sized screenshot
+    .venv/bin/python scripts/preview.py --shot month.png \
+        --then "document.querySelector('.hero').click()"   # a tap first
 
 The live server and the owner's password come from GROCERY_URL /
 GROCERY_TOKEN, or else from gcloud, as for `dev_inbox.py`.
@@ -39,7 +41,7 @@ PAGE = ROOT / "src" / "grocery_app" / "api" / "review.html"
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 
-def handler(live: str, token: str) -> type[BaseHTTPRequestHandler]:
+def handler(live: str, token: str, then: str | None = None) -> type[BaseHTTPRequestHandler]:
     def fetch(path: str) -> tuple[int, str, bytes]:
         request = urllib.request.Request(live + path,
                                          headers={"Authorization": f"Bearer {token}"})
@@ -60,7 +62,12 @@ def handler(live: str, token: str) -> type[BaseHTTPRequestHandler]:
         def do_GET(self) -> None:  # noqa: N802 (the stdlib's name)
             path = self.path
             if path in ("/", "/index.html"):
-                self.send(200, "text/html", PAGE.read_bytes())
+                page = PAGE.read_text(encoding="utf-8")
+                if then:
+                    # Run once the page has drawn its data, before the screenshot.
+                    page = page.replace("</body>", "<script>setTimeout(() => { "
+                                        f"{then} }}, 6000)</script></body>", 1)
+                self.send(200, "text/html", page.encode())
             elif path == "/sw.js":
                 # No service worker: it would keep this page on the browser.
                 self.send(404, "text/plain", b"")
@@ -100,11 +107,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--shot", type=Path, help="save a phone-sized screenshot and stop")
-    parser.add_argument("--tab", default="", help="the tab to shoot, e.g. insights")
+    parser.add_argument("--then", help="JavaScript run before the screenshot, e.g. a click")
     args = parser.parse_args()
     live, token = server_and_token()
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), handler(live, token))
-    url = f"http://localhost:{args.port}/" + (f"#{args.tab}" if args.tab else "")
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), handler(live, token, args.then))
+    url = f"http://localhost:{args.port}/"
     if args.shot:
         threading.Thread(target=server.serve_forever, daemon=True).start()
         screenshot(url, args.shot)
