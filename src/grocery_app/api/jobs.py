@@ -24,6 +24,7 @@ so there is no argument a test can forget that would make one happen.
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import Executor, ThreadPoolExecutor
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -37,8 +38,9 @@ from grocery_app.api.images import ImageStore
 from grocery_app.db.io import receipt_from_dict, whose
 from grocery_app.db.models import Job, LineGuess, Receipt
 
-__all__ = ["Extractor", "anthropic_extractor", "configured_extractor", "job_to_dict",
-           "resume_job", "resume_unfinished", "run_job", "unfinished_jobs"]
+__all__ = ["READING_AT_ONCE", "Extractor", "anthropic_extractor", "configured_extractor",
+           "job_to_dict", "reading_line", "resume_job", "resume_unfinished", "run_job",
+           "unfinished_jobs"]
 
 # Derived at extraction time from the lines and the printed total. The receipt
 # tables hold what the paper says; these are a reading of it, and there is no
@@ -48,6 +50,19 @@ DERIVED_KEYS = ("computed_total", "reconciled", "first_guesses", "receipt_from")
 
 # A job in one of these was started and has not said how it ended.
 UNFINISHED = ("queued", "running")
+
+# How many uploads are read at the same time; the rest wait their turn as
+# `queued` (the owner, 2026-10-14: take every receipt from the user at once,
+# read them as the server can). One small server reading thirty at once would
+# run out of database connections, memory and the model's rate before
+# finishing any. A job waiting here is a committed row, so a restart loses
+# nothing: `resume_unfinished` picks it up.
+READING_AT_ONCE = 3
+
+
+def reading_line(at_once: int = READING_AT_ONCE) -> Executor:
+    """The line uploads wait in: oldest first, `at_once` read together."""
+    return ThreadPoolExecutor(max_workers=at_once, thread_name_prefix="reading")
 
 
 class Extraction(Protocol):

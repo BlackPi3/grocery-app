@@ -193,7 +193,7 @@ def from_google(client: TestClient, credential: str, form_token: str = "csrf-1",
 
 
 @pytestmark_db
-def test_the_page_signs_in_through_google_s_redirect(server):
+def test_the_page_signs_in_through_google_s_redirect(server, caplog):
     """2026-10-13: on the owner's phone the pop-up never handed its answer
     back, so the page sends Google's answer to the server instead."""
     make, _, session = server
@@ -210,6 +210,10 @@ def test_the_page_signs_in_through_google_s_redirect(server):
         assert "could not be checked" in \
             from_google(client, "sara", form_token, cookie)["google-error"], "another site's form"
     assert session.execute(text("SELECT count(*) FROM sign_ins")).scalar() == 1
+    refused = [r.getMessage() for r in caplog.records if "sign-in refused" in r.getMessage()]
+    assert refused[0] == "Google sign-in refused: stranger@example.com has not been invited: " \
+        "ask the owner to add it on their People card", "why is in the server's log"
+    assert "Google sign-in refused: the CSRF cookie is missing" in refused
 
 
 @pytestmark_db
