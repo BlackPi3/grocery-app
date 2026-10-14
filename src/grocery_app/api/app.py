@@ -46,6 +46,7 @@ from concurrent.futures import Executor, Future
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response, UploadFile
@@ -640,26 +641,34 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         return AuthConfig(google_client_id=google.client_id if google else None)
 
     def sign_in_with(credential: str) -> SignedIn:
-        """A sign-in token for the address Google's ID token is for.
-        Invite-only: the owner's address (`GROCERY_OWNER_EMAIL`) or one the
-        owner added on the People card; any other verified address is a 403."""
+        """A sign-in token for the address Google's ID token is for: the
+        owner's (`GROCERY_OWNER_EMAIL`), or a user's, made at their first
+        sign-in. Who may sign in at all is Google's to say: while the consent
+        screen is in Testing, only its test users get a token (the owner,
+        2026-10-14: the People card's invitations repeated that list)."""
         if not writes_available:
             raise HTTPException(status_code=503,
                                 detail="signing in needs the database (DATABASE_URL)")
         try:
-            email = google.email(credential)
+            email, name = google.identity(credential)
         except NotSignedIn as exc:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
         except GoogleUnavailable as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
-        user = None if google.is_owner(email) else repository.user_for_email(email)
-        if user is None and not google.is_owner(email):
-            raise HTTPException(status_code=403,
-                                detail=f"{email} has not been invited: ask the owner "
-                                       "to add it on their People card")
+        user = None if google.is_owner(email) else (
+            repository.user_for_email(email) or new_user(email, name))
         made = repository.start_sign_in(user, email)
         return SignedIn(token=made["token"], role="user" if user else "owner",
                         name=user["name"] if user else None, expires_at=made["expires_at"])
+
+    def new_user(email: str, name: str | None) -> dict[str, Any]:
+        """A first sign-in's user, named as Google names them; a name another
+        user has already gets their address beside it."""
+        name = (name or email.split("@")[0])[:40]
+        try:
+            return repository.create_user(name, email)
+        except ValueError:
+            return repository.create_user(f"{name} ({email})"[:60], email)
 
     if google is not None:
         @app.post("/v1/auth/google", response_model=SignedIn)

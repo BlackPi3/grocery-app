@@ -504,7 +504,7 @@ class NewUserRequest(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     email: str | None = Field(None, max_length=254,
                               description="Their Google address, to sign in with Google. "
-                                          "Nobody can sign in with Google uninvited.")
+                                          "A first Google sign-in makes its user itself.")
 
 
 class UserPatch(BaseModel):

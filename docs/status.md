@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: uploads are read 3 at a time; refused sign-ins are logged.
+**Last updated:** 2026-10-14, laptop: no People card; a first Google sign-in makes the account.
 
 ## Now
 
@@ -40,6 +40,14 @@ session (laptop or cloud) can pick up from here. How we work is in
   receipts in their apps only, and fetching them would mean holding users'
   shop passwords (recommended no). One tap per receipt comes with the iOS
   app's share extension.
+- Done (owner, 2026-10-14): **no People card**. Google sign-in decides who
+  gets in: any verified address Google lets through (while the consent screen
+  is in Testing, only its test users, up to 100) gets an account at its first
+  sign-in, named with their Google first name ("Lea"; "Lea (address)" when a
+  name is taken). The owner's step for a new person is now only: add them as
+  a test user in Google Cloud. **Before publishing the consent screen**,
+  anyone with a Google account could sign up and spend money: a limit comes
+  first. Passwords and `/v1/users` stay (no page uses them now).
 - Done (owner, 2026-10-14): **uploads are read 3 at a time**. Every upload
   is taken and stored at once and waits as `queued`; a reading line
   (`jobs.reading_line`, `READING_AT_ONCE`) reads three together, oldest
@@ -214,9 +222,8 @@ session (laptop or cloud) can pick up from here. How we work is in
    (`GET /v1/products/{id}/purchases`, `GET /v1/receipts/{id}/photo`, the
    asker's receipts only; the demo shows only the made-up receipts' photos).
 3. ~~Google sign-in on the web.~~ Built, and **switched on 2026-10-13**. Who may sign up was decided by the lead while the owner was away, as
-   the safe default (reversible): **invite-only**. The owner's address is
-   `GROCERY_OWNER_EMAIL`; anyone else needs their address added on the People
-   card. Passwords keep working. Sign-ins last 90 days (migration 0020,
+   the safe default (reversible): **invite-only**; dropped 2026-10-14 by the
+   owner (see Now: a first sign-in makes the account). Passwords keep working. Sign-ins last 90 days (migration 0020,
    `api/google_sign_in.py`). The owner's steps (details in
    `docs/designs/backend-api.md`, "Switching on Sign in with Google"):
    1. Google Cloud Console: an OAuth consent screen, then an OAuth client
@@ -225,10 +232,9 @@ session (laptop or cloud) can pick up from here. How we work is in
    2. GitHub repo settings: variable `GOOGLE_CLIENT_ID`, secret
       `GROCERY_OWNER_EMAIL`.
    3. Run the deploy workflow.
-   4. Add each person's Google address on the People card (and as a test
-      user while the consent screen is in Testing).
+   4. Add each person as a test user while the consent screen is in Testing.
    Done 2026-10-13: steps 1-3. The consent screen is in Testing (only its
-   test users can sign in; the People card still gates the app).
+   test users can sign in).
    No route removes a user yet (their receipts would go with them); a
    removed user's sign-ins end with the row. Apple sign-in is deferred (it
    needs the paid developer account).

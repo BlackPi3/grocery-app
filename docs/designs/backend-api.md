@@ -234,11 +234,16 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
   (`api/google_sign_in.py`: signature against Google's keys through `google-auth`,
   `aud` is our client id, `iss` is Google, `exp` not passed, `email_verified`) and
   returns a sign-in token that the page keeps and sends as `Authorization: Bearer`,
-  like a password. **Invite-only** (decided by the lead while the owner was away,
-  as the safe default, and reversible): the address is the owner's when it is
-  `GROCERY_OWNER_EMAIL`, a user's when the owner added it on the People card
-  (`users.email`, set with `POST /v1/users` or `PATCH /v1/users/{id}`), and any
-  other address is a 403. Passwords keep working beside it. A sign-in is kept as
+  like a password. The address is the owner's when it is `GROCERY_OWNER_EMAIL`;
+  any other verified address is a user's, made at its first sign-in and named
+  as Google names them (`users.email`). Who may sign in at all is Google's to
+  say: while the consent screen is in Testing, only its test users (up to 100).
+  Invite-only with a People card (2026-10-12, the lead's safe default) was
+  dropped on 2026-10-14 by the owner: it repeated Google's test-user list.
+  **Once the consent screen is published, anyone with a Google account can
+  sign up**, so a limit on new users or spending comes first.
+  `POST /v1/users` and `PATCH /v1/users/{id}` remain for passwords. Passwords
+  keep working beside it. A sign-in is kept as
   the sha256 of its token (`sign_ins`) and ends after 90 days, on Log out
   (`POST /v1/auth/sign-out`), when its user is removed (the row goes with them),
   or when the address stops being theirs (the user's email changed, or the
@@ -272,8 +277,8 @@ what `line_resolutions.json` holds today; `db export` writes it back so the
   4. Actions → deploy → Run workflow (or merge anything). `scripts/deploy.sh`
      passes both to the server only when they are set; `--set-env-vars`
      replaces every variable on each deploy, so setting them on the Cloud Run
-     service by hand would not last. Then invite people by address on the
-     People card.
+     service by hand would not last. Then add each person as a test user on
+     the consent screen; their first sign-in makes their account.
 - **Deployment**: a `Dockerfile` (python:3.12-slim, `pip install .[api]`, uvicorn,
   migrations applied as the server starts, one Python start rather than two) on **Google Cloud** (decided 2026-10-03): Cloud Run,
   Cloud SQL PostgreSQL, and a Cloud Storage bucket, in `europe-west3` (Frankfurt).
