@@ -297,8 +297,9 @@ def test_a_removed_receipt_is_removed_when_the_page_is_left_before_undo_runs_out
     out = run_page_function(page, "asks removeReceipt sendRemoval sendRemovalsNow", start + """
         const sent = [];
         let undo = null;
-        globalThis.api = async (path, opts) => { sent.push(opts.method + " " + path +
-                                                            (opts.keepalive ? " keepalive" : "")); };
+        globalThis.api = async (path, opts) => {
+          sent.push(opts.method + " " + path + (opts.keepalive ? " keepalive" : ""));
+        };
         globalThis.toast = (text, onUndo) => { undo = onUndo; };
         globalThis.render = () => {};
         globalThis.load = async () => {};
