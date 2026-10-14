@@ -272,28 +272,13 @@ def test_a_receipt_still_being_read_is_not_asked_for_when_none_is_open(client):
         "the refresh asks openBeingRead()"
 
 
-def test_a_pasted_pdf_or_picture_is_a_receipt_and_anything_else_is_named(client):
-    """The owner, 2026-10-14: a shop app's PDF, copied and pasted, without
-    saving it to Files first. What the clipboard holds decides what is sent."""
-    page = client.get("/").text
-    start = page[page.index("const PASTABLE"):page.index("function pastedType")]
-    out = run_page_function(page, "pastedType", start + """
-        for (const types of [["text/plain", "application/pdf"], ["image/png", "image/jpeg"],
-                             ["image/tiff"], ["text/uri-list", "text/plain"], []]) {
-          console.log(String(pastedType(types)));
-        }
-    """)
-    assert out == ["application/pdf", "image/jpeg", "image/tiff", "null", "null"]
-    assert "The clipboard holds: " in page, "anything else is named, so a test on a phone says what"
-    assert "onclick: pasteReceipt" in page and 'addEventListener("paste"' in page
-
-
 def test_a_removed_receipt_is_removed_when_the_page_is_left_before_undo_runs_out(client):
     """2026-10-14: the removal waited 8 s for Undo and a reload dropped it, so
     removed receipts came back. Leaving the page now sends it; Undo still
     sends nothing, and the receipt's questions go with it at once."""
     page = client.get("/").text
-    start = page[page.index("const removals"):page.index("function removeReceipt")]
+    start = "const UNDO_MS = 8000;\n" + \
+        page[page.index("const removals"):page.index("function removeReceipt")]
     out = run_page_function(page, "asks removeReceipt sendRemoval sendRemovalsNow", start + """
         const sent = [];
         let undo = null;
@@ -323,6 +308,15 @@ def test_a_question_thanks_the_shopper(client):
     page = client.get("/").text
     assert "Thank you: your answer helps the app learn." in page
     assert "Each answer helps the app learn what you buy" in page
+
+
+def test_undo_shows_a_ring_that_empties_in_the_time_left_to_undo(client):
+    """The owner, 2026-10-14: the time to undo, shown as a clock-like ring."""
+    page = client.get("/").text
+    assert "const UNDO_MS = 8000;" in page
+    assert "animation-duration:${UNDO_MS}ms" in page, "the ring runs as long as the Undo"
+    assert "undo ? UNDO_MS : 3500" in page and "sendRemoval(receiptId), UNDO_MS)" in page, \
+        "the message and the removal end with the ring"
 
 def test_the_repository_is_chosen_by_the_environment(tmp_path, monkeypatch):
     """Which store production reads from. Without a URL it is the file; with

@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: removing a receipt survives a reload; questions say thank you.
+**Last updated:** 2026-10-14, laptop: Undo has a countdown ring; paste is gone.
 
 ## Now
 
@@ -33,18 +33,15 @@ session (laptop or cloud) can pick up from here. How we work is in
   the page now sends it (`keepalive`). A receipt being removed takes its
   questions and checks with it at once. Question cards say "Thank you: your
   answer helps the app learn." (owner: kinder, short).
-- Built, **waiting for the owner's test on the iPhone** (2026-10-14): **paste
-  a receipt**. A shop app's PDF is shared, then Save to Files, then +; the
-  owner asked whether copy and paste could skip Files. "Paste a receipt" on
-  Receipts reads the clipboard (`navigator.clipboard.read`) and sends a PDF
-  or picture like +; a paste outside a text box (Cmd+V) does too. Apple
-  documents pasting text and pictures only, so whether a copied PDF arrives
-  is the test: with no PDF or picture the page names what the clipboard
-  holds. If PDFs don't arrive, the button stays for pictures or goes (the
-  owner's call). Researched the same day: REWE emails each eBon as a PDF, so
-  a per-user forwarding address could import REWE without a tap (later,
-  not agreed); Kaufland and Lidl keep receipts in their apps only, and
-  fetching them would mean holding users' shop passwords (recommended no).
+- Tried and removed (owner, 2026-10-14): **paste a receipt**. A PDF copied
+  from the Kaufland app did not reach the page on the iPhone. Researched the
+  same day: REWE emails each eBon as a PDF, so a per-user forwarding address
+  could import REWE without a tap (later, not agreed); Kaufland and Lidl keep
+  receipts in their apps only, and fetching them would mean holding users'
+  shop passwords (recommended no). One tap per receipt comes with the iOS
+  app's share extension.
+- Done (owner, 2026-10-14): **Undo shows a ring** that empties like a clock
+  as its 8 s run out (`UNDO_MS`, the same time the removal waits).
 - Fixed (owner, 2026-10-14, a Kaufland app PDF): while a receipt was being
   read, with no receipt open, the page asked for `/v1/receipts/null` every
   3 s and showed "Input should be a valid integer". A queued job has no
