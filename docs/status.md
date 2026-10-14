@@ -4,12 +4,28 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: what discounts saved merged (#150); next, the product's price line.
+**Last updated:** 2026-10-14, laptop: the product's price line and the rotating regulars built (PR open, shown to the owner, waiting for his look).
 
 ## Now
 
-- Everything is merged. `main` deploys the server and the public demo on every
-  merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
+- `main` deploys the server and the public demo on every merge
+  (`.github/workflows/deploy.yml`). **Mid-flight:** the branch
+  `feat/price-line-and-regulars` (PR open), shown to the owner by
+  screenshot; merge on his yes.
+- Built, waiting for the owner's look (2026-10-14): **the product's price
+  line, and your regulars, rotating.** The product page opens with the shelf
+  price per unit before discounts over the whole history (each purchase
+  carries `shelf_unit_price`, the price every price insight reads): one line
+  per shop, and per loose or pack where a shop sold both, each named at its
+  end; a dot per day bought, a tap opens that receipt; prices in another unit
+  than most (per item against per kg) are counted under the chart, not drawn.
+  The calendar moved to its own card, with weekday letters that stay in view
+  while the weeks scroll. Home's regular tile turns through `regulars`
+  (insights contract 10: bought on 3 days or more, most days first, up to 8
+  shown): "8×, Rispentomaten, in 4 months, last on 13 Oct"; it turns half a
+  turn after the price tile, so the two never turn together. The two tiles
+  share one turning card (`turningCard`). `scripts/preview.py` fills in the
+  shelf price from the live history while the live server is older.
 - Done (owner, 2026-10-14, "looks good" on the screenshot; #150): **what discounts saved you**, a card on
   Insights after "Prices that moved". This month's saving and its share of
   the shelf price, then the last 6 months and the shops, most saved first
@@ -298,8 +314,10 @@ session (laptop or cloud) can pick up from here. How we work is in
    deleting users, what the owner sees of others) wait until the legal side
    is clear (owner).
 
-**Next session: build the product's price line** (step 2, piece 3; pieces 1
-and 2 merged as #148 and #150). Nothing is mid-flight.
+**Next session:** merge `feat/price-line-and-regulars` on the owner's yes
+(or change it as he says). After that the agreed list is empty; the owner
+asked (2026-10-14) for no new features before the milestone, privacy and
+account deletion possibly moved up (his call).
 
 ## Next build (agreed 2026-10-14): insights about the past, done right
 
@@ -335,10 +353,11 @@ A comparison must be like for like, and an insight must have one meaning.
      an offer). Each says **when** and **how**: "went up 4 Jul and stayed",
      "dropped once, then back (probably an offer, not counted)", "keeps
      changing". No fixed window: the date of the change is the window.
-   - The product page opens with a **price line** (date across, price up)
-     over the whole history, the purchase list under it; the calendar gets
-     **weekday letters**.
-3. **Your regulars, rotating** like the price tile ("7× in 6 weeks").
+   - (Built, PR open.) The product page opens with a **price line** (date
+     across, price up) over the whole history, the purchase list under it;
+     the calendar gets **weekday letters**.
+3. (Built, PR open.) **Your regulars, rotating** like the price tile ("7× in
+   6 weeks").
 
 Research (private claude.ai pages, the owner's account): the landscape of
 apps and 75 open-source projects, with "Where your app wins",

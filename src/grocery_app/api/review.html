@@ -290,7 +290,22 @@
     line-height: 1; color: var(--muted); }
   .hero.tap::after { color: rgba(255,255,255,0.8); }
   .back { border: 0; background: none; color: var(--accent); padding: 4px 0; font-size: 14px; }
-  .cal { overflow-x: auto; margin: 12px 0 4px; padding-bottom: 4px; }
+  .cal-wrap { display: flex; gap: 5px; margin: 12px 0 4px; }
+  .cal { overflow-x: auto; padding-bottom: 4px; flex: 1; min-width: 0; }
+  .cal-wrap .wd { display: grid; grid-template-rows: 14px repeat(7, 13px); gap: 3px;
+    font-size: 9px; line-height: 13px; color: var(--muted); text-align: center; }
+  .pline { margin: 12px 0 2px; }
+  .pline svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .pline text { fill: var(--muted); font-size: 10px; }
+  .pline .rule { stroke: var(--grid); stroke-width: 1; }
+  .pline path { fill: none; stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+  .pline circle { stroke: var(--card); stroke-width: 1.5; }
+  .pline .s0 path { stroke: var(--accent); } .pline .s0 circle { fill: var(--accent); }
+  .pline .s1 path, .pline .s2 path { stroke: var(--muted); }
+  .pline .s1 circle, .pline .s2 circle { fill: var(--muted); }
+  .pline .s2 path { stroke-dasharray: 4 3; }
+  .pline .s0 text.name { fill: var(--accent); }
+  .pline .hit { fill: transparent; stroke: none; cursor: pointer; }
   .cal .grid { display: grid; grid-auto-flow: column; gap: 3px;
     grid-template-rows: 14px repeat(7, 13px); grid-auto-columns: 13px; width: max-content; }
   .cal .mon { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: visible;
@@ -1320,7 +1335,7 @@ function homeView() {
   // What a stop promises opens when the stop is reached.
   const reached = at => !start || start.count >= at;
   const glance = [reached(START_GOAL) ? priceCard(d) : null,
-                  reached(5) ? factCard(d) : null].filter(Boolean);
+                  reached(5) ? regularsCard(d) : null].filter(Boolean);
   if (glance.length) cards.push(el("div", { class: "glance" }, glance));
   return cards;
 }
@@ -1518,53 +1533,39 @@ function ordinal(n) {
   return n + tail;
 }
 
-// Prices that really moved, one at a time (the owner, 2026-10-14): bought at
-// least three times and moved at least 10% on the shelf, not an offer; the
-// server picks them (`insights.price_moves`), newest move first. The tile
-// turns to the next by itself, a swipe turns it either way, a tap opens the
-// product. Each says when and how it moved.
-const PRICE_TURN_MS = 6000;
-let priceTimer = null;
-function moveText(m) {
-  const up = m.change_pct > 0, word = up ? "Up" : "Down";
-  const on = shortDate(m.since);
-  if (m.kind === "keeps_changing") return "Keeps changing";
-  if (m.kind === "latest") return `${word} on ${on}, the last time`;
-  return m.steps.length > 1 ? `${word} in ${m.steps.length} steps since ${on}`
-    : `${word} on ${on}, and stayed`;
-}
-function priceCard(d) {
-  const moves = d.price_moves;
-  if (!moves || !moves.length) return null;  // none, or a copy from an older server
-  state.priceAt = (state.priceAt || 0) % moves.length;
+// A Home tile that turns through several things, one at a time (the owner,
+// 2026-10-14): to the next by itself, a swipe turns it either way, a tap opens
+// the one shown. `key` keeps its place across renders; `delay` starts a second
+// tile half a turn later, so the two never turn together.
+const TURN_MS = 6000;
+const turnTimers = {};
+function turningCard(key, items, fill, open, delay = 0) {
+  state.turnAt = state.turnAt || {};
+  state.turnAt[key] = (state.turnAt[key] || 0) % items.length;
   const card = el("div", { class: "card tap turning" });
-  const fill = () => {
-    const m = moves[state.priceAt], up = m.change_pct > 0;
-    card.onclick = () => openProduct(m.product_id);
-    card.replaceChildren(
-      el("div", { class: "label" }, "Price " + (up ? "up" : "down")),
-      el("div", { class: "big " + (up ? "up" : "down") },
-         (up ? "▲ " : "▼ ") + Math.round(Math.abs(m.change_pct)) + "%"),
-      el("div", { class: "what" }, easyName(m.product, m.brand)),
-      el("div", { class: "meta" }, `${euro(m.before)} → ${euro(m.after)} per ${m.per} · ${m.store}`),
-      el("div", { class: "meta how" }, moveText(m)),
-      moves.length > 1 ? el("div", { class: "dots" }, moves.map((_, i) =>
-        el("span", { class: i === state.priceAt ? "on" : "" }))) : null);
+  const show = () => {
+    const at = state.turnAt[key];
+    card.onclick = () => open(items[at]);
+    card.replaceChildren(...[fill(items[at]),
+      items.length > 1 ? el("div", { class: "dots" }, items.map((_, i) =>
+        el("span", { class: i === at ? "on" : "" }))) : null].flat().filter(Boolean));
   };
   const turn = by => {
-    state.priceAt = (state.priceAt + by + moves.length) % moves.length;
+    state.turnAt[key] = (state.turnAt[key] + by + items.length) % items.length;
     card.classList.remove("fade");
     void card.offsetWidth;  // restart the fade
     card.classList.add("fade");
-    fill();
+    show();
   };
-  const start = () => {
-    clearInterval(priceTimer);
-    if (moves.length < 2) return;
-    priceTimer = setInterval(() => {
-      if (!card.isConnected) return clearInterval(priceTimer);
+  const start = (wait = TURN_MS) => {
+    clearTimeout(turnTimers[key]);
+    if (items.length < 2) return;
+    const tick = () => {
+      if (!card.isConnected) return;
       if (!document.hidden) turn(1);
-    }, PRICE_TURN_MS);
+      turnTimers[key] = setTimeout(tick, TURN_MS);
+    };
+    turnTimers[key] = setTimeout(tick, wait);
   };
   let touch = null;
   card.addEventListener("touchstart", e => { touch = e.touches[0].clientX; }, { passive: true });
@@ -1579,21 +1580,56 @@ function priceCard(d) {
   });
   card.addEventListener("click", e => { if (card.dataset.swiped) e.stopImmediatePropagation(); },
                         { capture: true });
-  fill();
-  start();
+  show();
+  start(TURN_MS + delay);
   return card;
 }
 
-// What the shopper buys most often.
-function factCard(d) {
-  const most = d.repurchase.filter(r => r.product).sort((a, b) => b.trips - a.trips)[0];
-  if (!most || most.trips < 2) return null;
-  return el("div", { class: "card tap", onclick: () => openProduct(most.product_id) },
+// Prices that really moved (the owner, 2026-10-14): bought at least three
+// times and moved at least 10% on the shelf, not an offer; the server picks
+// them (`insights.price_moves`), newest move first. Each says when and how
+// it moved.
+function moveText(m) {
+  const up = m.change_pct > 0, word = up ? "Up" : "Down";
+  const on = shortDate(m.since);
+  if (m.kind === "keeps_changing") return "Keeps changing";
+  if (m.kind === "latest") return `${word} on ${on}, the last time`;
+  return m.steps.length > 1 ? `${word} in ${m.steps.length} steps since ${on}`
+    : `${word} on ${on}, and stayed`;
+}
+function priceCard(d) {
+  const moves = d.price_moves;
+  if (!moves || !moves.length) return null;  // none, or a copy from an older server
+  return turningCard("price", moves, m => {
+    const up = m.change_pct > 0;
+    return [el("div", { class: "label" }, "Price " + (up ? "up" : "down")),
+      el("div", { class: "big " + (up ? "up" : "down") },
+         (up ? "▲ " : "▼ ") + Math.round(Math.abs(m.change_pct)) + "%"),
+      el("div", { class: "what" }, easyName(m.product, m.brand)),
+      el("div", { class: "meta" }, `${euro(m.before)} → ${euro(m.after)} per ${m.per} · ${m.store}`),
+      el("div", { class: "meta how" }, moveText(m))];
+  }, m => openProduct(m.product_id));
+}
+
+// What the shopper buys again and again (the owner, 2026-10-14: "7× in 6
+// weeks"): every product bought on 3 days or more, most days first
+// (`insights.regulars`), over the time since its first purchase.
+const REGULARS_SHOWN = 8;
+function spanText(days) {
+  if (days < 14) return `in ${days} days`;
+  if (days < 63) return `in ${Math.round(days / 7)} weeks`;
+  return `in ${Math.round(days / 30.4)} months`;
+}
+function regularsCard(d) {
+  const regulars = (d.regulars || []).slice(0, REGULARS_SHOWN);
+  if (!regulars.length) return null;
+  return turningCard("regular", regulars, r => [
     el("div", { class: "label" }, "Your regular"),
-    el("div", { class: "big" }, `${most.trips}×`),
-    el("div", { class: "what" }, easyName(most.product, most.brand)),
-    el("div", { class: "meta" }, `bought since ${new Date(d.coverage.date_range[0])
-      .toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`));
+    el("div", { class: "big" }, `${r.trips}×`),
+    el("div", { class: "what" }, easyName(r.product, r.brand)),
+    el("div", { class: "meta" }, spanText(r.days)),
+    el("div", { class: "meta how" }, `last on ${shortDate(r.last_bought)}`)],
+  r => openProduct(r.product_id), TURN_MS / 2);
 }
 
 // How sure the app is of every product line, by level, over everyone's
@@ -1732,7 +1768,109 @@ function calendar(purchases, onDay) {
   const box = el("div", { class: "cal" }, grid);
   // The latest weeks are at the right end: start there when it does not fit.
   requestAnimationFrame(() => { box.scrollLeft = box.scrollWidth; });
-  return box;
+  // The weekdays stay in view while the weeks scroll (the owner, 2026-10-14).
+  return el("div", { class: "cal-wrap" },
+    el("div", { class: "wd", "aria-hidden": "true" }, el("span"),
+       ["M", "T", "W", "T", "F", "S", "S"].map(letter => el("span", {}, letter))),
+    box);
+}
+
+// The product's price over its whole history (the owner, 2026-10-14): the
+// shelf price per unit before printed discounts, as every price insight reads
+// it, so a discount is not the price going down. One line per shop (and per
+// way of selling, loose or a pack), as the price watch compares them; each
+// dot a day it was bought, a tap opens that day's receipt. The time runs to
+// the last receipt, as the calendar's does. Prices in another unit than most
+// of them (per kg against per item) cannot share the line and are counted
+// under it. Straight lines: a price between two buys is not known.
+function priceLine(purchases, onDay) {
+  const priced = purchases.filter(b => b.date && b.shelf_unit_price);
+  if (!priced.length) return null;
+  const perCount = new Map();
+  for (const b of priced) perCount.set(b.shelf_unit_price.per, (perCount.get(b.shelf_unit_price.per) || 0) + 1);
+  const per = [...perCount].sort((a, b) => b[1] - a[1])[0][0];
+  const kept = priced.filter(b => b.shelf_unit_price.per === per);
+  const forms = new Map();  // shop -> the ways it was sold there
+  for (const b of kept) {
+    const shop = (b.store || "").toLowerCase();
+    if (!forms.has(shop)) forms.set(shop, new Set());
+    forms.get(shop).add(b.sold_as?.form || "");
+  }
+  const series = new Map();
+  for (const b of kept) {
+    const shop = (b.store || "").toLowerCase(), form = b.sold_as?.form || "";
+    const key = shop + "|" + form;
+    if (!series.has(key)) series.set(key, { name: (b.store || "?") +
+      (forms.get(shop).size > 1 && form ? ` ${form}` : ""), byDay: new Map() });
+    const byDay = series.get(key).byDay;
+    if (!byDay.has(b.date)) byDay.set(b.date, []);
+    byDay.get(b.date).push(b.shelf_unit_price.amount);
+  }
+  const lines = [...series.values()].map(x => ({ name: x.name,
+    points: [...x.byDay].sort().map(([date, prices]) =>
+      [date, prices.reduce((a, b) => a + b, 0) / prices.length]) }))
+    // The line bought most is the bright one; of two, the one bought last.
+    .sort((a, b) => b.points.length - a.points.length ||
+      (b.points[b.points.length - 1][0] > a.points[a.points.length - 1][0] ? 1 : -1));
+  if (lines.reduce((n, l) => n + l.points.length, 0) < 2) return null;  // one buy: no line
+
+  const dates = kept.map(b => b.date).sort();
+  const asOf = state.insights && state.insights.as_of > dates[dates.length - 1]
+    ? state.insights.as_of : dates[dates.length - 1];
+  const t0 = day(dates[0]).getTime(), t1 = Math.max(day(asOf).getTime(), t0 + 864e5);
+  const prices = lines.flatMap(l => l.points.map(([, v]) => v));
+  let low = Math.min(...prices), high = Math.max(...prices);
+  const pad = Math.max((high - low) * 0.15, high * 0.05);
+  low = Math.max(0, low - pad); high += pad;
+  // Room on the right for each line's name, when there is more than one.
+  const longest = Math.max(...lines.map(l => l.name.length));
+  const named = lines.length > 1 ? Math.min(14 + longest * 6, 110) : 6;
+  const W = 300, H = 120, left = 40, top = 6, bottom = 16;
+  const inset = 8;  // the first dot clear of the price labels
+  const x = iso => left + inset + (day(iso).getTime() - t0) / (t1 - t0) * (W - left - inset - named);
+  const y = v => top + (1 - (v - low) / (high - low)) * (H - top - bottom);
+  const money = v => v.toFixed(2).replace(".", ",") + " €";
+  const out = [];
+  for (const v of [Math.min(...prices), Math.max(...prices)]) {
+    out.push(`<line class="rule" x1="${left}" x2="${W - named}" y1="${y(v).toFixed(1)}" ` +
+      `y2="${y(v).toFixed(1)}"/><text x="${left - 5}" y="${(y(v) + 3.5).toFixed(1)}" ` +
+      `text-anchor="end">${money(v)}</text>`);
+    if (Math.max(...prices) === Math.min(...prices)) break;
+  }
+  // A month's name under its first day; every other one when there are many.
+  const months = [];
+  for (let m = new Date(Date.UTC(day(dates[0]).getUTCFullYear(), day(dates[0]).getUTCMonth() + 1, 1));
+       m.getTime() <= t1; m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 1))) months.push(m);
+  const every = months.length > 6 ? 2 : 1;
+  months.forEach((m, i) => {
+    if (i % every) return;
+    out.push(`<text x="${x(isoDay(m)).toFixed(1)}" y="${H - 2}" text-anchor="middle">` +
+      `${m.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" })}</text>`);
+  });
+  if (!months.length) out.push(`<text x="${left}" y="${H - 2}">${shortDate(dates[0])}</text>`);
+  lines.slice().reverse().forEach((line, back) => {
+    const i = lines.length - 1 - back, cls = `s${Math.min(i, 2)}`;
+    const path = line.points.map(([d, v], k) => `${k ? "L" : "M"}${x(d).toFixed(1)},${y(v).toFixed(1)}`).join("");
+    const [lastDay, lastPrice] = line.points[line.points.length - 1];
+    out.push(`<g class="${cls}"><path d="${path}"/>` +
+      line.points.map(([d, v]) => `<circle cx="${x(d).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.5"/>`).join("") +
+      (lines.length > 1 ? `<text class="name" x="${(x(lastDay) + 7).toFixed(1)}" ` +
+        `y="${(y(lastPrice) + 3.5).toFixed(1)}">${line.name.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text>` : "") +
+      `</g>`);
+  });
+  for (const line of lines) for (const [d, v] of line.points)
+    out.push(`<circle class="hit" data-day="${d}" cx="${x(d).toFixed(1)}" cy="${y(v).toFixed(1)}" r="11"/>`);
+  const box = el("div", { class: "pline" });
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Price over time">${out.join("")}</svg>`;
+  box.addEventListener("click", e => {
+    const iso = e.target.dataset && e.target.dataset.day;
+    if (iso) onDay(iso, purchases.filter(b => b.date === iso));
+  });
+  const others = [...perCount.keys()].filter(unit => unit !== per);
+  const other = priced.length - kept.length;
+  return [box, el("div", { class: "meta" }, `Shelf price per ${per}, before discounts` +
+    (other ? ` · ${other} more priced ${others.length === 1 ? "per " + others[0]
+      : "another way"}, not shown` : ""))];
 }
 
 function productView() {
@@ -1759,12 +1897,15 @@ function productView() {
       el("h2", {}, d.product || d.product_id),
       el("div", { class: "meta" }, [deepest && deepest !== d.product ? deepest : null,
         owner ? d.brand : null].filter(Boolean).join(" · ")),
-      buys.length ? calendar(buys, onDay) : null,
-      el("div", { class: "meta" }, buys.length
-        ? `Bought ${buys.length === 1 ? "once" : buys.length + " times"}` +
-          (days !== buys.length ? ` on ${days} days` : "") +
-          (shops.length ? ` at ${shops.join(", ")}` : "") + " · tap a day to see its receipt"
-        : "Not on any of your receipts.")),
+      buys.length ? priceLine(buys, onDay)
+        : el("div", { class: "meta" }, "Not on any of your receipts.")),
+    buys.length ? el("div", { class: "card" },
+      calendar(buys, onDay),
+      el("div", { class: "meta" },
+        `Bought ${buys.length === 1 ? "once" : buys.length + " times"}` +
+        (days !== buys.length ? ` on ${days} days` : "") +
+        (shops.length ? ` at ${shops.join(", ")}` : "") + " · tap a day to see its receipt"))
+      : null,
     buys.length ? el("div", { class: "card buys" }, [...buys].reverse().map(b => {
       const unit = b.unit_price && b.unit_price.per !== "item"
         ? `${euro(b.unit_price.amount)}/${b.unit_price.per === "piece" ? "pc" : b.unit_price.per}`
