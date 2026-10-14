@@ -82,6 +82,30 @@ def test_a_products_purchases_are_its_lines_on_the_askers_receipts(history, sess
     assert client.get("/v1/products/p-9999/purchases", headers=OWNER).status_code == 404
 
 
+def test_each_purchase_carries_the_shelf_price_the_price_insights_read(history, session):
+    """The product page draws its price line from the shelf price per unit,
+    before printed discounts, as every price insight does: 10% off the milk
+    is not the milk getting cheaper."""
+    from grocery_app.db.io import receipt_from_dict
+
+    client, ids, _, _ = history
+    receipt = receipt_from_dict({
+        "source_image": "IMG_3.jpeg", "transcribed_by": "llm", "store": "Musterladen",
+        "date": "2026-03-05", "currency": "EUR", "printed_total": 1.16,
+        "lines": [{"type": "product", "raw_name": "MU Milch 1,5%", "qty": 1, "gross": 1.29,
+                   "discount": -0.13, "net": 1.16, "tax_class": "A"}]})
+    session.add(receipt)
+    session.commit()
+
+    buys = client.get("/v1/products/p-0001/purchases", headers=OWNER).json()["purchases"]
+    assert [(b["date"], b["net_paid"], b["shelf_unit_price"]) for b in buys
+            if b["raw_name"] == "MU Milch 1,5%"] == [
+        ("2026-01-05", 1.09, {"amount": 1.09, "per": "l"}),
+        ("2026-02-05", 1.19, {"amount": 1.19, "per": "l"}),
+        ("2026-03-05", 1.16, {"amount": 1.29, "per": "l"}),
+    ], "paid 1,16 € with the discount, the shelf asked 1,29 €"
+
+
 def test_a_receipts_photo_is_shown_to_whoever_may_see_the_receipt_only(history):
     client, ids, _, her = history
     mine = client.post("/v1/receipts", headers=OWNER,

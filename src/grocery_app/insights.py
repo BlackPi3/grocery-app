@@ -54,7 +54,7 @@ from typing import Any
 from grocery_app import categories
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 9
+CONTRACT_VERSION = 10
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -93,7 +93,7 @@ def _quantity(p: dict[str, Any]) -> tuple[float, str]:
     return p.get("qty") or 1, "item"
 
 
-def _shelf_unit_price(p: dict[str, Any]) -> tuple[float, str] | None:
+def shelf_unit_price(p: dict[str, Any]) -> tuple[float, str] | None:
     """The shelf price per unit, and the unit: (6.08, "kg"), (1.44, "piece"),
     (0.76, "item"). A discount printed on the line does not lower it."""
     shelf = _shelf(p)
@@ -186,6 +186,35 @@ def repurchase(rows: list[dict[str, Any]], as_of: date) -> list[dict[str, Any]]:
     return out
 
 
+# Bought on this many days or more is a regular (the owner, 2026-10-14: "7× in
+# 6 weeks"); two days say "bought again", not a habit.
+REGULAR_TRIPS = 3
+
+
+def regulars(rows: list[dict[str, Any]], as_of: date) -> list[dict[str, Any]]:
+    """What the shopper buys again and again, for Home's rotating tile: every
+    product bought on at least `REGULAR_TRIPS` days, how many, and over how
+    long (`days`: from its first purchase to `as_of`, the last receipt, so a
+    product that stopped reads over the time since too). Most days first;
+    of two equal, the one bought over the shorter time."""
+    out = []
+    for pid, group in _by_product(rows).items():
+        dates = sorted({_parse(p["date"]) for p in group if p.get("date")})
+        if len(dates) < REGULAR_TRIPS:
+            continue
+        out.append({
+            "product_id": pid,
+            "product": _name(group),
+            "brand": group[-1].get("brand"),
+            "trips": len(dates),
+            "first_bought": dates[0].isoformat(),
+            "last_bought": dates[-1].isoformat(),
+            "days": (max(as_of, dates[-1]) - dates[0]).days + 1,
+        })
+    out.sort(key=lambda r: (-r["trips"], r["days"], r["product"]))
+    return out
+
+
 # --- 2. price over time ------------------------------------------------------
 
 def _observations(group: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str] | None:
@@ -193,7 +222,7 @@ def _observations(group: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], st
     by_date: dict[str, list[float]] = defaultdict(list)
     units = set()
     for p in group:
-        priced = _shelf_unit_price(p)
+        priced = shelf_unit_price(p)
         if priced is None or not p.get("date"):
             continue
         amount, unit = priced
@@ -332,7 +361,7 @@ def _month_prices(rows: list[dict[str, Any]]) -> dict[str, dict[Key, dict[str, f
     for p in rows:
         if not p.get("product_id") or not p.get("date"):
             continue
-        priced = _shelf_unit_price(p)
+        priced = shelf_unit_price(p)
         if priced is None:
             continue
         month = p["date"][:7]
@@ -474,7 +503,7 @@ def cross_store(rows: list[dict[str, Any]]) -> dict[str, Any]:
         latest = {}
         for store, g in stores.items():
             g = sorted(g, key=lambda p: p.get("date") or "")
-            priced = _shelf_unit_price(g[-1])
+            priced = shelf_unit_price(g[-1])
             latest[store] = {"date": g[-1].get("date"),
                              "price": priced[0] if priced else None,
                              "per": priced[1] if priced else None}
@@ -805,6 +834,7 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None,
         "as_of": as_of.isoformat(),
         "coverage": coverage(purchases, rows, left_out, not_counted),
         "repurchase": repurchase(rows, as_of),
+        "regulars": regulars(rows, as_of),
         "price_changes": (changes := price_changes(groceries)),
         "price_moves": price_moves(changes),
         "basket_index": basket_index(rows),
