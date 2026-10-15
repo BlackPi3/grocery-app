@@ -10,6 +10,7 @@ replaces theirs.
 from __future__ import annotations
 
 import io
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
@@ -153,6 +154,46 @@ def test_the_owner_adds_a_user_and_sees_the_password_once(two_people, session):
     assert client.post("/v1/users", headers=OWNER, json={"name": "lea"}).status_code == 422
     from grocery_app.db.models import User
     assert password not in {u.token_sha256 for u in session.query(User)}, "only its hash is kept"
+
+
+@pytestmark_db
+def test_the_owner_sees_how_each_person_uses_the_app(two_people, session):
+    """The People card: receipts, last sign-in and photo, and this month's cost,
+    each person's own and nobody else's (owner, 2026-10-15)."""
+    from datetime import UTC, datetime, timedelta
+    from decimal import Decimal
+
+    from grocery_app.db.models import Job, ModelCall
+
+    client, owner, sara = two_people
+    lea = owner.create_user("Lea", "lea@example.com")
+    hers = client.post("/v1/receipts", headers=sara,
+                       files={"file": ("b.jpg", photo("blue"), "image/jpeg")}).json()
+    client.post("/v1/receipts", headers=OWNER,
+                files={"file": ("a.jpg", photo("red"), "image/jpeg")})
+    owner.start_sign_in({"id": lea["id"], "name": "Lea"}, "lea@example.com")
+    now = datetime.now(UTC)
+    job = session.get(Job, uuid.UUID(hers["job_id"]))
+    owners_job = session.query(Job).filter(Job.user_id.is_(None)).one()
+    session.add_all([
+        ModelCall(purpose="finding", job_id=job.id, model="m", cost_usd=Decimal("0.25"), at=now),
+        # Last month's, and the owner's own: neither is her cost this month.
+        ModelCall(purpose="reading", job_id=job.id, model="m", cost_usd=Decimal("1.00"),
+                  at=now.replace(day=1) - timedelta(days=1)),
+        ModelCall(purpose="reading", job_id=owners_job.id, model="m",
+                  cost_usd=Decimal("2.00"), at=now),
+    ])
+    session.commit()
+
+    people = {u["name"]: u for u in client.get("/v1/users", headers=OWNER).json()}
+    assert people["Sara"]["receipts"] == 1
+    assert people["Sara"]["last_upload"] is not None
+    assert people["Sara"]["last_sign_in"] is None, "she uses a password"
+    assert people["Sara"]["month_cost_usd"] == 0.25
+    assert people["Lea"] == {"id": lea["id"], "name": "Lea", "email": "lea@example.com",
+                             "receipts": 0, "last_sign_in": people["Lea"]["last_sign_in"],
+                             "last_upload": None, "month_cost_usd": 0.0}
+    assert people["Lea"]["last_sign_in"] is not None
 
 
 def add_receipt(session, source_image, raw_names, user_id=None):

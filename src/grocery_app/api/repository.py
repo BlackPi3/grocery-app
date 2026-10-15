@@ -302,9 +302,25 @@ class PostgresRepository:
 
     @staticmethod
     def _user_summary(session: Session, user: User) -> dict[str, Any]:
-        return {"id": user.id, "name": user.name, "email": user.email,
-                "receipts": session.scalar(select(func.count()).select_from(Receipt)
-                                           .where(Receipt.user_id == user.id))}
+        """Who they are and what they do with the app, for the owner to watch
+        (Parham, 2026-10-15: "I'm giving it to people to use it"): their
+        receipts, when they last signed in and sent a photo, and what their
+        uploads' model calls cost this month (UTC), at list price."""
+        month_start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0,
+                                                microsecond=0)
+        return {
+            "id": user.id, "name": user.name, "email": user.email,
+            "receipts": session.scalar(select(func.count()).select_from(Receipt)
+                                       .where(Receipt.user_id == user.id)),
+            "last_sign_in": session.scalar(select(func.max(SignIn.created_at))
+                                           .where(SignIn.user_id == user.id)),
+            "last_upload": session.scalar(select(func.max(Job.created_at))
+                                          .where(Job.user_id == user.id)),
+            "month_cost_usd": round(float(session.scalar(
+                select(func.coalesce(func.sum(ModelCall.cost_usd), 0))
+                .join(Job, ModelCall.job_id == Job.id)
+                .where(Job.user_id == user.id, ModelCall.at >= month_start))), 5),
+        }
 
     def users(self) -> list[dict[str, Any]]:
         with self.session_factory() as session:
