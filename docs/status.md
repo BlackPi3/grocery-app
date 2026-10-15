@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-15, laptop: leaner screens (less text everywhere) in a PR, shown to the owner; next, the owner's backlog (below Parked), one item at a time.
+**Last updated:** 2026-10-15, laptop: leaner screens (less text everywhere) merged (#165); next, the owner's backlog (below Parked), one item at a time.
 
 ## Now
 
@@ -20,8 +20,7 @@ session (laptop or cloud) can pick up from here. How we work is in
   the top five (Show all), as do prices, due again and other shops; discounts by month only. You: one row per
   sureness level, one per month of cost, people as name · receipts · last
   here. Brands now show for everyone. The data behind all of it is
-  unchanged (`said_by`, costs, coverage). PR open, waiting for the owner's
-  yes.
+  unchanged (`said_by`, costs, coverage). PR #165, merged on the owner's yes.
 - Fixed (owner, 2026-10-15): **a back swipe landed on Google's sign-in
   page**, which signing in leaves in the browser's history. The page now
   keeps one step of its own on top of the history (`keepBackStep`); a back
