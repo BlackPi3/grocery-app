@@ -242,6 +242,8 @@
     border-radius: 0; background: none; color: var(--ink); text-align: left; }
   .month-head .name { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
   .month-head .end { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .month-head .left-out { color: var(--muted); font-size: 11px; opacity: 0.8; margin-top: 2px;
+    text-align: left; font-weight: 400; }
   .month-head .money { font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600; }
   .month-head .chev { color: var(--muted); font-size: 20px; line-height: 1;
     transition: transform 0.15s; }
@@ -2324,7 +2326,13 @@ function receiptsView() {
             const list = months.get(key);
             const open = key in state.monthOpen ? state.monthOpen[key]
               : key === newest || list.some(r => r.receipt_id === state.open);
-            const totals = list.filter(r => r.printed_total != null);
+            // The month counts what Home counts (owner, 2026-10-15: two totals for
+            // one month were annoying); what it leaves out is named under it.
+            const leftOut = list.flatMap(r => r.left_out || []);
+            const deposits = list.reduce((sum, r) => sum + (r.deposits || 0), 0);
+            const outText = [...leftOut.map(l => `${l.name} ${euro(l.net_paid)}`),
+                             ...(deposits >= 0.005 ? [`deposits ${euro(deposits)}`]
+                               : deposits <= -0.005 ? [`deposits back ${euro(-deposits)}`] : [])];
             const asked = list.reduce((n, r) => n + asksOn(r.receipt_id).length, 0);
             const name = !key ? "No date"
               : yearSwitch || key.slice(0, 4) === thisYear ? monthName(key).replace(/ \d+$/, "")
@@ -2335,15 +2343,15 @@ function receiptsView() {
               el("div", {},
                 el("div", { class: "name" },
                    !open && list.some(r => !r.seen_at) ? newMark() : null, name),
-                el("div", { class: "meta" }, plural(list.length, "receipt", "receipts") +
-                   // A total the paper did not give is not guessed: say it is missing.
-                   (totals.length < list.length
-                     ? `, ${list.length - totals.length} without a total` : ""))),
+                el("div", { class: "meta" }, plural(list.length, "receipt", "receipts")),
+                outText.length ? el("div", { class: "left-out" },
+                  "Not counted: " + outText.join(", ")) : null),
               el("div", { class: "end" },
                 asked && !open ? askMark(asked, `${asked} ${asked === 1 ? "question"
                   : "questions"} for you in ${name}`) : null,
                 el("span", { class: "money" },
-                   euro(totals.reduce((sum, r) => sum + r.printed_total, 0))),
+                   euro(list.reduce((sum, r) => sum + (r.spend != null ? r.spend
+                     : r.printed_total || 0), 0))),
                 el("span", { class: "chev", "aria-hidden": "true" }, "›")));
             return [head, ...(open ? list.map(receiptCard) : [])];
           })];
