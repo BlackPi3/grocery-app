@@ -53,7 +53,9 @@ PURCHASES_CONTRACT_VERSION = 8
 # saved, per month and per shop.
 # Insights bumped to 10 on 2026-10-14: `regulars`, the products bought on 3
 # days or more, for Home's rotating tile.
-INSIGHTS_CONTRACT_VERSION = 10
+# Insights bumped to 11 on 2026-10-15: each month's `why`, why it is off its
+# usual (parts of the shop, trips, prices), for the month page.
+INSIGHTS_CONTRACT_VERSION = 11
 
 
 class UnitPrice(BaseModel):
