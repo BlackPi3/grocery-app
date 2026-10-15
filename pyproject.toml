@@ -21,9 +21,10 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-# The review page `grocery-app serve` hands out at `/`, and its service worker.
+# The review page `grocery-app serve` hands out at `/`, its service worker, and
+# the privacy page at `/privacy`.
 # The migrations too: `db upgrade` runs from an installed package in the server image.
-grocery_app = ["api/review.html", "api/sw.js", "demo_seed.sql", "db/migrations/*.py", "db/migrations/*.mako",
+grocery_app = ["api/review.html", "api/sw.js", "api/privacy.html", "demo_seed.sql", "db/migrations/*.py", "db/migrations/*.mako",
                "db/migrations/versions/*.py"]
 
 [project.optional-dependencies]

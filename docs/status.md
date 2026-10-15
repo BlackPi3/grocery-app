@@ -10,6 +10,10 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 - Everything is merged. `main` deploys the server and the public demo on
   every merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
+- Fixed (2026-10-15): the live `/privacy` was a 500 after #160:
+  `privacy.html` was not in `[tool.setuptools.package-data]`, so the server
+  image had no page (tests read it from the working tree).
+  `tests/test_packaging.py` now fails for any page, script or seed left out.
 - Built (owner, 2026-10-15, the privacy work): **a privacy page** at
   `/privacy` (`api/privacy.html`), open without signing in, German first
   (the text that counts) and English: who runs the server (repo variable
