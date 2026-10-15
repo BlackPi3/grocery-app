@@ -17,7 +17,7 @@ session (laptop or cloud) can pick up from here. How we work is in
   percentage, the name, from → to. The month page: no "a usual month
   ends at", no axis note, reasons named in a word or two, no line under
   each. Insights: no intro paragraph and no footnotes; the money list shows
-  the top five (Show all); discounts by month only. You: one row per
+  the top five (Show all), as do prices, due again and other shops; discounts by month only. You: one row per
   sureness level, one per month of cost, people as name · receipts · last
   here. Brands now show for everyone. The data behind all of it is
   unchanged (`said_by`, costs, coverage). PR open, waiting for the owner's

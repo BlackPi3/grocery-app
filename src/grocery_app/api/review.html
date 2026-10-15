@@ -2385,7 +2385,7 @@ function shopsCard(d) {
     "Shows once you have bought the same item at two shops. Add receipts from other shops.");
   return el("div", { class: "card" },
     el("h2", { class: "q" }, "Same item, other shops"),
-    products.map(c => {
+    (state.allShops ? products : products.slice(0, 5)).map(c => {
       const stores = Object.entries(c.stores);
       const units = new Set(stores.map(([, s]) => s.per));
       const cheapest = units.size === 1 && stores.every(([, s]) => s.price != null)
@@ -2397,7 +2397,11 @@ function shopsCard(d) {
             `${store} ${s.price == null ? "–" : perText(s.price, s.per)}` +
             (cheapest != null && s.price === cheapest ? " · cheapest" : "")))),
         el("div", { class: "end" }, "›"));
-    }));
+    }),
+    products.length > 5 ? el("button", { class: "more", onclick: () => {
+      state.allShops = !state.allShops;
+      render();
+    } }, state.allShops ? "Show fewer" : `Show all ${products.length}`) : null);
 }
 
 // Insights, a short scroll (2026-10-13, the designer's advice: a few things
