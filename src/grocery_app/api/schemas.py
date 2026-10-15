@@ -362,6 +362,9 @@ class ReceiptSummary(BaseModel):
     left_out: list[LeftOutLine] = Field(default_factory=list,
                                         description="The product lines they left out, named")
     deposits: float = Field(0.0, description="Deposits paid less returned; not spend")
+    lines_total: float | None = Field(None, description="Every line as read, added up: "
+                                                        "unlike `printed_total`, something "
+                                                        "was misread")
     shared: bool = Field(False, description="Its upload is shared with the developer "
                                             "(`PUT /v1/receipts/{receipt_id}/shared`)")
     photo: bool = Field(default=False,

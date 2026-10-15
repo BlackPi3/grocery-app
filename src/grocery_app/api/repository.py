@@ -936,6 +936,9 @@ class PostgresRepository:
                                   "net_paid": r["net_paid"]} for r in left_out],
                     "deposits": round(sum(r["net_paid"] or 0.0 for r in every
                                           if r["type"] in ("deposit", "deposit_return")), 2),
+                    # Every line as read, to set against the printed total: when
+                    # they differ, something was misread (2026-10-15).
+                    "lines_total": round(sum(r["net_paid"] or 0.0 for r in every), 2),
                     "shared": row.image_sha256 in shared,
                     "seen_at": row.seen_at.astimezone(UTC).isoformat() if row.seen_at else None,
                 })

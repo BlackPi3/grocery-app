@@ -645,16 +645,28 @@ async function setShared(path, shared) {
   }
 }
 
-function shareRow(summary) {
-  if (isOwner() || !state.me) return null;
+// Something was misread when the lines as read do not add up to the total the
+// paper prints. Only then is sharing offered, right there (owner, 2026-10-15:
+// "share with the developer only for problematic ones").
+function misread(summary) {
+  return summary.printed_total != null && summary.lines_total != null &&
+    Math.abs(summary.lines_total - summary.printed_total) >= 0.01;
+}
+
+function problemRow(summary) {
+  if (!misread(summary)) return null;
   const path = `/v1/receipts/${summary.receipt_id}/shared`;
-  return el("div", { class: "share-row" }, summary.shared
-    ? [el("div", { class: "meta" }, "Shared with the developer to make the app better."),
+  const share = isOwner() || !state.me ? null : summary.shared
+    ? [el("div", { class: "meta" }, "Shared with the developer. Thank you."),
        el("button", { class: "link", onclick: () => setShared(path, false) }, "Stop sharing")]
     : [el("button", { class: "link", onclick: () => setShared(path, true) },
-          "Share with the developer"),
-       el("div", { class: "meta" }, "Helps fix how the app reads receipts like this one. " +
-          "The developer sees its photo and what was read, for up to 30 days.")]);
+          "Share with the developer to fix it"),
+       el("div", { class: "meta" }, "They see this receipt's photo and what was read, " +
+          "for up to 30 days.")];
+  return el("div", { class: "share-row" },
+    el("div", { class: "why" }, `Something was misread: the items add up to ` +
+      `${euro(summary.lines_total)}, the receipt says ${euro(summary.printed_total)}.`),
+    share);
 }
 
 async function setCounted(receiptId, position, counted) {
@@ -948,7 +960,8 @@ function receiptCard(summary) {
           // Who said what is a detail for the owner (the redesign, step 3).
           isOwner() ? `: ${summary.said_by_you} you, ${summary.said_by_app} app` : "",
           summary.unplaced ? `, ${summary.unplaced} not known yet` : "",
-          summary.not_counted ? `, ${summary.not_counted} left out` : "")),
+          summary.not_counted ? `, ${summary.not_counted} left out` : "",
+          misread(summary) ? ", doesn't add up" : "")),
     el("div", { class: "money" }, euro(summary.printed_total)));
   // The receipt itself slides left too, to be removed, as a line does.
   const remove = el("button", { class: "act", onclick: () => removeReceipt(summary.receipt_id) },
@@ -979,8 +992,8 @@ function receiptCard(summary) {
       card.append(el("button", { class: "link", onclick: () => showPhoto(summary.receipt_id) },
         "See the photo"));
     }
-    const share = shareRow(summary);
-    if (share) card.append(share);
+    const problem = problemRow(summary);
+    if (problem) card.append(problem);
     const editing = state.editing === summary.receipt_id;
     card.classList.toggle("editing", editing);
     const marked = state.highlight && state.highlight.receipt_id === summary.receipt_id
