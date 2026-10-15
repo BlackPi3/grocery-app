@@ -8,6 +8,21 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Now
 
+- Built (owner, 2026-10-15, "not good optics at all that I can access their
+  receipts ... we need consent"): **sharing with the developer is the
+  sender's choice.** Another person's upload reaches `/v1/inbox` (and its
+  file) only after they tap "Share with the developer", offered only where
+  something went wrong (owner: "only for problematic ones"): on a receipt
+  whose lines as read do not add up to the printed total (`lines_total`;
+  live on 2026-10-15: 2 of 70, each 0,50 € off), and on the note of one that
+  could not be read (`PUT /v1/receipts/{id}/shared`,
+  `PUT /v1/jobs/{id}/shared`, `jobs.shared_at`, migration 0022). "Stop
+  sharing" closes the file and `GET /v1/inbox/withdrawn` tells
+  `dev_inbox.py` to delete the laptop's copy (also any handed over before
+  consent was asked; on 2026-10-15 the laptop held none: all six were the
+  owner's). The owner's own uploads need no sharing. Privacy page: the
+  developer's look is consent (Art. 6(1)(a)); the catalog learning stays
+  legitimate interest. PR open, waiting for the owner's yes.
 - Everything is merged. `main` deploys the server and the public demo on
   every merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
 - Fixed (2026-10-15): the live `/privacy` was a 500 after #160:

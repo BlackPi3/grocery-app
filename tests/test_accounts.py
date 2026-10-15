@@ -264,16 +264,48 @@ def test_uploads_worth_a_look_reach_the_developer_once(two_people):
 
     assert client.post("/v1/inbox", headers=sara).status_code == 403
     items = client.post("/v1/inbox", headers=OWNER).json()
-    assert {(i["job_id"], i["kind"], i["user"]) for i in items} == {
-        (pdf["job_id"], "pdf", None), (hers["job_id"], "photo", "Sara")}
-    (her_item,) = [i for i in items if i["user"] == "Sara"]
+    assert {(i["job_id"], i["kind"], i["user"]) for i in items} == {(pdf["job_id"], "pdf", None)}, \
+        "hers is not shared: it never reaches the developer"
+    assert client.get(f"/v1/inbox/{hers['job_id']}/file", headers=OWNER).status_code == 404
+
+    # Owner, 2026-10-15: "we need consent". One tap on her receipt shares it.
+    her_receipt = client.get(f"/v1/jobs/{hers['job_id']}", headers=sara).json()["receipt_id"]
+    assert client.put(f"/v1/receipts/{her_receipt}/shared", headers=OWNER,
+                      json={"shared": True}).status_code == 404, "only she can share hers"
+    assert client.put(f"/v1/receipts/{her_receipt}/shared", headers=sara,
+                      json={"shared": True}).status_code == 204
+    assert [r["shared"] for r in client.get("/v1/receipts", headers=sara).json()] == [True]
+    (her_item,) = client.post("/v1/inbox", headers=OWNER).json()
+    assert (her_item["job_id"], her_item["user"]) == (hers["job_id"], "Sara")
     assert her_item["read"][0]["lines"][0]["raw_name"] == "MU Butter", \
         "what was read comes along, to set against the file"
     assert client.post("/v1/inbox", headers=OWNER).json() == [], "each arrives once"
+    assert client.get(f"/v1/inbox/{hers['job_id']}/file", headers=OWNER).status_code == 200
+    assert client.get("/v1/inbox/withdrawn", headers=OWNER).json() == []
+
+    # Taken back: the file is closed, and the laptop is told to delete its copy.
+    client.put(f"/v1/receipts/{her_receipt}/shared", headers=sara, json={"shared": False})
+    assert client.get(f"/v1/inbox/{hers['job_id']}/file", headers=OWNER).status_code == 404
+    assert client.get("/v1/inbox/withdrawn", headers=OWNER).json() == [hers["job_id"]]
+    assert client.get("/v1/inbox/withdrawn", headers=sara).status_code == 403
 
     got = client.get(f"/v1/inbox/{pdf['job_id']}/file", headers=OWNER)
     assert got.content == A_PDF and got.headers["content-type"] == "application/pdf"
     assert client.get(f"/v1/inbox/{pdf['job_id']}/file", headers=sara).status_code == 403
+
+
+@pytestmark_db
+def test_an_upload_that_could_not_be_read_is_shared_by_its_job(two_people):
+    client, _, sara = two_people
+    hers = client.post("/v1/receipts", headers=sara,
+                       files={"file": ("b.jpg", photo("blue"), "image/jpeg")}).json()
+    assert client.put(f"/v1/jobs/{hers['job_id']}/shared", headers=OWNER,
+                      json={"shared": True}).status_code == 404, "not the owner's to share"
+    assert client.put("/v1/jobs/not-a-uuid/shared", headers=sara,
+                      json={"shared": True}).status_code == 404
+    assert client.put(f"/v1/jobs/{hers['job_id']}/shared", headers=sara,
+                      json={"shared": True}).status_code == 204
+    assert client.get(f"/v1/jobs/{hers['job_id']}", headers=sara).json()["shared"] is True
 
 
 # --- deleting means deleting (owner, 2026-10-15) ---------------------------------

@@ -128,6 +128,15 @@ class WriteRepository(Protocol):
     def mark_seen(self, receipt_id: int) -> str:
         ...
 
+    def share_receipt(self, receipt_id: int, shared: bool) -> bool:
+        ...
+
+    def share_job(self, job_id: str, shared: bool) -> bool:
+        ...
+
+    def withdrawn_from_inbox(self) -> list[str]:
+        ...
+
     def receipt_image(self, receipt_id: int) -> str | None:
         ...
 
@@ -381,13 +390,55 @@ class PostgresRepository:
 
     # --- the developer's inbox ---------------------------------------------------
 
+    def share_receipt(self, receipt_id: int, shared: bool) -> bool:
+        """Share the upload this receipt was read from with the developer, or
+        take it back (owner, 2026-10-15: "we need consent"). Another person's
+        receipt reaches the developer only this way. `NotFound` for a receipt
+        that is not theirs."""
+        with self.session_factory() as session:
+            row = self._get(session, receipt_id)
+            jobs = session.scalars(select(Job).where(
+                self._my_jobs(), (Job.receipt_id == row.id)
+                | (Job.image_sha256 == row.image_sha256))).all()
+            for job in jobs:
+                job.shared_at = datetime.now(UTC) if shared else None
+            session.commit()
+            return bool(jobs)
+
+    def share_job(self, job_id: str, shared: bool) -> bool:
+        """The same for one upload, such as one that could not be read and
+        so has no receipt. False when it is not this person's."""
+        import uuid
+
+        try:
+            key = uuid.UUID(job_id)
+        except ValueError:
+            return False
+        with self.session_factory() as session:
+            job = session.scalar(select(Job).where(Job.id == key, self._my_jobs()))
+            if job is None:
+                return False
+            job.shared_at = datetime.now(UTC) if shared else None
+            session.commit()
+            return True
+
+    def withdrawn_from_inbox(self) -> list[str]:
+        """Another person's uploads the developer was handed and may no longer
+        keep: sharing taken back, or handed over before sharing was asked
+        (before 2026-10-15). `scripts/dev_inbox.py` deletes its copies."""
+        with self.session_factory() as session:
+            return [str(i) for i in session.scalars(select(Job.id).where(
+                Job.user_id.is_not(None), Job.dev_seen_at.is_not(None),
+                Job.shared_at.is_(None)))]
+
     def claim_inbox(self, is_pdf: Any) -> list[dict[str, Any]]:
         """Finished uploads a developer should look at, not yet handed over;
         handing them over marks them, so each arrives once (2026-10-11).
 
-        Worth a look: anything another person sent (their shops are new to the
-        app), any PDF (a format still being learned), anything that failed or
-        was turned away. The owner's ordinary photos are not. Each comes with
+        Another person's upload only when they shared it (2026-10-15), and
+        then whatever it is. The owner's own: any PDF (a format still being
+        learned), anything that failed or was turned away; their ordinary
+        photos are not. Each comes with
         what was read from it, receipt by receipt, to set against the file.
         `is_pdf(sha256)` says whether the stored upload is a PDF.
         """
@@ -397,6 +448,8 @@ class PostgresRepository:
             for job in session.scalars(select(Job).where(
                     Job.dev_seen_at.is_(None), Job.status.in_(("done", "failed")),
                     Job.created_at >= INBOX_FROM).order_by(Job.created_at)):
+                if job.user_id is not None and job.shared_at is None:
+                    continue  # theirs, and not shared: never the developer's
                 pdf = is_pdf(job.image_sha256)
                 if not (job.user_id or pdf or job.status == "failed" or job.turned_away):
                     continue
@@ -413,10 +466,13 @@ class PostgresRepository:
             return found
 
     def job_image(self, job_id: str) -> str | None:
-        """The stored upload's hash, for the developer to fetch the file."""
+        """The stored upload's hash, for the developer to fetch the file: the
+        owner's own, or another person's they shared (2026-10-15)."""
         with self.session_factory() as session:
             job = session.get(Job, job_id)
-            return job.image_sha256 if job else None
+            if job is None or (job.user_id is not None and job.shared_at is None):
+                return None
+            return job.image_sha256
 
     def user_for_password(self, password: str) -> dict[str, Any] | None:
         with self.session_factory() as session:
@@ -852,6 +908,8 @@ class PostgresRepository:
         """Every receipt, newest first, with how far its lines are placed and by whom."""
         with self.session_factory() as session:
             inputs = load_normalizer_inputs(session, self.user_id)
+            shared = set(session.scalars(select(Job.image_sha256).where(
+                self._my_jobs(), Job.shared_at.is_not(None))))
             out = []
             for row in session.scalars(select(Receipt).where(whose(self.user_id))):
                 doc = receipt_to_dict(row)
@@ -878,6 +936,10 @@ class PostgresRepository:
                                   "net_paid": r["net_paid"]} for r in left_out],
                     "deposits": round(sum(r["net_paid"] or 0.0 for r in every
                                           if r["type"] in ("deposit", "deposit_return")), 2),
+                    # Every line as read, to set against the printed total: when
+                    # they differ, something was misread (2026-10-15).
+                    "lines_total": round(sum(r["net_paid"] or 0.0 for r in every), 2),
+                    "shared": row.image_sha256 in shared,
                     "seen_at": row.seen_at.astimezone(UTC).isoformat() if row.seen_at else None,
                 })
         out.sort(key=lambda r: (r["date"] or "", r["receipt_id"]), reverse=True)

@@ -242,6 +242,8 @@
     border-radius: 0; background: none; color: var(--ink); text-align: left; }
   .month-head .name { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
   .month-head .end { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .share-row { margin: 6px 0 14px; }
+  .share-row .meta { margin-top: 2px; }
   .privacy-row { margin-top: 10px; justify-content: space-between; align-items: center; }
   .privacy-row a { text-decoration: none; }
   button.quiet { background: none; border: 0; color: var(--muted); font-size: 12px; padding: 4px 0; }
@@ -629,6 +631,44 @@ async function answer(receiptId, position, body) {
 
 // One tap: leave a line out of my numbers (bought for someone else), or
 // count it again. No reason asked. Reached by swiping the line left.
+// Another person's receipt reaches the developer only when they share it, one
+// tap (owner, 2026-10-15: "we need consent"); a second tap takes it back, and
+// the developer's copy is deleted. The owner's own uploads need no sharing.
+async function setShared(path, shared) {
+  try {
+    await api(path, { method: "PUT", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ shared }) });
+    toast(shared ? "Shared with the developer. Thank you" : "No longer shared");
+    await load();
+  } catch (error) {
+    toast("Not saved: " + error.message);
+  }
+}
+
+// Something was misread when the lines as read do not add up to the total the
+// paper prints. Only then is sharing offered, right there (owner, 2026-10-15:
+// "share with the developer only for problematic ones").
+function misread(summary) {
+  return summary.printed_total != null && summary.lines_total != null &&
+    Math.abs(summary.lines_total - summary.printed_total) >= 0.01;
+}
+
+function problemRow(summary) {
+  if (!misread(summary)) return null;
+  const path = `/v1/receipts/${summary.receipt_id}/shared`;
+  const share = isOwner() || !state.me ? null : summary.shared
+    ? [el("div", { class: "meta" }, "Shared with the developer. Thank you."),
+       el("button", { class: "link", onclick: () => setShared(path, false) }, "Stop sharing")]
+    : [el("button", { class: "link", onclick: () => setShared(path, true) },
+          "Share with the developer to fix it"),
+       el("div", { class: "meta" }, "They see this receipt's photo and what was read, " +
+          "for up to 30 days.")];
+  return el("div", { class: "share-row" },
+    el("div", { class: "why" }, `Something was misread: the items add up to ` +
+      `${euro(summary.lines_total)}, the receipt says ${euro(summary.printed_total)}.`),
+    share);
+}
+
 async function setCounted(receiptId, position, counted) {
   try {
     await api(`/v1/receipts/${receiptId}/lines/${position}/counted`, {
@@ -920,7 +960,8 @@ function receiptCard(summary) {
           // Who said what is a detail for the owner (the redesign, step 3).
           isOwner() ? `: ${summary.said_by_you} you, ${summary.said_by_app} app` : "",
           summary.unplaced ? `, ${summary.unplaced} not known yet` : "",
-          summary.not_counted ? `, ${summary.not_counted} left out` : "")),
+          summary.not_counted ? `, ${summary.not_counted} left out` : "",
+          misread(summary) ? ", doesn't add up" : "")),
     el("div", { class: "money" }, euro(summary.printed_total)));
   // The receipt itself slides left too, to be removed, as a line does.
   const remove = el("button", { class: "act", onclick: () => removeReceipt(summary.receipt_id) },
@@ -951,6 +992,8 @@ function receiptCard(summary) {
       card.append(el("button", { class: "link", onclick: () => showPhoto(summary.receipt_id) },
         "See the photo"));
     }
+    const problem = problemRow(summary);
+    if (problem) card.append(problem);
     const editing = state.editing === summary.receipt_id;
     card.classList.toggle("editing", editing);
     const marked = state.highlight && state.highlight.receipt_id === summary.receipt_id
@@ -1333,13 +1376,19 @@ function failedNotes() {
                                     why: [item.name, item.error] })),
     ...(state.jobs || []).filter(job => job.status === "failed").map(job => ({
       id: job.job_id, what: "A receipt could not be read",
-      why: [job.original_filename, job.error] })),
+      why: [job.original_filename, job.error], job })),
   ];
   return failed.filter(item => !state.dismissed.has(item.id)).map(item => {
     const why = item.why.filter(Boolean).join(": ");
     return el("div", { class: "failed-note", role: "status" },
       el("div", { class: "text" }, el("div", {}, item.what),
-         why ? el("div", { class: "meta", title: why }, why) : null),
+         why ? el("div", { class: "meta", title: why }, why) : null,
+         // One that failed is the one most worth a look, if they share it.
+         item.job && !isOwner() && state.me ? (item.job.shared
+           ? el("div", { class: "meta" }, "Shared with the developer")
+           : el("button", { class: "link", onclick: () =>
+               setShared(`/v1/jobs/${item.job.job_id}/shared`, true) },
+             "Share with the developer")) : null),
       el("button", { "aria-label": "Put away", onclick: () => {
         state.dismissed.add(item.id);
         render();
