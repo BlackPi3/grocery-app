@@ -33,9 +33,11 @@ log = logging.getLogger(__name__)
 
 # USD per million tokens; thinking is billed as output. Introductory rates
 # until 2026-12-31, doubling on 2027-01-01 (third-party price pages,
-# 2026-10-03; not checked against Google's own page).
+# 2026-10-03; not checked against Google's own page). Read in the EU since
+# 2026-10-15, about 10% over the global endpoint's 0.75 / 3.75 (third-party
+# price pages, the same day).
 GEMINI_PRICES_PER_MTOK: dict[str, dict[str, float]] = {
-    "gemini-3.8-flash": {"input": 0.75, "output": 3.75},
+    "gemini-3.8-flash": {"input": 0.825, "output": 4.125},
 }
 # Grounding with Google Search on Gemini 3: per search query the model runs,
 # not per request (third-party pricing guides, 2026-10-11; Google's own page
