@@ -4,10 +4,12 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-14, laptop: new products are sorted by the server; next, the owner's backlog (below Parked), one item at a time.
+**Last updated:** 2026-10-15, laptop: privacy work, the People card and Receipts matching Home merged; next, the owner's backlog (below Parked), one item at a time.
 
 ## Now
 
+- Everything is merged. `main` deploys the server and the public demo on
+  every merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
 - Built (owner, 2026-10-15, the privacy work): **a privacy page** at
   `/privacy` (`api/privacy.html`), open without signing in, German first
   (the text that counts) and English: who runs the server (repo variable
@@ -20,8 +22,7 @@ session (laptop or cloud) can pick up from here. How we work is in
   and the rights. Linked under the sign-in card and on You. **Delete my
   account** on You for users (two taps, no dialog). Every promise on the
   page is kept by code; change one, change the other. No legal review yet:
-  before a public launch, a lawyer, and an Impressum with an address. PR
-  open, waiting for the owner's yes.
+  before a public launch, a lawyer, and an Impressum with an address. Merged as #160.
 - Built (owner, 2026-10-15, "proceed with the rest of the privacy"):
   **deleting means deleting.** Removing a receipt deletes its photo (unless
   another receipt was read from the same bytes); `DELETE /v1/me` deletes a
@@ -52,10 +53,27 @@ session (laptop or cloud) can pick up from here. How we work is in
   shopper counts, as paid; `left_out`, `deposits`), with what it leaves out
   named in small grey text under it ("Not counted: Rotwein 26,13 €, …,
   deposits back 2,25 €"). Each receipt card still shows its printed total.
-  Home was never stale: it reloads whenever a receipt finishes. PR #157
-  open, waiting for the owner's yes.
+  Home was never stale: it reloads whenever a receipt finishes. Merged as
+  #157.
 - Everything is merged. `main` deploys the server and the public demo on every
   merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
+- Built (owner, 2026-10-15, "can I see the people that are using the app,
+  their Gmail, how many receipts"): **a People card on You**, the owner's
+  only, not in the demo. Per person: name, Google address, receipts, last
+  photo sent, last Google sign-in ("uses a password" when they have no
+  address), and what their photos' model calls cost this month at list
+  price; most recently active first. `/v1/users` gained `last_sign_in`,
+  `last_upload`, `month_cost_usd` (#154). Merged as #155. Live on 2026-10-15: 5
+  people, 3 signed in, none has sent a photo.
+- Checked (owner, 2026-10-15, "Home says 218 € for October, Receipts
+  246 €"): **not stale.** Both had the same 15 receipts. Home's month counts
+  what the shopper counts: Receipts adds the 30,31 € of lines marked not
+  counted (a wine, a cake, a cake topper) and the deposits (−2,25 € net).
+  Home already reloads its numbers whenever a receipt finishes.
+- Checked (2026-10-15): the "unusual model spending" email was the owner's
+  own receipt that morning ($1.10 at list price, 75 web searches for 10
+  lines; the searches are free under 5,000 a month, so about 5 cents
+  billed). The alert counts list price, not billed.
 - Fixed (owner, 2026-10-14): **a found product with no category**, and the
   "2 candidates" it caused. Products made from a shop page with no shelf,
   or from an answer, got no category until `db categorize` was run by hand,

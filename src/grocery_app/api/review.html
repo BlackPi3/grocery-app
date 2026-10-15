@@ -1228,6 +1228,34 @@ function usd(amount) {
 }
 
 // Accounts (2026-10-11): each person sees only their own receipts.
+// The people the owner lets in, to watch how they use it (owner, 2026-10-15:
+// "I'm giving it to people to use it"): their Google address, their receipts,
+// when they were last here, and what their uploads cost this month. Most
+// recently active first. The owner's only, and never in the demo.
+function peopleCard() {
+  const people = state.people;
+  if (!people || !people.length) return null;
+  const when = iso => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const latest = u => [u.last_upload, u.last_sign_in].filter(Boolean).sort().pop() || "";
+  const sorted = [...people].sort((a, b) => latest(b).localeCompare(latest(a)));
+  return el("div", { class: "card" }, el("h2", {}, "People"),
+    sorted.map(u => el("div", { class: "line" },
+      el("div", {},
+        el("div", { class: "what" }, u.name),
+        u.email ? el("div", { class: "meta" }, u.email) : null,
+        el("div", { class: "meta" }, [
+          `${u.receipts} ${u.receipts === 1 ? "receipt" : "receipts"}`,
+          u.last_upload ? `last photo ${when(u.last_upload)}` : "no photos yet",
+          // Only Google sign-ins are kept; a password leaves no trace.
+          u.last_sign_in ? `signed in ${when(u.last_sign_in)}`
+            : u.email ? "never signed in" : "uses a password",
+        ].join(" · "))),
+      el("div", { class: "money" }, usd(u.month_cost_usd),
+        el("div", { class: "meta" }, "this month")))),
+    el("div", { class: "why" }, "The cost is the model calls their photos made this month, " +
+      "at list price."));
+}
+
 function accountCard() {
   if (!state.me) return null;
   if (state.me.demo) {
@@ -1713,6 +1741,7 @@ function youView() {
   return [
     owner ? surenessCard() : null,
     costsCard(),
+    peopleCard(),
     accountCard(),
   ];
 }
@@ -2449,8 +2478,9 @@ async function load({ jobs = true } = {}) {
       if (me.role === "owner") {
         state.costs = await api("/v1/costs").catch(() => null);
         state.sureness = await api("/v1/sureness").catch(() => null);
+        state.people = me.demo ? null : await api("/v1/users").catch(() => null);
       } else {
-        state.costs = state.sureness = null;
+        state.costs = state.sureness = state.people = null;
       }
       saveCopy();
       render();
