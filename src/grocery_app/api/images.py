@@ -65,6 +65,10 @@ class ImageStore(Protocol):
         """Bytes held under this hash, or None if nothing is."""
         ...
 
+    def delete(self, sha256: str) -> None:
+        """Forget the bytes under this hash. Nothing there is not an error."""
+        ...
+
 
 class DiskImageStore:
     """A folder of photos named by hash, with no file extension.
@@ -94,6 +98,9 @@ class DiskImageStore:
     def size(self, sha256: str) -> int | None:
         destination = self.path(sha256)
         return destination.stat().st_size if destination.exists() else None
+
+    def delete(self, sha256: str) -> None:
+        self.path(sha256).unlink(missing_ok=True)
 
 
 def default_image_store() -> DiskImageStore:

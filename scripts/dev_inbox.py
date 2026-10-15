@@ -21,11 +21,13 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.request
 from pathlib import Path
 
 INBOX = Path(__file__).resolve().parent.parent / "data" / "inbox"
 TIMEOUT_S = 40  # a server that was asleep takes 15-20 s to wake
+KEEP_DAYS = 30  # the privacy page's promise for developer copies
 
 
 def gcloud(*args: str) -> str:
@@ -60,7 +62,22 @@ def summary(item: dict) -> str:
     return f"- {item['kind']} from {who}, {item['created_at'][:16]}: {what}"
 
 
+def forget_old(now: float | None = None) -> int:
+    """Delete the copies older than KEEP_DAYS (owner, 2026-10-15): people's
+    uploads stay on the laptop only as long as the privacy page promises.
+    Counted from when the copy was saved here."""
+    if not INBOX.is_dir():
+        return 0
+    cutoff = (now or time.time()) - KEEP_DAYS * 86400
+    old = [f for f in INBOX.iterdir() if f.is_file() and f.stat().st_mtime < cutoff]
+    for f in old:
+        f.unlink()
+    return len(old)
+
+
 def main() -> int:
+    if forgotten := forget_old():
+        print(f"Deleted {forgotten} inbox file(s) older than {KEEP_DAYS} days.")
     try:
         url, token = server_and_token()
         items = json.loads(call(f"{url}/v1/inbox", token, "POST"))

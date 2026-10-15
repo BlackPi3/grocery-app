@@ -14,7 +14,7 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import String, cast, delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from grocery_app import categories, memory
@@ -143,7 +143,13 @@ class WriteRepository(Protocol):
     def set_counted(self, receipt_id: int, position: int, counted: bool) -> dict[str, Any]:
         ...
 
-    def remove_receipt(self, receipt_id: int) -> None:
+    def remove_receipt(self, receipt_id: int) -> str | None:
+        ...
+
+    def remove_account(self) -> list[str]:
+        ...
+
+    def photos_to_forget(self, older_than: datetime) -> list[str]:
         ...
 
     def costs(self) -> dict[str, Any]:
@@ -1141,13 +1147,66 @@ class PostgresRepository:
         Its lines, the answers given on them, its spot checks and questions go
         with it (the tables cascade). What those answers taught the memory
         about a printed name stays: it is about the name, not this paper. The
-        job that read it keeps its cost, with no receipt. The photo stays in
-        the image store, so adding it again reads it again (`job_for_image`).
+        job that read it keeps its cost, with no receipt.
+
+        Returns the photo's hash for the caller to delete from the image store
+        (owner, 2026-10-15: deleting must delete), or None when another
+        receipt was read from the same bytes. Adding it again reads it again.
         """
         with self.session_factory() as session:
-            self._get(session, receipt_id)
+            row = self._get(session, receipt_id)
+            photo = row.image_sha256
             session.execute(delete(Receipt).where(Receipt.id == receipt_id))
             session.commit()
+            return photo if photo and not self._photo_in_use(session, photo) else None
+
+    @staticmethod
+    def _photo_in_use(session: Session, sha256: str) -> bool:
+        return session.scalar(select(func.count()).select_from(Receipt)
+                              .where(Receipt.image_sha256 == sha256)) > 0
+
+    def remove_account(self) -> list[str]:
+        """Delete this user and everything that is theirs (owner, 2026-10-15):
+        receipts with their lines and answers, uploads, sign-ins. Returns the
+        photo hashes for the caller to delete from the image store.
+
+        What their answers taught the shared memory and catalog is about a
+        printed name or a product, not about them, and stays; their name on
+        it is replaced by `user:removed`. What their uploads cost stays, with
+        no upload (`model_calls.job_id` empties). Only a user has an account
+        to delete: the owner's is the server.
+        """
+        if self.user is None:
+            raise ValueError("the owner has no account to delete")
+        stamp, removed = f"{memory.USER_PREFIX}{self.user['name']}", f"{memory.USER_PREFIX}removed"
+        with self.session_factory() as session:
+            photos = set(session.scalars(select(Job.image_sha256)
+                                         .where(Job.user_id == self.user_id)))
+            photos |= {sha for sha in session.scalars(
+                select(Receipt.image_sha256).where(Receipt.user_id == self.user_id)) if sha}
+            for row in session.scalars(select(Resolution)
+                                       .where(Resolution.confirmed_by == stamp)):
+                row.confirmed_by = removed
+            for product in session.scalars(select(Product).where(
+                    cast(Product.provenance, String).contains(stamp, autoescape=True))):
+                product.provenance = _replaced(product.provenance, stamp, removed)
+            session.execute(delete(User).where(User.id == self.user_id))
+            session.commit()
+            return sorted(sha for sha in photos if not self._photo_in_use(session, sha))
+
+    def photos_to_forget(self, older_than: datetime) -> list[str]:
+        """Photos no receipt was made from, last sent before `older_than`: a
+        picture that was not a receipt, one that could not be read, a second
+        shot of a paper already added. Kept that long for a developer to learn
+        from (`/v1/inbox`), then deleted (owner, 2026-10-15)."""
+        with self.session_factory() as session:
+            last_sent = (select(Job.image_sha256, func.max(Job.created_at).label("at"))
+                         .group_by(Job.image_sha256).subquery())
+            old = set(session.scalars(select(last_sent.c.image_sha256)
+                                      .where(last_sent.c.at < older_than)))
+            kept = set(session.scalars(select(Receipt.image_sha256)
+                                       .where(Receipt.image_sha256.is_not(None))))
+            return sorted(old - kept)
 
     def update_receipt(self, receipt_id: int, store: str) -> dict[str, Any]:
         """The header fact a shopper can correct from a phone: the store, for a
@@ -1205,6 +1264,15 @@ class PostgresRepository:
             if job.status == "done" and job.receipt_id is None and job.turned_away is None:
                 return None  # its receipt was removed
             return job_to_dict(job)
+
+
+def _replaced(value: Any, old: str, new: str) -> Any:
+    """`value` with every string equal to `old` made `new`, at any depth."""
+    if isinstance(value, dict):
+        return {k: _replaced(v, old, new) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_replaced(v, old, new) for v in value]
+    return new if value == old else value
 
 
 # Enough to catch a name typed into the address box; Google is the real check.

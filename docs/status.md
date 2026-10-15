@@ -8,6 +8,18 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Now
 
+- Built (owner, 2026-10-15, "proceed with the rest of the privacy"):
+  **deleting means deleting.** Removing a receipt deletes its photo (unless
+  another receipt was read from the same bytes); `DELETE /v1/me` deletes a
+  user's account with their receipts, photos, uploads and sign-ins (the
+  owner's answers 403: the owner's account is the server). What they taught
+  the shared memory and catalog stays, their name replaced by
+  `user:removed`; what their uploads cost stays, with no upload. Photos no
+  receipt came from (not a receipt, could not be read, a second shot) are
+  deleted 30 days after they were last sent (`keep_forgetting`, every 6 h,
+  real server only); the laptop's `data/inbox/` copies likewise
+  (`dev_inbox.forget_old`, at session start). Photos live in the bucket in
+  `europe-west3`. Next: the privacy page and the delete button, shown first.
 - Done (owner, 2026-10-15, "if they're at the EU then okay, but make sure
   the app doesn't get worse"): **Gemini reads in the EU.** Every call goes to
   Vertex AI's EU multi-region endpoint (`aiplatform.eu.rep.googleapis.com`,
