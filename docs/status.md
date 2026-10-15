@@ -4,10 +4,23 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-15, laptop: privacy work, the People card and Receipts matching Home merged; next, the owner's backlog (below Parked), one item at a time.
+**Last updated:** 2026-10-15, laptop: leaner screens (less text everywhere) merged (#165); next, the owner's backlog (below Parked), one item at a time.
 
 ## Now
 
+- Built (owner, 2026-10-15, "leaner and cleaner ... especially too much
+  text"): **every screen loses its small print.** A receipt line is one row,
+  the product and its brand ("Bio Müsli Kornfeld"), no category, size,
+  printed text or you/app mark; a receipt row says "15 Oct · 10 items"
+  (plus "doesn't add up" when it doesn't); no per-receipt cost, no swipe
+  instructions, no "Not counted" list under a month. Home's tiles: the
+  percentage, the name, from → to. The month page: no "a usual month
+  ends at", no axis note, reasons named in a word or two, no line under
+  each. Insights: no intro paragraph and no footnotes; the money list shows
+  the top five (Show all), as do prices, due again and other shops; discounts by month only. You: one row per
+  sureness level, one per month of cost, people as name · receipts · last
+  here. Brands now show for everyone. The data behind all of it is
+  unchanged (`said_by`, costs, coverage). PR #165, merged on the owner's yes.
 - Fixed (owner, 2026-10-15): **a back swipe landed on Google's sign-in
   page**, which signing in leaves in the browser's history. The page now
   keeps one step of its own on top of the history (`keepBackStep`); a back
