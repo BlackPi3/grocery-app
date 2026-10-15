@@ -328,6 +328,13 @@ class SpotCheck(BaseModel):
                                   "none for a product known only as a kind of thing")
 
 
+class LeftOutLine(BaseModel):
+    """A product line the shopper left out of their numbers."""
+
+    name: str = Field(description="The product's name, else the printed name")
+    net_paid: float | None
+
+
 class ReceiptSummary(BaseModel):
     """One receipt in the list, and how far its product lines are placed."""
 
@@ -342,6 +349,11 @@ class ReceiptSummary(BaseModel):
     unplaced: int = Field(description="Product lines nothing placed, not counting those the "
                                       "shopper left out")
     not_counted: int = Field(description="Product lines the shopper left out of their numbers")
+    spend: float = Field(0.0, description="What the shopper's numbers count of it: the product "
+                                          "lines they count, as paid (Home's month adds these)")
+    left_out: list[LeftOutLine] = Field(default_factory=list,
+                                        description="The product lines they left out, named")
+    deposits: float = Field(0.0, description="Deposits paid less returned; not spend")
     photo: bool = Field(default=False,
                         description="The photo or PDF it was read from can be fetched "
                                     "(`GET /v1/receipts/{receipt_id}/photo`)")

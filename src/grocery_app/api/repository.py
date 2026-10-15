@@ -849,10 +849,11 @@ class PostgresRepository:
             out = []
             for row in session.scalars(select(Receipt).where(whose(self.user_id))):
                 doc = receipt_to_dict(row)
-                records = [r for r in normalize_receipt(
+                every = normalize_receipt(
                     doc, inputs["resolution"], inputs["products"], inputs["line_resolutions"],
                     inputs["shelf_prices"], inputs["authors"], inputs["uncounted"])
-                    if r["type"] == "product"]
+                records = [r for r in every if r["type"] == "product"]
+                left_out = [r for r in records if r.get("not_counted")]
                 out.append({
                     "receipt_id": row.id, "date": doc.get("date"), "store": row.store,
                     "source_image": row.source_image, "image_sha256": row.image_sha256,
@@ -863,6 +864,14 @@ class PostgresRepository:
                     "unplaced": sum(r["said_by"] is None and not r.get("not_counted")
                                     for r in records),
                     "not_counted": sum(bool(r.get("not_counted")) for r in records),
+                    # What Home counts of it, so the two screens agree (owner,
+                    # 2026-10-15), and what it leaves out, named.
+                    "spend": round(sum(r["net_paid"] or 0.0 for r in records
+                                       if not r.get("not_counted")), 2),
+                    "left_out": [{"name": r.get("product") or r["raw_name"],
+                                  "net_paid": r["net_paid"]} for r in left_out],
+                    "deposits": round(sum(r["net_paid"] or 0.0 for r in every
+                                          if r["type"] in ("deposit", "deposit_return")), 2),
                     "seen_at": row.seen_at.astimezone(UTC).isoformat() if row.seen_at else None,
                 })
         out.sort(key=lambda r: (r["date"] or "", r["receipt_id"]), reverse=True)

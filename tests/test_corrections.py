@@ -396,6 +396,26 @@ def test_one_tap_leaves_a_line_out_of_the_numbers_and_out_of_the_questions(corre
     assert (receipt_id, 2) in asked()
 
 
+def test_a_months_receipts_add_up_to_what_home_counts(corrections):
+    """Owner, 2026-10-15: Home said 218 € for the month and Receipts 246 €.
+    Each receipt now says what the numbers count of it, and what they leave
+    out by name, so the Receipts month and Home's month are one number."""
+    client, _, receipt_id = corrections
+    client.put(f"/v1/receipts/{receipt_id}/lines/2/counted", json={"counted": False})
+
+    listed = {r["receipt_id"]: r for r in client.get("/v1/receipts").json()}
+    february, january = listed[receipt_id], next(r for i, r in listed.items() if i != receipt_id)
+    assert february["left_out"] == [{"name": "Geheimnis", "net_paid": 0.25}]
+    assert (february["spend"], february["deposits"]) == (2.94, 0.0)
+    assert january["left_out"] == []
+    assert (january["spend"], january["deposits"]) == (2.84, 0.25), "the Pfand is not spend"
+
+    months = {m["month"]: m["spend"] for m in client.get("/v1/insights").json()["months"]}
+    for month in ("2026-01", "2026-02"):
+        assert sum(r["spend"] for r in listed.values() if r["date"].startswith(month)) == \
+            pytest.approx(months[month]), month
+
+
 def test_marking_a_line_that_does_not_exist_is_a_404(corrections):
     client, _, receipt_id = corrections
     assert client.put(f"/v1/receipts/{receipt_id}/lines/9/counted",
