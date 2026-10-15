@@ -2,6 +2,8 @@
 
 from datetime import date
 
+import pytest
+
 from grocery_app.insights import (
     MIN_BASKET_PRODUCTS,
     basket_index,
@@ -582,3 +584,40 @@ def test_a_line_bought_for_someone_else_saves_the_shopper_nothing():
     doc = build_insights({"purchases": [discounted("2026-01-05", 2.0, -0.2), gift]})
     assert doc["discounts"]["saved"] == 0.2
     assert doc["discounts"]["months"][0]["shelf"] == 2.0
+
+
+# --- why a month is off its usual (owner, 2026-10-15) --------------------------
+
+def test_why_a_month_is_above_its_usual_trips_parts_of_the_shop_and_prices():
+    """"Why did that happen? More trips, more prices ... what is the key
+    factor?" Against the same usual months, each cut at the same day."""
+    def bought(pid, day, net, receipt, category):
+        r = row(pid, day, net, category=category)
+        r["source_image"] = receipt
+        return r
+
+    rows = [bought("p-1", "2026-07-31", 9.00, "j1", "milch"),           # history starts
+            bought("p-1", "2026-08-02", 1.00, "a1", "milch"),
+            bought("p-1", "2026-09-03", 1.00, "s1", "milch"),
+            bought("p-2", "2026-09-20", 5.00, "s2", "duschgel"),        # after the 14th
+            bought("p-1", "2026-10-02", 1.20, "o1", "milch"),
+            bought("p-2", "2026-10-05", 4.00, "o2", "duschgel"),
+            bought("p-1", "2026-10-09", 1.20, "o3", "milch")]
+    october = build_insights({"meta": {}, "purchases": rows},
+                             today=date(2026, 10, 14))["months"][0]
+    why = october["why"]
+    assert october["usual"]["months"] == ["2026-09", "2026-08"]
+    assert why["difference"] == pytest.approx(october["spend"] - october["usual"]["spend"])
+    assert why["difference"] == 5.40
+    assert why["trips"] == {"now": 3, "usual": 1}
+    assert [(b["branch"], b["spend"], b["usual"], b["difference"]) for b in why["branches"]] == [
+        ("Drogerie & Kosmetik", 4.00, 0.00, 4.00), ("Molkereiprodukte & Eier", 2.40, 1.00, 1.40)], \
+        "biggest difference first; September's shower gel came after the 14th"
+    assert sum(b["difference"] for b in why["branches"]) == pytest.approx(why["difference"])
+    assert why["prices"] == 0.40, "milk: 1,20 now against 1,00 usually, twice"
+
+
+def test_no_usual_no_why():
+    rows = [row("p-1", "2026-09-05", 2.00), row("p-1", "2026-10-05", 3.00)]
+    october = build_insights({"meta": {}, "purchases": rows}, today=date(2026, 10, 14))["months"][0]
+    assert (october["usual"], october["why"]) == (None, None)

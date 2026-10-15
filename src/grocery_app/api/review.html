@@ -1532,7 +1532,46 @@ function paceView() {
     paceChart(month, pace, { H: 120 }),
     el("div", { class: "meta says" }, usuallyText(pace)),
     ends && state.pace.running ? el("div", { class: "meta" },
-      `A usual month ends at ${euro(ends)}.`) : null)];
+      `A usual month ends at ${euro(ends)}.`) : null), whyCard(month)];
+}
+
+// Why the month is off its usual, on the same footing (owner, 2026-10-15:
+// "more trips, more prices, what is the key factor?"): the parts of the shop
+// that moved the same way as the month, biggest first, then the trips, then
+// what prices did on the same things (`insights.why_against_usual`).
+const WHY_PARTS = 3;
+function whyCard(month) {
+  const why = month.why;
+  if (!why || Math.abs(why.difference) < 1) return null;
+  const more = why.difference > 0;
+  const signed = v => (v > 0 ? "+" : v < 0 ? "−" : "") + euro(Math.abs(v));
+  const parts = why.branches.filter(b => more ? b.difference >= 0.5 : b.difference <= -0.5)
+    .slice(0, WHY_PARTS);
+  const tripsWord = n => `${n} shopping ${n === 1 ? "trip" : "trips"}`;
+  const usualTrips = Math.round(why.trips.usual);
+  const pricesSmall = Math.abs(why.prices) < Math.abs(why.difference) / 10;
+  return el("div", { class: "card" },
+    el("h2", {}, `Why ${euro(Math.abs(why.difference))} ${more ? "more" : "less"} than usual`),
+    parts.map(b => el("div", { class: "line" },
+      el("div", {},
+        el("div", { class: "what" }, b.branch || "Not sorted yet"),
+        el("div", { class: "meta" }, `${euro(b.spend)} · usually ${euro(b.usual)}`)),
+      el("div", { class: "money" }, signed(b.difference)))),
+    el("div", { class: "line" },
+      el("div", {},
+        el("div", { class: "what" }, "Trips"),
+        el("div", { class: "meta" }, `${tripsWord(why.trips.now)}, usually ${usualTrips}`))),
+    el("div", { class: "line" },
+      el("div", {},
+        el("div", { class: "what" }, "Prices"),
+        el("div", { class: "meta" }, pricesSmall
+          ? "The same things cost about what they usually do: not the reason"
+          : `The same things cost ${why.prices > 0 ? "more" : "less"} than usually`)),
+      el("div", { class: "money" }, signed(why.prices))),
+    el("div", { class: "why" }, month.usual && month.usual.through_day
+      ? `Against your usual month by the ${ordinal(month.usual.through_day)}: the mean of ` +
+        "the months before, each cut at the same day."
+      : "Against your usual month: the mean of the whole months before."));
 }
 
 // Running totals as lines (the owner, 2026-10-14: one figure that holds them

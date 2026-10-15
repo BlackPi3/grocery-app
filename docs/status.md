@@ -8,6 +8,19 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Now
 
+- Built (owner, 2026-10-15, on the month page: "why did that happen? More
+  trips, more prices ... what is the key factor?"): **Why N € more than
+  usual**, a card under the month's chart, against the same usual months
+  as the tile, each cut at the same day (`insights.why_against_usual`, each
+  month's `why`, insights contract 11): the parts of the shop that moved
+  the same way, biggest first (up to 3; all parts add up to the
+  difference), the trips now and usually, and what the shelf price did on
+  the same things (pooled over the usual months, the `compare_month`
+  rule; "not the reason" under a tenth of the difference). Live, 15 Oct:
+  81,36 € more; Drogerie & Kosmetik 57,05 € against 7,80 € (+49,25 €),
+  15 trips against 10, prices +1,21 €. The split against last month (#145)
+  stays in `insights.json`, off the page. PR open, waiting for the owner's
+  yes.
 - Built (owner, 2026-10-15, "not good optics at all that I can access their
   receipts ... we need consent"): **sharing with the developer is the
   sender's choice.** Another person's upload reaches `/v1/inbox` (and its

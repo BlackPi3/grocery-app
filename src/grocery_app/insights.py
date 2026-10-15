@@ -54,7 +54,7 @@ from typing import Any
 from grocery_app import categories
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 10
+CONTRACT_VERSION = 11
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -678,6 +678,82 @@ def usual_by_day(rows: list[dict[str, Any]], month: str,
             "spend": round(statistics.mean(v for _, v in counted), 2), "running": running}
 
 
+def why_against_usual(rows: list[dict[str, Any]], month: str,
+                      usual: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Why `month` is above or below its usual (`usual_by_day`), on the same
+    footing: the same months, each cut at the same day (the owner, 2026-10-15:
+    "why did that happen? More trips, more prices ... what is the key factor?").
+
+    - `trips`: shopping trips (receipts with a counted line), now and the mean
+      of the usual months;
+    - `branches`: every part of the shop, now and usually, with the
+      difference; the differences add up to the month's difference (to rounding);
+    - `prices`: what the shelf price moving cost on the things bought now that
+      were bought in the usual months too (pooled over them), at today's
+      amounts: the same rule as `compare_month`'s prices.
+
+    None without a usual to explain against.
+    """
+    if not usual:
+        return None
+    day = usual["through_day"]
+    year, number = int(month[:4]), int(month[5:7])
+
+    def window(key: str) -> list[dict[str, Any]]:
+        y, n = int(key[:4]), int(key[5:7])
+        last = _month_end(y, n).day
+        cut = min(day, last) if day else last
+        return [p for p in rows if p.get("date") and p["date"][:7] == key
+                and int(p["date"][8:10]) <= cut]
+
+    now = window(f"{year:04d}-{number:02d}")
+    then = {m: window(m) for m in usual["months"]}
+    count = len(then)
+
+    def trips(lines: list[dict[str, Any]]) -> int:
+        return len({p.get("source_image") for p in lines})
+
+    def branch(p: dict[str, Any]) -> str | None:
+        key = p.get("category")
+        return categories.BRANCHES[categories.branch_of(key)] \
+            if key in categories.CATEGORIES else None
+
+    by_now: dict[str | None, float] = defaultdict(float)
+    by_usual: dict[str | None, float] = defaultdict(float)
+    for p in now:
+        by_now[branch(p)] += p.get("net_paid") or 0.0
+    for lines in then.values():
+        for p in lines:
+            by_usual[branch(p)] += (p.get("net_paid") or 0.0) / count
+    branches = [{"branch": b, "spend": round(by_now[b], 2), "usual": round(by_usual[b], 2),
+                 "difference": round(by_now[b] - by_usual[b], 2)}
+                for b in set(by_now) | set(by_usual)]
+    branches.sort(key=lambda b: (-abs(b["difference"]), b["branch"] or ""))
+
+    def things(lines: list[dict[str, Any]]) -> dict[tuple, list[dict[str, Any]]]:
+        groups: dict[tuple, list[dict[str, Any]]] = defaultdict(list)
+        for p in lines:
+            if p.get("product_id"):
+                groups[(p["product_id"], _form(p), _quantity(p)[1],
+                        store_key(p.get("store")))].append(p)
+        return groups
+
+    before = things([p for lines in then.values() for p in lines])
+    prices = 0.0
+    for key, current in things(now).items():
+        if key not in before:
+            continue
+        q_then = sum(_quantity(p)[0] for p in before[key])
+        q_now = sum(_quantity(p)[0] for p in current)
+        if q_then and q_now:
+            prices += (sum(_shelf(p) for p in current) / q_now
+                       - sum(_shelf(p) for p in before[key]) / q_then) * q_now
+    return {"difference": round(_spend(now) - usual["spend"], 2),
+            "trips": {"now": trips(now),
+                      "usual": round(statistics.mean(trips(v) for v in then.values()), 1)},
+            "branches": branches, "prices": round(prices, 2)}
+
+
 # The parts a month's difference is split into, in the order they are told.
 COMPARE_PARTS = ("new", "gone", "amounts", "prices", "discounts", "not_placed")
 
@@ -852,6 +928,7 @@ def _compared(out: list[dict[str, Any]], rows: list[dict[str, Any]],
         day = today.day if entry["month"] == this_month else None
         entry["compared"] = compare_month(rows, entry["month"], day)
         entry["usual"] = usual_by_day(rows, entry["month"], day)
+        entry["why"] = why_against_usual(rows, entry["month"], entry["usual"])
         # The lines a month's chart draws: this month to today, the month
         # before whole (when there is a comparison at all); the usual month's
         # is `usual.running`.
