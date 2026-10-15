@@ -328,6 +328,14 @@ class SpotCheck(BaseModel):
                                   "none for a product known only as a kind of thing")
 
 
+class SharedRequest(BaseModel):
+    """Share an upload with the developer, or take it back."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    shared: bool
+
+
 class LeftOutLine(BaseModel):
     """A product line the shopper left out of their numbers."""
 
@@ -354,6 +362,8 @@ class ReceiptSummary(BaseModel):
     left_out: list[LeftOutLine] = Field(default_factory=list,
                                         description="The product lines they left out, named")
     deposits: float = Field(0.0, description="Deposits paid less returned; not spend")
+    shared: bool = Field(False, description="Its upload is shared with the developer "
+                                            "(`PUT /v1/receipts/{receipt_id}/shared`)")
     photo: bool = Field(default=False,
                         description="The photo or PDF it was read from can be fetched "
                                     "(`GET /v1/receipts/{receipt_id}/photo`)")
@@ -492,6 +502,8 @@ class JobDocument(BaseModel):
     turned_away: Literal["restaurant_or_cafe", "other_business", "not_a_receipt"] | None = Field(
         description="The photo was not of a shop receipt, and nothing was stored: where the "
                     "reader says it is from")
+    shared: bool = Field(False, description="The sender shared it with the developer "
+                                            "(`PUT /v1/jobs/{job_id}/shared`)")
     created_at: str | None
     started_at: str | None
     finished_at: str | None

@@ -1,5 +1,8 @@
 """Bring new uploads worth a look into development (`POST /v1/inbox`).
 
+Another person's upload comes only when they shared it with the developer
+(2026-10-15); a copy whose sharing was taken back is deleted here.
+
 Parham, 2026-10-11: "a trigger so when something new is seen we analyze it
 here in the dev". Run when a Claude Code session starts (a SessionStart hook
 in .claude/settings.local.json), it asks the live server for uploads not yet
@@ -75,15 +78,30 @@ def forget_old(now: float | None = None) -> int:
     return len(old)
 
 
+def forget_withdrawn(job_ids: list[str]) -> int:
+    """Delete the copies of uploads whose sender took back sharing, or never
+    shared (owner, 2026-10-15: "we need consent"). Every file named by the job."""
+    if not INBOX.is_dir():
+        return 0
+    wanted = set(job_ids)
+    gone = [f for f in INBOX.iterdir() if f.is_file() and f.stem in wanted]
+    for f in gone:
+        f.unlink()
+    return len(gone)
+
+
 def main() -> int:
     if forgotten := forget_old():
         print(f"Deleted {forgotten} inbox file(s) older than {KEEP_DAYS} days.")
     try:
         url, token = server_and_token()
         items = json.loads(call(f"{url}/v1/inbox", token, "POST"))
+        withdrawn = json.loads(call(f"{url}/v1/inbox/withdrawn", token))
     except Exception as error:  # noqa: BLE001 - never fail a session start
         print(f"Upload inbox not checked: {type(error).__name__}: {error}")
         return 0
+    if gone := forget_withdrawn(withdrawn):
+        print(f"Deleted {gone} inbox file(s) their sender no longer shares.")
     if not items:
         return 0
     INBOX.mkdir(parents=True, exist_ok=True)

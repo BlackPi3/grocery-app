@@ -401,6 +401,10 @@ class Job(Base):
     # When the upload was handed to the developer to look at (`/v1/inbox`):
     # another person's upload, a PDF, a failure (2026-10-11).
     dev_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When the sender shared it with the developer, to make the app better
+    # (2026-10-15): another person's upload reaches the developer only then.
+    # The owner's own uploads need no sharing. Empty again when taken back.
+    shared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  server_default=func.now())

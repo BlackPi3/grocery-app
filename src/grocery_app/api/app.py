@@ -115,6 +115,7 @@ from grocery_app.api.schemas import (
     ReceiptPatch,
     ReceiptSummary,
     Seen,
+    SharedRequest,
     SignedIn,
     SurenessDocument,
     UserPatch,
@@ -795,6 +796,14 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
 
         return repo.claim_inbox(is_pdf)
 
+    @app.get("/v1/inbox/withdrawn")
+    def inbox_withdrawn(request: Request) -> list[str]:
+        """Job ids of other people's uploads the developer may no longer keep
+        (sharing taken back): `scripts/dev_inbox.py` deletes its copies."""
+        owner_only(request)
+        not_in_demo()
+        return require_writes(request).withdrawn_from_inbox()
+
     @app.get("/v1/inbox/{job_id}/file")
     def inbox_file(request: Request, job_id: str) -> Response:
         """The file an upload sent, as it arrived. The owner's only, and not in
@@ -819,6 +828,23 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         if photo and image_store is not None:
             image_store.delete(photo)  # deleting means deleting (2026-10-15)
+        return Response(status_code=204)
+
+    @app.put("/v1/receipts/{receipt_id}/shared", status_code=204)
+    def share_receipt(request: Request, receipt_id: int, body: SharedRequest) -> Response:
+        """Share this receipt's upload with the developer to make the app
+        better, or take it back (owner, 2026-10-15: consent, one tap)."""
+        try:
+            require_writes(request).share_receipt(receipt_id, body.shared)
+        except NotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return Response(status_code=204)
+
+    @app.put("/v1/jobs/{job_id}/shared", status_code=204)
+    def share_job(request: Request, job_id: str, body: SharedRequest) -> Response:
+        """The same for one upload, such as one that could not be read."""
+        if not require_writes(request).share_job(job_id, body.shared):
+            raise HTTPException(status_code=404, detail=f"no upload {job_id}")
         return Response(status_code=204)
 
     @app.delete("/v1/me", status_code=204)
