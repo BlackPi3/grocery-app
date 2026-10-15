@@ -35,7 +35,7 @@ SEARCHED = {
 
 
 def test_a_call_is_priced_by_its_tokens_and_its_searches():
-    cost = 0.75 + 0.2 * 3.75 + 2 * spend.SEARCH_PRICE_USD
+    cost = 0.825 + 0.2 * 4.125 + 2 * spend.SEARCH_PRICE_USD
     with spend.tagged("finding", job_id="job-1"):
         row = spend.call_record("gemini-3.8-flash", SEARCHED)
     assert row == {"purpose": "finding", "job_id": "job-1", "model": "gemini-3.8-flash",
@@ -117,8 +117,8 @@ def test_a_receipt_costs_its_reading_and_finding_its_items(engine, session, tmp_
     session.commit()
 
     doc = client.get("/v1/costs").json()
-    reading = 4000 * 0.75 / 1e6 + 800 * 3.75 / 1e6
-    finding = 0.75 + 0.2 * 3.75 + 2 * spend.SEARCH_PRICE_USD
+    reading = 4000 * 0.825 / 1e6 + 800 * 4.125 / 1e6
+    finding = 0.825 + 0.2 * 4.125 + 2 * spend.SEARCH_PRICE_USD
     (this_month, september) = doc["months"]
     assert september["month"] == "2026-09" and september["reading_usd"] == 0.004
     assert this_month["reading_usd"] == pytest.approx(reading, abs=1e-5)
@@ -148,9 +148,9 @@ def test_a_day_past_each_spend_mark_says_so_once(engine, session, monkeypatch, c
     monkeypatch.setenv("GROCERY_SPEND_ALERT_USD", "1.00")
     write = spend.database_sink(make_session_factory(engine))
 
-    def costing(dollars):  # output tokens only, at $3.75 a million
+    def costing(dollars):  # output tokens only, at $4.125 a million
         return spend.call_record("gemini-3.8-flash", {"usageMetadata": {
-            "candidatesTokenCount": round(dollars / 3.75 * 1e6)}})
+            "candidatesTokenCount": round(dollars / 4.125 * 1e6)}})
 
     for dollars in (0.6, 0.3, 0.2, 0.5, 0.6):  # 0.6, 0.9, 1.1, 1.6, 2.2
         write(costing(dollars))
@@ -175,7 +175,7 @@ def test_past_the_free_searches_the_rest_are_billed_shared_over_every_search(
         write(spend.call_record("gemini-3.8-flash", SEARCHED))
 
     (month,) = client.get("/v1/costs").json()["months"]
-    tokens = 0.75 + 0.2 * 3.75
+    tokens = 0.825 + 0.2 * 4.125
     assert month["searches"] == 4
     assert month["billed_usd"] == pytest.approx(2 * tokens + 1 * spend.SEARCH_PRICE_USD,
                                                 abs=1e-5), "3 of 4 free, the 4th billed"

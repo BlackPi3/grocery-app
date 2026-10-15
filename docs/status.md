@@ -4,20 +4,66 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-15, laptop: the People card is open as a PR, waiting for the owner's yes; next, the owner's backlog (below Parked), one item at a time.
+**Last updated:** 2026-10-15, laptop: privacy work, the People card and Receipts matching Home merged; next, the owner's backlog (below Parked), one item at a time.
 
 ## Now
 
-- `main` deploys the server and the public demo on every merge
-  (`.github/workflows/deploy.yml`). Mid-flight: the People card PR (below),
-  waiting for the owner's yes on the screenshot.
+- Everything is merged. `main` deploys the server and the public demo on
+  every merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
+- Built (owner, 2026-10-15, the privacy work): **a privacy page** at
+  `/privacy` (`api/privacy.html`), open without signing in, German first
+  (the text that counts) and English: who runs the server (repo variable
+  `GROCERY_OWNER_NAME`, secret `GROCERY_OWNER_EMAIL`, filled in by the
+  server, so no address is in the repo), what is kept, why (Art. 6(1)(b)
+  the service, 6(1)(f) improving the reading, objection by email), who sees
+  it (Google Cloud in Frankfurt, Gemini in the EU, searches with product
+  names only), how long (until deleted; 30 days for photos no receipt came
+  from and inbox copies; backups and Google's bin 7 days; logs 30 days),
+  and the rights. Linked under the sign-in card and on You. **Delete my
+  account** on You for users (two taps, no dialog). Every promise on the
+  page is kept by code; change one, change the other. No legal review yet:
+  before a public launch, a lawyer, and an Impressum with an address. Merged as #160.
+- Built (owner, 2026-10-15, "proceed with the rest of the privacy"):
+  **deleting means deleting.** Removing a receipt deletes its photo (unless
+  another receipt was read from the same bytes); `DELETE /v1/me` deletes a
+  user's account with their receipts, photos, uploads and sign-ins (the
+  owner's answers 403: the owner's account is the server). What they taught
+  the shared memory and catalog stays, their name replaced by
+  `user:removed`; what their uploads cost stays, with no upload. Photos no
+  receipt came from (not a receipt, could not be read, a second shot) are
+  deleted 30 days after they were last sent (`keep_forgetting`, every 6 h,
+  real server only); the laptop's `data/inbox/` copies likewise
+  (`dev_inbox.forget_old`, at session start). Photos live in the bucket in
+  `europe-west3`. Next: the privacy page and the delete button, shown first.
+- Done (owner, 2026-10-15, "if they're at the EU then okay, but make sure
+  the app doesn't get worse"): **Gemini reads in the EU.** Every call goes to
+  Vertex AI's EU multi-region endpoint (`aiplatform.eu.rep.googleapis.com`,
+  location `eu`) instead of `global`, which could process anywhere. Same
+  model (`gemini-3.8-flash`), web search works there; three timed calls from
+  the laptop: about 2 s against 3 s (one global call took 26 s). About 10%
+  dearer per token (third-party price pages), so `spend.py` prices are
+  0.825 / 4.125 per million. Paid test passed with a real photo.
+  `europe-west3` alone still does not offer the model. Searches are not
+  covered by Google's residency promise, but carry only product names. Next
+  privacy steps (privacy page, deleting photos with receipts, deleting an
+  account, inbox copies kept 30 days) wait for the owner's yes.
+- Built (owner, 2026-10-15, Home said 218 € for October and Receipts 246 €:
+  "the discrepancy can be annoying"): **the Receipts month shows Home's
+  number**, the sum of each receipt's `spend` (#156: the product lines the
+  shopper counts, as paid; `left_out`, `deposits`), with what it leaves out
+  named in small grey text under it ("Not counted: Rotwein 26,13 €, …,
+  deposits back 2,25 €"). Each receipt card still shows its printed total.
+  Home was never stale: it reloads whenever a receipt finishes. Merged as
+  #157.
+- Everything is merged. `main` deploys the server and the public demo on every
+  merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
 - Built (owner, 2026-10-15, "can I see the people that are using the app,
   their Gmail, how many receipts"): **a People card on You**, the owner's
   only, not in the demo. Per person: name, Google address, receipts, last
   photo sent, last Google sign-in ("uses a password" when they have no
   address), and what their photos' model calls cost this month at list
   price; most recently active first. `/v1/users` gained `last_sign_in`,
-  `last_upload`, `month_cost_usd` (#154, merged). Live on 2026-10-15: 5
+  `last_upload`, `month_cost_usd` (#154). Merged as #155. Live on 2026-10-15: 5
   people, 3 signed in, none has sent a photo.
 - Checked (owner, 2026-10-15, "Home says 218 € for October, Receipts
   246 €"): **not stale.** Both had the same 15 receipts. Home's month counts

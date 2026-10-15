@@ -28,9 +28,13 @@ from typing import Any
 from grocery_app import spend
 
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-# The global endpoint: the Flash models are not offered in europe-west3 or
-# europe-west4 (tried 2026-10-03).
-VERTEX_URL = ("https://aiplatform.googleapis.com/v1/projects/{project}/locations/global/"
+# The EU multi-region endpoint: the photo and every call stay in the EU
+# (owner, 2026-10-15: "if they're at the EU then okay, but the app must not get
+# worse"). Same model as the global endpoint, search included, and faster from
+# Frankfurt in a first try (about 2 s against 3 s); about 10% dearer per token.
+# The Flash models are not offered in europe-west3 or europe-west4 alone
+# (tried 2026-10-03, again 2026-10-15).
+VERTEX_URL = ("https://aiplatform.eu.rep.googleapis.com/v1/projects/{project}/locations/eu/"
               "publishers/google/models/{model}:generateContent")
 VERTEX_ENV = "GEMINI_VERTEX_PROJECT"
 KEY_ENV = "GEMINI_API_KEY"

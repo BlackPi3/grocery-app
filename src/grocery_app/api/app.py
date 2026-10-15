@@ -39,12 +39,13 @@ from __future__ import annotations
 
 import hmac
 import logging
+import os
 import re
 import threading
 import time
 from concurrent.futures import Executor, Future
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -126,6 +127,7 @@ __all__ = ["DEFAULT_PURCHASES", "MAX_UPLOAD_BYTES", "create_app", "default_app"]
 
 # The shopper's page (`GET /`): one static file, shipped with the package.
 REVIEW_PAGE = Path(__file__).with_name("review.html")
+PRIVACY_PAGE = Path(__file__).with_name("privacy.html")
 PAGE_WORKER = Path(__file__).with_name("sw.js")
 
 # A receipt photo off a phone is a few megabytes. The cap is not a security
@@ -142,6 +144,35 @@ def _said_if_failed(done: Future) -> None:
     if done.exception() is not None:
         log.error("a reading crashed", exc_info=done.exception())
 
+# How long a photo no receipt was made from is kept (owner, 2026-10-15): long
+# enough for a developer to learn from it (`/v1/inbox`), then deleted.
+FORGET_PHOTOS_AFTER = timedelta(days=30)
+FORGET_EVERY_SECONDS = 6 * 3600
+
+
+def forget_old_photos(repository: Any, image_store: Any, now: datetime | None = None) -> int:
+    """Delete the photos `photos_to_forget` names; how many were there."""
+    forgotten = 0
+    for photo in repository.photos_to_forget((now or datetime.now(UTC)) - FORGET_PHOTOS_AFTER):
+        if image_store.size(photo) is not None:
+            image_store.delete(photo)
+            forgotten += 1
+    return forgotten
+
+
+def keep_forgetting(repository: Any, image_store: Any,
+                    every: float = FORGET_EVERY_SECONDS) -> None:
+    """The server's forgetting thread: a pass, a pause, for as long as it runs."""
+    while True:
+        try:
+            if forgotten := forget_old_photos(repository, image_store):
+                log.info("deleted %d photos older than %s that no receipt came from",
+                         forgotten, FORGET_PHOTOS_AFTER)
+        except Exception:  # a failed pass is tried again at the next
+            log.exception("deleting old photos failed")
+        time.sleep(every)
+
+
 # The /v1 routes that answer without a password: they are how one gets one.
 SIGN_IN_PATHS = frozenset({"/v1/auth/config", "/v1/auth/google", "/v1/auth/google/redirect"})
 
@@ -153,7 +184,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                token: str | None = None, resume_after: float | None = None,
                pictures: Pictures | None = None, demo: bool = False,
                google: GoogleSignIn | None = None, readers: Executor | None = None,
-               sorter: Any | None = None) -> FastAPI:
+               sorter: Any | None = None, forget_photos: bool = False) -> FastAPI:
     if demo:
         google = None  # the demo has no accounts: every guest is the owner
     @asynccontextmanager
@@ -177,6 +208,12 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                 target=keep_sorting, args=(repository.session_factory, sorter),
                 name="sorting", daemon=True)
             app.state.sorting.start()
+        if forget_photos and uploads_available and not demo:
+            # Photos no receipt came from are kept 30 days, then deleted.
+            app.state.forgetting = threading.Thread(
+                target=keep_forgetting, args=(repository, image_store),
+                name="forgetting", daemon=True)
+            app.state.forgetting.start()
         if resume_after is not None and uploads_available:
             started = datetime.now(UTC)
 
@@ -514,6 +551,20 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         routes above, nothing else."""
         return HTMLResponse(REVIEW_PAGE.read_text(encoding="utf-8"))
 
+    @app.get("/privacy", include_in_schema=False)
+    def privacy_page() -> HTMLResponse:
+        """What the app keeps and why, open to anyone (2026-10-15). Who runs
+        this server and how to reach them come from its environment, so the
+        public repo holds no address."""
+        from html import escape
+
+        name = os.environ.get("GROCERY_OWNER_NAME") or "The person who runs this server"
+        email = os.environ.get("GROCERY_OWNER_EMAIL")
+        contact = (f'<a href="mailto:{escape(email)}">{escape(email)}</a>' if email
+                   else "the address they gave you")
+        return HTMLResponse(PRIVACY_PAGE.read_text(encoding="utf-8")
+                            .replace("{{NAME}}", escape(name)).replace("{{EMAIL}}", contact))
+
     @app.get("/sw.js", include_in_schema=False)
     def page_worker() -> Response:
         """The page's service worker: the phone keeps a copy of the page, so a
@@ -763,9 +814,25 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         them. The page waits a few seconds before calling this, so its Undo
         never needs the server."""
         try:
-            require_writes(request).remove_receipt(receipt_id)
+            photo = require_writes(request).remove_receipt(receipt_id)
         except NotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if photo and image_store is not None:
+            image_store.delete(photo)  # deleting means deleting (2026-10-15)
+        return Response(status_code=204)
+
+    @app.delete("/v1/me", status_code=204)
+    def delete_account(request: Request) -> Response:
+        """Delete the asker's account and everything that is theirs: receipts,
+        photos, answers, sign-ins (owner, 2026-10-15, the privacy work). A
+        user's only: the owner's account is the server. Not in the demo."""
+        if asking(request) is None:
+            raise HTTPException(status_code=403,
+                                detail="the owner's account is the server; it is not deleted here")
+        not_in_demo()
+        for photo in require_writes(request).remove_account():
+            if image_store is not None:
+                image_store.delete(photo)
         return Response(status_code=204)
 
     @app.put("/v1/receipts/{receipt_id}/lines/{position}/counted",
@@ -837,7 +904,8 @@ def default_app() -> FastAPI:
                       google=None if demo.is_demo() else google_configured(),
                       readers=reading_line(),
                       sorter=sorting_decider()
-                      if type(repository).__name__ == "PostgresRepository" else None)
+                      if type(repository).__name__ == "PostgresRepository" else None,
+                      forget_photos=True)
 
 
 # A deploy stops the old server within ten seconds of starting the new one

@@ -242,6 +242,12 @@
     border-radius: 0; background: none; color: var(--ink); text-align: left; }
   .month-head .name { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
   .month-head .end { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .privacy-row { margin-top: 10px; justify-content: space-between; align-items: center; }
+  .privacy-row a { text-decoration: none; }
+  button.quiet { background: none; border: 0; color: var(--muted); font-size: 12px; padding: 4px 0; }
+  button.danger { background: var(--bad); border-color: var(--bad); color: #fff; font-size: 13px; }
+  .month-head .left-out { color: var(--muted); font-size: 11px; opacity: 0.8; margin-top: 2px;
+    text-align: left; font-weight: 400; }
   .month-head .money { font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600; }
   .month-head .chev { color: var(--muted); font-size: 20px; line-height: 1;
     transition: transform 0.15s; }
@@ -1266,7 +1272,33 @@ function accountCard() {
         .catch(() => { /* it ends by itself */ });
       forgetToken();
       location.reload();
-    } }, "Log out")));
+    } }, "Log out")),
+    el("div", { class: "row privacy-row" },
+      el("a", { href: "/privacy", class: "meta" }, "Privacy"),
+      state.me.role === "user" ? deleteAccountButton() : null));
+}
+
+// Deleting an account takes everything of that person (owner, 2026-10-15,
+// the privacy work). Two taps, no browser dialog: the first says what goes,
+// the second does it. Never the owner's: their account is the server.
+function deleteAccountButton() {
+  const asking = state.deleteAsked && Date.now() - state.deleteAsked < 10000;
+  return el("button", { class: asking ? "danger" : "quiet", onclick: async () => {
+    if (!asking) {
+      state.deleteAsked = Date.now();
+      render();
+      setTimeout(render, 10000);  // no second tap: back to how it was
+      return;
+    }
+    try {
+      await api("/v1/me", { method: "DELETE" });
+    } catch (error) {
+      toast(error.message);
+      return;
+    }
+    forgetToken();
+    location.reload();
+  } }, asking ? "Tap again: delete all my receipts and my account" : "Delete my account");
 }
 
 function costsCard() {
@@ -2353,7 +2385,13 @@ function receiptsView() {
             const list = months.get(key);
             const open = key in state.monthOpen ? state.monthOpen[key]
               : key === newest || list.some(r => r.receipt_id === state.open);
-            const totals = list.filter(r => r.printed_total != null);
+            // The month counts what Home counts (owner, 2026-10-15: two totals for
+            // one month were annoying); what it leaves out is named under it.
+            const leftOut = list.flatMap(r => r.left_out || []);
+            const deposits = list.reduce((sum, r) => sum + (r.deposits || 0), 0);
+            const outText = [...leftOut.map(l => `${l.name} ${euro(l.net_paid)}`),
+                             ...(deposits >= 0.005 ? [`deposits ${euro(deposits)}`]
+                               : deposits <= -0.005 ? [`deposits back ${euro(-deposits)}`] : [])];
             const asked = list.reduce((n, r) => n + asksOn(r.receipt_id).length, 0);
             const name = !key ? "No date"
               : yearSwitch || key.slice(0, 4) === thisYear ? monthName(key).replace(/ \d+$/, "")
@@ -2364,15 +2402,15 @@ function receiptsView() {
               el("div", {},
                 el("div", { class: "name" },
                    !open && list.some(r => !r.seen_at) ? newMark() : null, name),
-                el("div", { class: "meta" }, plural(list.length, "receipt", "receipts") +
-                   // A total the paper did not give is not guessed: say it is missing.
-                   (totals.length < list.length
-                     ? `, ${list.length - totals.length} without a total` : ""))),
+                el("div", { class: "meta" }, plural(list.length, "receipt", "receipts")),
+                outText.length ? el("div", { class: "left-out" },
+                  "Not counted: " + outText.join(", ")) : null),
               el("div", { class: "end" },
                 asked && !open ? askMark(asked, `${asked} ${asked === 1 ? "question"
                   : "questions"} for you in ${name}`) : null,
                 el("span", { class: "money" },
-                   euro(totals.reduce((sum, r) => sum + r.printed_total, 0))),
+                   euro(list.reduce((sum, r) => sum + (r.spend != null ? r.spend
+                     : r.printed_total || 0), 0))),
                 el("span", { class: "chev", "aria-hidden": "true" }, "›")));
             return [head, ...(open ? list.map(receiptCard) : [])];
           })];
@@ -2484,7 +2522,10 @@ async function askPassword(why) {
        clientId ? [googleButton(clientId), el("div", { class: "or" }, "or with a password")] : null,
        field,
        el("div", { class: "row", style: "margin-top: 10px" },
-          el("button", { class: "primary", onclick: unlock }, "Unlock"))));
+          el("button", { class: "primary", onclick: unlock }, "Unlock")),
+       // What signing in means for one's data, before signing in (2026-10-15).
+       el("div", { class: "meta", style: "margin-top: 12px" },
+          el("a", { href: "/privacy", style: "color: inherit" }, "Privacy: what the app keeps and why"))));
   // With Google on, the keyboard would cover the button most people want.
   if (!clientId) field.focus();
 }

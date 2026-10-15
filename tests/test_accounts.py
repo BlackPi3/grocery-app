@@ -274,3 +274,98 @@ def test_uploads_worth_a_look_reach_the_developer_once(two_people):
     got = client.get(f"/v1/inbox/{pdf['job_id']}/file", headers=OWNER)
     assert got.content == A_PDF and got.headers["content-type"] == "application/pdf"
     assert client.get(f"/v1/inbox/{pdf['job_id']}/file", headers=sara).status_code == 403
+
+
+# --- deleting means deleting (owner, 2026-10-15) ---------------------------------
+
+def stored(tmp_path, data):
+    from grocery_app.api.images import sha256_of
+    return (tmp_path / sha256_of(data)).exists()
+
+
+@pytestmark_db
+def test_removing_a_receipt_deletes_its_photo(two_people, tmp_path):
+    client, _, _ = two_people
+    red = photo("red")
+    job = client.post("/v1/receipts", headers=OWNER,
+                      files={"file": ("a.jpg", red, "image/jpeg")}).json()
+    receipt_id = client.get(f"/v1/jobs/{job['job_id']}", headers=OWNER).json()["receipt_id"]
+    assert stored(tmp_path, red)
+
+    assert client.delete(f"/v1/receipts/{receipt_id}", headers=OWNER).status_code == 204
+    assert not stored(tmp_path, red), "the photo goes with the receipt"
+
+    again = client.post("/v1/receipts", headers=OWNER,
+                        files={"file": ("a.jpg", red, "image/jpeg")}).json()
+    assert client.get(f"/v1/jobs/{again['job_id']}", headers=OWNER).json()["receipt_id"], \
+        "sent again, it is read again"
+    assert stored(tmp_path, red)
+
+
+@pytestmark_db
+def test_a_person_deletes_their_account_and_everything_theirs(two_people, session, tmp_path):
+    client, owner, sara = two_people
+    mine, hers = photo("red"), photo("blue")
+    client.post("/v1/receipts", headers=OWNER, files={"file": ("a.jpg", mine, "image/jpeg")})
+    client.post("/v1/receipts", headers=sara, files={"file": ("b.jpg", hers, "image/jpeg")})
+    sara_repo = owner.as_user({"id": owner.users()[0]["id"], "name": "Sara"})
+    her_receipt = add_receipt(session, "IMG_9.jpeg", ["MU Skyr"], sara_repo.user_id)
+    sara_repo.set_line_resolution(her_receipt, 0, "p-0004")  # teaches the shared memory
+
+    assert client.delete("/v1/me", headers=OWNER).status_code == 403, "the owner's is the server"
+    assert client.delete("/v1/me", headers=sara).status_code == 204
+
+    assert client.get("/v1/receipts", headers=sara).status_code == 401, "her password is gone"
+    assert [u["name"] for u in client.get("/v1/users", headers=OWNER).json()] == []
+    assert not stored(tmp_path, hers) and stored(tmp_path, mine)
+    session.expire_all()
+    from grocery_app.db.models import Job, Receipt
+    assert session.query(Receipt).filter(Receipt.user_id.is_not(None)).count() == 0
+    assert session.query(Job).filter(Job.user_id.is_not(None)).count() == 0
+    remembered = session.query(Resolution).filter_by(raw_name="MU Skyr").one()
+    assert (remembered.product_id, remembered.confirmed_by) == ("p-0004", "user:removed"), \
+        "what she taught about the name stays, without her name"
+    assert len(client.get("/v1/receipts", headers=OWNER).json()) == 1, "the owner's untouched"
+
+
+@pytestmark_db
+def test_a_photo_no_receipt_came_from_is_deleted_after_30_days(two_people, session, tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    from grocery_app.api.app import forget_old_photos
+    from grocery_app.api.images import DiskImageStore, sha256_of
+    from grocery_app.db.models import Job
+
+    client, owner, _ = two_people
+    store = DiskImageStore(tmp_path)
+    read = photo("red")
+    client.post("/v1/receipts", headers=OWNER, files={"file": ("a.jpg", read, "image/jpeg")})
+    for colour, days in (("blue", 31), ("green", 5)):  # never made a receipt
+        data = photo(colour)
+        store.put(sha256_of(data), data)
+        session.add(Job(image_sha256=sha256_of(data), status="failed",
+                        created_at=datetime.now(UTC) - timedelta(days=days)))
+    session.query(Job).filter(Job.image_sha256 == sha256_of(read)).update(
+        {"created_at": datetime.now(UTC) - timedelta(days=90)})
+    session.commit()
+
+    assert forget_old_photos(owner, store) == 1
+    assert not stored(tmp_path, photo("blue")), "a month old and no receipt: deleted"
+    assert stored(tmp_path, photo("green")), "kept for the developer to learn from"
+    assert stored(tmp_path, read), "a receipt's photo stays as long as the receipt"
+
+
+@pytestmark_db
+def test_the_privacy_page_is_open_and_names_who_runs_the_server(two_people, monkeypatch):
+    client, _, _ = two_people
+    monkeypatch.setenv("GROCERY_OWNER_NAME", "Erika <Muster>")
+    monkeypatch.setenv("GROCERY_OWNER_EMAIL", "erika@example.com")
+    page = client.get("/privacy")  # no password: one reads it before signing in
+    assert page.status_code == 200
+    assert "Erika &lt;Muster&gt;" in page.text, "escaped, never markup"
+    assert 'href="mailto:erika@example.com"' in page.text
+    assert "{{" not in page.text
+
+    monkeypatch.delenv("GROCERY_OWNER_NAME")
+    monkeypatch.delenv("GROCERY_OWNER_EMAIL")
+    assert "The person who runs this server" in client.get("/privacy").text

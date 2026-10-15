@@ -265,7 +265,7 @@ def test_gemini_reads_the_photo_with_the_same_prompt_and_schema(tmp_path, monkey
     sent = base64.b64decode(body["contents"][0]["parts"][0]["inlineData"]["data"])
     assert sent == extract.prepare_image(photo), "the photo is prepared as for every reader"
     assert result.meta["reader"] == "gemini"
-    assert result.meta["cost_usd"] == pytest.approx(0.75 + 0.2 * 3.75), \
+    assert result.meta["cost_usd"] == pytest.approx(0.825 + 0.2 * 4.125), \
         "thinking is billed as output"
 
 
@@ -346,8 +346,8 @@ def test_gemini_goes_through_vertex_when_a_project_is_named(monkeypatch):
 
     monkeypatch.setenv("GEMINI_VERTEX_PROJECT", "my-proj")
     url, auth = gemini.endpoint("gemini-x")
-    assert url == ("https://aiplatform.googleapis.com/v1/projects/my-proj/locations/global/"
-                   "publishers/google/models/gemini-x:generateContent")
+    assert url == ("https://aiplatform.eu.rep.googleapis.com/v1/projects/my-proj/locations/eu/"
+                   "publishers/google/models/gemini-x:generateContent"), "read in the EU"
     assert auth == {"Authorization": "Bearer tok"}, "Vertex is preferred over the key"
 
     url, auth = gemini.endpoint("gemini-x", api_key="explicit")
