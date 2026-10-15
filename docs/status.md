@@ -8,6 +8,14 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Now
 
+- Built (owner, 2026-10-15, Home said 218 € for October and Receipts 246 €:
+  "the discrepancy can be annoying"): **the Receipts month shows Home's
+  number**, the sum of each receipt's `spend` (#156: the product lines the
+  shopper counts, as paid; `left_out`, `deposits`), with what it leaves out
+  named in small grey text under it ("Not counted: Rotwein 26,13 €, …,
+  deposits back 2,25 €"). Each receipt card still shows its printed total.
+  Home was never stale: it reloads whenever a receipt finishes. PR #157
+  open, waiting for the owner's yes.
 - Everything is merged. `main` deploys the server and the public demo on every
   merge (`.github/workflows/deploy.yml`). Nothing is mid-flight.
 - Fixed (owner, 2026-10-14): **a found product with no category**, and the
