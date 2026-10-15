@@ -983,6 +983,12 @@ def _compared(out: list[dict[str, Any]], rows: list[dict[str, Any]],
         entry["compared"] = compare_month(rows, entry["month"], day)
         entry["usual"] = usual_by_day(rows, entry["month"], day)
         entry["why"] = why_against_usual(rows, entry["month"], entry["usual"])
+        # The same reasons against last month's same days, for the switch on
+        # the month page (owner, 2026-10-15: usual and last month both).
+        c = entry["compared"]
+        entry["why_last"] = why_against_usual(rows, entry["month"], {
+            "through_day": c["through_day"], "months": [c["versus"]],
+            "spend": c["versus_spend"]}) if c else None
         # The lines a month's chart draws: this month to today, the month
         # before whole (when there is a comparison at all); the usual month's
         # is `usual.running`.

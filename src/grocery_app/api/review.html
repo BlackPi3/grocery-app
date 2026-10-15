@@ -259,6 +259,13 @@
   .bridge-head .money { font-variant-numeric: tabular-nums; font-size: 14px; }
   .chev { color: var(--muted); font-size: 18px; line-height: 1; }
   .track { position: relative; height: 12px; margin-top: 6px; }
+  .track.centred { background: linear-gradient(var(--muted), var(--muted)) 50% 0 / 1px 100% no-repeat; }
+  .bridge-row.total .what, .bridge-row.total .money { font-weight: 650; }
+  .axis-note { display: flex; justify-content: space-between; color: var(--muted);
+    font-size: 12px; margin-top: 6px; }
+  .switch { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; }
+  .switch button { font-size: 13px; padding: 4px 12px; border-radius: 999px; }
+  .switch button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
   .vbar { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
   .vbar.more { background: var(--more); }
   .vbar.less { background: var(--less); }
@@ -1577,12 +1584,12 @@ function paceView() {
 // (`insights.why_against_usual`). Orange/aqua: validated for colour-blind
 // readers in both themes; every bar also carries its signed value.
 const WHY_STEPS = [
-  ["new", w => "New things", w => plural(w.counts.new, "thing", "things") + " not bought usually"],
-  ["skipped", w => "Skipped this time", w => plural(w.counts.skipped, "thing", "things") +
-     " you usually buy"],
+  ["new", w => "New things", (w, ref) => plural(w.counts.new, "thing", "things") + ` not bought ${ref}`],
+  ["skipped", w => "Skipped this time", (w, ref) => plural(w.counts.skipped, "thing", "things") +
+     ` bought ${ref}, not now`],
   ["amounts", w => w.parts.amounts >= 0 ? "More of the same things" : "Fewer of the same things",
      w => plural(w.counts.same, "thing", "things") + " you buy both times"],
-  ["prices", w => "Same things, prices", () => "The shelf price now against usually"],
+  ["prices", w => "Same things, prices", (w, ref) => `The shelf price now against ${ref}`],
   ["discounts", w => "Same things, discounts", w => w.parts.discounts < 0
      ? "Discounts saved more" : "Discounts saved less"],
 ];
@@ -1611,51 +1618,60 @@ function tripsCard(month) {
       el("div", { class: "dot-count" }, n.toLocaleString("en", { maximumFractionDigits: 1 })))),
     el("div", { class: "meta" }, `Days 1 to ${month.usual.through_day || "the end"} of each month`));
 }
+// Bars from one centre line: more spending grows right (orange), less grows
+// left (aqua), all on one scale (owner, 2026-10-15: bars that start in
+// different places were confusing). The switch compares with the usual month
+// or last month, the same days of each.
+function whyOf(month) {
+  return state.whyBase === "last" && month.why_last ? month.why_last : month.why;
+}
+function divergeRows(rows, onclick) {
+  const top = Math.max(...rows.map(r => Math.abs(r.amount)), 0.01);
+  return rows.map((r, i) => {
+    const go = onclick(r, i), w = (Math.abs(r.amount) / top * 50).toFixed(2);
+    return el("div", { class: "bridge-row" + (go ? " go" : "") + (r.total ? " total" : ""), onclick: go },
+      el("div", { class: "bridge-head" },
+        el("div", {}, el("div", { class: "what" }, r.name), r.says ? el("div", { class: "meta" }, r.says) : null),
+        el("div", { class: "money" }, signed(r.amount)),
+        go ? el("span", { class: "chev", "aria-hidden": "true" }, "›") : null),
+      el("div", { class: "track centred" },
+        el("div", { class: "vbar " + (r.total ? "now" : tone(r.amount)),
+          style: r.amount >= 0 ? `left: 50%; width: max(3px, ${w}%)`
+                               : `right: 50%; width: max(3px, ${w}%)` })));
+  });
+}
 function bridgeCard(month) {
-  const why = month.why, more = why.difference > 0;
+  const why = whyOf(month), more = why.difference > 0;
+  const lastName = month.compared ? monthName(month.compared.versus).replace(/ \d+$/, "") : null;
+  const onLast = state.whyBase === "last" && month.why_last;
+  const name = monthName(month.month).replace(/ \d+$/, "");
+  const choose = key => el("button", { class: (onLast ? "last" : "usual") === key ? "on" : "",
+    onclick: () => { state.whyBase = key; render(); } }, key === "usual" ? "Usual" : lastName);
   const steps = WHY_STEPS.filter(([key]) => Math.abs(why.parts[key]) >= 0.005);
-  let run = month.usual.spend;
-  const spans = steps.map(([key]) => { const from = run; run += why.parts[key]; return [from, run]; });
-  const top = Math.max(month.usual.spend, month.spend, ...spans.flat(), 1);
-  const pct = v => `${(Math.max(0, v) / top * 100).toFixed(2)}%`;
-  const bar = (from, to, cls) => el("div", { class: "track" },
-    el("div", { class: "vbar " + cls, style: `left: ${pct(Math.min(from, to))}; ` +
-      `width: max(3px, ${pct(Math.abs(to - from))})` }));
-  const row = (name, says, value, track, onclick) => el("div",
-    { class: "bridge-row" + (onclick ? " go" : ""), onclick },
-    el("div", { class: "bridge-head" },
-      el("div", {}, el("div", { class: "what" }, name), says ? el("div", { class: "meta" }, says) : null),
-      el("div", { class: "money" }, value),
-      onclick ? el("span", { class: "chev", "aria-hidden": "true" }, "›") : null),
-    track);
   return el("div", { class: "card viz" },
-    el("h2", {}, `Why ${euro(Math.abs(why.difference))} ${more ? "more" : "less"} than usual`),
-    row("Usual", null, euro(month.usual.spend), bar(0, month.usual.spend, "base")),
-    steps.map(([key, name, says], i) => row(name(why), says(why), signed(why.parts[key]),
-      bar(spans[i][0], spans[i][1], tone(why.parts[key])), () => openWhy(key))),
-    row(monthName(month.month).replace(/ \d+$/, "") + " so far", null, euro(month.spend),
-      bar(0, month.spend, "now")));
+    el("h2", {}, `Why ${euro(Math.abs(why.difference))} ${more ? "more" : "less"} than ` +
+      (onLast ? `in ${lastName}` : "usual")),
+    month.why_last ? el("div", { class: "switch" }, el("span", { class: "meta" }, "Compare with"),
+      choose("usual"), choose("last")) : null,
+    el("div", { class: "meta" }, `${onLast ? lastName : "Usual"} ${euro(month.spend - why.difference)}` +
+      ` → ${name} ${euro(month.spend)}` +
+      (month.usual.through_day ? `, days 1 to ${month.usual.through_day}` : "")),
+    divergeRows([
+      ...steps.map(([key, label, says]) => ({ key, name: label(why),
+                                              says: says(why, onLast ? `in ${lastName}` : "usually"),
+                                              amount: why.parts[key] })),
+      { name: "Altogether", amount: why.difference, total: true }],
+      r => r.key ? () => openWhy(r.key) : null),
+    el("div", { class: "axis-note" }, el("span", {}, "← less spending"), el("span", {}, "more spending →")));
 }
 function whyCard(month) {
   const why = month.why;
   if (!why || !month.usual || Math.abs(why.difference) < 1) return null;
   return [bridgeCard(month), tripsCard(month)];
 }
-// Bars for one level down: as long as their share of the biggest, coloured by
-// whether they added or took away.
-function barRows(rows, onclick) {
-  const top = Math.max(...rows.map(r => Math.abs(r.amount)), 0.01);
-  return rows.map((r, i) => el("div", { class: "bridge-row" + (onclick(r, i) ? " go" : ""),
-      onclick: onclick(r, i) },
-    el("div", { class: "bridge-head" },
-      el("div", {}, el("div", { class: "what" }, r.name), r.says ? el("div", { class: "meta" }, r.says) : null),
-      el("div", { class: "money" }, signed(r.amount)),
-      onclick(r, i) ? el("span", { class: "chev", "aria-hidden": "true" }, "›") : null),
-    el("div", { class: "track" }, el("div", { class: "vbar " + tone(r.amount),
-      style: `left: 0; width: max(3px, ${(Math.abs(r.amount) / top * 100).toFixed(2)}%)` }))));
-}
+function barRows(rows, onclick) { return divergeRows(rows, onclick); }
 function whyView(month) {
-  const why = month.why, at = state.pace.why;
+  const why = whyOf(month), at = state.pace.why;
   const back = el("button", { class: "back", onclick: () => {
     const scroll = at.scroll;
     state.pace.why = at.branch !== undefined && at.part !== "trips"

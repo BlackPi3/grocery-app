@@ -16,7 +16,10 @@ session (laptop or cloud) can pick up from here. How we work is in
   orange adds, aqua takes away, validated for colour-blind readers in both
   themes), and shopping trips as dots (this month, last month in the same
   days, usual). Lines nothing placed are things by their printed name, so no
-  "not identified" reason. PR #163.
+  "not identified" reason. Then (owner: "some bars left to right, some right
+  to left ... confusing"): every bar starts from one centre line, more
+  spending to the right, less to the left, and a switch compares with the
+  usual month or last month's same days (each month's `why_last`). PR #163.
 - Built (owner, 2026-10-15, on the month page: "how many trips, price
   difference and the items bought difference ... an aggregate, not per
   category"): **Why N € more than usual**, under the month's chart, in the
