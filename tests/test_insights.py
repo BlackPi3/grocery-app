@@ -588,33 +588,40 @@ def test_a_line_bought_for_someone_else_saves_the_shopper_nothing():
 
 # --- why a month is off its usual (owner, 2026-10-15) --------------------------
 
-def test_why_a_month_is_above_its_usual_trips_parts_of_the_shop_and_prices():
-    """"Why did that happen? More trips, more prices ... what is the key
-    factor?" Against the same usual months, each cut at the same day."""
-    def bought(pid, day, net, receipt, category):
+def test_why_a_month_is_off_its_usual_trips_same_things_and_different_things():
+    """"How many trips, price difference and the items bought difference ...
+    an aggregate, not per category": every euro of the gap in one reason, in
+    the same window (days 1 to 14) of this month and the usual months."""
+    def bought(pid, day, net, receipt, category="milch"):
         r = row(pid, day, net, category=category)
         r["source_image"] = receipt
         return r
 
-    rows = [bought("p-1", "2026-07-31", 9.00, "j1", "milch"),           # history starts
-            bought("p-1", "2026-08-02", 1.00, "a1", "milch"),
-            bought("p-1", "2026-09-03", 1.00, "s1", "milch"),
+    rows = [bought("p-1", "2026-07-31", 9.00, "j1"),                    # history starts
+            bought("p-1", "2026-08-02", 1.00, "a1"), bought("p-3", "2026-08-02", 3.00, "a1"),
+            bought("p-1", "2026-09-03", 1.00, "s1"),
             bought("p-2", "2026-09-20", 5.00, "s2", "duschgel"),        # after the 14th
-            bought("p-1", "2026-10-02", 1.20, "o1", "milch"),
+            bought("p-1", "2026-10-02", 1.20, "o1"),
             bought("p-2", "2026-10-05", 4.00, "o2", "duschgel"),
-            bought("p-1", "2026-10-09", 1.20, "o3", "milch")]
+            bought("p-1", "2026-10-09", 1.20, "o3")]
     october = build_insights({"meta": {}, "purchases": rows},
                              today=date(2026, 10, 14))["months"][0]
     why = october["why"]
     assert october["usual"]["months"] == ["2026-09", "2026-08"]
-    assert why["difference"] == pytest.approx(october["spend"] - october["usual"]["spend"])
-    assert why["difference"] == 5.40
-    assert why["trips"] == {"now": 3, "usual": 1}
-    assert [(b["branch"], b["spend"], b["usual"], b["difference"]) for b in why["branches"]] == [
-        ("Drogerie & Kosmetik", 4.00, 0.00, 4.00), ("Molkereiprodukte & Eier", 2.40, 1.00, 1.40)], \
-        "biggest difference first; September's shower gel came after the 14th"
-    assert sum(b["difference"] for b in why["branches"]) == pytest.approx(why["difference"])
-    assert why["prices"] == 0.40, "milk: 1,20 now against 1,00 usually, twice"
+    assert why["difference"] == 3.90 == round(october["spend"] - october["usual"]["spend"], 2)
+    assert why["trips"] == {"now": 3, "usual": 1.0,
+                            "by_store": [{"store": "Musterladen", "now": 3, "usual": 1.0}]}
+    assert why["parts"] == {"prices": 0.40,     # milk 1,20 against 1,00, twice
+                            "amounts": 1.00,    # milk twice, usually once
+                            "discounts": 0.0,
+                            "new": 4.00,        # the shower gel: September's came after the 14th
+                            "skipped": -1.50,   # August's cheese, usually 3,00 / 2
+                            "not_placed": 0.0}
+    assert sum(why["parts"].values()) == pytest.approx(why["difference"])
+    assert why["counts"] == {"new": 1, "skipped": 1, "same": 1}
+    (gel,) = why["details"]["new"]
+    assert (gel["branch"], gel["amount"], [i["product_id"] for i in gel["items"]]) == \
+        ("Drogerie & Kosmetik", 4.00, ["p-2"]), "a reason opens by part of the shop, then thing"
 
 
 def test_no_usual_no_why():

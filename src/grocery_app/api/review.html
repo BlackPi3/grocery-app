@@ -243,6 +243,8 @@
   .month-head .name { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
   .month-head .end { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
   .share-row { margin: 6px 0 14px; }
+  .line > .chev { color: var(--muted); align-self: center; font-size: 18px; }
+  .line.go > div:first-child { flex: 1; min-width: 0; }
   .share-row .meta { margin-top: 2px; }
   .privacy-row { margin-top: 10px; justify-content: space-between; align-items: center; }
   .privacy-row a { text-decoration: none; }
@@ -1521,6 +1523,7 @@ function paceView() {
   const back = el("button", { class: "back", onclick: closePace }, "‹ Back");
   const month = state.insights && state.insights.months.find(m => m.month === state.pace.month);
   if (!month || !month.running) return [back];
+  if (state.pace.why && month.why) return whyView(month);
   const pace = paceOf(month, state.pace.running);
   const name = monthName(month.month).replace(/ \d+$/, "");
   const ends = month.usual && month.usual.running[month.usual.running.length - 1];
@@ -1535,43 +1538,93 @@ function paceView() {
       `A usual month ends at ${euro(ends)}.`) : null), whyCard(month)];
 }
 
-// Why the month is off its usual, on the same footing (owner, 2026-10-15:
-// "more trips, more prices, what is the key factor?"): the parts of the shop
-// that moved the same way as the month, biggest first, then the trips, then
-// what prices did on the same things (`insights.why_against_usual`).
-const WHY_PARTS = 3;
+// Why the month is off its usual, in the same window (owner, 2026-10-15): the
+// trips, then the same things (price, how many, discounts), then the things
+// that differ (new, skipped), as totals that add up to the gap. A tap opens a
+// reason by part of the shop, a part by thing, a thing on its own page
+// (`insights.why_against_usual`).
+const WHY_ROWS = [
+  ["prices", "Same things, price", w => `${plural(w.counts.same, "thing", "things")} you also ` +
+     "bought usually: the shelf price now against usually"],
+  ["amounts", "Same things, how many", () => "More or fewer of them, at the usual price"],
+  ["discounts", "Same things, discounts", w => w.parts.discounts < 0
+     ? "Discounts saved more than usually" : "Discounts saved less than usually"],
+  ["new", "New things", w => `${plural(w.counts.new, "thing", "things")} not bought in the ` +
+     "usual months"],
+  ["skipped", "Things you skipped", w => `${plural(w.counts.skipped, "thing", "things")} ` +
+     "bought usually, not this time"],
+  ["not_placed", "Not identified yet", () => "Lines the app could not name yet"],
+];
+const WHY_SHOWN = 0.5;  // a reason under this is left out of the list
+const signed = v => (v > 0 ? "+" : v < 0 ? "−" : "") + euro(Math.abs(v));
+function openWhy(part, branch) {
+  state.pace.why = { part, branch, scroll: window.scrollY };
+  render();
+  window.scrollTo(0, 0);
+}
 function whyCard(month) {
   const why = month.why;
   if (!why || Math.abs(why.difference) < 1) return null;
   const more = why.difference > 0;
-  const signed = v => (v > 0 ? "+" : v < 0 ? "−" : "") + euro(Math.abs(v));
-  const parts = why.branches.filter(b => more ? b.difference >= 0.5 : b.difference <= -0.5)
-    .slice(0, WHY_PARTS);
-  const tripsWord = n => `${n} shopping ${n === 1 ? "trip" : "trips"}`;
-  const usualTrips = Math.round(why.trips.usual);
-  const pricesSmall = Math.abs(why.prices) < Math.abs(why.difference) / 10;
-  return el("div", { class: "card" },
+  const tap = (fn, ...children) => el("div", { class: "line go", onclick: fn }, ...children,
+    el("span", { class: "chev", "aria-hidden": "true" }, "›"));
+  const rows = WHY_ROWS.filter(([key]) => Math.abs(why.parts[key]) >= WHY_SHOWN);
+  const hidden = WHY_ROWS.filter(([key]) => Math.abs(why.parts[key]) < WHY_SHOWN && why.parts[key]);
+  return el("div", { class: "card why-card" },
     el("h2", {}, `Why ${euro(Math.abs(why.difference))} ${more ? "more" : "less"} than usual`),
-    parts.map(b => el("div", { class: "line" },
-      el("div", {},
-        el("div", { class: "what" }, b.branch || "Not sorted yet"),
-        el("div", { class: "meta" }, `${euro(b.spend)} · usually ${euro(b.usual)}`)),
-      el("div", { class: "money" }, signed(b.difference)))),
-    el("div", { class: "line" },
-      el("div", {},
-        el("div", { class: "what" }, "Trips"),
-        el("div", { class: "meta" }, `${tripsWord(why.trips.now)}, usually ${usualTrips}`))),
-    el("div", { class: "line" },
-      el("div", {},
-        el("div", { class: "what" }, "Prices"),
-        el("div", { class: "meta" }, pricesSmall
-          ? "The same things cost about what they usually do: not the reason"
-          : `The same things cost ${why.prices > 0 ? "more" : "less"} than usually`)),
-      el("div", { class: "money" }, signed(why.prices))),
-    el("div", { class: "why" }, month.usual && month.usual.through_day
-      ? `Against your usual month by the ${ordinal(month.usual.through_day)}: the mean of ` +
-        "the months before, each cut at the same day."
-      : "Against your usual month: the mean of the whole months before."));
+    tap(() => openWhy("trips"),
+      el("div", {}, el("div", { class: "what" }, "Trips"),
+        el("div", { class: "meta" }, `${plural(why.trips.now, "shopping trip", "shopping trips")}` +
+          `, usually ${Math.round(why.trips.usual)}`))),
+    rows.map(([key, name, says]) => tap(() => openWhy(key),
+      el("div", {}, el("div", { class: "what" }, name), el("div", { class: "meta" }, says(why))),
+      el("div", { class: "money" }, signed(why.parts[key])))),
+    el("div", { class: "why" }, "These add up to the " + euro(Math.abs(why.difference)) +
+      (hidden.length ? ` (with ${hidden.length === 1 ? "one smaller reason" : "smaller reasons"} ` +
+        "not listed)" : "") + ". " + (month.usual.through_day
+        ? `Days 1 to ${month.usual.through_day} of this month against the same days of ` +
+          `${plural(month.usual.months.length, "month", "months")} before, averaged.`
+        : `Against the ${plural(month.usual.months.length, "month", "months")} before, averaged.`)));
+}
+// One reason opened: by part of the shop, then a part by thing; trips by shop.
+function whyView(month) {
+  const why = month.why, at = state.pace.why;
+  const back = el("button", { class: "back", onclick: () => {
+    const scroll = at.scroll;
+    state.pace.why = at.branch !== undefined && at.part !== "trips"
+      ? { part: at.part, scroll: 0 } : null;
+    render();
+    window.scrollTo(0, scroll || 0);
+  } }, "‹ Back");
+  if (at.part === "trips") {
+    return [back, el("div", { class: "card" },
+      el("h2", {}, `Trips: ${why.trips.now}, usually ${Math.round(why.trips.usual)}`),
+      why.trips.by_store.map(t => el("div", { class: "line" },
+        el("div", {}, el("div", { class: "what" }, t.store),
+          el("div", { class: "meta" }, `usually ${t.usual.toLocaleString("en", { maximumFractionDigits: 1 })}`)),
+        el("div", { class: "money" }, String(t.now)))))];
+  }
+  const [, name] = WHY_ROWS.find(([key]) => key === at.part);
+  const groups = why.details[at.part];
+  if (at.branch === undefined) {
+    return [back, el("div", { class: "card" },
+      el("h2", {}, `${name}: ${signed(why.parts[at.part])}`),
+      groups.map((g, i) => el("div", { class: "line go", onclick: () => openWhy(at.part, i) },
+        el("div", {}, el("div", { class: "what" }, g.branch || "Not sorted yet"),
+          el("div", { class: "meta" }, plural(g.items.length, "thing", "things"))),
+        el("div", { class: "money" }, signed(g.amount)),
+        el("span", { class: "chev", "aria-hidden": "true" }, "›"))))];
+  }
+  const g = groups[at.branch];
+  return [back, el("div", { class: "card" },
+    el("h2", {}, `${g.branch || "Not sorted yet"}: ${signed(g.amount)}`),
+    el("div", { class: "meta" }, name),
+    g.items.map(item => el("div", { class: "line" + (item.product_id ? " go" : ""),
+        onclick: item.product_id ? () => openProduct(item.product_id) : null },
+      el("div", {}, el("div", { class: "what" }, item.product),
+        el("div", { class: "meta" }, [item.brand, item.store].filter(Boolean).join(" · "))),
+      el("div", { class: "money" }, signed(item.amount)),
+      item.product_id ? el("span", { class: "chev", "aria-hidden": "true" }, "›") : null)))];
 }
 
 // Running totals as lines (the owner, 2026-10-14: one figure that holds them

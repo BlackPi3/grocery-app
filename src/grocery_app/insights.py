@@ -678,80 +678,128 @@ def usual_by_day(rows: list[dict[str, Any]], month: str,
             "spend": round(statistics.mean(v for _, v in counted), 2), "running": running}
 
 
+# The reasons a month is off its usual, in the order they are told.
+WHY_PARTS = ("prices", "amounts", "discounts", "new", "skipped", "not_placed")
+
+
 def why_against_usual(rows: list[dict[str, Any]], month: str,
                       usual: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Why `month` is above or below its usual (`usual_by_day`), on the same
-    footing: the same months, each cut at the same day (the owner, 2026-10-15:
-    "why did that happen? More trips, more prices ... what is the key factor?").
+    """Why `month` is above or below its usual (`usual_by_day`), in the same
+    window: this month to its day against the same days of the usual months
+    (the owner, 2026-10-15: "how many trips, price difference and the items
+    bought difference ... I want an aggregate, not per category").
 
-    - `trips`: shopping trips (receipts with a counted line), now and the mean
-      of the usual months;
-    - `branches`: every part of the shop, now and usually, with the
-      difference; the differences add up to the month's difference (to rounding);
-    - `prices`: what the shelf price moving cost on the things bought now that
-      were bought in the usual months too (pooled over them), at today's
-      amounts: the same rule as `compare_month`'s prices.
+    `trips`: shopping trips (receipts with a counted line), now and the mean of
+    the usual months, and per shop. `parts` split the difference so every euro
+    lands in one, and they add up to it (to rounding). A "thing" is one product
+    at one shop, sold the same way and priced in the same unit, as in
+    `compare_month`; "usually" is the mean over the usual months:
 
+    - `prices`: things bought now and usually, the shelf price now against
+      usually (pooled over the months), on what was bought now;
+    - `amounts`: the same things, more or fewer of them, at the usual price;
+    - `discounts`: the same things, printed discounts now against usually;
+    - `new`: things bought now and in none of the usual months' windows;
+    - `skipped`: things bought in them and not now (minus their usual spend);
+    - `not_placed`: lines nothing placed on a product, now against usually.
+
+    `counts` says how many things each of `new`, `skipped` and `same` holds,
+    and `details[part]` opens a part: by part of the shop, then by thing.
     None without a usual to explain against.
     """
     if not usual:
         return None
     day = usual["through_day"]
-    year, number = int(month[:4]), int(month[5:7])
 
     def window(key: str) -> list[dict[str, Any]]:
-        y, n = int(key[:4]), int(key[5:7])
-        last = _month_end(y, n).day
+        last = _month_end(int(key[:4]), int(key[5:7])).day
         cut = min(day, last) if day else last
         return [p for p in rows if p.get("date") and p["date"][:7] == key
                 and int(p["date"][8:10]) <= cut]
 
-    now = window(f"{year:04d}-{number:02d}")
-    then = {m: window(m) for m in usual["months"]}
-    count = len(then)
+    now = window(month)
+    then = [p for m in usual["months"] for p in window(m)]
+    k = len(usual["months"])
+    labels = _store_labels(now + then)
 
-    def trips(lines: list[dict[str, Any]]) -> int:
-        return len({p.get("source_image") for p in lines})
+    def trips(lines: list[dict[str, Any]]) -> dict[str, float]:
+        by_store: dict[str, set] = defaultdict(set)
+        for p in lines:
+            by_store[_store(p, labels)].add(p.get("source_image"))
+        return {store: len(seen) for store, seen in by_store.items()}
+
+    trips_now, trips_then = trips(now), trips(then)
+    shops = sorted(set(trips_now) | set(trips_then),
+                   key=lambda st: (-trips_now.get(st, 0), -trips_then.get(st, 0), st))
 
     def branch(p: dict[str, Any]) -> str | None:
         key = p.get("category")
         return categories.BRANCHES[categories.branch_of(key)] \
             if key in categories.CATEGORIES else None
 
-    by_now: dict[str | None, float] = defaultdict(float)
-    by_usual: dict[str | None, float] = defaultdict(float)
-    for p in now:
-        by_now[branch(p)] += p.get("net_paid") or 0.0
-    for lines in then.values():
-        for p in lines:
-            by_usual[branch(p)] += (p.get("net_paid") or 0.0) / count
-    branches = [{"branch": b, "spend": round(by_now[b], 2), "usual": round(by_usual[b], 2),
-                 "difference": round(by_now[b] - by_usual[b], 2)}
-                for b in set(by_now) | set(by_usual)]
-    branches.sort(key=lambda b: (-abs(b["difference"]), b["branch"] or ""))
-
     def things(lines: list[dict[str, Any]]) -> dict[tuple, list[dict[str, Any]]]:
         groups: dict[tuple, list[dict[str, Any]]] = defaultdict(list)
         for p in lines:
-            if p.get("product_id"):
-                groups[(p["product_id"], _form(p), _quantity(p)[1],
-                        store_key(p.get("store")))].append(p)
+            shop = store_key(p.get("store"))
+            key = ((p["product_id"], _form(p), _quantity(p)[1], shop) if p.get("product_id")
+                   else ("raw", p.get("raw_name"), shop))
+            groups[key].append(p)
         return groups
 
-    before = things([p for lines in then.values() for p in lines])
-    prices = 0.0
-    for key, current in things(now).items():
-        if key not in before:
-            continue
-        q_then = sum(_quantity(p)[0] for p in before[key])
-        q_now = sum(_quantity(p)[0] for p in current)
-        if q_then and q_now:
-            prices += (sum(_shelf(p) for p in current) / q_now
-                       - sum(_shelf(p) for p in before[key]) / q_then) * q_now
+    now_things, then_things = things(now), things(then)
+    found: dict[str, list[dict[str, Any]]] = {part: [] for part in WHY_PARTS}
+
+    def note(part: str, lines: list[dict[str, Any]], amount: float) -> None:
+        if abs(amount) >= 0.005:
+            found[part].append({"product_id": lines[-1].get("product_id"),
+                                "product": _name(lines), "brand": lines[-1].get("brand"),
+                                "store": _store(lines[-1], labels),
+                                "branch": branch(lines[-1]), "amount": amount})
+
+    same = 0
+    for key in set(now_things) | set(then_things):
+        current, before = now_things.get(key, []), then_things.get(key, [])
+        if key[0] == "raw":
+            note("not_placed", current or before, _spend(current) - _spend(before) / k)
+        elif not before:
+            note("new", current, _spend(current))
+        elif not current:
+            note("skipped", before, -_spend(before) / k)
+        else:
+            same += 1
+            q_now = sum(_quantity(p)[0] for p in current)
+            q_then = sum(_quantity(p)[0] for p in before)
+            price_now = sum(_shelf(p) for p in current) / q_now if q_now else 0.0
+            price_then = sum(_shelf(p) for p in before) / q_then if q_then else 0.0
+            note("prices", current, (price_now - price_then) * q_now)
+            note("amounts", current, (q_now - q_then / k) * price_then)
+            # Discounts are negative on the line (net = gross + discount).
+            note("discounts", current,
+                 sum(p.get("discount") or 0.0 for p in current)
+                 - sum(p.get("discount") or 0.0 for p in before) / k)
+
+    def by_branch(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        groups: dict[str | None, list[dict[str, Any]]] = defaultdict(list)
+        for item in items:
+            groups[item["branch"]].append(item)
+        out = [{"branch": b, "amount": round(sum(i["amount"] for i in group), 2),
+                "items": sorted(({k2: (round(v, 2) if k2 == "amount" else v)
+                                  for k2, v in i.items() if k2 != "branch"} for i in group),
+                                key=lambda i: -abs(i["amount"]))}
+               for b, group in groups.items()]
+        return sorted(out, key=lambda b: -abs(b["amount"]))
+
     return {"difference": round(_spend(now) - usual["spend"], 2),
-            "trips": {"now": trips(now),
-                      "usual": round(statistics.mean(trips(v) for v in then.values()), 1)},
-            "branches": branches, "prices": round(prices, 2)}
+            "trips": {"now": sum(trips_now.values()),
+                      "usual": round(sum(trips_then.values()) / k, 1),
+                      "by_store": [{"store": st, "now": trips_now.get(st, 0),
+                                    "usual": round(trips_then.get(st, 0) / k, 1)}
+                                   for st in shops]},
+            "parts": {part: round(sum(i["amount"] for i in found[part]), 2)
+                      for part in WHY_PARTS},
+            "counts": {"new": len(found["new"]), "skipped": len(found["skipped"]),
+                       "same": same},
+            "details": {part: by_branch(found[part]) for part in WHY_PARTS}}
 
 
 # The parts a month's difference is split into, in the order they are told.

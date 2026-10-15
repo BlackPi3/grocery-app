@@ -8,19 +8,19 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Now
 
-- Built (owner, 2026-10-15, on the month page: "why did that happen? More
-  trips, more prices ... what is the key factor?"): **Why N € more than
-  usual**, a card under the month's chart, against the same usual months
-  as the tile, each cut at the same day (`insights.why_against_usual`, each
-  month's `why`, insights contract 11): the parts of the shop that moved
-  the same way, biggest first (up to 3; all parts add up to the
-  difference), the trips now and usually, and what the shelf price did on
-  the same things (pooled over the usual months, the `compare_month`
-  rule; "not the reason" under a tenth of the difference). Live, 15 Oct:
-  81,36 € more; Drogerie & Kosmetik 57,05 € against 7,80 € (+49,25 €),
-  15 trips against 10, prices +1,21 €. The split against last month (#145)
-  stays in `insights.json`, off the page. PR open, waiting for the owner's
-  yes.
+- Built (owner, 2026-10-15, on the month page: "how many trips, price
+  difference and the items bought difference ... an aggregate, not per
+  category"): **Why N € more than usual**, under the month's chart, in the
+  same window as the tile (days 1 to today of this month against the same
+  days of the usual months, averaged; `insights.why_against_usual`, each
+  month's `why`, insights contract 11). Trips (now, usually, per shop), then
+  every euro of the gap in one reason: same things (price, how many,
+  discounts), new things, things skipped, not identified yet. A tap opens a
+  reason by part of the shop, a part by thing, a thing on its product page.
+  Live, 15 Oct: 81,36 € more; 15 trips against 10; new things +156,02 € (51),
+  skipped −107,01 € (129), same things: how many +29,60 €, price +1,21 €,
+  discounts −2,91 €; not identified +4,45 €. The split against last month
+  (#145) stays in `insights.json`. PR #163 open, waiting for the owner's yes.
 - Built (owner, 2026-10-15, "not good optics at all that I can access their
   receipts ... we need consent"): **sharing with the developer is the
   sender's choice.** Another person's upload reaches `/v1/inbox` (and its
@@ -485,6 +485,12 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 - A second person using it with real receipts.
 
 ## Parked (later, not now)
+
+- (owner, 2026-10-15) **A map of the screens with a name for every place**,
+  so the owner can point at one ("Home → month tile → month page → Why").
+- (owner, 2026-10-15) **More colour and texture in the screens.**
+- (owner, 2026-10-15) **What the Why card says when the gap is small**, or
+  when a reason has nothing in it.
 
 **Backlog from the owner (2026-10-14, after seeing the price line), not
 agreed to build yet:**
