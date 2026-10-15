@@ -8,6 +8,18 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Now
 
+- Done (owner, 2026-10-15, "if they're at the EU then okay, but make sure
+  the app doesn't get worse"): **Gemini reads in the EU.** Every call goes to
+  Vertex AI's EU multi-region endpoint (`aiplatform.eu.rep.googleapis.com`,
+  location `eu`) instead of `global`, which could process anywhere. Same
+  model (`gemini-3.8-flash`), web search works there; three timed calls from
+  the laptop: about 2 s against 3 s (one global call took 26 s). About 10%
+  dearer per token (third-party price pages), so `spend.py` prices are
+  0.825 / 4.125 per million. Paid test passed with a real photo.
+  `europe-west3` alone still does not offer the model. Searches are not
+  covered by Google's residency promise, but carry only product names. Next
+  privacy steps (privacy page, deleting photos with receipts, deleting an
+  account, inbox copies kept 30 days) wait for the owner's yes.
 - Built (owner, 2026-10-15, Home said 218 € for October and Receipts 246 €:
   "the discrepancy can be annoying"): **the Receipts month shows Home's
   number**, the sum of each receipt's `spend` (#156: the product lines the
