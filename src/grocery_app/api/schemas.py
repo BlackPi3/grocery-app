@@ -506,6 +506,11 @@ class UserSummary(BaseModel):
     email: str | None = Field(None, description="The Google address they sign in with; "
                                                 "none when they have a password only")
     receipts: int
+    last_sign_in: datetime | None = Field(None, description="Their latest Google sign-in")
+    last_upload: datetime | None = Field(None, description="When they last sent a photo, "
+                                                           "read or not")
+    month_cost_usd: float = Field(0.0, description="What their uploads' model calls cost "
+                                                   "this month (UTC), at list price")
 
 
 class NewUserRequest(BaseModel):
