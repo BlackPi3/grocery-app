@@ -259,14 +259,20 @@
   .bridge-head .money { font-variant-numeric: tabular-nums; font-size: 14px; }
   .chev { color: var(--muted); font-size: 18px; line-height: 1; }
   .track { position: relative; height: 12px; margin-top: 6px; }
-  .track.centred { background: linear-gradient(var(--muted), var(--muted)) 50% 0 / 1px 100% no-repeat; }
+  /* A faint rail per row, and the zero in its middle a little taller, so the
+     bars read as moves left or right of one point (2026-10-15). */
+  .track.centred { background: var(--grid); border-radius: 6px; overflow: visible; }
+  .track.centred::after { content: ""; position: absolute; left: calc(50% - 1px); top: -3px;
+    bottom: -3px; width: 2px; border-radius: 1px; background: var(--ink2); }
   .bridge-row.total .what, .bridge-row.total .money { font-weight: 650; }
   .axis-note { display: flex; justify-content: space-between; color: var(--muted);
     font-size: 12px; margin-top: 6px; }
   .switch { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; }
   .switch button { font-size: 13px; padding: 4px 12px; border-radius: 999px; }
   .switch button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .vbar { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+  .viz .track { height: 12px; margin-top: 6px; }
+  .vbar, .vbar.more { position: absolute; top: 0; bottom: 0; margin: 0; padding: 0;
+    border-radius: 4px; font-size: 0; }
   .vbar.more { background: var(--more); }
   .vbar.less { background: var(--less); }
   .vbar.base { background: var(--base); }
