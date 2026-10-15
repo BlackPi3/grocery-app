@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+import os
 import re
 import threading
 import time
@@ -126,6 +127,7 @@ __all__ = ["DEFAULT_PURCHASES", "MAX_UPLOAD_BYTES", "create_app", "default_app"]
 
 # The shopper's page (`GET /`): one static file, shipped with the package.
 REVIEW_PAGE = Path(__file__).with_name("review.html")
+PRIVACY_PAGE = Path(__file__).with_name("privacy.html")
 PAGE_WORKER = Path(__file__).with_name("sw.js")
 
 # A receipt photo off a phone is a few megabytes. The cap is not a security
@@ -548,6 +550,20 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         with who said what each line is. It reads and answers through the
         routes above, nothing else."""
         return HTMLResponse(REVIEW_PAGE.read_text(encoding="utf-8"))
+
+    @app.get("/privacy", include_in_schema=False)
+    def privacy_page() -> HTMLResponse:
+        """What the app keeps and why, open to anyone (2026-10-15). Who runs
+        this server and how to reach them come from its environment, so the
+        public repo holds no address."""
+        from html import escape
+
+        name = os.environ.get("GROCERY_OWNER_NAME") or "The person who runs this server"
+        email = os.environ.get("GROCERY_OWNER_EMAIL")
+        contact = (f'<a href="mailto:{escape(email)}">{escape(email)}</a>' if email
+                   else "the address they gave you")
+        return HTMLResponse(PRIVACY_PAGE.read_text(encoding="utf-8")
+                            .replace("{{NAME}}", escape(name)).replace("{{EMAIL}}", contact))
 
     @app.get("/sw.js", include_in_schema=False)
     def page_worker() -> Response:

@@ -353,3 +353,19 @@ def test_a_photo_no_receipt_came_from_is_deleted_after_30_days(two_people, sessi
     assert not stored(tmp_path, photo("blue")), "a month old and no receipt: deleted"
     assert stored(tmp_path, photo("green")), "kept for the developer to learn from"
     assert stored(tmp_path, read), "a receipt's photo stays as long as the receipt"
+
+
+@pytestmark_db
+def test_the_privacy_page_is_open_and_names_who_runs_the_server(two_people, monkeypatch):
+    client, _, _ = two_people
+    monkeypatch.setenv("GROCERY_OWNER_NAME", "Erika <Muster>")
+    monkeypatch.setenv("GROCERY_OWNER_EMAIL", "erika@example.com")
+    page = client.get("/privacy")  # no password: one reads it before signing in
+    assert page.status_code == 200
+    assert "Erika &lt;Muster&gt;" in page.text, "escaped, never markup"
+    assert 'href="mailto:erika@example.com"' in page.text
+    assert "{{" not in page.text
+
+    monkeypatch.delenv("GROCERY_OWNER_NAME")
+    monkeypatch.delenv("GROCERY_OWNER_EMAIL")
+    assert "The person who runs this server" in client.get("/privacy").text

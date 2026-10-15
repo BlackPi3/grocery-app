@@ -25,6 +25,19 @@ if [ -n "${GOOGLE_CLIENT_ID:-}" ]; then
   fi
 fi
 
+# Who runs the server, on the privacy page (/privacy): the repo variable
+# GROCERY_OWNER_NAME and the secret GROCERY_OWNER_EMAIL, on both services.
+# Commas would split --set-env-vars, so the name must have none.
+CONTACT_ENV=""
+if [ -n "${GROCERY_OWNER_NAME:-}" ]; then
+  CONTACT_ENV=",GROCERY_OWNER_NAME=$GROCERY_OWNER_NAME"
+fi
+if [ -n "${GROCERY_OWNER_EMAIL:-}" ]; then
+  DEMO_CONTACT_ENV="$CONTACT_ENV,GROCERY_OWNER_EMAIL=$GROCERY_OWNER_EMAIL"
+else
+  DEMO_CONTACT_ENV="$CONTACT_ENV"
+fi
+
 # --no-cpu-throttling: a photo is read after the upload's response has gone
 #   out (api/jobs.py), and without it Cloud Run starves that work of CPU.
 # --max-instances 1: one shopper; jobs run inside the process that took them.
@@ -45,7 +58,7 @@ gcloud run deploy grocery --quiet \
   --max-instances 1 --no-cpu-throttling --memory 1Gi --timeout 300 \
   --add-cloudsql-instances "$PROJECT:$REGION:grocery" \
   --set-secrets "DATABASE_URL=database-url:latest,GROCERY_TOKEN=grocery-token:latest" \
-  --set-env-vars "GROCERY_READER=gemini,GROCERY_MATCHER=gemini,GROCERY_IDENTIFY=gemini,GEMINI_VERTEX_PROJECT=$PROJECT$GOOGLE_ENV" \
+  --set-env-vars "GROCERY_READER=gemini,GROCERY_MATCHER=gemini,GROCERY_IDENTIFY=gemini,GEMINI_VERTEX_PROJECT=$PROJECT$GOOGLE_ENV$CONTACT_ENV" \
   --add-volume "name=data,type=cloud-storage,bucket=$PROJECT-grocery-data,mount-options=uid=1000;gid=1000" \
   --add-volume-mount "volume=data,mount-path=/app/data"
 
@@ -66,6 +79,6 @@ gcloud run deploy grocery-demo --quiet \
   --max-instances 1 --no-cpu-throttling --memory 1Gi --timeout 300 \
   --add-cloudsql-instances "$PROJECT:$REGION:grocery" \
   --set-secrets "DATABASE_URL=database-url-demo:latest" \
-  --set-env-vars "GROCERY_DEMO=1,GROCERY_READER=gemini,GROCERY_MATCHER=gemini,GROCERY_IDENTIFY=gemini,GEMINI_VERTEX_PROJECT=$PROJECT" \
+  --set-env-vars "GROCERY_DEMO=1,GROCERY_READER=gemini,GROCERY_MATCHER=gemini,GROCERY_IDENTIFY=gemini,GEMINI_VERTEX_PROJECT=$PROJECT$DEMO_CONTACT_ENV" \
   --add-volume "name=data,type=cloud-storage,bucket=$PROJECT-grocery-data,mount-options=uid=1000;gid=1000;only-dir=demo" \
   --add-volume-mount "volume=data,mount-path=/app/data"

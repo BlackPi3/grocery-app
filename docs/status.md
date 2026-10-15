@@ -8,6 +8,20 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Now
 
+- Built (owner, 2026-10-15, the privacy work): **a privacy page** at
+  `/privacy` (`api/privacy.html`), open without signing in, German first
+  (the text that counts) and English: who runs the server (repo variable
+  `GROCERY_OWNER_NAME`, secret `GROCERY_OWNER_EMAIL`, filled in by the
+  server, so no address is in the repo), what is kept, why (Art. 6(1)(b)
+  the service, 6(1)(f) improving the reading, objection by email), who sees
+  it (Google Cloud in Frankfurt, Gemini in the EU, searches with product
+  names only), how long (until deleted; 30 days for photos no receipt came
+  from and inbox copies; backups and Google's bin 7 days; logs 30 days),
+  and the rights. Linked under the sign-in card and on You. **Delete my
+  account** on You for users (two taps, no dialog). Every promise on the
+  page is kept by code; change one, change the other. No legal review yet:
+  before a public launch, a lawyer, and an Impressum with an address. PR
+  open, waiting for the owner's yes.
 - Built (owner, 2026-10-15, "proceed with the rest of the privacy"):
   **deleting means deleting.** Removing a receipt deletes its photo (unless
   another receipt was read from the same bytes); `DELETE /v1/me` deletes a

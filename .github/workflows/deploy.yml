@@ -47,6 +47,8 @@ jobs:
           # The address is a secret so it stays out of the public logs.
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GROCERY_OWNER_EMAIL: ${{ secrets.GROCERY_OWNER_EMAIL }}
+          # Who runs the server, named on the privacy page.
+          GROCERY_OWNER_NAME: ${{ vars.GROCERY_OWNER_NAME }}
       - name: The new server and the demo answer
         run: |
           for service in grocery grocery-demo; do

@@ -242,6 +242,10 @@
     border-radius: 0; background: none; color: var(--ink); text-align: left; }
   .month-head .name { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
   .month-head .end { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .privacy-row { margin-top: 10px; justify-content: space-between; align-items: center; }
+  .privacy-row a { text-decoration: none; }
+  button.quiet { background: none; border: 0; color: var(--muted); font-size: 12px; padding: 4px 0; }
+  button.danger { background: var(--bad); border-color: var(--bad); color: #fff; font-size: 13px; }
   .month-head .left-out { color: var(--muted); font-size: 11px; opacity: 0.8; margin-top: 2px;
     text-align: left; font-weight: 400; }
   .month-head .money { font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600; }
@@ -1240,7 +1244,33 @@ function accountCard() {
         .catch(() => { /* it ends by itself */ });
       forgetToken();
       location.reload();
-    } }, "Log out")));
+    } }, "Log out")),
+    el("div", { class: "row privacy-row" },
+      el("a", { href: "/privacy", class: "meta" }, "Privacy"),
+      state.me.role === "user" ? deleteAccountButton() : null));
+}
+
+// Deleting an account takes everything of that person (owner, 2026-10-15,
+// the privacy work). Two taps, no browser dialog: the first says what goes,
+// the second does it. Never the owner's: their account is the server.
+function deleteAccountButton() {
+  const asking = state.deleteAsked && Date.now() - state.deleteAsked < 10000;
+  return el("button", { class: asking ? "danger" : "quiet", onclick: async () => {
+    if (!asking) {
+      state.deleteAsked = Date.now();
+      render();
+      setTimeout(render, 10000);  // no second tap: back to how it was
+      return;
+    }
+    try {
+      await api("/v1/me", { method: "DELETE" });
+    } catch (error) {
+      toast(error.message);
+      return;
+    }
+    forgetToken();
+    location.reload();
+  } }, asking ? "Tap again: delete all my receipts and my account" : "Delete my account");
 }
 
 function costsCard() {
@@ -2462,7 +2492,10 @@ async function askPassword(why) {
        clientId ? [googleButton(clientId), el("div", { class: "or" }, "or with a password")] : null,
        field,
        el("div", { class: "row", style: "margin-top: 10px" },
-          el("button", { class: "primary", onclick: unlock }, "Unlock"))));
+          el("button", { class: "primary", onclick: unlock }, "Unlock")),
+       // What signing in means for one's data, before signing in (2026-10-15).
+       el("div", { class: "meta", style: "margin-top: 12px" },
+          el("a", { href: "/privacy", style: "color: inherit" }, "Privacy: what the app keeps and why"))));
   // With Google on, the keyboard would cover the button most people want.
   if (!clientId) field.focus();
 }
