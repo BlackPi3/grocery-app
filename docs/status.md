@@ -8,6 +8,15 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Now
 
+- **Next priority (owner, 2026-10-15, on hold until then):** swiping back in
+  the browser lands on the Google sign-in page. Either back never leaves the
+  app (it goes to Home), or a left/right swipe moves between the tabs.
+- Built (owner, 2026-10-15, "graphs, not this kind of text"): the month's
+  why is drawn: a bridge from the usual month to this one (each reason a bar,
+  orange adds, aqua takes away, validated for colour-blind readers in both
+  themes), and shopping trips as dots (this month, last month in the same
+  days, usual). Lines nothing placed are things by their printed name, so no
+  "not identified" reason. PR #163.
 - Built (owner, 2026-10-15, on the month page: "how many trips, price
   difference and the items bought difference ... an aggregate, not per
   category"): **Why N € more than usual**, under the month's chart, in the

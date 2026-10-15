@@ -609,19 +609,35 @@ def test_why_a_month_is_off_its_usual_trips_same_things_and_different_things():
     why = october["why"]
     assert october["usual"]["months"] == ["2026-09", "2026-08"]
     assert why["difference"] == 3.90 == round(october["spend"] - october["usual"]["spend"], 2)
-    assert why["trips"] == {"now": 3, "usual": 1.0,
+    assert why["trips"] == {"now": 3, "usual": 1.0, "before": {"month": "2026-09", "trips": 1},
                             "by_store": [{"store": "Musterladen", "now": 3, "usual": 1.0}]}
     assert why["parts"] == {"prices": 0.40,     # milk 1,20 against 1,00, twice
                             "amounts": 1.00,    # milk twice, usually once
                             "discounts": 0.0,
                             "new": 4.00,        # the shower gel: September's came after the 14th
-                            "skipped": -1.50,   # August's cheese, usually 3,00 / 2
-                            "not_placed": 0.0}
+                            "skipped": -1.50}   # August's cheese, usually 3,00 / 2
     assert sum(why["parts"].values()) == pytest.approx(why["difference"])
     assert why["counts"] == {"new": 1, "skipped": 1, "same": 1}
     (gel,) = why["details"]["new"]
     assert (gel["branch"], gel["amount"], [i["product_id"] for i in gel["items"]]) == \
         ("Drogerie & Kosmetik", 4.00, ["p-2"]), "a reason opens by part of the shop, then thing"
+
+
+def test_a_line_nothing_placed_is_a_thing_by_its_printed_name():
+    """No "not identified" reason: an unplaced line is new, skipped or the same
+    thing by the name the till printed (the owner: "no place for ambiguity")."""
+    def line(day, net, receipt):
+        r = row(None, day, net)
+        r.update(source_image=receipt, raw_name="MU Geheimnis", product=None)
+        return r
+
+    rows = [line("2026-07-31", 1.00, "j1"), line("2026-08-03", 1.00, "a1"),
+            line("2026-09-03", 1.00, "s1"), line("2026-10-03", 1.50, "o1")]
+    why = build_insights({"meta": {}, "purchases": rows},
+                         today=date(2026, 10, 14))["months"][0]["why"]
+    assert why["counts"] == {"new": 0, "skipped": 0, "same": 1}
+    assert why["parts"]["prices"] == 0.50
+    assert why["details"]["prices"][0]["items"][0]["product"] == "MU Geheimnis"
 
 
 def test_no_usual_no_why():

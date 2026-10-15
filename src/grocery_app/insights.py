@@ -679,7 +679,7 @@ def usual_by_day(rows: list[dict[str, Any]], month: str,
 
 
 # The reasons a month is off its usual, in the order they are told.
-WHY_PARTS = ("prices", "amounts", "discounts", "new", "skipped", "not_placed")
+WHY_PARTS = ("new", "skipped", "amounts", "prices", "discounts")
 
 
 def why_against_usual(rows: list[dict[str, Any]], month: str,
@@ -689,19 +689,21 @@ def why_against_usual(rows: list[dict[str, Any]], month: str,
     (the owner, 2026-10-15: "how many trips, price difference and the items
     bought difference ... I want an aggregate, not per category").
 
-    `trips`: shopping trips (receipts with a counted line), now and the mean of
-    the usual months, and per shop. `parts` split the difference so every euro
+    `trips`: shopping trips (receipts with a counted line), now, the mean of
+    the usual months, the month before in the same window (`before`, None
+    without one), and per shop. `parts` split the difference so every euro
     lands in one, and they add up to it (to rounding). A "thing" is one product
     at one shop, sold the same way and priced in the same unit, as in
-    `compare_month`; "usually" is the mean over the usual months:
+    `compare_month`; a line nothing placed is a thing by its printed name, so
+    nothing is left over as "not identified" (the owner: "no place for
+    ambiguity"). "Usually" is the mean over the usual months:
 
     - `prices`: things bought now and usually, the shelf price now against
       usually (pooled over the months), on what was bought now;
     - `amounts`: the same things, more or fewer of them, at the usual price;
     - `discounts`: the same things, printed discounts now against usually;
     - `new`: things bought now and in none of the usual months' windows;
-    - `skipped`: things bought in them and not now (minus their usual spend);
-    - `not_placed`: lines nothing placed on a product, now against usually.
+    - `skipped`: things bought in them and not now (minus their usual spend).
 
     `counts` says how many things each of `new`, `skipped` and `same` holds,
     and `details[part]` opens a part: by part of the shop, then by thing.
@@ -742,7 +744,7 @@ def why_against_usual(rows: list[dict[str, Any]], month: str,
         for p in lines:
             shop = store_key(p.get("store"))
             key = ((p["product_id"], _form(p), _quantity(p)[1], shop) if p.get("product_id")
-                   else ("raw", p.get("raw_name"), shop))
+                   else ("raw:" + (p.get("raw_name") or "?"), None, _quantity(p)[1], shop))
             groups[key].append(p)
         return groups
 
@@ -759,9 +761,7 @@ def why_against_usual(rows: list[dict[str, Any]], month: str,
     same = 0
     for key in set(now_things) | set(then_things):
         current, before = now_things.get(key, []), then_things.get(key, [])
-        if key[0] == "raw":
-            note("not_placed", current or before, _spend(current) - _spend(before) / k)
-        elif not before:
+        if not before:
             note("new", current, _spend(current))
         elif not current:
             note("skipped", before, -_spend(before) / k)
@@ -789,9 +789,15 @@ def why_against_usual(rows: list[dict[str, Any]], month: str,
                for b, group in groups.items()]
         return sorted(out, key=lambda b: -abs(b["amount"]))
 
+    year, number = int(month[:4]), int(month[5:7])
+    last = (date(year, number, 1) - timedelta(days=1)).strftime("%Y-%m")
+    before_lines = window(last) if any(p["date"][:7] == last for p in rows
+                                       if p.get("date")) else None
     return {"difference": round(_spend(now) - usual["spend"], 2),
             "trips": {"now": sum(trips_now.values()),
                       "usual": round(sum(trips_then.values()) / k, 1),
+                      "before": None if before_lines is None else
+                      {"month": last, "trips": sum(trips(before_lines).values())},
                       "by_store": [{"store": st, "now": trips_now.get(st, 0),
                                     "usual": round(trips_then.get(st, 0) / k, 1)}
                                    for st in shops]},

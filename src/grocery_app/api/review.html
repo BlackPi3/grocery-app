@@ -243,8 +243,38 @@
   .month-head .name { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
   .month-head .end { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
   .share-row { margin: 6px 0 14px; }
-  .line > .chev { color: var(--muted); align-self: center; font-size: 18px; }
-  .line.go > div:first-child { flex: 1; min-width: 0; }
+  /* The month's why, drawn (2026-10-15). Orange adds to the month, aqua
+     takes away; both validated for colour-blind readers in either theme. */
+  .viz { --more: #eb6834; --less: #1baf7a; --base: #c9c8c1; --now: var(--accent); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .viz { --more: #d95926; --less: #199e70; --base: #4a4a46; }
+  }
+  :root[data-theme="dark"] .viz { --more: #d95926; --less: #199e70; --base: #4a4a46; }
+  .bridge-row { padding: 8px 0; border-top: 1px solid var(--grid); }
+  .bridge-row:first-of-type { border-top: 0; }
+  .bridge-row.go, .go-card { cursor: pointer; }
+  .bridge-head { display: flex; gap: 10px; align-items: baseline; }
+  .bridge-head > div:first-child { flex: 1; min-width: 0; }
+  .bridge-head .what { font-size: 14px; }
+  .bridge-head .money { font-variant-numeric: tabular-nums; font-size: 14px; }
+  .chev { color: var(--muted); font-size: 18px; line-height: 1; }
+  .track { position: relative; height: 12px; margin-top: 6px; }
+  .vbar { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+  .vbar.more { background: var(--more); }
+  .vbar.less { background: var(--less); }
+  .vbar.base { background: var(--base); }
+  .vbar.now { background: var(--now); }
+  .card-head { display: flex; justify-content: space-between; align-items: center; }
+  .dot-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+  .dot-name { width: 72px; flex: none; font-size: 13px; color: var(--ink2); }
+  .dot-count { width: 32px; flex: none; text-align: right; font-size: 14px;
+    font-variant-numeric: tabular-nums; }
+  .dots { flex: 1; display: flex; flex-wrap: wrap; gap: 4px; }
+  .tdot { width: 10px; height: 10px; border-radius: 50%; }
+  .tdot.now { background: var(--now); }
+  .tdot.base { background: var(--base); }
+  .shop-trips { padding: 8px 0; border-top: 1px solid var(--grid); }
+  .shop-trips:first-of-type { border-top: 0; }
   .share-row .meta { margin-top: 2px; }
   .privacy-row { margin-top: 10px; justify-content: space-between; align-items: center; }
   .privacy-row a { text-decoration: none; }
@@ -1535,58 +1565,95 @@ function paceView() {
     paceChart(month, pace, { H: 120 }),
     el("div", { class: "meta says" }, usuallyText(pace)),
     ends && state.pace.running ? el("div", { class: "meta" },
-      `A usual month ends at ${euro(ends)}.`) : null), whyCard(month)];
+      `A usual month ends at ${euro(ends)}.`) : null), ...(whyCard(month) || [])];
 }
 
-// Why the month is off its usual, in the same window (owner, 2026-10-15): the
-// trips, then the same things (price, how many, discounts), then the things
-// that differ (new, skipped), as totals that add up to the gap. A tap opens a
-// reason by part of the shop, a part by thing, a thing on its own page
-// (`insights.why_against_usual`).
-const WHY_ROWS = [
-  ["prices", "Same things, price", w => `${plural(w.counts.same, "thing", "things")} you also ` +
-     "bought usually: the shelf price now against usually"],
-  ["amounts", "Same things, how many", () => "More or fewer of them, at the usual price"],
-  ["discounts", "Same things, discounts", w => w.parts.discounts < 0
-     ? "Discounts saved more than usually" : "Discounts saved less than usually"],
-  ["new", "New things", w => `${plural(w.counts.new, "thing", "things")} not bought in the ` +
-     "usual months"],
-  ["skipped", "Things you skipped", w => `${plural(w.counts.skipped, "thing", "things")} ` +
-     "bought usually, not this time"],
-  ["not_placed", "Not identified yet", () => "Lines the app could not name yet"],
+// Why the month is off its usual, in the same window, drawn rather than told
+// (owner, 2026-10-15: "I would like to see graphs, not this kind of text";
+// "engaging and nice", not to the cent). Trips as one dot per trip: this
+// month, last month, usual. Money as a bridge from the usual month to this
+// one: each reason a bar that adds (orange) or takes away (aqua). A tap opens
+// a reason by part of the shop, a part by thing, a thing on its product page
+// (`insights.why_against_usual`). Orange/aqua: validated for colour-blind
+// readers in both themes; every bar also carries its signed value.
+const WHY_STEPS = [
+  ["new", w => "New things", w => plural(w.counts.new, "thing", "things") + " not bought usually"],
+  ["skipped", w => "Skipped this time", w => plural(w.counts.skipped, "thing", "things") +
+     " you usually buy"],
+  ["amounts", w => w.parts.amounts >= 0 ? "More of the same things" : "Fewer of the same things",
+     w => plural(w.counts.same, "thing", "things") + " you buy both times"],
+  ["prices", w => "Same things, prices", () => "The shelf price now against usually"],
+  ["discounts", w => "Same things, discounts", w => w.parts.discounts < 0
+     ? "Discounts saved more" : "Discounts saved less"],
 ];
-const WHY_SHOWN = 0.5;  // a reason under this is left out of the list
 const signed = v => (v > 0 ? "+" : v < 0 ? "−" : "") + euro(Math.abs(v));
+const tone = v => v >= 0 ? "more" : "less";
 function openWhy(part, branch) {
   state.pace.why = { part, branch, scroll: window.scrollY };
   render();
   window.scrollTo(0, 0);
 }
+function dots(n, cls) {
+  const shown = Math.round(n);
+  return el("div", { class: "dots", "aria-hidden": "true" },
+    Array.from({ length: shown }, () => el("span", { class: "tdot " + cls })));
+}
+function tripsCard(month) {
+  const t = month.why.trips;
+  const rows = [[monthName(month.month).replace(/ \d+$/, ""), t.now, "now"],
+                t.before ? [monthName(t.before.month).replace(/ \d+$/, ""), t.before.trips, "base"] : null,
+                ["Usual", t.usual, "base"]].filter(Boolean);
+  return el("div", { class: "card viz go-card", onclick: () => openWhy("trips") },
+    el("div", { class: "card-head" }, el("h2", {}, "Shopping trips"),
+      el("span", { class: "chev", "aria-hidden": "true" }, "›")),
+    rows.map(([name, n, cls]) => el("div", { class: "dot-row" },
+      el("div", { class: "dot-name" }, name), dots(n, cls),
+      el("div", { class: "dot-count" }, n.toLocaleString("en", { maximumFractionDigits: 1 })))),
+    el("div", { class: "meta" }, `Days 1 to ${month.usual.through_day || "the end"} of each month`));
+}
+function bridgeCard(month) {
+  const why = month.why, more = why.difference > 0;
+  const steps = WHY_STEPS.filter(([key]) => Math.abs(why.parts[key]) >= 0.005);
+  let run = month.usual.spend;
+  const spans = steps.map(([key]) => { const from = run; run += why.parts[key]; return [from, run]; });
+  const top = Math.max(month.usual.spend, month.spend, ...spans.flat(), 1);
+  const pct = v => `${(Math.max(0, v) / top * 100).toFixed(2)}%`;
+  const bar = (from, to, cls) => el("div", { class: "track" },
+    el("div", { class: "vbar " + cls, style: `left: ${pct(Math.min(from, to))}; ` +
+      `width: max(3px, ${pct(Math.abs(to - from))})` }));
+  const row = (name, says, value, track, onclick) => el("div",
+    { class: "bridge-row" + (onclick ? " go" : ""), onclick },
+    el("div", { class: "bridge-head" },
+      el("div", {}, el("div", { class: "what" }, name), says ? el("div", { class: "meta" }, says) : null),
+      el("div", { class: "money" }, value),
+      onclick ? el("span", { class: "chev", "aria-hidden": "true" }, "›") : null),
+    track);
+  return el("div", { class: "card viz" },
+    el("h2", {}, `Why ${euro(Math.abs(why.difference))} ${more ? "more" : "less"} than usual`),
+    row("Usual", null, euro(month.usual.spend), bar(0, month.usual.spend, "base")),
+    steps.map(([key, name, says], i) => row(name(why), says(why), signed(why.parts[key]),
+      bar(spans[i][0], spans[i][1], tone(why.parts[key])), () => openWhy(key))),
+    row(monthName(month.month).replace(/ \d+$/, "") + " so far", null, euro(month.spend),
+      bar(0, month.spend, "now")));
+}
 function whyCard(month) {
   const why = month.why;
-  if (!why || Math.abs(why.difference) < 1) return null;
-  const more = why.difference > 0;
-  const tap = (fn, ...children) => el("div", { class: "line go", onclick: fn }, ...children,
-    el("span", { class: "chev", "aria-hidden": "true" }, "›"));
-  const rows = WHY_ROWS.filter(([key]) => Math.abs(why.parts[key]) >= WHY_SHOWN);
-  const hidden = WHY_ROWS.filter(([key]) => Math.abs(why.parts[key]) < WHY_SHOWN && why.parts[key]);
-  return el("div", { class: "card why-card" },
-    el("h2", {}, `Why ${euro(Math.abs(why.difference))} ${more ? "more" : "less"} than usual`),
-    tap(() => openWhy("trips"),
-      el("div", {}, el("div", { class: "what" }, "Trips"),
-        el("div", { class: "meta" }, `${plural(why.trips.now, "shopping trip", "shopping trips")}` +
-          `, usually ${Math.round(why.trips.usual)}`))),
-    rows.map(([key, name, says]) => tap(() => openWhy(key),
-      el("div", {}, el("div", { class: "what" }, name), el("div", { class: "meta" }, says(why))),
-      el("div", { class: "money" }, signed(why.parts[key])))),
-    el("div", { class: "why" }, "These add up to the " + euro(Math.abs(why.difference)) +
-      (hidden.length ? ` (with ${hidden.length === 1 ? "one smaller reason" : "smaller reasons"} ` +
-        "not listed)" : "") + ". " + (month.usual.through_day
-        ? `Days 1 to ${month.usual.through_day} of this month against the same days of ` +
-          `${plural(month.usual.months.length, "month", "months")} before, averaged.`
-        : `Against the ${plural(month.usual.months.length, "month", "months")} before, averaged.`)));
+  if (!why || !month.usual || Math.abs(why.difference) < 1) return null;
+  return [bridgeCard(month), tripsCard(month)];
 }
-// One reason opened: by part of the shop, then a part by thing; trips by shop.
+// Bars for one level down: as long as their share of the biggest, coloured by
+// whether they added or took away.
+function barRows(rows, onclick) {
+  const top = Math.max(...rows.map(r => Math.abs(r.amount)), 0.01);
+  return rows.map((r, i) => el("div", { class: "bridge-row" + (onclick(r, i) ? " go" : ""),
+      onclick: onclick(r, i) },
+    el("div", { class: "bridge-head" },
+      el("div", {}, el("div", { class: "what" }, r.name), r.says ? el("div", { class: "meta" }, r.says) : null),
+      el("div", { class: "money" }, signed(r.amount)),
+      onclick(r, i) ? el("span", { class: "chev", "aria-hidden": "true" }, "›") : null),
+    el("div", { class: "track" }, el("div", { class: "vbar " + tone(r.amount),
+      style: `left: 0; width: max(3px, ${(Math.abs(r.amount) / top * 100).toFixed(2)}%)` }))));
+}
 function whyView(month) {
   const why = month.why, at = state.pace.why;
   const back = el("button", { class: "back", onclick: () => {
@@ -1597,34 +1664,32 @@ function whyView(month) {
     window.scrollTo(0, scroll || 0);
   } }, "‹ Back");
   if (at.part === "trips") {
-    return [back, el("div", { class: "card" },
-      el("h2", {}, `Trips: ${why.trips.now}, usually ${Math.round(why.trips.usual)}`),
-      why.trips.by_store.map(t => el("div", { class: "line" },
-        el("div", {}, el("div", { class: "what" }, t.store),
-          el("div", { class: "meta" }, `usually ${t.usual.toLocaleString("en", { maximumFractionDigits: 1 })}`)),
-        el("div", { class: "money" }, String(t.now)))))];
+    return [back, el("div", { class: "card viz" },
+      el("h2", {}, `Shopping trips: ${why.trips.now}, usually ${Math.round(why.trips.usual)}`),
+      why.trips.by_store.map(t => el("div", { class: "shop-trips" },
+        el("div", { class: "what" }, t.store),
+        el("div", { class: "dot-row" }, el("div", { class: "dot-name" }, "Now"), dots(t.now, "now"),
+          el("div", { class: "dot-count" }, String(t.now))),
+        el("div", { class: "dot-row" }, el("div", { class: "dot-name" }, "Usual"), dots(t.usual, "base"),
+          el("div", { class: "dot-count" }, t.usual.toLocaleString("en", { maximumFractionDigits: 1 }))))))];
   }
-  const [, name] = WHY_ROWS.find(([key]) => key === at.part);
+  const step = WHY_STEPS.find(([key]) => key === at.part);
+  const name = step[1](why);
   const groups = why.details[at.part];
   if (at.branch === undefined) {
-    return [back, el("div", { class: "card" },
+    return [back, el("div", { class: "card viz" },
       el("h2", {}, `${name}: ${signed(why.parts[at.part])}`),
-      groups.map((g, i) => el("div", { class: "line go", onclick: () => openWhy(at.part, i) },
-        el("div", {}, el("div", { class: "what" }, g.branch || "Not sorted yet"),
-          el("div", { class: "meta" }, plural(g.items.length, "thing", "things"))),
-        el("div", { class: "money" }, signed(g.amount)),
-        el("span", { class: "chev", "aria-hidden": "true" }, "›"))))];
+      barRows(groups.map(g => ({ name: g.branch || "Not sorted yet", amount: g.amount,
+                                 says: plural(g.items.length, "thing", "things") })),
+              (r, i) => () => openWhy(at.part, i)))];
   }
   const g = groups[at.branch];
-  return [back, el("div", { class: "card" },
+  return [back, el("div", { class: "card viz" },
     el("h2", {}, `${g.branch || "Not sorted yet"}: ${signed(g.amount)}`),
     el("div", { class: "meta" }, name),
-    g.items.map(item => el("div", { class: "line" + (item.product_id ? " go" : ""),
-        onclick: item.product_id ? () => openProduct(item.product_id) : null },
-      el("div", {}, el("div", { class: "what" }, item.product),
-        el("div", { class: "meta" }, [item.brand, item.store].filter(Boolean).join(" · "))),
-      el("div", { class: "money" }, signed(item.amount)),
-      item.product_id ? el("span", { class: "chev", "aria-hidden": "true" }, "›") : null)))];
+    barRows(g.items.map(item => ({ ...item, name: item.product,
+                                   says: [item.brand, item.store].filter(Boolean).join(" · ") })),
+            r => r.product_id ? () => openProduct(r.product_id) : null))];
 }
 
 // Running totals as lines (the owner, 2026-10-14: one figure that holds them
