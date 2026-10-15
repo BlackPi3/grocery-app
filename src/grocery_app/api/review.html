@@ -1676,15 +1676,16 @@ function whyCard(month) {
   return [bridgeCard(month), tripsCard(month)];
 }
 function barRows(rows, onclick) { return divergeRows(rows, onclick); }
+function whyBack() {
+  const at = state.pace.why, scroll = at.scroll;
+  state.pace.why = at.branch !== undefined && at.part !== "trips"
+    ? { part: at.part, scroll: 0 } : null;
+  render();
+  window.scrollTo(0, scroll || 0);
+}
 function whyView(month) {
   const why = whyOf(month), at = state.pace.why;
-  const back = el("button", { class: "back", onclick: () => {
-    const scroll = at.scroll;
-    state.pace.why = at.branch !== undefined && at.part !== "trips"
-      ? { part: at.part, scroll: 0 } : null;
-    render();
-    window.scrollTo(0, scroll || 0);
-  } }, "‹ Back");
+  const back = el("button", { class: "back", onclick: whyBack }, "‹ Back");
   if (at.part === "trips") {
     return [back, el("div", { class: "card viz" },
       el("h2", {}, `Shopping trips: ${why.trips.now}, usually ${Math.round(why.trips.usual)}`),
@@ -2814,7 +2815,34 @@ if ("serviceWorker" in navigator) {
     reloadWhenIdle();
   });
 }
+// Back, the phone's way (owner, 2026-10-15: a back swipe left the app for
+// Google's sign-in page, which signing in leaves in the browser's history).
+// The page keeps one step of its own on top of the history; a back swipe
+// spends it to go up one level here (a photo, a product, the month's why,
+// the month page, an open receipt, another tab to Home), and the step is put
+// back, so back never leaves the app.
+function goBack() {
+  const viewer = document.getElementById("viewer"), welcome = document.getElementById("welcome");
+  if (!viewer.hidden) return viewer.querySelector(".top button")?.click();
+  if (!welcome.hidden) { welcome.hidden = true; return; }
+  if (state.product && state.product.tab === state.tab) return closeProduct();
+  if (state.pace && state.tab === "home") return state.pace.why ? whyBack() : closePace();
+  if (state.cameFrom && state.tab === "receipts") return backToProduct();
+  if (state.tab === "receipts" && state.open !== null) { state.open = null; render(); return; }
+  if (state.tab !== "home") document.getElementById("tab-home").click();
+}
+function keepBackStep() {
+  history.replaceState({ app: "base" }, "");
+  history.pushState({ app: "top" }, "");
+}
+window.addEventListener("popstate", event => {
+  if (!event.state || event.state.app !== "base") return;
+  goBack();
+  history.pushState({ app: "top" }, "");
+});
+
 googleAnswer();  // before the kept copy: a new sign-in may be another person
+keepBackStep();  // after it: its answer is taken out of the address first
 const copy = savedCopy();
 if (copy && copy.checks && copy.questions && copy.receipts) {
   Object.assign(state, { checks: copy.checks, questions: copy.questions, receipts: copy.receipts,

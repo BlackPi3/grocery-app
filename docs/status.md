@@ -8,9 +8,15 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Now
 
-- **Next priority (owner, 2026-10-15, on hold until then):** swiping back in
-  the browser lands on the Google sign-in page. Either back never leaves the
-  app (it goes to Home), or a left/right swipe moves between the tabs.
+- Fixed (owner, 2026-10-15): **a back swipe landed on Google's sign-in
+  page**, which signing in leaves in the browser's history. The page now
+  keeps one step of its own on top of the history (`keepBackStep`); a back
+  swipe spends it to go up one level (`goBack`: the photo, a product, the
+  month's why, the month page, an open receipt, another tab to Home) and
+  puts it back, so back never leaves the app. Checked in a headless browser:
+  open receipt → closed → Home → Home; month page → Home. Not built: a
+  left/right swipe between tabs (on iPhone that gesture is already back,
+  and receipt lines swipe left to be left out).
 - Built (owner, 2026-10-15, "graphs, not this kind of text"): the month's
   why is drawn: a bridge from the usual month to this one (each reason a bar,
   orange adds, aqua takes away, validated for colour-blind readers in both
