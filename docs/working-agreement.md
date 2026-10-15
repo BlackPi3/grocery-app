@@ -125,8 +125,13 @@ These are the owner's decisions. Each one came from a real case.
   be true.
 - **Coarse lines are answers.** A till that prints only a category gives a
   category-level answer. That is not a failure.
-- **Nothing the app writes is permanent.** Every line says who said what it
-  is (you or the app), and spot checks measure the app's error rate.
+- **Nothing the app writes is permanent.** Every line records who said what
+  it is (you or the app), and spot checks measure the app's error rate. The
+  record is kept in the data, not shown on the screen (owner, 2026-10-15).
+- **Lean screens.** A screen shows what a person wants at a glance, not every
+  number or caveat the data allows: no explaining footnotes, no line under a
+  line when the name says it. The detail stays in the data and a tap away
+  (owner, 2026-10-15: "people will get bored or get a headache").
 - **Like for like.** A comparison sets equal things side by side (the same
   days of two months, not 14 days against 30), and an insight has one
   meaning: when a number could move for several reasons (more trips, other
