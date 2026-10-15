@@ -246,6 +246,45 @@ def test_a_newcomer_s_home_fills_a_bar_to_ten_receipts_and_each_stop_opens_its_c
     assert "reached(5) ? regularsCard(d) : null" in page, "your regular opens at 5"
 
 
+def test_a_receipt_line_is_its_product_and_brand_and_nothing_more(client):
+    """The owner, 2026-10-15: "you're writing everything". A line is one row,
+    the product and its brand; who said it, the size and the printed text are
+    off the screen. A line nothing placed shows its guess, else the paper's
+    text, marked as a guess."""
+    page = client.get("/").text
+    out = run_page_function(page, "lineWords", """
+        const show = line => console.log(JSON.stringify(lineWords(line)));
+        show({ product: "Bio Müsli", brand: "Kornfeld", said_by: "app", raw_name: "BIO MUESLI",
+               sold_as: { form: "pack", size: { value: 500, unit: "g" } } });
+        show({ product: "Bananen", brand: null, said_by: "you", raw_name: "BANANEN" });
+        show({ product: null, first_guess: { name: "Haferdrink" }, raw_name: "HAFER DR" });
+        show({ product: null, first_guess: null, raw_name: "ART 4711" });
+    """)
+    assert out == ['{"name":"Bio Müsli","brand":"Kornfeld","guess":false}',
+                   '{"name":"Bananen","brand":null,"guess":false}',
+                   '{"name":"Haferdrink","brand":null,"guess":true}',
+                   '{"name":"ART 4711","brand":null,"guess":true}']
+    drawn = page[page.index("function lineText("):page.index("function isOwner(")]
+    assert "lineWords(line)" in drawn
+    assert "said_by" not in drawn and "printed" not in drawn and "sold_as" not in drawn, \
+        "no you/app mark, printed text or size under a receipt line"
+
+
+def test_a_receipt_row_says_its_day_and_items_and_only_a_misread_besides(client):
+    """The owner, 2026-10-15: "10 items: 8 you, 2 app" was noise. The row says
+    the day and the items; a receipt that does not add up still says so."""
+    page = client.get("/").text
+    out = run_page_function(page, "receiptMeta shortDate day plural misread", """
+        const row = (extra) => console.log(receiptMeta({ date: "2026-10-03", product_lines: 7,
+          said_by_you: 5, said_by_app: 2, not_counted: 1, unplaced: 1, printed_total: 12.5,
+          lines_total: 12.5, ...extra }));
+        row({});
+        row({ product_lines: 1 });
+        row({ lines_total: 12.0 });
+    """)
+    assert out == ["3 Oct · 7 items", "3 Oct · 1 item", "3 Oct · 7 items · doesn't add up"]
+
+
 def test_empty_screens_say_they_are_empty_and_how_to_fill_them(client):
     page = client.get("/").text
     assert '"No receipts yet. Tap + " +' in page

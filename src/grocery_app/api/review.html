@@ -142,7 +142,6 @@
   .glance .card { margin: 0; }
   .label.sub { margin: 14px 0 2px; }
   .glance .big { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; margin: 2px 0; }
-  .turning .how { margin-top: 4px; color: var(--ink2); }
   .turning .dots { display: flex; gap: 5px; margin-top: 10px; }
   .turning .dots span { width: 6px; height: 6px; border-radius: 3px; background: var(--grid); }
   .turning .dots span.on { width: 14px; background: var(--muted); }
@@ -169,13 +168,8 @@
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .row button { flex: 1 1 auto; }
   .list button { display: block; width: 100%; text-align: left; margin: 6px 0; }
-  .badge { display: inline-block; font-size: 11px; font-weight: 600; border-radius: 6px;
-    padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
-  .badge.you { background: var(--accent-soft); color: var(--ink); }
-  .badge.app { border: 1px solid var(--warn); color: var(--warn); }
-  .badge.none { border: 1px solid var(--bad); color: var(--bad); }
-  .badge.guess { border: 1px dashed var(--muted); color: var(--muted); }
   .guess { color: var(--ink2); font-style: italic; }
+  .what .brand { color: var(--muted); }
   /* A receipt line slides left to show its one action, the iPhone way
      (Parham, 2026-10-08); Edit shows it on every line, for a computer. */
   .swipe { position: relative; overflow: hidden; border-top: 1px solid var(--grid); }
@@ -191,8 +185,9 @@
   .editing .swipe > .act { position: static; order: 2; width: auto; border-radius: 8px;
     padding: 6px 10px; font-size: 12px; }
   .edit-row { display: flex; justify-content: space-between; align-items: center; gap: 10px;
-    margin: 4px 0 6px; }
-  .edit-row button { font-size: 12px; padding: 4px 12px; }
+    margin: 0 0 4px; }
+  /* Receipts as compact rows, not tall tiles (owner, 2026-10-15). */
+  .card.receipt { margin: 8px 0; padding: 4px 14px; }
   .line.off .what, .line.off .money { color: var(--muted); text-decoration: line-through; }
   .line { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0;
     border-top: 1px solid var(--grid); cursor: pointer; }
@@ -265,8 +260,6 @@
   .track.centred::after { content: ""; position: absolute; left: calc(50% - 1px); top: -3px;
     bottom: -3px; width: 2px; border-radius: 1px; background: var(--ink2); }
   .bridge-row.total .what, .bridge-row.total .money { font-weight: 650; }
-  .axis-note { display: flex; justify-content: space-between; color: var(--muted);
-    font-size: 12px; margin-top: 6px; }
   .switch { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; }
   .switch button { font-size: 13px; padding: 4px 12px; border-radius: 999px; }
   .switch button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -293,8 +286,6 @@
   .privacy-row a { text-decoration: none; }
   button.quiet { background: none; border: 0; color: var(--muted); font-size: 12px; padding: 4px 0; }
   button.danger { background: var(--bad); border-color: var(--bad); color: #fff; font-size: 13px; }
-  .month-head .left-out { color: var(--muted); font-size: 11px; opacity: 0.8; margin-top: 2px;
-    text-align: left; font-weight: 400; }
   .month-head .money { font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600; }
   .month-head .chev { color: var(--muted); font-size: 20px; line-height: 1;
     transition: transform 0.15s; }
@@ -624,12 +615,6 @@ async function api(path, options) {
 
 function euro(amount) {
   return amount == null ? "" : amount.toFixed(2).replace(".", ",") + " €";
-}
-
-function badge(saidBy) {
-  if (saidBy === "you") return el("span", { class: "badge you" }, "you");
-  if (saidBy === "app") return el("span", { class: "badge app" }, "app");
-  return el("span", { class: "badge none" }, "not placed");
 }
 
 // Everything the app claims a thing is, in one line: "Magnesium · Doppelherz
@@ -992,7 +977,7 @@ function sendRemovalsNow() {
 }
 
 function receiptCard(summary) {
-  const card = el("div", { class: "card" });
+  const card = el("div", { class: "card receipt" });
   const waiting = asksOn(summary.receipt_id);
   const head = el("div", { class: "line" },
     el("div", {},
@@ -1000,13 +985,7 @@ function receiptCard(summary) {
           summary.store || "Unknown shop",
           waiting.length ? askMark(waiting.length, waiting.length === 1
             ? "1 question for you" : `${waiting.length} questions for you`) : null),
-       el("div", { class: "meta" }, summary.date || "", " · ", summary.product_lines,
-          summary.product_lines === 1 ? " item" : " items",
-          // Who said what is a detail for the owner (the redesign, step 3).
-          isOwner() ? `: ${summary.said_by_you} you, ${summary.said_by_app} app` : "",
-          summary.unplaced ? `, ${summary.unplaced} not known yet` : "",
-          summary.not_counted ? `, ${summary.not_counted} left out` : "",
-          misread(summary) ? ", doesn't add up" : "")),
+       el("div", { class: "meta" }, receiptMeta(summary))),
     el("div", { class: "money" }, euro(summary.printed_total)));
   // The receipt itself slides left too, to be removed, as a line does.
   const remove = el("button", { class: "act", onclick: () => removeReceipt(summary.receipt_id) },
@@ -1020,22 +999,7 @@ function receiptCard(summary) {
   card.append(top);
   if (state.open === summary.receipt_id) {
     if (inProgress().some(job => job.receipt_id === summary.receipt_id)) {
-      card.append(el("div", { class: "why" },
-        "First reading: the names in grey are guesses from the photo. The app is still " +
-        "placing each line; this receipt updates by itself."));
-    }
-    const cost = (state.costs?.receipts || []).find(c => c.receipt_id === summary.receipt_id);
-    if (cost) {
-      card.append(el("div", { class: "meta" }, "Processing cost: " +
-        (cost.finding_recorded
-          ? `${usd(cost.total_usd)} (reading ${usd(cost.reading_usd)}, finding items ` +
-            `${usd(cost.finding_usd)}${cost.searches ? `, ${cost.searches} searches` : ""})`
-          : `reading ${usd(cost.reading_usd)}; finding items was not recorded then`)));
-    }
-    // The paper itself, the last step of the drill-down.
-    if (summary.photo) {
-      card.append(el("button", { class: "link", onclick: () => showPhoto(summary.receipt_id) },
-        "See the photo"));
+      card.append(el("div", { class: "why" }, "Still reading: grey names are guesses."));
     }
     const problem = problemRow(summary);
     if (problem) card.append(problem);
@@ -1043,10 +1007,13 @@ function receiptCard(summary) {
     card.classList.toggle("editing", editing);
     const marked = state.highlight && state.highlight.receipt_id === summary.receipt_id
       ? state.highlight.positions : [];
+    // The paper itself (the last step of the drill-down) and Edit, for a
+    // computer, on one quiet row; swiping needs no instructions (owner,
+    // 2026-10-15: "leaner and cleaner").
     card.append(el("div", { class: "edit-row" },
-      el("div", { class: "meta" }, "Swipe a line left to leave it out of your numbers, " +
-        "the receipt to remove it"),
-      el("button", { onclick: () => {
+      summary.photo ? el("button", { class: "link", onclick: () => showPhoto(summary.receipt_id) },
+        "See the photo") : el("span"),
+      el("button", { class: "link", onclick: () => {
         state.editing = editing ? null : summary.receipt_id;
         render();
       } }, editing ? "Done" : "Edit")));
@@ -1061,7 +1028,7 @@ function receiptCard(summary) {
       } }, counted ? "Leave out" : "Count again");
       const row = el("div", { class: (counted ? "line" : "line off") +
                                      (marked.includes(line.position) ? " hit" : "") },
-        el("div", {}, ...lineText(line, counted, ask)),
+        el("div", {}, ...lineText(line, ask)),
         el("div", { class: "money" }, euro(line.net_paid)));
       const wrap = el("div", { class: counted ? "swipe" : "swipe out" }, act, row);
       swipeable(wrap, row);
@@ -1106,36 +1073,34 @@ function receiptCard(summary) {
   return card;
 }
 
-// A receipt line as anyone reads it: an easy name and its deepest category,
-// "Rispentomaten / Tomaten" (the redesign, step 3, 2026-10-12). What the
-// paper printed, the brand and size, and who said what it is are details for
-// the owner. A line nothing placed shows the photo reading's guess, marked
-// as one (a guess is never passed off as an answer), or else what the paper
-// printed, in grey.
-function lineText(line, counted, ask) {
-  const owner = isOwner();
-  const guess = !line.product && line.first_guess;
-  const name = line.product ? el("span", {}, line.product)
-    : guess && guess.name ? el("span", { class: "guess" }, guess.name)
-    : el("span", { class: "guess" }, line.raw_name);  // the only name the line has
-  const path = line.product ? line.category_path : guess && guess.category_path;
-  // "Bananen / Bananen" says nothing twice: a category the name already says is left out.
-  const deepest = path && path.length ? path[path.length - 1] : null;
-  const shown = line.product || (guess && guess.name) || "";
-  const kind = deepest && deepest.toLowerCase() !== shown.toLowerCase() ? deepest : null;
-  const details = line.product ? [line.brand, (line.details || []).join(", "),
-                                  sizeText(line.sold_as)].filter(Boolean).join(" · ") : "";
-  return [
-    el("div", { class: "what" }, name,
-       guess && guess.name ? el("span", { class: "badge guess" }, "guess") : null,
-       counted ? null : el("span", { class: "badge none" }, "left out"),
-       ask ? askMark("?", ask.check ? "A random check for you: tap to answer"
-                                    : "A question for you: tap to answer") : null),
-    kind ? el("div", { class: "meta" }, kind) : null,
-    owner ? el("div", { class: "meta" }, details,
-               line.product || !guess ? badge(line.said_by) : null) : null,
-    owner && (line.product || guess) ? el("div", { class: "printed" }, line.raw_name) : null,
-  ];
+// A receipt's row: "15 Oct · 10 items". Who said what each line is, how many
+// are left out, and what it cost to read stay in the data, off the screen
+// (owner, 2026-10-15: "it was app, it was you ... no"). A receipt that does
+// not add up still says so: it is the one worth a look.
+function receiptMeta(summary) {
+  return [summary.date ? shortDate(summary.date) : null,
+          plural(summary.product_lines, "item", "items"),
+          misread(summary) ? "doesn't add up" : null].filter(Boolean).join(" · ");
+}
+
+// A receipt line in one row: the product and its brand, "Bio Müsli Alnatura"
+// (owner, 2026-10-15: "you're writing everything"). The category, size,
+// printed text and who said it are left to the line's own page. A line
+// nothing placed shows the photo reading's guess, or else what the paper
+// printed, in grey italics: a guess is never passed off as an answer.
+function lineWords(line) {
+  if (line.product) return { name: line.product, brand: line.brand || null, guess: false };
+  const guess = line.first_guess && line.first_guess.name;
+  return { name: guess || line.raw_name, brand: null, guess: true };
+}
+
+function lineText(line, ask) {
+  const words = lineWords(line);
+  return [el("div", { class: "what" },
+    el("span", { class: words.guess ? "guess" : "" }, words.name),
+    words.brand ? el("span", { class: "brand" }, " " + words.brand) : null,
+    ask ? askMark("?", ask.check ? "A random check for you: tap to answer"
+                                 : "A question for you: tap to answer") : null)];
 }
 
 function isOwner() {
@@ -1326,22 +1291,15 @@ function peopleCard() {
   const when = iso => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   const latest = u => [u.last_upload, u.last_sign_in].filter(Boolean).sort().pop() || "";
   const sorted = [...people].sort((a, b) => latest(b).localeCompare(latest(a)));
+  // A name, receipts and when last here; the cost is this month's (owner,
+  // 2026-10-15: less text). The address is kept, not shown.
   return el("div", { class: "card" }, el("h2", {}, "People"),
     sorted.map(u => el("div", { class: "line" },
       el("div", {},
         el("div", { class: "what" }, u.name),
-        u.email ? el("div", { class: "meta" }, u.email) : null,
-        el("div", { class: "meta" }, [
-          `${u.receipts} ${u.receipts === 1 ? "receipt" : "receipts"}`,
-          u.last_upload ? `last photo ${when(u.last_upload)}` : "no photos yet",
-          // Only Google sign-ins are kept; a password leaves no trace.
-          u.last_sign_in ? `signed in ${when(u.last_sign_in)}`
-            : u.email ? "never signed in" : "uses a password",
-        ].join(" · "))),
-      el("div", { class: "money" }, usd(u.month_cost_usd),
-        el("div", { class: "meta" }, "this month")))),
-    el("div", { class: "why" }, "The cost is the model calls their photos made this month, " +
-      "at list price."));
+        el("div", { class: "meta" }, [plural(u.receipts, "receipt", "receipts"),
+          latest(u) ? `last here ${when(latest(u))}` : "not here yet"].join(" · "))),
+      el("div", { class: "money" }, usd(u.month_cost_usd)))));
 }
 
 function accountCard() {
@@ -1392,23 +1350,15 @@ function deleteAccountButton() {
 function costsCard() {
   const d = state.costs;
   if (!d || !d.months.length) return null;
+  // What was billed this month and last, and per receipt; the split by step
+  // stays in `/v1/costs` (owner, 2026-10-15: less text).
   return el("div", { class: "card" }, el("h2", {}, "What processing cost"),
     d.months.slice(0, 2).map(m => el("div", { class: "line" },
       el("div", {},
         el("div", { class: "what" }, monthName(m.month)),
-        el("div", { class: "meta" }, `reading ${usd(m.reading_usd)} · finding items ` +
-          `${usd(m.finding_usd)} · pictures ${usd(m.pictures_usd)}` +
-          (m.other_usd ? ` · other ${usd(m.other_usd)}` : "")),
-        el("div", { class: "meta" }, `${m.receipts} ${m.receipts === 1 ? "receipt" : "receipts"}` +
-          (m.billed_per_receipt_usd != null ? `, ${usd(m.billed_per_receipt_usd)} each billed ` +
-            `(${usd(m.per_receipt_usd)} at list price)` : "") +
-          ` · ${m.searches} web searches (${d.free_searches_per_month.toLocaleString("en")} ` +
-          "a month are free)")),
-      el("div", { class: "money" }, usd(m.billed_usd),
-        el("div", { class: "meta" }, usd(m.total_usd) + " list")))),
-    el("div", { class: "why" }, "Model calls in dollars: billed is the list price less the " +
-      "month's free searches. The server and the database are billed by Google on top. " +
-      `Finding items is counted from ${d.finding_recorded_from}.`));
+        el("div", { class: "meta" }, plural(m.receipts, "receipt", "receipts") +
+          (m.billed_per_receipt_usd != null ? ` · ${usd(m.billed_per_receipt_usd)} each` : ""))),
+      el("div", { class: "money" }, usd(m.billed_usd)))));
 }
 
 // A photo that could not be sent or read, as a small note at the top of
@@ -1569,16 +1519,13 @@ function paceView() {
   if (state.pace.why && month.why) return whyView(month);
   const pace = paceOf(month, state.pace.running);
   const name = monthName(month.month).replace(/ \d+$/, "");
-  const ends = month.usual && month.usual.running[month.usual.running.length - 1];
   return [back, el("div", { class: "card hero pace-page",
       style: pace.word ? paceColour(pace.ratio) : "" },
     el("div", { class: "label" }, name + (state.pace.running ? " so far" : "")),
     el("div", { class: "stat" }, euro(month.spend)),
     pace.word ? el("div", { class: "pace" }, pace.word) : null,
     paceChart(month, pace, { H: 120 }),
-    el("div", { class: "meta says" }, usuallyText(pace)),
-    ends && state.pace.running ? el("div", { class: "meta" },
-      `A usual month ends at ${euro(ends)}.`) : null), ...(whyCard(month) || [])];
+    el("div", { class: "meta says" }, usuallyText(pace))), ...(whyCard(month) || [])];
 }
 
 // Why the month is off its usual, in the same window, drawn rather than told
@@ -1589,15 +1536,14 @@ function paceView() {
 // a reason by part of the shop, a part by thing, a thing on its product page
 // (`insights.why_against_usual`). Orange/aqua: validated for colour-blind
 // readers in both themes; every bar also carries its signed value.
+// Each reason in a few words, no line under it (owner, 2026-10-15: "all the
+// unnecessary things ... should go away"); a tap opens what is in it.
 const WHY_STEPS = [
-  ["new", w => "New things", (w, ref) => plural(w.counts.new, "thing", "things") + ` not bought ${ref}`],
-  ["skipped", w => "Skipped this time", (w, ref) => plural(w.counts.skipped, "thing", "things") +
-     ` bought ${ref}, not now`],
-  ["amounts", w => w.parts.amounts >= 0 ? "More of the same things" : "Fewer of the same things",
-     w => plural(w.counts.same, "thing", "things") + " you buy both times"],
-  ["prices", w => "Same things, prices", (w, ref) => `The shelf price now against ${ref}`],
-  ["discounts", w => "Same things, discounts", w => w.parts.discounts < 0
-     ? "Discounts saved more" : "Discounts saved less"],
+  ["new", w => "New things"],
+  ["skipped", w => "Skipped"],
+  ["amounts", w => w.parts.amounts >= 0 ? "More of the same" : "Less of the same"],
+  ["prices", w => "Prices"],
+  ["discounts", w => "Discounts"],
 ];
 const signed = v => (v > 0 ? "+" : v < 0 ? "−" : "") + euro(Math.abs(v));
 const tone = v => v >= 0 ? "more" : "less";
@@ -1621,8 +1567,7 @@ function tripsCard(month) {
       el("span", { class: "chev", "aria-hidden": "true" }, "›")),
     rows.map(([name, n, cls]) => el("div", { class: "dot-row" },
       el("div", { class: "dot-name" }, name), dots(n, cls),
-      el("div", { class: "dot-count" }, n.toLocaleString("en", { maximumFractionDigits: 1 })))),
-    el("div", { class: "meta" }, `Days 1 to ${month.usual.through_day || "the end"} of each month`));
+      el("div", { class: "dot-count" }, n.toLocaleString("en", { maximumFractionDigits: 1 })))));
 }
 // Bars from one centre line: more spending grows right (orange), less grows
 // left (aqua), all on one scale (owner, 2026-10-15: bars that start in
@@ -1650,25 +1595,17 @@ function bridgeCard(month) {
   const why = whyOf(month), more = why.difference > 0;
   const lastName = month.compared ? monthName(month.compared.versus).replace(/ \d+$/, "") : null;
   const onLast = state.whyBase === "last" && month.why_last;
-  const name = monthName(month.month).replace(/ \d+$/, "");
   const choose = key => el("button", { class: (onLast ? "last" : "usual") === key ? "on" : "",
     onclick: () => { state.whyBase = key; render(); } }, key === "usual" ? "Usual" : lastName);
   const steps = WHY_STEPS.filter(([key]) => Math.abs(why.parts[key]) >= 0.005);
   return el("div", { class: "card viz" },
     el("h2", {}, `Why ${euro(Math.abs(why.difference))} ${more ? "more" : "less"} than ` +
       (onLast ? `in ${lastName}` : "usual")),
-    month.why_last ? el("div", { class: "switch" }, el("span", { class: "meta" }, "Compare with"),
-      choose("usual"), choose("last")) : null,
-    el("div", { class: "meta" }, `${onLast ? lastName : "Usual"} ${euro(month.spend - why.difference)}` +
-      ` → ${name} ${euro(month.spend)}` +
-      (month.usual.through_day ? `, days 1 to ${month.usual.through_day}` : "")),
+    month.why_last ? el("div", { class: "switch" }, choose("usual"), choose("last")) : null,
     divergeRows([
-      ...steps.map(([key, label, says]) => ({ key, name: label(why),
-                                              says: says(why, onLast ? `in ${lastName}` : "usually"),
-                                              amount: why.parts[key] })),
+      ...steps.map(([key, label]) => ({ key, name: label(why), amount: why.parts[key] })),
       { name: "Altogether", amount: why.difference, total: true }],
-      r => r.key ? () => openWhy(r.key) : null),
-    el("div", { class: "axis-note" }, el("span", {}, "← less spending"), el("span", {}, "more spending →")));
+      r => r.key ? () => openWhy(r.key) : null));
 }
 function whyCard(month) {
   const why = month.why;
@@ -1702,16 +1639,13 @@ function whyView(month) {
   if (at.branch === undefined) {
     return [back, el("div", { class: "card viz" },
       el("h2", {}, `${name}: ${signed(why.parts[at.part])}`),
-      barRows(groups.map(g => ({ name: g.branch || "Not sorted yet", amount: g.amount,
-                                 says: plural(g.items.length, "thing", "things") })),
+      barRows(groups.map(g => ({ name: g.branch || "Not sorted yet", amount: g.amount })),
               (r, i) => () => openWhy(at.part, i)))];
   }
   const g = groups[at.branch];
   return [back, el("div", { class: "card viz" },
     el("h2", {}, `${g.branch || "Not sorted yet"}: ${signed(g.amount)}`),
-    el("div", { class: "meta" }, name),
-    barRows(g.items.map(item => ({ ...item, name: item.product,
-                                   says: [item.brand, item.store].filter(Boolean).join(" · ") })),
+    barRows(g.items.map(item => ({ ...item, name: easyName(item.product, item.brand) })),
             r => r.product_id ? () => openProduct(r.product_id) : null))];
 }
 
@@ -1876,16 +1810,8 @@ function turningCard(key, items, fill, open, delay = 0) {
 
 // Prices that really moved (the owner, 2026-10-14): bought at least three
 // times and moved at least 10% on the shelf, not an offer; the server picks
-// them (`insights.price_moves`), newest move first. Each says when and how
-// it moved.
-function moveText(m) {
-  const up = m.change_pct > 0, word = up ? "Up" : "Down";
-  const on = shortDate(m.since);
-  if (m.kind === "keeps_changing") return "Keeps changing";
-  if (m.kind === "latest") return `${word} on ${on}, the last time`;
-  return m.steps.length > 1 ? `${word} in ${m.steps.length} steps since ${on}`
-    : `${word} on ${on}, and stayed`;
-}
+// them (`insights.price_moves`), newest move first. The tile says how much
+// and from what to what; when and how is on the product's page, a tap away.
 function priceCard(d) {
   const moves = d.price_moves;
   if (!moves || !moves.length) return null;  // none, or a copy from an older server
@@ -1895,8 +1821,7 @@ function priceCard(d) {
       el("div", { class: "big " + (up ? "up" : "down") },
          (up ? "▲ " : "▼ ") + Math.round(Math.abs(m.change_pct)) + "%"),
       el("div", { class: "what" }, easyName(m.product, m.brand)),
-      el("div", { class: "meta" }, `${euro(m.before)} → ${euro(m.after)} per ${m.per} · ${m.store}`),
-      el("div", { class: "meta how" }, moveText(m))];
+      el("div", { class: "meta" }, `${perText(m.before, m.per)} → ${perText(m.after, m.per)}`)];
   }, m => openProduct(m.product_id));
 }
 
@@ -1916,8 +1841,7 @@ function regularsCard(d) {
     el("div", { class: "label" }, "Your regular"),
     el("div", { class: "big" }, `${r.trips}×`),
     el("div", { class: "what" }, easyName(r.product, r.brand)),
-    el("div", { class: "meta" }, spanText(r.days)),
-    el("div", { class: "meta how" }, `last on ${shortDate(r.last_bought)}`)],
+    el("div", { class: "meta" }, spanText(r.days))],
   r => openProduct(r.product_id), TURN_MS / 2);
 }
 
@@ -1925,42 +1849,29 @@ function regularsCard(d) {
 // receipts, and how good its sure lines are by the random checks (owner's
 // call, 2026-10-12: the counts say how much help the app needs from users).
 // The level rules are in `grocery_app.sureness` on the server.
+// One row a level, its count and share; what each level means is in
+// `grocery_app.sureness`, not on the screen (owner, 2026-10-15: less text).
 const SURENESS_LEVELS = [
-  ["sure", "Sure", "the app placed it; random checks test these"],
-  ["unclear_print", "Unclear print, product found", "the price picked one of several"],
-  ["category_only", "Only the kind found", "one of several of the same kind"],
-  ["needs_answer", "Needs an answer", "nothing placed it"],
-  ["answered", "Answered by a person", "an answer, or none of these"],
+  ["sure", "Sure"],
+  ["unclear_print", "Unclear print"],
+  ["category_only", "Only the kind"],
+  ["needs_answer", "Needs an answer"],
+  ["answered", "Answered by a person"],
 ];
 
 function surenessCard() {
-  const m = state.checks.meta;
   const d = state.sureness;
-  const waiting = el("div", { class: "why" }, `${m.open} random checks and ` +
-    `${state.questions.meta.open} questions waiting for you`);
-  if (!d) return el("div", { class: "card" }, el("h2", {}, "How the app is doing"), waiting);
+  if (!d) return null;
   const share = n => n && d.lines ? ` · ${Math.round(100 * n / d.lines)}%` : "";
   const c = d.checks;
   const checked = c.right + c.corrected;
-  const unplaced = [d.print_says_nothing ? `${d.print_says_nothing} the till names nothing`
-    : null, d.category_guessed ? `${d.category_guessed} with a guessed kind` : null]
-    .filter(Boolean).join(", ");
-  const recent = d.months.filter(x => x.month).slice(0, 2);
   return el("div", { class: "card" }, el("h2", {}, "How the app is doing"),
     el("div", { class: "says" }, checked
-      ? `Random checks: right on ${c.right} of ${checked} (${Math.round(100 * c.yes_rate)}%)`
+      ? `Random checks: ${c.right} of ${checked} right (${Math.round(100 * c.yes_rate)}%)`
       : "No random check answered yet"),
-    SURENESS_LEVELS.map(([key, name, meaning]) => el("div", { class: "line" },
-      el("div", {},
-        el("div", { class: "what" }, name),
-        el("div", { class: "meta" }, meaning +
-          (key === "needs_answer" && unplaced ? ` (${unplaced})` : ""))),
-      el("div", { class: "money" }, `${d[key]}${share(d[key])}`))),
-    recent.map(x => el("div", { class: "meta", style: "margin-top: 4px" },
-      `${monthName(x.month)}: ${x.lines} lines, ` +
-      `${x.needs_answer} need an answer, ${x.answered} answered`)),
-    el("div", { class: "why" }, `${d.lines} product lines on everyone's receipts.`),
-    waiting);
+    SURENESS_LEVELS.map(([key, name]) => el("div", { class: "line" },
+      el("div", { class: "what" }, name),
+      el("div", { class: "money" }, `${d[key]}${share(d[key])}`))));
 }
 
 // You: who is signed in, and for the owner how sure the app is and what it
@@ -2156,11 +2067,7 @@ function priceLine(purchases, onDay) {
     const iso = e.target.dataset && e.target.dataset.day;
     if (iso) onDay(iso, purchases.filter(b => b.date === iso));
   });
-  const others = [...perCount.keys()].filter(unit => unit !== per);
-  const other = priced.length - kept.length;
-  return [box, el("div", { class: "meta" }, `Shelf price per ${per}, before discounts` +
-    (other ? ` · ${other} more priced ${others.length === 1 ? "per " + others[0]
-      : "another way"}, not shown` : ""))];
+  return [box, el("div", { class: "meta" }, `Price per ${per}`)];
 }
 
 function productView() {
@@ -2169,11 +2076,8 @@ function productView() {
   if (!p.doc) return [back, el("div", { class: "empty" }, "Loading…")];
   const d = p.doc;
   const buys = d.purchases;
-  const owner = isOwner();
   const deepest = d.category_path && d.category_path.length
     ? d.category_path[d.category_path.length - 1] : null;
-  const days = new Set(buys.map(b => b.date)).size;
-  const shops = [...new Set(buys.map(b => b.store).filter(Boolean))];
   const years = new Set(buys.map(b => (b.date || "").slice(0, 4))).size > 1;
   const onDay = (iso, bought) => {
     const receipts = new Set(bought.map(b => b.receipt_id));
@@ -2186,30 +2090,24 @@ function productView() {
     el("div", { class: "card" },
       el("h2", {}, d.product || d.product_id),
       el("div", { class: "meta" }, [deepest && deepest !== d.product ? deepest : null,
-        owner ? d.brand : null].filter(Boolean).join(" · ")),
+        d.brand].filter(Boolean).join(" · ")),
       buys.length ? priceLine(buys, onDay)
         : el("div", { class: "meta" }, "Not on any of your receipts.")),
     buys.length ? el("div", { class: "card" },
       calendar(buys, onDay),
-      el("div", { class: "meta" },
-        `Bought ${buys.length === 1 ? "once" : buys.length + " times"}` +
-        (days !== buys.length ? ` on ${days} days` : "") +
-        (shops.length ? ` at ${shops.join(", ")}` : "") + " · tap a day to see its receipt"))
+      el("div", { class: "meta" }, `Bought ${buys.length === 1 ? "once" : buys.length + " times"}`))
       : null,
     buys.length ? el("div", { class: "card buys" }, [...buys].reverse().map(b => {
       const unit = b.unit_price && b.unit_price.per !== "item"
         ? `${euro(b.unit_price.amount)}/${b.unit_price.per === "piece" ? "pc" : b.unit_price.per}`
         : null;
-      return el("div", { class: "line" + (p.day === b.date ? " on" : ""),
+      // A buy left out of the numbers is struck through, as on its receipt.
+      return el("div", { class: "line" + (b.not_counted ? " off" : "") + (p.day === b.date ? " on" : ""),
                          onclick: () => openLine(b.receipt_id, [b.position]) },
         el("div", {},
-          el("div", { class: "what" }, dayText(b.date, years),
-             b.not_counted ? el("span", { class: "badge none" }, "left out") : null),
+          el("div", { class: "what" }, dayText(b.date, years)),
           el("div", { class: "meta" }, [b.store, b.qty !== 1 ? `${b.qty}×` : null, unit]
-            .filter(Boolean).join(" · "),
-            // What the paper printed and who said what it is: the owner's details.
-            owner ? badge(b.said_by) : null),
-          owner ? el("div", { class: "printed" }, b.raw_name) : null),
+            .filter(Boolean).join(" · "))),
         el("div", { class: "money" }, euro(b.net_paid), " ›"));
     })) : null];
 }
@@ -2291,9 +2189,10 @@ function defaultMonth(months) {
   return months.some(m => m.month === key) ? key : months[0].month;
 }
 
-// A product's name as everyone sees it; the owner also sees its brand.
+// A product's name and its brand, "Bio Müsli · Alnatura", for everyone
+// (owner, 2026-10-15: name and brand, nothing more).
 function easyName(name, brand) {
-  return isOwner() ? productText(name, brand) : name;
+  return productText(name, brand);
 }
 
 function shortDate(iso) {
@@ -2346,7 +2245,9 @@ function moneyCard(d) {
       + (on.nextSibling ? 0 : 2);
   });
   const most = Math.max(...month.branches.map(b => b.spend), 0.01);
-  const rows = month.branches.flatMap(b => {
+  // The biggest five parts, the rest a tap away (owner, 2026-10-15: less to read).
+  const branches = state.allBranches ? month.branches : month.branches.slice(0, 5);
+  const rows = branches.flatMap(b => {
     const key = b.branch || null;
     const open = state.openBranch === key;
     const row = rankRow(b.branch || "Not sorted yet", b.spend, most, { none: !b.branch, open,
@@ -2362,17 +2263,14 @@ function moneyCard(d) {
         onclick: () => item.product_id ? openProduct(item.product_id)
           : toast("Not placed on a product yet: fix it on its receipt") })))];
   });
-  const unsorted = month.branches.find(b => !b.branch);
   return el("div", { class: "card" },
     el("h2", { class: "q" }, "Where the money went"), choose,
     el("div", { class: "stat" }, euro(month.spend)),
-    el("div", { class: "meta" }, `${monthName(month.month)} · ` +
-       `${plural(month.receipts, "receipt", "receipts")} · tap a part to see what is in it`),
     el("div", { class: "rank" }, rows),
-    el("div", { class: "cover" }, "Every line you counted, groceries or not. " + (unsorted
-      ? `${euro(unsorted.spend)} on ${plural(unsorted.lines, "line", "lines")} is not placed on ` +
-        "a product yet, so it has no part of the shop."
-      : "Every line is placed.")));
+    month.branches.length > 5 ? el("button", { class: "more", onclick: () => {
+      state.allBranches = !state.allBranches;
+      render();
+    } }, state.allBranches ? "Show fewer" : `Show all ${month.branches.length}`) : null);
 }
 
 // A card with nothing to show yet stays, closed, and says what opens it.
@@ -2388,32 +2286,26 @@ function pricesCard(d) {
   if (!moved.length) return closedCard("Prices that moved", "Shows once something you buy " +
     "at the same shop changes price. Older receipts bring this sooner.");
   const shown = state.allPrices ? moved : moved.slice(0, 5);
-  const seen = d.price_changes.length;
   return el("div", { class: "card" },
     el("h2", { class: "q" }, "Prices that moved"),
-    el("div", { class: "meta" }, "The same product at the same shop, first time against the latest."),
     shown.map(c => {
       const up = c.change_pct > 0;
       return el("div", { class: "item", onclick: () => openProduct(c.product_id) },
         el("div", {},
           el("div", { class: "what", lang: "de" }, easyName(c.product, c.brand)),
           el("div", { class: "meta" }, `${perText(c.first.price, c.per)} → ` +
-             `${perText(c.last.price, c.per)}${c.sold_as === "loose" ? " loose" : ""} · ${c.store}`),
-          el("div", { class: "meta" }, `${shortDate(c.first.date)} → ${shortDate(c.last.date)} · ` +
-             `bought on ${c.observations.length} days`)),
+             `${perText(c.last.price, c.per)}`)),
         el("div", { class: "end " + (up ? "up" : "down") }, (up ? "▲ " : "▼ ") + pctText(c.change_pct)));
     }),
     moved.length > 5 ? el("button", { class: "more", onclick: () => {
       state.allPrices = !state.allPrices;
       render();
-    } }, state.allPrices ? "Show fewer" : `Show all ${moved.length}`) : null,
-    el("div", { class: "cover" }, `${moved.length} of ${plural(seen, "product", "products")} ` +
-      "bought on two or more days at the same shop changed price. A move seen on two days is " +
-      "one comparison: it can be an offer, or a different pack."));
+    } }, state.allPrices ? "Show fewer" : `Show all ${moved.length}`) : null);
 }
 
 // What discounts saved (the owner, 2026-10-14): the newest month first, then
-// month by month and shop by shop. Only discounts printed on a receipt line.
+// month by month; by shop stays in `insights.discounts` (owner, 2026-10-15:
+// less on screen). Only discounts printed on a receipt line.
 function savedCard(d) {
   const s = d.discounts;
   if (!s) return null;  // a copy from an older server
@@ -2422,28 +2314,19 @@ function savedCard(d) {
   const latest = s.months[0];
   const shown = s.months.slice(0, 6);
   const most = Math.max(...shown.map(m => m.saved), 0.01);
-  const top = Math.max(...s.by_store.map(x => x.saved), 0.01);
   return el("div", { class: "card" },
     el("h2", { class: "q" }, "What discounts saved you"),
     el("div", { class: "stat" }, euro(latest.saved)),
     el("div", { class: "meta" }, monthName(latest.month).replace(/ \d+$/, "") +
-      (latest.share ? ` · ${Math.round(latest.share * 100)}% off the shelf price of what you bought`
-        : " · nothing off yet")),
-    el("div", { class: "label sub" }, "By month"),
+      (latest.share ? ` · ${Math.round(latest.share * 100)}% off` : "")),
     el("div", { class: "rank" }, shown.map(m =>
-      rankRow(monthName(m.month).replace(/ \d+$/, ""), m.saved, most, { lang: "en" }))),
-    el("div", { class: "label sub" }, `By shop, ${euro(s.saved)} in all`),
-    el("div", { class: "rank" }, s.by_store.map(x => rankRow(x.store, x.saved, top))),
-    el("div", { class: "cover" }, "Only discounts printed on a receipt line. Returned " +
-      "bottles are not counted, nor an offer that only lowers the shelf price: the receipt " +
-      "prints that as the price."));
+      rankRow(monthName(m.month).replace(/ \d+$/, ""), m.saved, most, { lang: "en" }))));
 }
 
 // 3. Due again soon: the next things to run out, by how often they were
-// bought. A product not bought for longer than its usual gap is left out of
-// the list and named under it: perhaps it is no longer bought.
+// bought. A product not bought for longer than its usual gap is left out:
+// perhaps it is no longer bought.
 function dueCard(d) {
-  const stale = d.repurchase.filter(r => r.days_overdue > r.typical_interval_days);
   const next = d.repurchase.filter(r => r.days_overdue <= r.typical_interval_days)
     .sort((a, b) => a.expected_next.localeCompare(b.expected_next));
   const shown = state.allDue ? next : next.slice(0, 5);
@@ -2452,75 +2335,47 @@ function dueCard(d) {
     return days > 1 ? `in ${days} days` : days === 1 ? "tomorrow" : days === 0 ? "now"
       : `${-days} ${days === -1 ? "day" : "days"} late`;
   };
-  const products = d.coverage.products;
   if (!d.repurchase.length) return closedCard("Due again soon",
     "Shows once you have bought the same thing on two days. Add more receipts.");
   return el("div", { class: "card" },
     el("h2", { class: "q" }, "Due again soon"),
-    el("div", { class: "meta" }, `Counted from your last receipt, ${shortDate(d.as_of)}.`),
     shown.map(r => el("div", { class: "item", onclick: () => openProduct(r.product_id) },
       el("div", {},
         el("div", { class: "what", lang: "de" }, easyName(r.product, r.brand)),
-        // One gap is not a habit: two trips say "bought again", not "every N days".
-        el("div", { class: "meta" }, (r.gaps_observed === 1
-          ? `bought twice, ${r.typical_interval_days} days apart`
-          : `about every ${r.typical_interval_days} days, ${r.trips} times`) +
-          ` · last ${shortDate(r.last_bought)}`)),
+        // One gap is not a habit: two trips say "bought twice", not "every N days".
+        el("div", { class: "meta" }, r.gaps_observed === 1 ? "bought twice"
+          : `every ${r.typical_interval_days} days`)),
       el("div", { class: "end" + (r.status === "due" ? " up" : "") }, when(r)))),
     next.length > 5 ? el("button", { class: "more", onclick: () => {
       state.allDue = !state.allDue;
       render();
     } }, state.allDue ? "Show fewer" : `Show all ${next.length}`) : null,
-    next.length ? null : el("div", { class: "why" }, "Nothing to buy again yet."),
-    el("div", { class: "cover" },
-      (products ? `${d.repurchase.length} of ${plural(products, "product", "products")} were ` +
-        "bought on two or more days. " : "") +
-      `${d.repurchase.filter(r => r.gaps_observed === 1).length} of those rest on a single gap.`,
-      stale.length ? el("div", {}, "Not bought for longer than usual: ",
-        stale.flatMap((r, i) => [i ? ", " : "", el("span", { class: "link", role: "button",
-          onclick: () => openProduct(r.product_id) }, r.product)])) : null));
+    next.length ? null : el("div", { class: "why" }, "Nothing to buy again yet."));
 }
 
 // 4. Two numbers: how much went to a shop's cheaper line, and what last
 // month's basket costs now.
 function numbersCard(d) {
   const all = d.budget_brand.overall;
-  const known = all.budget + all.name_brand;
   const share = all.budget_share_of_known;
   const series = d.basket_index.series;
-  const latest = series[series.length - 1];
   const priced = [...series].reverse().find(s => s.index != null);
   const short = m => monthName(m).replace(/ \d+$/, "").slice(0, 3);
   const up = priced && priced.month_over_month_pct > 0;
   const brandTile = el("div", {},
     el("div", { class: "label" }, "Budget brand"),
     el("div", { class: "big" }, share == null ? "–" : Math.round(share * 100) + "%"),
-    el("div", { class: "meta" }, share == null ? "No brand known yet."
-      : `of ${euro(known)} where the brand is known went to the shop's cheaper line`));
+    el("div", { class: "meta" }, share == null ? "No brand known yet." : "of branded spend"));
   const basketTile = el("div", {},
     el("div", { class: "label" }, "Basket price"),
     el("div", { class: "big" + (priced ? (up ? " up" : " down") : "") }, priced
       ? (priced.month_over_month_pct === 0 ? "±0%"
         : (up ? "▲ " : "▼ ") + pctText(priced.month_over_month_pct)) : "–"),
-    el("div", { class: "meta" }, priced
-      ? `${short(priced.month)} against ${short(priced.versus)}: the same ` +
-        `${priced.products} products`
-      : "Needs a few products bought in two months running."));
-  const notes = [
-    all.unknown ? `${euro(all.unknown)} has a brand not known yet` : null,
-    all.unbranded ? `${euro(all.unbranded)} is fruit and vegetables with no brand` : null,
-    all.unresolved ? `${euro(all.unresolved)} is not placed on a product` : null,
-  ].filter(Boolean);
+    el("div", { class: "meta" }, priced ? `${short(priced.month)} vs ${short(priced.versus)}`
+      : "Needs two months running."));
   return el("div", { class: "card" },
     el("h2", { class: "q" }, "Two numbers"),
-    el("div", { class: "pair" }, brandTile, basketTile),
-    el("div", { class: "cover" },
-      share == null ? null : el("div", {}, `Budget brand, all receipts: ${notes.length
-        ? notes.join(", ") + ", left out." : "every brand is known."}`),
-      latest && latest !== priced
-        ? el("div", {}, `Basket, ${short(latest.month)}: ${latest.reason}.`) : null,
-      priced ? el("div", {}, "Basket: those products' prices this month, in last month's " +
-        "amounts. Few products move it a lot.") : null));
+    el("div", { class: "pair" }, brandTile, basketTile));
 }
 
 // 5. The same item at other shops: the latest price at each.
@@ -2539,14 +2394,10 @@ function shopsCard(d) {
         el("div", {},
           el("div", { class: "what", lang: "de" }, c.product),
           stores.map(([store, s]) => el("div", { class: "meta" },
-            `${store}: ${s.price == null ? "no price" : perText(s.price, s.per)} on ` +
-            `${shortDate(s.date)}` + (cheapest != null && s.price === cheapest ? " · cheapest" : ""))),
-          units.size > 1 ? el("div", { class: "meta" }, "Sold by different units: not compared.")
-            : null),
+            `${store} ${s.price == null ? "–" : perText(s.price, s.per)}` +
+            (cheapest != null && s.price === cheapest ? " · cheapest" : "")))),
         el("div", { class: "end" }, "›"));
-    }),
-    el("div", { class: "cover" }, d.cross_store.note
-      || "The latest price at each shop; an offer on one day can decide it."));
+    }));
 }
 
 // Insights, a short scroll (2026-10-13, the designer's advice: a few things
@@ -2557,19 +2408,7 @@ function insightsView() {
   if (!d) return [el("div", { class: "empty" }, "Loading insights…")];
   if (!d.months.length) return [el("div", { class: "empty" }, "No insights yet: they come " +
     "from your receipts. Tap + below to add one.")];
-  const cov = d.coverage;
-  const range = cov.date_range;
-  const aside = [
-    cov.not_grocery.lines ? `${euro(cov.not_grocery.spend)} that is not groceries` : null,
-    cov.not_counted.lines ? `${euro(cov.not_counted.spend)} you left out` : null,
-  ].filter(Boolean);
-  return [
-    el("div", { class: "why" }, (range ? `From ${plural(cov.receipts, "receipt", "receipts")}, ` +
-      `${shortDate(range[0])} to ${shortDate(range[1])}. ` : "") +
-      (cov.resolved_share_of_spend == null ? "" : `${Math.round(cov.resolved_share_of_spend * 100)}% ` +
-        "of the grocery money is placed on a product; the rest counts as money only.") +
-      (aside.length ? ` After the month, the cards leave out ${aside.join(" and ")}.` : "")),
-    moneyCard(d), pricesCard(d), savedCard(d), dueCard(d), numbersCard(d), shopsCard(d)];
+  return [moneyCard(d), pricesCard(d), savedCard(d), dueCard(d), numbersCard(d), shopsCard(d)];
 }
 
 // Receipts by month, newest first (the owner, 2026-10-09): one compact row a
@@ -2615,12 +2454,8 @@ function receiptsView() {
             const open = key in state.monthOpen ? state.monthOpen[key]
               : key === newest || list.some(r => r.receipt_id === state.open);
             // The month counts what Home counts (owner, 2026-10-15: two totals for
-            // one month were annoying); what it leaves out is named under it.
-            const leftOut = list.flatMap(r => r.left_out || []);
-            const deposits = list.reduce((sum, r) => sum + (r.deposits || 0), 0);
-            const outText = [...leftOut.map(l => `${l.name} ${euro(l.net_paid)}`),
-                             ...(deposits >= 0.005 ? [`deposits ${euro(deposits)}`]
-                               : deposits <= -0.005 ? [`deposits back ${euro(-deposits)}`] : [])];
+            // one month were annoying). What it leaves out is not listed under it
+            // any more: too much small text (owner, later that day).
             const asked = list.reduce((n, r) => n + asksOn(r.receipt_id).length, 0);
             const name = !key ? "No date"
               : yearSwitch || key.slice(0, 4) === thisYear ? monthName(key).replace(/ \d+$/, "")
@@ -2631,9 +2466,7 @@ function receiptsView() {
               el("div", {},
                 el("div", { class: "name" },
                    !open && list.some(r => !r.seen_at) ? newMark() : null, name),
-                el("div", { class: "meta" }, plural(list.length, "receipt", "receipts")),
-                outText.length ? el("div", { class: "left-out" },
-                  "Not counted: " + outText.join(", ")) : null),
+                el("div", { class: "meta" }, plural(list.length, "receipt", "receipts"))),
               el("div", { class: "end" },
                 asked && !open ? askMark(asked, `${asked} ${asked === 1 ? "question"
                   : "questions"} for you in ${name}`) : null,
