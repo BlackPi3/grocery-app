@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-15, laptop: leaner screens (less text everywhere) merged (#165); next, the owner's backlog (below Parked), one item at a time.
+**Last updated:** 2026-10-16, laptop: direction talk, no code. The app ships one thing: **saving money on groceries**; functions before looks. Two open decisions below (what groceries are, target group); next, the offer test.
 
 ## Now
 
@@ -435,7 +435,43 @@ session (laptop or cloud) can pick up from here. How we work is in
 4. ~~Insights screen.~~ Done (2026-10-13): five cards, one question each,
    with their coverage; every product opens the drill-down (see Now).
 
-## Open decisions (the owner's), as of 2026-10-14
+## Open decisions (the owner's), as of 2026-10-16
+
+Direction (owner, 2026-10-16): the app does **one thing, groceries**, and
+its promise is **lowering grocery cost**, not tracking (people pay for money
+saved). Overall functions come before polishing the look. Other money areas
+(eating out, travel, vice) come later.
+
+- **What counts as groceries: ECOICOP 01?** ECOICOP is the EU's official list
+  of household spending (Eurostat's inflation index and every EU household
+  survey use it); the other EU lists (customs CN, CPA, NACE, FoodEx2, food
+  law 178/2002) sort for other jobs. 01 is food and non-alcoholic drinks
+  (baby food in; milk is a food). Out: alcohol, **alcohol-free beer and wine
+  too** (02), tobacco (02), cafés (11), vitamins and supplements (06),
+  personal care, tissues and toilet paper (13.1), cleaning products, foil,
+  kitchen paper, bin bags (05.6.1), pet food (09.3). Recommendation: yes.
+  The owner agreed with the idea but asked about Haushaltsartikel; not yet
+  answered. The change if yes: add `alkohol`, `drogerie`, `haushalt` to
+  `NOT_GROCERY_BRANCHES` in `categories.py` (they stay in the history) and
+  add a pet food category; later an ECOICOP code under each category, for
+  comparing with official food inflation per country.
+- **Target group.** Destatis EVS 2023, food and non-alcoholic drinks only
+  (alcohol and tobacco taken out), per household per month: under €1,000
+  net ~€200, €2,600–3,600 ~€345, €3,600–5,000 ~€410, €5,000+ ~€525, all
+  ~€375. With alcohol and tobacco, by type: single €254, single parent
+  €416, couple €495, couple with children €658. Recommendation: families
+  with children on €2,600–5,000 net (big bill, still feel it), the owner as
+  first user. The owner's worry: tight-budget users may not pay, and the
+  app could cost more than it earns. Answer given: the savings must clearly
+  exceed a small price, and each user must cost very little (a cheap model
+  reads a receipt for well under a cent; most of today's cost is fixed
+  hosting). Unanswered.
+- **Next build once decided: the offer test.** Take the owner's regular
+  items (bought on a cycle) and check this and next week's marktguru offers
+  near him: how many hit, and how many € a month they would save. If small,
+  the promise is weak and we learn it before building screens for it.
+
+### Older open decisions (2026-10-14)
 
 - **Barcodes: keep exact-only (A)?** Asked 2026-10-13 after the first run
   (see Now), unanswered. Recommendation: yes; the gap is the unknown size,
