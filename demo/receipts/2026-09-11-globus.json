@@ -1,0 +1,105 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "GLOBUS",
+  "store_location": "Musterstraße 1, 66111 Saarbrücken",
+  "date": "2026-09-11",
+  "time": "15:39",
+  "currency": "EUR",
+  "printed_total": 16.38,
+  "printed_savings": 0.34,
+  "tax_buckets": {
+    "7%": 16.38
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Weihenst. Frische Milch 3,5% 1L",
+      "qty": 1,
+      "gross": 1.55,
+      "discount": 0.0,
+      "net": 1.55,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kerrygold Butter 250g",
+      "qty": 1,
+      "gross": 2.89,
+      "discount": 0.0,
+      "net": 2.89,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Mutti Passata 500g",
+      "qty": 1,
+      "gross": 1.39,
+      "discount": 0.0,
+      "net": 1.39,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 1,
+      "sold_by_weight": true,
+      "weight_kg": 1.2,
+      "unit_price": 1.69,
+      "unit_price_basis": "kg",
+      "gross": 2.03,
+      "discount": 0.0,
+      "net": 2.03,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Rispentomaten",
+      "qty": 1,
+      "sold_by_weight": true,
+      "weight_kg": 0.683,
+      "unit_price": 2.49,
+      "unit_price_basis": "kg",
+      "gross": 1.7,
+      "discount": -0.34,
+      "net": 1.36,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Salatgurke St.",
+      "qty": 1,
+      "gross": 0.89,
+      "discount": 0.0,
+      "net": 0.89,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Eier Freiland 10St",
+      "qty": 1,
+      "gross": 4.29,
+      "discount": 0.0,
+      "net": 4.29,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Globus Toastbrot Weizen 500g",
+      "qty": 1,
+      "gross": 1.09,
+      "discount": 0.0,
+      "net": 1.09,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Ja! Haferflocken 500g",
+      "qty": 1,
+      "gross": 0.89,
+      "discount": 0.0,
+      "net": 0.89,
+      "tax_class": "2"
+    }
+  ]
+}

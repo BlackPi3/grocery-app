@@ -1,0 +1,43 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "ALDI SÜD",
+  "store_location": "Beispielweg 5, 66113 Saarbrücken",
+  "date": "2026-10-07",
+  "time": "13:07",
+  "currency": "EUR",
+  "printed_total": 8.53,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 8.53
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milsani H-Milch 1,5% 1L",
+      "qty": 1,
+      "gross": 1.05,
+      "discount": 0.0,
+      "net": 1.05,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Hähnchenbrustfilet 400g",
+      "qty": 1,
+      "gross": 4.99,
+      "discount": 0.0,
+      "net": 4.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Lebkuchen Herzen 500g",
+      "qty": 1,
+      "gross": 2.49,
+      "discount": 0.0,
+      "net": 2.49,
+      "tax_class": "A"
+    }
+  ]
+}

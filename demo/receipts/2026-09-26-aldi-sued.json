@@ -1,0 +1,70 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "ALDI SÜD",
+  "store_location": "Beispielweg 5, 66113 Saarbrücken",
+  "date": "2026-09-26",
+  "time": "11:45",
+  "currency": "EUR",
+  "printed_total": 10.4,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 10.4
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milsani H-Milch 1,5% 1L",
+      "qty": 1,
+      "gross": 1.05,
+      "discount": 0.0,
+      "net": 1.05,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 1,
+      "gross": 1.19,
+      "discount": 0.0,
+      "net": 1.19,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Hähnchenbrustfilet 400g",
+      "qty": 1,
+      "gross": 4.99,
+      "discount": 0.0,
+      "net": 4.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Milsani Joghurt Natur 500g",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Moser Roth Edel-Vollmilch",
+      "qty": 1,
+      "gross": 1.39,
+      "discount": 0.0,
+      "net": 1.39,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Haferflocken 500g",
+      "qty": 1,
+      "gross": 0.99,
+      "discount": 0.0,
+      "net": 0.99,
+      "tax_class": "A"
+    }
+  ]
+}

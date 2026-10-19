@@ -1,0 +1,116 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "GLOBUS",
+  "store_location": "Musterstraße 1, 66111 Saarbrücken",
+  "date": "2026-05-02",
+  "time": "19:09",
+  "currency": "EUR",
+  "printed_total": 16.24,
+  "printed_savings": 0.8,
+  "tax_buckets": {
+    "19%": 1.04,
+    "7%": 15.2
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Weihenst. Frische Milch 3,5% 1L",
+      "qty": 1,
+      "gross": 1.45,
+      "discount": 0.0,
+      "net": 1.45,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kerrygold Butter 250g",
+      "qty": 1,
+      "gross": 2.49,
+      "discount": 0.0,
+      "net": 2.49,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 1,
+      "sold_by_weight": true,
+      "weight_kg": 0.909,
+      "unit_price": 1.49,
+      "unit_price_basis": "kg",
+      "gross": 1.35,
+      "discount": 0.0,
+      "net": 1.35,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Rispentomaten",
+      "qty": 1,
+      "sold_by_weight": true,
+      "weight_kg": 0.654,
+      "unit_price": 2.99,
+      "unit_price_basis": "kg",
+      "gross": 1.96,
+      "discount": 0.0,
+      "net": 1.96,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Salatgurke St.",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Eier Freiland 10St",
+      "qty": 1,
+      "gross": 3.99,
+      "discount": -0.8,
+      "net": 3.19,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Philadelphia Original 175g",
+      "qty": 1,
+      "gross": 1.99,
+      "discount": 0.0,
+      "net": 1.99,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Gerolsteiner Naturell 1,5L",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "1"
+    },
+    {
+      "type": "deposit",
+      "raw_name": "Pfand",
+      "qty": 1,
+      "gross": 0.25,
+      "discount": 0.0,
+      "net": 0.25,
+      "tax_class": "1"
+    },
+    {
+      "type": "product",
+      "raw_name": "Globus Toastbrot Weizen 500g",
+      "qty": 2,
+      "unit_gross": 0.99,
+      "gross": 1.98,
+      "discount": 0.0,
+      "net": 1.98,
+      "tax_class": "2"
+    }
+  ]
+}

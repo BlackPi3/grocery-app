@@ -1,0 +1,62 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "ALDI SÜD",
+  "store_location": "Beispielweg 5, 66113 Saarbrücken",
+  "date": "2026-08-18",
+  "time": "10:12",
+  "currency": "EUR",
+  "printed_total": 16.04,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 16.04
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 1,
+      "gross": 1.19,
+      "discount": 0.0,
+      "net": 1.19,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Hähnchenbrustfilet 400g",
+      "qty": 2,
+      "unit_gross": 4.79,
+      "gross": 9.58,
+      "discount": 0.0,
+      "net": 9.58,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Milsani Joghurt Natur 500g",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Gouda jung Scheiben 400g",
+      "qty": 1,
+      "gross": 2.99,
+      "discount": 0.0,
+      "net": 2.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Cucina Pesto Verde 190g",
+      "qty": 1,
+      "gross": 1.49,
+      "discount": 0.0,
+      "net": 1.49,
+      "tax_class": "A"
+    }
+  ]
+}

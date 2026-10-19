@@ -366,8 +366,13 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         Extraction takes seconds and costs money, so it does not happen inside
         the request. The response carries a job id to poll: `202` when this
         photo is new and work was scheduled, `200` when it had already been
-        read and the existing job is being handed back.
+        read and the existing job is being handed back. Not in the demo: a
+        guest is told to ask for an account (`demo.NO_UPLOADS`).
         """
+        if demo:
+            from grocery_app import demo as demo_mode
+
+            raise HTTPException(status_code=403, detail=demo_mode.NO_UPLOADS)
         repo = require_uploads(request)
         data = await file.read()
         if not data:
@@ -381,15 +386,6 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                                 detail="file is not a photo or a PDF this can read")
 
         digest = sha256_of(data)
-        if demo:
-            from grocery_app import demo as demo_mode
-
-            with repo.session_factory() as session:
-                if demo_mode.readings_today(session) >= demo_mode.readings_per_day():
-                    raise HTTPException(
-                        status_code=429, detail="The demo reads "
-                        f"{demo_mode.readings_per_day()} receipts a day, and today's are "
-                        "used up. Try again tomorrow.")
         existing = repo.job_for_image(digest)
         if existing is not None:
             # Same bytes, same hash: already paid for. The length check is a
@@ -656,7 +652,8 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         """Who the password belongs to: the owner, or a user by name."""
         user = asking(request)
         return Me(role="user" if user else "owner", name=user["name"] if user else None,
-                  demo=demo)
+                  demo=demo,
+                  contact=os.environ.get("GROCERY_OWNER_EMAIL") or None if demo else None)
 
     @app.get("/v1/users", response_model=list[UserSummary])
     def users(request: Request) -> list[UserSummary]:

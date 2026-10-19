@@ -1,0 +1,63 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "ALDI SÜD",
+  "store_location": "Beispielweg 5, 66113 Saarbrücken",
+  "date": "2026-05-11",
+  "time": "14:56",
+  "currency": "EUR",
+  "printed_total": 8.93,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 8.93
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milsani H-Milch 1,5% 1L",
+      "qty": 1,
+      "gross": 0.99,
+      "discount": 0.0,
+      "net": 0.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 2,
+      "unit_gross": 1.19,
+      "gross": 2.38,
+      "discount": 0.0,
+      "net": 2.38,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Milsani Joghurt Natur 500g",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Gouda jung Scheiben 400g",
+      "qty": 1,
+      "gross": 2.79,
+      "discount": 0.0,
+      "net": 2.79,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Haferflocken 500g",
+      "qty": 2,
+      "unit_gross": 0.99,
+      "gross": 1.98,
+      "discount": 0.0,
+      "net": 1.98,
+      "tax_class": "A"
+    }
+  ]
+}

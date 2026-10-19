@@ -1,0 +1,121 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "GLOBUS",
+  "store_location": "Musterstraße 1, 66111 Saarbrücken",
+  "date": "2026-05-15",
+  "time": "19:44",
+  "currency": "EUR",
+  "printed_total": 23.65,
+  "printed_savings": 0.39,
+  "tax_buckets": {
+    "19%": 1.94,
+    "7%": 21.71
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Weihenst. Frische Milch 3,5% 1L",
+      "qty": 1,
+      "gross": 1.45,
+      "discount": 0.0,
+      "net": 1.45,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kerrygold Butter 250g",
+      "qty": 1,
+      "gross": 2.49,
+      "discount": 0.0,
+      "net": 2.49,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Barilla Spaghetti No.5 500g",
+      "qty": 1,
+      "gross": 1.79,
+      "discount": 0.0,
+      "net": 1.79,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Mutti Passata 500g",
+      "qty": 1,
+      "gross": 1.29,
+      "discount": -0.39,
+      "net": 0.9,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 1,
+      "sold_by_weight": true,
+      "weight_kg": 1.362,
+      "unit_price": 1.49,
+      "unit_price_basis": "kg",
+      "gross": 2.03,
+      "discount": 0.0,
+      "net": 2.03,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Salatgurke St.",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Dr.Oetker Ristorante Salame",
+      "qty": 1,
+      "gross": 2.79,
+      "discount": 0.0,
+      "net": 2.79,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Coca-Cola 1,5L",
+      "qty": 1,
+      "gross": 1.69,
+      "discount": 0.0,
+      "net": 1.69,
+      "tax_class": "1"
+    },
+    {
+      "type": "deposit",
+      "raw_name": "Pfand",
+      "qty": 1,
+      "gross": 0.25,
+      "discount": 0.0,
+      "net": 0.25,
+      "tax_class": "1"
+    },
+    {
+      "type": "product",
+      "raw_name": "Nutella 450g",
+      "qty": 1,
+      "gross": 3.49,
+      "discount": 0.0,
+      "net": 3.49,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Erdbeeren 500g",
+      "qty": 2,
+      "unit_gross": 2.99,
+      "gross": 5.98,
+      "discount": 0.0,
+      "net": 5.98,
+      "tax_class": "2"
+    }
+  ]
+}

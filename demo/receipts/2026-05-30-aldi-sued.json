@@ -1,0 +1,62 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "ALDI SÜD",
+  "store_location": "Beispielweg 5, 66113 Saarbrücken",
+  "date": "2026-05-30",
+  "time": "16:00",
+  "currency": "EUR",
+  "printed_total": 8.95,
+  "printed_savings": null,
+  "tax_buckets": {
+    "19%": 2.99,
+    "7%": 5.96
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milsani H-Milch 1,5% 1L",
+      "qty": 1,
+      "gross": 0.99,
+      "discount": 0.0,
+      "net": 0.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 1,
+      "gross": 1.19,
+      "discount": 0.0,
+      "net": 1.19,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Gouda jung Scheiben 400g",
+      "qty": 1,
+      "gross": 2.79,
+      "discount": 0.0,
+      "net": 2.79,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Haferflocken 500g",
+      "qty": 1,
+      "gross": 0.99,
+      "discount": 0.0,
+      "net": 0.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kokett Toilettenpapier 8x",
+      "qty": 1,
+      "gross": 2.99,
+      "discount": 0.0,
+      "net": 2.99,
+      "tax_class": "B"
+    }
+  ]
+}

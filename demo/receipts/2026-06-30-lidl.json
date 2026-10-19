@@ -1,0 +1,43 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "Lidl",
+  "store_location": "Probeplatz 3, 66117 Saarbrücken",
+  "date": "2026-06-30",
+  "time": "16:57",
+  "currency": "EUR",
+  "printed_total": 3.97,
+  "printed_savings": null,
+  "tax_buckets": {
+    "19%": -1.5,
+    "7%": 5.47
+  },
+  "lines": [
+    {
+      "type": "deposit_return",
+      "raw_name": "Leergut",
+      "qty": 1,
+      "net": -1.5,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Milbona Frische Vollmilch 1L",
+      "qty": 2,
+      "unit_gross": 1.09,
+      "gross": 2.18,
+      "discount": 0.0,
+      "net": 2.18,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Nutella 450g",
+      "qty": 1,
+      "gross": 3.29,
+      "discount": 0.0,
+      "net": 3.29,
+      "tax_class": "A"
+    }
+  ]
+}

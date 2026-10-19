@@ -1,0 +1,86 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "GLOBUS",
+  "store_location": "Musterstraße 1, 66111 Saarbrücken",
+  "date": "2026-08-27",
+  "time": "15:12",
+  "currency": "EUR",
+  "printed_total": 25.36,
+  "printed_savings": 0.31,
+  "tax_buckets": {
+    "7%": 25.36
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Weihenst. Frische Milch 3,5% 1L",
+      "qty": 1,
+      "gross": 1.55,
+      "discount": -0.31,
+      "net": 1.24,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kerrygold Butter 250g",
+      "qty": 1,
+      "gross": 2.89,
+      "discount": 0.0,
+      "net": 2.89,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 1,
+      "sold_by_weight": true,
+      "weight_kg": 1.345,
+      "unit_price": 1.49,
+      "unit_price_basis": "kg",
+      "gross": 2.0,
+      "discount": 0.0,
+      "net": 2.0,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Eier Freiland 10St",
+      "qty": 2,
+      "unit_gross": 3.99,
+      "gross": 7.98,
+      "discount": 0.0,
+      "net": 7.98,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Haribo Goldbären 175g",
+      "qty": 2,
+      "unit_gross": 1.29,
+      "gross": 2.58,
+      "discount": 0.0,
+      "net": 2.58,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Globus Toastbrot Weizen 500g",
+      "qty": 1,
+      "gross": 1.09,
+      "discount": 0.0,
+      "net": 1.09,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Nutella 450g",
+      "qty": 2,
+      "unit_gross": 3.79,
+      "gross": 7.58,
+      "discount": 0.0,
+      "net": 7.58,
+      "tax_class": "2"
+    }
+  ]
+}

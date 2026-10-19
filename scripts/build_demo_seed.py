@@ -68,23 +68,29 @@ SEED = ROOT / "src" / "grocery_app" / "demo_seed.sql"
 FONT = "/System/Library/Fonts/Menlo.ttc"
 
 
-def euro(amount: float) -> str:
-    return f"{amount:.2f}".replace(".", ",")
+def euro(amount: float, places: int = 2) -> str:
+    return f"{amount:.{places}f}".replace(".", ",")
 
 
 def draw(doc: dict) -> bytes:
-    """A till slip with the receipt's text, marked as made up."""
+    """A till slip with the receipt's text, marked as made up. No date: the
+    demo moves its dates to the visit (`demo.move_dates`), a drawn one would
+    not move with them."""
     font = ImageFont.truetype(FONT, 22)
     small = ImageFont.truetype(FONT, 18)
     rows = [(doc["store"], font, "center"), (doc["store_location"], small, "center"),
             ("", font, "")]
     for line in doc["lines"]:
         name = line["raw_name"] if line["qty"] == 1 else f"{line['qty']} x {line['raw_name']}"
-        rows.append((f"{name[:32]:<32}{euro(line['gross']):>8} {line['tax_class']}", font, ""))
-        if line["discount"]:
+        amount = line.get("gross", line["net"])
+        rows.append((f"{name[:32]:<32}{euro(amount):>8} {line['tax_class']}", font, ""))
+        if line.get("sold_by_weight"):
+            weighed = f"  {euro(line['weight_kg'], 3)} kg x {euro(line['unit_price'])} EUR/kg"
+            rows.append((weighed, small, ""))
+        if line.get("discount"):
             rows.append((f"{'  Rabatt':<32}{euro(line['discount']):>8}", font, ""))
     rows += [("-" * 42, font, ""), (f"{'SUMME EUR':<32}{euro(doc['printed_total']):>8}", font, ""),
-             ("", font, ""), (f"{doc['date']}  {doc['time']}", small, "center"),
+             ("", font, ""), (f"Uhrzeit {doc['time']}", small, "center"),
              ("MADE-UP DEMO RECEIPT", small, "center")]
     width, height = 620, 40 + 32 * len(rows)
     image = Image.new("RGB", (width, height), "#fbfaf6")

@@ -1,0 +1,104 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "GLOBUS",
+  "store_location": "Musterstraße 1, 66111 Saarbrücken",
+  "date": "2026-08-06",
+  "time": "16:59",
+  "currency": "EUR",
+  "printed_total": 24.94,
+  "printed_savings": null,
+  "tax_buckets": {
+    "19%": 4.33,
+    "7%": 20.61
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Kerrygold Butter 250g",
+      "qty": 2,
+      "unit_gross": 2.89,
+      "gross": 5.78,
+      "discount": 0.0,
+      "net": 5.78,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Barilla Spaghetti No.5 500g",
+      "qty": 1,
+      "gross": 1.79,
+      "discount": 0.0,
+      "net": 1.79,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen",
+      "qty": 1,
+      "sold_by_weight": true,
+      "weight_kg": 1.397,
+      "unit_price": 1.49,
+      "unit_price_basis": "kg",
+      "gross": 2.08,
+      "discount": 0.0,
+      "net": 2.08,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Eier Freiland 10St",
+      "qty": 1,
+      "gross": 3.99,
+      "discount": 0.0,
+      "net": 3.99,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Philadelphia Original 175g",
+      "qty": 2,
+      "unit_gross": 1.99,
+      "gross": 3.98,
+      "discount": 0.0,
+      "net": 3.98,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Dr.Oetker Ristorante Salame",
+      "qty": 1,
+      "gross": 2.99,
+      "discount": 0.0,
+      "net": 2.99,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Coca-Cola 1,5L",
+      "qty": 1,
+      "gross": 1.79,
+      "discount": 0.0,
+      "net": 1.79,
+      "tax_class": "1"
+    },
+    {
+      "type": "deposit",
+      "raw_name": "Pfand",
+      "qty": 1,
+      "gross": 0.25,
+      "discount": 0.0,
+      "net": 0.25,
+      "tax_class": "1"
+    },
+    {
+      "type": "product",
+      "raw_name": "Tempo Taschent. 10x10",
+      "qty": 1,
+      "gross": 2.29,
+      "discount": 0.0,
+      "net": 2.29,
+      "tax_class": "1"
+    }
+  ]
+}

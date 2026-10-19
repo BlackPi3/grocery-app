@@ -4,10 +4,27 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-16, laptop: direction talk, no code. The app ships one thing: **saving money on groceries**; functions before looks. Two open decisions below (what groceries are, target group); next, the offer test.
+**Last updated:** 2026-10-19, laptop: the demo mirrors the app (six months of made-up receipts, dates move to the visit, no guest uploads).
 
 ## Now
 
+- Built (owner, 2026-10-19, "the demo isn't mirroring the normal app ...
+  make sure it always does"): **the demo is a playground that mirrors the
+  app.** 60 made-up receipts over six months at four chains
+  (`demo/make_receipts.py`): regulars, prices that step up and down,
+  the same item at two chains, budget lines beside brands, seasons,
+  weighed fruit, discounts, deposits and a bottle return, and in the last
+  four weeks some new things in and some dropped, so the month page's why
+  has every kind of reason. **Always current:** at every start the demo
+  moves every date in its database forward so the newest receipt is the
+  visit's day (`demo.move_dates`), so "this month" against the usual one
+  and "due again" never go stale. Insights are worked out per request, so
+  any change to them shows in the demo at once; a change to what an upload
+  does still needs the seed rebuilt (laptop, `scripts/build_demo_seed.py`).
+  **No guest uploads:** the + opens "contact the developer to set up an
+  account" (with the address from `GROCERY_OWNER_EMAIL`), and the server
+  answers a demo upload 403 (`demo.NO_UPLOADS`); the daily reading cap is
+  gone with them. Guests still answer questions (undone at restart).
 - Built (owner, 2026-10-15, "leaner and cleaner ... especially too much
   text"): **every screen loses its small print.** A receipt line is one row,
   the product and its brand ("Bio Müsli Kornfeld"), no category, size,

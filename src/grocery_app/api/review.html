@@ -419,12 +419,20 @@
     <h2>Grocery receipts, item by item</h2>
     <p>This app reads grocery receipts and turns them into a history of what you buy: where the
       money goes, how often you buy things, and how their prices change.</p>
-    <p><b>This is a demo, and the app is still being built.</b> The receipts in it are made up.
-      Look around, answer its questions, or scan a receipt of your own with the + button.
-      Everything you add is wiped when the demo restarts, so please leave out receipts with
-      personal details.</p>
+    <p><b>This is a demo, and the app is still being built.</b> It is the real app with six
+      months of made-up receipts in it: look around, open a month, a price, a receipt, and answer
+      its questions. What you change is undone when the demo restarts.</p>
     <p>Next: an iPhone app, with work starting in November 2026.</p>
     <button class="primary" id="welcome-close">Look around</button>
+  </div>
+</div>
+
+<!-- The demo's + (Parham, 2026-10-19): a playground, not a way in. -->
+<div class="welcome" id="no-uploads" hidden>
+  <div class="card">
+    <h2>Your own receipts</h2>
+    <p id="no-uploads-text"></p>
+    <button class="primary" id="no-uploads-close">OK</button>
   </div>
 </div>
 
@@ -1306,7 +1314,7 @@ function accountCard() {
   if (!state.me) return null;
   if (state.me.demo) {
     return el("div", { class: "card" }, el("div", { class: "meta" },
-      "You are a guest in the demo: everything you add is wiped when it restarts."));
+      "You are a guest in the demo: what you change is undone when it restarts."));
   }
   const who = (state.me.role === "owner" ? "the owner" : state.me.name) +
     (tokenKind() === "google" ? ", with Google" : "");
@@ -2601,6 +2609,22 @@ document.getElementById("demo").addEventListener("click", () => {
 });
 document.getElementById("welcome-close").addEventListener("click", () => {
   document.getElementById("welcome").hidden = true;
+});
+// In the demo the + says how to get an account instead (`demo.NO_UPLOADS`).
+document.querySelector(".bar .add").addEventListener("click", event => {
+  if (!(state.me && state.me.demo)) return;
+  event.preventDefault();
+  const text = document.getElementById("no-uploads-text");
+  text.replaceChildren("This demo is a playground with made-up receipts. To use the app with " +
+    "your own receipts, contact the developer to set up an account" +
+    (state.me.contact ? ": " : "."));
+  if (state.me.contact) {
+    text.append(el("a", { href: "mailto:" + state.me.contact }, state.me.contact), ".");
+  }
+  document.getElementById("no-uploads").hidden = false;
+});
+document.getElementById("no-uploads-close").addEventListener("click", () => {
+  document.getElementById("no-uploads").hidden = true;
 });
 // The + : the camera or a file. A note at the top says it is on its way; the
 // shopper stays wherever they were.

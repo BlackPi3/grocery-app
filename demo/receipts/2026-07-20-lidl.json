@@ -1,0 +1,81 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "Lidl",
+  "store_location": "Probeplatz 3, 66117 Saarbrücken",
+  "date": "2026-07-20",
+  "time": "18:05",
+  "currency": "EUR",
+  "printed_total": 21.02,
+  "printed_savings": 0.24,
+  "tax_buckets": {
+    "19%": 1.55,
+    "7%": 19.47
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Barissimo Crema Bohnen 1kg",
+      "qty": 1,
+      "gross": 13.99,
+      "discount": 0.0,
+      "net": 13.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen lose",
+      "qty": 1,
+      "gross": 1.25,
+      "discount": 0.0,
+      "net": 1.25,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Salatgurke",
+      "qty": 2,
+      "unit_gross": 0.59,
+      "gross": 1.18,
+      "discount": -0.24,
+      "net": 0.94,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Nutella 450g",
+      "qty": 1,
+      "gross": 3.29,
+      "discount": 0.0,
+      "net": 3.29,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Freeway Cola 1,5L",
+      "qty": 1,
+      "gross": 0.65,
+      "discount": 0.0,
+      "net": 0.65,
+      "tax_class": "B"
+    },
+    {
+      "type": "deposit",
+      "raw_name": "Pfand",
+      "qty": 1,
+      "gross": 0.25,
+      "discount": 0.0,
+      "net": 0.25,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Cien Zahncreme 125ml",
+      "qty": 1,
+      "gross": 0.65,
+      "discount": 0.0,
+      "net": 0.65,
+      "tax_class": "B"
+    }
+  ]
+}

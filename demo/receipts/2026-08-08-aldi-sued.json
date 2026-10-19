@@ -1,0 +1,44 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "ALDI SÜD",
+  "store_location": "Beispielweg 5, 66113 Saarbrücken",
+  "date": "2026-08-08",
+  "time": "12:30",
+  "currency": "EUR",
+  "printed_total": 4.82,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 4.82
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milsani H-Milch 1,5% 1L",
+      "qty": 1,
+      "gross": 1.05,
+      "discount": 0.0,
+      "net": 1.05,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Moser Roth Edel-Vollmilch",
+      "qty": 2,
+      "unit_gross": 1.39,
+      "gross": 2.78,
+      "discount": 0.0,
+      "net": 2.78,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Haferflocken 500g",
+      "qty": 1,
+      "gross": 0.99,
+      "discount": 0.0,
+      "net": 0.99,
+      "tax_class": "A"
+    }
+  ]
+}

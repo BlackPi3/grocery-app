@@ -1,0 +1,54 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "Kaufland",
+  "store_location": "Testallee 9, 66119 Saarbrücken",
+  "date": "2026-07-12",
+  "time": "18:24",
+  "currency": "EUR",
+  "printed_total": 8.35,
+  "printed_savings": null,
+  "tax_buckets": {
+    "19%": 2.38,
+    "7%": 5.97
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Barilla Spaghetti No.5 500g",
+      "qty": 1,
+      "gross": 1.69,
+      "discount": 0.0,
+      "net": 1.69,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kerrygold Butter 250g",
+      "qty": 1,
+      "gross": 2.59,
+      "discount": 0.0,
+      "net": 2.59,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Ritter Sport Alpenmilch 100g",
+      "qty": 1,
+      "gross": 1.69,
+      "discount": 0.0,
+      "net": 1.69,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Frosch Spülmittel Zitrone",
+      "qty": 2,
+      "unit_gross": 1.19,
+      "gross": 2.38,
+      "discount": 0.0,
+      "net": 2.38,
+      "tax_class": "A"
+    }
+  ]
+}

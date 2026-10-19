@@ -1,0 +1,72 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "Lidl",
+  "store_location": "Probeplatz 3, 66117 Saarbrücken",
+  "date": "2026-04-27",
+  "time": "12:56",
+  "currency": "EUR",
+  "printed_total": 17.32,
+  "printed_savings": null,
+  "tax_buckets": {
+    "19%": 2.45,
+    "7%": 14.87
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milbona Frische Vollmilch 1L",
+      "qty": 1,
+      "gross": 1.09,
+      "discount": 0.0,
+      "net": 1.09,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Barissimo Crema Bohnen 1kg",
+      "qty": 1,
+      "gross": 12.99,
+      "discount": 0.0,
+      "net": 12.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Pilos Schmand 200g",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Freeway Cola 1,5L",
+      "qty": 2,
+      "unit_gross": 0.65,
+      "gross": 1.3,
+      "discount": 0.0,
+      "net": 1.3,
+      "tax_class": "B"
+    },
+    {
+      "type": "deposit",
+      "raw_name": "Pfand",
+      "qty": 2,
+      "gross": 0.5,
+      "discount": 0.0,
+      "net": 0.5,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Cien Zahncreme 125ml",
+      "qty": 1,
+      "gross": 0.65,
+      "discount": 0.0,
+      "net": 0.65,
+      "tax_class": "B"
+    }
+  ]
+}

@@ -3,59 +3,72 @@
   "transcribed_by": "made-up",
   "store": "GLOBUS",
   "store_location": "Musterstraße 1, 66111 Saarbrücken",
-  "date": "2026-07-04",
-  "time": "09:45",
+  "date": "2026-08-12",
+  "time": "09:56",
   "currency": "EUR",
-  "printed_total": 15.59,
+  "printed_total": 17.71,
   "printed_savings": null,
   "tax_buckets": {
-    "7%": 10.67,
-    "19%": 4.92
+    "19%": 1.04,
+    "7%": 16.67
   },
   "lines": [
     {
       "type": "product",
       "raw_name": "Weihenst. Frische Milch 3,5% 1L",
       "qty": 1,
-      "gross": 1.51,
+      "gross": 1.55,
       "discount": 0.0,
-      "net": 1.51,
+      "net": 1.55,
       "tax_class": "2"
     },
     {
       "type": "product",
       "raw_name": "Kerrygold Butter 250g",
       "qty": 1,
-      "gross": 2.59,
+      "gross": 2.89,
       "discount": 0.0,
-      "net": 2.59,
+      "net": 2.89,
       "tax_class": "2"
     },
     {
       "type": "product",
-      "raw_name": "Barilla Spaghetti No.5 500g",
+      "raw_name": "Rispentomaten",
       "qty": 1,
-      "gross": 1.79,
+      "sold_by_weight": true,
+      "weight_kg": 0.634,
+      "unit_price": 2.49,
+      "unit_price_basis": "kg",
+      "gross": 1.58,
       "discount": 0.0,
-      "net": 1.79,
+      "net": 1.58,
       "tax_class": "2"
     },
     {
       "type": "product",
-      "raw_name": "Dr.Oetker Ristorante Salame",
+      "raw_name": "Salatgurke St.",
       "qty": 1,
-      "gross": 2.79,
+      "gross": 0.59,
       "discount": 0.0,
-      "net": 2.79,
+      "net": 0.59,
       "tax_class": "2"
     },
     {
       "type": "product",
-      "raw_name": "Philadelphia Original 175g",
+      "raw_name": "Bio Eier Freiland 10St",
       "qty": 1,
-      "gross": 1.99,
+      "gross": 3.99,
       "discount": 0.0,
-      "net": 1.99,
+      "net": 3.99,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Haribo Goldbären 175g",
+      "qty": 1,
+      "gross": 1.29,
+      "discount": 0.0,
+      "net": 1.29,
       "tax_class": "2"
     },
     {
@@ -78,21 +91,21 @@
     },
     {
       "type": "product",
-      "raw_name": "Coca-Cola 1,5L",
-      "qty": 2,
-      "gross": 3.38,
+      "raw_name": "Globus Toastbrot Weizen 500g",
+      "qty": 1,
+      "gross": 0.99,
       "discount": 0.0,
-      "net": 3.38,
-      "tax_class": "1"
+      "net": 0.99,
+      "tax_class": "2"
     },
     {
-      "type": "deposit",
-      "raw_name": "Pfand",
-      "qty": 2,
-      "gross": 0.5,
+      "type": "product",
+      "raw_name": "Nutella 450g",
+      "qty": 1,
+      "gross": 3.79,
       "discount": 0.0,
-      "net": 0.5,
-      "tax_class": "1"
+      "net": 3.79,
+      "tax_class": "2"
     }
   ]
 }

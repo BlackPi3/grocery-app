@@ -132,9 +132,9 @@ def test_each_person_sees_only_their_own(two_people):
 
     assert seen[mine["job_id"]].isdisjoint(seen[hers["job_id"]])
     assert client.get("/v1/me", headers=sara).json() == \
-        {"role": "user", "name": "Sara", "demo": False}
+        {"role": "user", "name": "Sara", "demo": False, "contact": None}
     assert client.get("/v1/me", headers=OWNER).json() == \
-        {"role": "owner", "name": None, "demo": False}
+        {"role": "owner", "name": None, "demo": False, "contact": None}
     for path in ("/v1/costs", "/v1/users", "/v1/sureness"):
         assert client.get(path, headers=sara).status_code == 403, path
     assert client.post("/v1/users", headers=sara, json={"name": "Eve"}).status_code == 403
@@ -149,7 +149,7 @@ def test_the_owner_adds_a_user_and_sees_the_password_once(two_people, session):
     assert made.status_code == 201
     password = made.json()["password"]
     assert client.get("/v1/me", headers={"Authorization": f"Bearer {password}"}).json() == \
-        {"role": "user", "name": "Lea", "demo": False}
+        {"role": "user", "name": "Lea", "demo": False, "contact": None}
     assert [u["name"] for u in client.get("/v1/users", headers=OWNER).json()] == ["Sara", "Lea"]
     assert client.post("/v1/users", headers=OWNER, json={"name": "lea"}).status_code == 422
     from grocery_app.db.models import User

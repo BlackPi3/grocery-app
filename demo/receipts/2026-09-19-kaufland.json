@@ -1,0 +1,25 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "Kaufland",
+  "store_location": "Testallee 9, 66119 Saarbrücken",
+  "date": "2026-09-19",
+  "time": "12:34",
+  "currency": "EUR",
+  "printed_total": 0.55,
+  "printed_savings": 0.24,
+  "tax_buckets": {
+    "7%": 0.55
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "K-Classic Spaghetti 500g",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": -0.24,
+      "net": 0.55,
+      "tax_class": "B"
+    }
+  ]
+}

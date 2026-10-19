@@ -3,16 +3,23 @@
   "transcribed_by": "made-up",
   "store": "GLOBUS",
   "store_location": "Musterstraße 1, 66111 Saarbrücken",
-  "date": "2026-09-14",
-  "time": "10:07",
+  "date": "2026-08-20",
+  "time": "17:12",
   "currency": "EUR",
-  "printed_total": 14.09,
+  "printed_total": 7.14,
   "printed_savings": null,
   "tax_buckets": {
-    "7%": 11.8,
-    "19%": 2.29
+    "19%": -1.25,
+    "7%": 8.39
   },
   "lines": [
+    {
+      "type": "deposit_return",
+      "raw_name": "Leergut",
+      "qty": 1,
+      "net": -1.25,
+      "tax_class": "1"
+    },
     {
       "type": "product",
       "raw_name": "Weihenst. Frische Milch 3,5% 1L",
@@ -24,34 +31,7 @@
     },
     {
       "type": "product",
-      "raw_name": "Kerrygold Butter 250g",
-      "qty": 1,
-      "gross": 2.79,
-      "discount": 0.0,
-      "net": 2.79,
-      "tax_class": "2"
-    },
-    {
-      "type": "product",
       "raw_name": "Barilla Spaghetti No.5 500g",
-      "qty": 1,
-      "gross": 1.79,
-      "discount": 0.0,
-      "net": 1.79,
-      "tax_class": "2"
-    },
-    {
-      "type": "product",
-      "raw_name": "Tempo Taschent. 10x10",
-      "qty": 1,
-      "gross": 2.29,
-      "discount": 0.0,
-      "net": 2.29,
-      "tax_class": "1"
-    },
-    {
-      "type": "product",
-      "raw_name": "Philadelphia Original 175g",
       "qty": 1,
       "gross": 1.99,
       "discount": 0.0,
@@ -60,11 +40,33 @@
     },
     {
       "type": "product",
-      "raw_name": "Rispentomaten lose",
-      "qty": 2,
-      "gross": 3.68,
+      "raw_name": "Rispentomaten",
+      "qty": 1,
+      "sold_by_weight": true,
+      "weight_kg": 0.511,
+      "unit_price": 2.49,
+      "unit_price_basis": "kg",
+      "gross": 1.27,
       "discount": 0.0,
-      "net": 3.68,
+      "net": 1.27,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Salatgurke St.",
+      "qty": 1,
+      "gross": 0.59,
+      "discount": 0.0,
+      "net": 0.59,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Dr.Oetker Ristorante Salame",
+      "qty": 1,
+      "gross": 2.99,
+      "discount": 0.0,
+      "net": 2.99,
       "tax_class": "2"
     }
   ]

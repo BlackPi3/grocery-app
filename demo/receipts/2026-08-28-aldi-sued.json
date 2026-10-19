@@ -1,0 +1,44 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "ALDI SÜD",
+  "store_location": "Beispielweg 5, 66113 Saarbrücken",
+  "date": "2026-08-28",
+  "time": "12:09",
+  "currency": "EUR",
+  "printed_total": 12.12,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 12.12
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milsani H-Milch 1,5% 1L",
+      "qty": 1,
+      "gross": 1.05,
+      "discount": 0.0,
+      "net": 1.05,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Hähnchenbrustfilet 400g",
+      "qty": 2,
+      "unit_gross": 4.79,
+      "gross": 9.58,
+      "discount": 0.0,
+      "net": 9.58,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Cucina Pesto Verde 190g",
+      "qty": 1,
+      "gross": 1.49,
+      "discount": 0.0,
+      "net": 1.49,
+      "tax_class": "A"
+    }
+  ]
+}

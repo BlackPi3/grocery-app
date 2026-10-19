@@ -6,10 +6,11 @@
 Turns grocery receipts into an item-level purchase history with spending insights.
 
 **Try it: [grocery-demo-rk2cowwvmq-ey.a.run.app](https://grocery-demo-rk2cowwvmq-ey.a.run.app)**, best on a
-phone. The live app with four months of made-up receipts from four German chains; the products,
-pictures, questions and insights are what the real pipeline made of them. Scan a receipt of your own if
-you like (ten a day across all visitors): everything you add, photos included, is wiped when the demo
-restarts. Every merge to `main` deploys it along with the real server (`grocery_app/demo.py`).
+phone. The live app with six months of made-up receipts from four German chains, dated so the newest
+is always today's; the products, pictures, questions and insights are what the real pipeline made of
+them. It is a playground: look around and answer its questions (undone when the demo restarts); to
+scan receipts of your own, ask me for an account. Every merge to `main` deploys it along with the real
+server (`grocery_app/demo.py`).
 
 ## Goal
 
