@@ -25,6 +25,13 @@ session (laptop or cloud) can pick up from here. How we work is in
   account" (with the address from `GROCERY_OWNER_EMAIL`), and the server
   answers a demo upload 403 (`demo.NO_UPLOADS`); the daily reading cap is
   gone with them. Guests still answer questions (undone at restart).
+  The seed (built 2026-10-19, $11.36 of Gemini at list price): 60 receipts,
+  40 products, every line placed, 7 products at two shops or more, 46
+  prices that moved, this month 46,76 € above usual. The builder now reads
+  again every line whose web search failed (the first run left 15 products
+  unplaced that way) and keeps only the newest 3 receipts' spot checks.
+  Not shown in the demo: a question card, since the pipeline placed every
+  made-up line (a deliberately unclear line would need another paid build).
 - Built (owner, 2026-10-15, "leaner and cleaner ... especially too much
   text"): **every screen loses its small print.** A receipt line is one row,
   the product and its brand ("Bio Müsli Kornfeld"), no category, size,
