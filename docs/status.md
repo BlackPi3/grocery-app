@@ -30,6 +30,11 @@ session (laptop or cloud) can pick up from here. How we work is in
   prices that moved, this month 46,76 € above usual. The builder now reads
   again every line whose web search failed (the first run left 15 products
   unplaced that way) and keeps only the newest 3 receipts' spot checks.
+  Live 2026-10-20 (newest receipt dated that day). **Copy a new seed's
+  receipt photos to the bucket's `demo/uploads/` after its deploy, not
+  before:** an old demo server starting in between deletes every photo its
+  own seed has no job for (`demo.prune_uploads`); that emptied the folder
+  once, and the photos were copied again.
   Not shown in the demo: a question card, since the pipeline placed every
   made-up line (a deliberately unclear line would need another paid build).
 - Built (owner, 2026-10-15, "leaner and cleaner ... especially too much

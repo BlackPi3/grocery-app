@@ -11,7 +11,9 @@ is drawn too, so a guest sees a photo like any other.
 
 Writes src/grocery_app/demo_seed.sql (the demo server loads it on every start,
 `grocery_app.demo`) and, under data/demo/, the receipt pictures (uploads/)
-and product pictures (pictures/) that go to the bucket. Costs a few cents of
+and product pictures (pictures/) that go to the bucket: the receipt pictures
+after the new seed is deployed, since a demo server still on the old seed
+deletes, at its start, every upload its seed has no job for. Costs a few cents of
 model calls; they are recorded in the seed, so the demo shows what it cost.
 
 Every product's picture is settled before the seed is written: the demo
