@@ -8,6 +8,13 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Now
 
+- Done (owner, 2026-10-20): **reviewer experiment, round 1.** 12 seeded bugs
+  on `experiment/seeded-defects` (draft PR #172, closed, never merged). One
+  full-context agent and three narrow reviewers both caught 12 of 12; the
+  narrow set cost about twice the tokens but found one real bug nobody planted.
+  Codex dropped (owner); Copilot's monthly review quota was used up, so it is
+  untested. Results: `docs/evaluations/2026-10-20-one-agent-or-many.md`.
+
 - Built (owner, 2026-10-19, "the demo isn't mirroring the normal app ...
   make sure it always does"): **the demo is a playground that mirrors the
   app.** 60 made-up receipts over six months at four chains
