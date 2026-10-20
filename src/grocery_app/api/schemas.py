@@ -384,6 +384,11 @@ class ReceiptSummary(BaseModel):
     lines_total: float | None = Field(None, description="Every line as read, added up: "
                                                         "unlike `printed_total`, something "
                                                         "was misread")
+    printed_savings: float | None = Field(None, description="The savings recap the receipt "
+                                                            "prints under its total; null "
+                                                            "when it prints none")
+    saved: float = Field(0.0, description="What the discounts printed on its lines took "
+                                          "off, as a positive amount")
     shared: bool = Field(False, description="Its upload is shared with the developer "
                                             "(`PUT /v1/receipts/{receipt_id}/shared`)")
     photo: bool = Field(default=False,

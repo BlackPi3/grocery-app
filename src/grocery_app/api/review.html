@@ -1086,9 +1086,17 @@ function receiptCard(summary) {
 // (owner, 2026-10-15: "it was app, it was you ... no"). A receipt that does
 // not add up still says so: it is the one worth a look.
 function receiptMeta(summary) {
+  const saved = receiptSaved(summary);
   return [summary.date ? shortDate(summary.date) : null,
           plural(summary.product_lines, "item", "items"),
+          saved > 0 ? "saved " + euro(saved) : null,
           misread(summary) ? "doesn't add up" : null].filter(Boolean).join(" · ");
+}
+
+// What a receipt saved: its own recap when it prints one ("Sie sparen"),
+// which counts offers printed as the price too; else its line discounts.
+function receiptSaved(summary) {
+  return summary.printed_savings != null ? summary.printed_savings : summary.saved;
 }
 
 // A receipt line in one row: the product and its brand, "Bio Müsli Alnatura"
@@ -2327,8 +2335,19 @@ function savedCard(d) {
     el("div", { class: "stat" }, euro(latest.saved)),
     el("div", { class: "meta" }, monthName(latest.month).replace(/ \d+$/, "") +
       (latest.share ? ` · ${Math.round(latest.share * 100)}% off` : "")),
+    recapLine(latest),
     el("div", { class: "rank" }, shown.map(m =>
       rankRow(monthName(m.month).replace(/ \d+$/, ""), m.saved, most, { lang: "en" }))));
+}
+
+// The month's receipts in their own words, when they print a recap: what it
+// adds up to, and how much of it came as lower prices rather than a line's
+// discount. Nothing when no receipt that month prints one.
+function recapLine(month) {
+  if (month.printed == null) return null;
+  const beyond = month.beyond > 0 && month.beyond_share != null
+    ? ` · ${Math.round(month.beyond_share * 100)}% as lower prices` : "";
+  return el("div", { class: "meta" }, `Receipts say ${euro(month.printed)}` + beyond);
 }
 
 // 3. Due again soon: the next things to run out, by how often they were

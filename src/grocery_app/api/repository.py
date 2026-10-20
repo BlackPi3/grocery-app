@@ -918,6 +918,9 @@ class PostgresRepository:
                     inputs["shelf_prices"], inputs["authors"], inputs["uncounted"])
                 records = [r for r in every if r["type"] == "product"]
                 left_out = [r for r in records if r.get("not_counted")]
+                # The whole paper, as the recap under its total counts it: a line
+                # the shopper left out was still bought at its discount.
+                line_discounts = [r["discount"] or 0.0 for r in every]
                 out.append({
                     "receipt_id": row.id, "date": doc.get("date"), "store": row.store,
                     "source_image": row.source_image, "image_sha256": row.image_sha256,
@@ -939,6 +942,8 @@ class PostgresRepository:
                     # Every line as read, to set against the printed total: when
                     # they differ, something was misread (2026-10-15).
                     "lines_total": round(sum(r["net_paid"] or 0.0 for r in every), 2),
+                    "printed_savings": doc.get("printed_savings"),
+                    "saved": round(sum(line_discounts), 2),
                     "shared": row.image_sha256 in shared,
                     "seen_at": row.seen_at.astimezone(UTC).isoformat() if row.seen_at else None,
                 })

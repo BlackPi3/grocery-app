@@ -275,15 +275,19 @@ def test_a_receipt_row_says_its_day_and_items_and_only_a_misread_besides(client)
     """The owner, 2026-10-15: "10 items: 8 you, 2 app" was noise. The row says
     the day and the items; a receipt that does not add up still says so."""
     page = client.get("/").text
-    out = run_page_function(page, "receiptMeta shortDate day plural misread", """
+    out = run_page_function(page, "receiptMeta receiptSaved euro shortDate day plural misread", """
         const row = (extra) => console.log(receiptMeta({ date: "2026-10-03", product_lines: 7,
           said_by_you: 5, said_by_app: 2, not_counted: 1, unplaced: 1, printed_total: 12.5,
-          lines_total: 12.5, ...extra }));
+          lines_total: 12.5, printed_savings: null, saved: 0, ...extra }));
         row({});
         row({ product_lines: 1 });
         row({ lines_total: 12.0 });
+        row({ saved: 0.8 });
+        row({ saved: 0.8, printed_savings: 2.4 });
     """)
-    assert out == ["3 Oct · 7 items", "3 Oct · 1 item", "3 Oct · 7 items · doesn't add up"]
+    assert out == ["3 Oct · 7 items", "3 Oct · 1 item", "3 Oct · 7 items · doesn't add up",
+                   "3 Oct · 7 items · saved 0,80 €",
+                   "3 Oct · 7 items · saved 2,40 €"], "the receipt's own recap comes first"
 
 
 def test_empty_screens_say_they_are_empty_and_how_to_fill_them(client):

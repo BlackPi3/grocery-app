@@ -411,6 +411,9 @@ def test_a_months_receipts_add_up_to_what_home_counts(corrections):
     assert (january["spend"], january["deposits"]) == (2.84, 0.25), "the Pfand is not spend"
     assert (february["lines_total"], january["lines_total"]) == (3.19, 3.09), \
         "every line as read, set against the printed total to catch a misreading"
+    assert (february["printed_savings"], february["saved"]) == (0.1, 0.0), \
+        "the recap as printed, beside what the line discounts took off"
+    assert (january["printed_savings"], january["saved"]) == (None, 0.0)
 
     months = {m["month"]: m["spend"] for m in client.get("/v1/insights").json()["months"]}
     for month in ("2026-01", "2026-02"):
