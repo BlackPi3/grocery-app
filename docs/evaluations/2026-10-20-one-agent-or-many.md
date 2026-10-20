@@ -84,6 +84,53 @@ expensive and hard to see; it is wasted where a machine checks the result.
 4. Tests-first agent gets the spec only, never the code, so its tests cannot
    share the code's misunderstanding.
 
+## Results, round 1 (2026-10-20)
+
+Setup: a separate agent seeded 12 bugs and 3 decoys (correct but odd-looking
+changes) into a believable PR, "the savings recap" (`experiment/seeded-defects`,
+draft PR #172, never merged). Reviewers got the PR description and the branch,
+not the answer key. All Claude reviewers ran at effort `high`. CI (`ruff`,
+`pytest`) caught none of the 12.
+
+| Bug | Kind | Full-context agent | Correctness | Guardrails | Seams |
+|---|---|---|---|---|---|
+| B1 | crash on a missed recap (None) | ✓ | ✓ | | ✓ |
+| B2 | 5-cent tolerance, not 1 | ✓ | ✓ | | |
+| B3 | field written `amount`, read `saved` | ✓ | ✓ | | ✓ |
+| B4 | `beyond` sign reversed | ✓ | ✓ | | ✓ |
+| B5 | `beyond` uses the wrong receipts | ✓ | ✓ | | |
+| B6 | percent multiplied by 100 twice | ✓ | ✓ | | ✓ |
+| B7 | API `saved` negative | ✓ | ✓ | | ✓ |
+| B8 | seam test compares code with itself | ✓ | ✓ | | ✓ |
+| B9 | assertion always true | ✓ | ✓ | | |
+| B10 | paid call without `paid` mark | ✓ | ✓ | ✓ | |
+| B11 | name + address in a fixture | ✓ | ✓ (out of scope) | ✓ | |
+| B12 | truth holds "19%" not printed "A" | ✓ (as minor) | | ✓ | |
+| **Caught** | | **12/12** | 11/12 | 3/3 in its area | 6 |
+
+The three narrow reviewers together: 12/12.
+
+- **False alarms.** Full-context agent: one "unsure" note against decoy D3.
+  Seams: decoy D2 as "minor". Otherwise none.
+- **Bug nobody planted.** Seams found a real one: the discounts card closes
+  when a month has no line discounts, so a month whose only saving is the
+  printed recap never shows it (`review.html` `savedCard`). No other reviewer
+  saw it.
+- **Cost.** Full-context agent: ~106k tokens, ~3 min. Three narrow: ~216k
+  tokens, ~4 min in parallel. About twice the tokens for the same 12, plus
+  the one extra real bug.
+- **Not tested.** Codex (dropped by the owner). Copilot: GitHub refused the
+  review, "the user who requested the review has reached their quota limit".
+- **Limits.** One PR, one seeder, same model family throughout. The seeder
+  and every reviewer are Claude, so a shared blind spot could not show up as
+  a miss here. The "full-context" agent had the project's documents, not
+  the conversation that built the change.
+
+Reading: on this PR, one well-briefed agent at high effort was as good as
+three narrow ones at half the cost. The narrow seams reviewer earned its keep
+only on the bug that was not planted. Too small a sample to change practice;
+a second round with a different seeder and Copilot would.
+
 ## Tools to apply it
 
 - **Claude Code subagents** (`.claude/agents/*.md`): each reviewer is a file
