@@ -28,6 +28,10 @@ from grocery_app.normalizer import receipt_files
 # rather than a badly-read line, so genuine misses stay visible as misses.
 MATCH_THRESHOLD = 0.45
 COMPARED_FIELDS = ("raw_name", "qty", "net", "tax_class")
+# The receipt-level fields scored once per receipt. `printed_savings` is the
+# recap some tills print under the total ("Sie sparen 2,40"); a receipt that
+# prints none has null in its truth, and a reading that invents one is wrong.
+HEADER_FIELDS = ("store", "date", "printed_total", "printed_savings")
 
 
 def load_receipts(directory: str | Path) -> dict[str, dict[str, Any]]:
@@ -45,6 +49,13 @@ def _similarity(truth_line: dict, pred_line: dict) -> float:
     ).ratio()
     same_price = truth_line.get("net") == pred_line.get("net")
     return 0.7 * name_ratio + 0.3 * float(same_price)
+
+
+def _same_amount(truth: float | None, pred: float | None) -> bool:
+    """Two printed amounts agree when they are the same number of cents."""
+    if truth is None:
+        return pred is None
+    return abs(truth - pred) < 0.05
 
 
 def match_lines(truth_lines: list[dict], pred_lines: list[dict]) -> tuple[list, list, list]:
@@ -102,7 +113,7 @@ def score_receipt(truth: dict, pred: dict | None) -> dict[str, Any]:
             "missed": len(truth_lines),
             "spurious": 0,
             "fields": {field: [0, 0] for field in COMPARED_FIELDS},
-            "header": {field: False for field in ("store", "date", "printed_total")},
+            "header": {field: False for field in HEADER_FIELDS},
             "exact": False,
             "errors": ["no prediction produced for this receipt"],
         }
@@ -128,6 +139,8 @@ def score_receipt(truth: dict, pred: dict | None) -> dict[str, Any]:
         "store": str(truth.get("store", "")).casefold() == str(pred.get("store", "")).casefold(),
         "date": truth.get("date") == pred.get("date"),
         "printed_total": truth.get("printed_total") == pred.get("printed_total"),
+        "printed_savings": _same_amount(truth.get("printed_savings"),
+                                        pred.get("printed_savings")),
     }
     errors += [f"missed line: {line.get('raw_name')!r}" for line in missed]
     errors += [f"spurious line: {line.get('raw_name')!r}" for line in spurious]
@@ -208,7 +221,7 @@ def _aggregate(results: list[dict]) -> dict[str, Any]:
         "fields": fields,
         "header": {
             field: sum(r["header"][field] for r in results)
-            for field in ("store", "date", "printed_total")
+            for field in HEADER_FIELDS
         },
     }
 

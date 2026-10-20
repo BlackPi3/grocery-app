@@ -164,3 +164,36 @@ def test_a_receipt_never_extracted_is_reported_not_scored(tmp_path):
     assert report["totals"]["receipts"] == 1
     assert report["totals"]["missed"] == 0
     assert "IMG_2.jpeg" in format_report(report)
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def savings_receipt() -> dict:
+    return json.loads((FIXTURES / "truth_savings.json").read_text(encoding="utf-8"))
+
+
+def test_a_savings_recap_read_as_printed_is_correct():
+    result = score_receipt(savings_receipt(), savings_receipt())
+    assert result["header"]["printed_savings"] is True
+    assert result["exact"] is True
+
+
+def test_a_misread_savings_recap_is_a_header_error():
+    pred = savings_receipt() | {"printed_savings": 0.6}
+    result = score_receipt(savings_receipt(), pred)
+    assert result["header"]["printed_savings"] is False
+    assert "header printed_savings wrong" in result["errors"]
+    assert result["matched"] == 4, "a misread recap leaves the lines alone"
+
+
+def test_a_receipt_with_no_recap_needs_none_read():
+    result = score_receipt(receipt(), receipt())
+    assert result["header"]["printed_savings"] is True
+
+
+def test_the_report_names_a_misread_recap(tmp_path):
+    truth = write(tmp_path / "truth", savings_receipt())
+    pred = write(tmp_path / "pred", savings_receipt() | {"printed_savings": 0.6})
+    report = evaluate(truth, pred)
+    assert "printed_savings" in format_report(report)

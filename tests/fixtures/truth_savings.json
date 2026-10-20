@@ -1,0 +1,22 @@
+{
+  "source_image": "IMG_0412.jpeg",
+  "transcribed_by": "hand",
+  "store": "Getränke Albers",
+  "store_location": "Inh. Miriam Albers, Lindenallee 23, 66119 Saarbrücken",
+  "date": "2026-09-12",
+  "time": "17:42",
+  "currency": "EUR",
+  "printed_total": 8.57,
+  "printed_savings": 0.9,
+  "tax_buckets": {"A": 7.28, "B": 1.29},
+  "lines": [
+    {"type": "product", "raw_name": "Apfelschorle 1,0l", "qty": 6, "unit_gross": 0.79,
+     "gross": 4.74, "discount": -0.6, "net": 4.14, "tax_class": "19%"},
+    {"type": "product", "raw_name": "Mineralwasser still", "qty": 1,
+     "gross": 2.29, "discount": -0.3, "net": 1.99, "tax_class": "19%"},
+    {"type": "product", "raw_name": "Salzbrezeln 200g", "qty": 1,
+     "gross": 1.29, "discount": 0.0, "net": 1.29, "tax_class": "7%"},
+    {"type": "deposit", "raw_name": "Pfand", "qty": 1,
+     "gross": 1.15, "discount": 0.0, "net": 1.15, "tax_class": "19%"}
+  ]
+}

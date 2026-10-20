@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import io
 import json
+import os
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -75,6 +77,35 @@ def test_parse_model_output_matches_truth_shape():
     assert weight_line["sold_by_weight"] and weight_line["unit_price_basis"] == "kg"
     assert "gross" not in return_line, "returns carry a bare net, like the truth files"
     assert receipt["computed_total"] == 3.23 and receipt["reconciled"] is True
+
+
+def test_a_savings_recap_is_kept_to_the_cent():
+    line = {"type": "product", "raw_name": "MU Kaffee", "qty": 1, "sold_by_weight": False,
+            "weight_kg": None, "unit_price": None, "unit_price_basis": None,
+            "unit_gross": None, "gross": 4.99, "discount": -1.0, "net": 3.99,
+            "tax_class": "A"}
+    text = json.dumps({
+        "store": "Musterladen", "store_location": "Musterstadt", "date": "2026-03-05",
+        "time": "10:00", "currency": "EUR", "printed_total": 3.99,
+        "printed_savings": 1.0000001, "tax_buckets": None, "lines": [line],
+    })
+    receipt = parse_model_output(text, "IMG_1.jpeg")
+    assert receipt["printed_savings"] == 1.0
+    assert receipt["lines"][0]["discount"] == -1.0, "the line keeps its own discount"
+
+
+PHOTO = os.environ.get("GROCERY_TEST_PHOTO")
+
+
+@pytest.mark.skipif(not PHOTO, reason="GROCERY_TEST_PHOTO is not set")
+def test_a_real_savings_recap_is_never_read_as_a_line():
+    """The recap under the total ("Sie sparen", "Preisvorteil gesamt") belongs
+    in `printed_savings`; read as a line it would count a saving as spend."""
+    from grocery_app.api.jobs import configured_extractor
+
+    receipt = configured_extractor()(Path(PHOTO)).receipt
+    names = [line["raw_name"].casefold() for line in receipt["lines"]]
+    assert not any("sie sparen" in name or "gesamt" in name for name in names)
 
 
 def test_a_first_guess_is_kept_beside_the_line_and_never_in_it():
