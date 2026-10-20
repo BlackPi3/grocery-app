@@ -54,7 +54,7 @@ from typing import Any
 from grocery_app import categories
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 11
+CONTRACT_VERSION = 12
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -523,7 +523,8 @@ def _saved(p: dict[str, Any]) -> float:
     return max(0.0, -(p.get("discount") or 0.0))
 
 
-def discounts(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def discounts(rows: list[dict[str, Any]],
+              recaps: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """What printed discounts saved, per month (newest first) and per shop
     (the owner, 2026-10-14: "tell me how much I saved with the discount").
 
@@ -532,6 +533,14 @@ def discounts(rows: list[dict[str, Any]]) -> dict[str, Any]:
     line; an offer that only lowers the shelf price is printed as the price,
     so the receipt cannot say it was one. `share` is the saving against the
     shelf price of everything bought that month, discounted or not.
+
+    Some tills say it after all: a recap under the total ("Sie sparen 2,40")
+    counts the offers printed as the price too. `recaps` are those, one per
+    receipt that prints one (`meta.printed_savings`). A month with any carries
+    `printed`, what its recaps add up to, `printed_receipts`, and `beyond`:
+    what the recaps say was saved past the line discounts of those same
+    receipts, with `beyond_share` its part of `printed`. A month with none
+    carries none of the four: no recap is not a recap of nothing.
     """
     labels = _store_labels(rows)
     by_month: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -541,18 +550,30 @@ def discounts(rows: list[dict[str, Any]]) -> dict[str, Any]:
             by_month[p["date"][:7]].append(p)
         if _saved(p):
             by_store[_store(p, labels)].append(p)
+    recaps_by_month: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for recap in recaps or []:
+        if recap.get("date"):
+            recaps_by_month[recap["date"][:7]].append(recap)
     out = []
     for month in sorted(by_month, reverse=True):
         lines = by_month[month]
         saved = sum(_saved(p) for p in lines)
         shelf = sum(_shelf(p) for p in lines)
-        out.append({"month": month, "saved": round(saved, 2), "shelf": round(shelf, 2),
-                    "share": round(saved / shelf, 3) if shelf > 0 else None,
-                    "lines": sum(1 for p in lines if _saved(p))})
+        entry = {"month": month, "saved": round(saved, 2), "shelf": round(shelf, 2),
+                 "share": round(saved / shelf, 3) if shelf > 0 else None,
+                 "lines": sum(1 for p in lines if _saved(p))}
+        if month_recaps := recaps_by_month.get(month):
+            printed = sum(r.get("saved") or 0.0 for r in month_recaps)
+            beyond = saved - printed
+            entry.update(printed=round(printed, 2), printed_receipts=len(month_recaps),
+                         beyond=round(beyond, 2),
+                         beyond_share=round(100 * beyond / printed, 1) if printed else None)
+        out.append(entry)
     stores = [{"store": store, "saved": round(sum(_saved(p) for p in group), 2),
                "lines": len(group)} for store, group in by_store.items()]
     return {"saved": round(sum(_saved(p) for p in rows), 2),
             "lines": sum(1 for p in rows if _saved(p)),
+            "printed": round(sum(r.get("saved") or 0.0 for r in recaps), 2) if recaps else None,
             "months": out,
             "by_store": sorted(stores, key=lambda s: (-s["saved"], s["store"]))}
 
@@ -971,7 +992,7 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None,
         "budget_brand": budget_brand(rows),
         "cross_store": cross_store(groceries),
         "months": _compared(months(counted), counted, today or date.today()),
-        "discounts": discounts(counted),
+        "discounts": discounts(counted, purchases.get("meta", {}).get("printed_savings")),
     }
 
 

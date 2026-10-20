@@ -586,6 +586,29 @@ def test_a_line_bought_for_someone_else_saves_the_shopper_nothing():
     assert doc["discounts"]["months"][0]["shelf"] == 2.0
 
 
+def recap(day, saved, image="IMG_1.jpeg"):
+    return {"source_image": image, "date": day, "store": "Musterladen", "saved": saved}
+
+
+def test_a_month_whose_receipts_print_a_recap_says_what_they_add_up_to():
+    rows = [discounted("2026-01-05", 10.0, -1.0), discounted("2026-02-03", 4.0, -2.0)]
+    out = discounts(rows, [recap("2026-01-05", 1.0), recap("2026-01-20", 0.5, "IMG_2.jpeg")])
+    february, january = out["months"]
+    assert (january["printed"], january["printed_receipts"]) == (1.5, 2)
+    assert "printed" not in february, "no recap is not a recap of nothing"
+    assert out["printed"] == 1.5
+
+
+def test_no_recap_anywhere_is_no_printed_total():
+    assert discounts([discounted("2026-01-05", 10.0, -1.0)])["printed"] is None
+
+
+def test_a_recap_that_matches_its_line_discounts_saved_nothing_beyond_them():
+    month = discounts([discounted("2026-01-05", 10.0, -1.0)],
+                      [recap("2026-01-05", 1.0)])["months"][0]
+    assert (month["beyond"], month["beyond_share"]) == (0.0, 0.0)
+
+
 # --- why a month is off its usual (owner, 2026-10-15) --------------------------
 
 def test_why_a_month_is_off_its_usual_trips_same_things_and_different_things():

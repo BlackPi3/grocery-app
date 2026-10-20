@@ -36,7 +36,9 @@ from pydantic import BaseModel, ConfigDict, Field
 # their numbers with one tap.
 # And to 8 on 2026-10-09: `product_line` and `variant` became one list,
 # `details` (migration 0011): two fixed slots the reader guessed between.
-PURCHASES_CONTRACT_VERSION = 8
+# And to 9 on 2026-10-20: `meta.printed_savings`, what each receipt's own
+# savings recap says, beside the line discounts.
+PURCHASES_CONTRACT_VERSION = 9
 #
 # Insights bumped to 3 on 2026-09-29: lines known not to be groceries (café,
 # flowers, cards) left every insight, so `coverage.spend` means grocery spend,
@@ -55,7 +57,10 @@ PURCHASES_CONTRACT_VERSION = 8
 # days or more, for Home's rotating tile.
 # Insights bumped to 11 on 2026-10-15: each month's `why`, why it is off its
 # usual (parts of the shop, trips, prices), for the month page.
-INSIGHTS_CONTRACT_VERSION = 11
+# Insights bumped to 12 on 2026-10-20: a month of `discounts` whose receipts
+# print a savings recap says what the recaps add up to, and what they saved
+# beyond the line discounts.
+INSIGHTS_CONTRACT_VERSION = 12
 
 
 class UnitPrice(BaseModel):
@@ -127,6 +132,17 @@ class Purchase(BaseModel):
                     "price comparisons, and leaves spend, habits and the basket")
 
 
+class PrintedSavings(BaseModel):
+    """One receipt's savings recap, as printed under its total."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_image: str | None
+    date: str | None
+    store: str | None
+    amount: float = Field(description="What the recap says was saved, in euros, positive")
+
+
 class PurchasesMeta(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -136,6 +152,7 @@ class PurchasesMeta(BaseModel):
     total_net_paid: float
     unresolved_items: list[str]
     ambiguous_items: list[str]
+    printed_savings: list[PrintedSavings] = []
 
 
 class PurchasesDocument(BaseModel):

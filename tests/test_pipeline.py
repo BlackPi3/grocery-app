@@ -9,7 +9,7 @@ import json
 import sys
 
 from grocery_app.cli import main
-from grocery_app.insights import build_insights
+from grocery_app.insights import build_insights, discounts
 from grocery_app.normalizer import build_purchases
 
 
@@ -18,8 +18,11 @@ def test_receipts_become_purchases_become_insights(data):
                                 data / "products" / "products.json",
                                 data / "products" / "resolution.json",
                                 None, data / "products")
-    assert purchases["contract_version"] == 8
+    assert purchases["contract_version"] == 9
     assert purchases["meta"]["receipts"] == 2
+    assert purchases["meta"]["printed_savings"] == [
+        {"source_image": "IMG_2.jpeg", "date": "2026-02-05", "store": "musterladen",
+         "amount": 0.1}], "one recap, on the one receipt that prints it"
     assert purchases["meta"]["product_lines"] == 5
     assert purchases["meta"]["unresolved_items"] == ["Geheimnis"]
     milk = [p for p in purchases["purchases"] if p["product_id"] == "p-0001"]
@@ -40,7 +43,13 @@ def test_receipts_become_purchases_become_insights(data):
         "a line with no product gains no attributes, this one included"
 
     insights = build_insights(purchases)
-    assert insights["contract_version"] == 11
+    assert insights["contract_version"] == 12
+    # The recap crosses the seam: purchases.json's meta reaches the month it
+    # was printed in.
+    counted = [p for p in purchases["purchases"]
+               if p["type"] == "product" and not p.get("not_counted")]
+    assert insights["discounts"] == discounts(counted, purchases["meta"]["printed_savings"])
+    assert "printed" in insights["discounts"]["months"][0]
     assert insights["as_of"] == "2026-02-05"
     assert insights["coverage"]["resolved_lines"] == 4
     assert insights["coverage"]["products"] == 2, \

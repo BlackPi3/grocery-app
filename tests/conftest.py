@@ -53,6 +53,7 @@ RECEIPTS = [
     {
         "source_image": "IMG_2.jpeg", "transcribed_by": "hand", "store": "musterladen",
         "date": "2026-02-05", "time": "10:00", "currency": "EUR", "printed_total": 3.19,
+        "printed_savings": 0.1,
         "lines": [
             {"type": "product", "raw_name": "MU Milch 1,5%", "qty": 1,
              "gross": 1.19, "discount": 0.0, "net": 1.19, "tax_class": "A"},

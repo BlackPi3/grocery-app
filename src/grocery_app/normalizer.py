@@ -645,9 +645,15 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     # not. It is listed separately so neither number lies.
     ambiguous = sorted({p["raw_name"] for p in product_lines if p["resolution"] == "family"})
     dates = sorted({r["date"] for r in receipts})
+    # What a receipt's own recap says it saved ("Sie sparen 2,40"), once per
+    # receipt that prints one. It is a receipt-level fact, so it lives beside
+    # the lines rather than on any of them.
+    recaps = [{"source_image": r.get("source_image"), "date": r.get("date"),
+               "store": r.get("store"), "amount": round(float(r["printed_savings"]), 2)}
+              for r in receipts if r.get("printed_savings") is not None]
 
     return {
-        "contract_version": 8,
+        "contract_version": 9,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],
@@ -655,6 +661,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
             "total_net_paid": round(sum(p["net_paid"] for p in product_lines), 2),
             "unresolved_items": unresolved,
             "ambiguous_items": ambiguous,
+            "printed_savings": recaps,
         },
         "purchases": purchases,
     }
