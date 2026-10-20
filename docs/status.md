@@ -4,10 +4,19 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-19, laptop: the demo mirrors the app (six months of made-up receipts, dates move to the visit, no guest uploads).
+**Last updated:** 2026-10-20, laptop: the savings recap a receipt prints is scored, carried and shown.
 
 ## Now
 
+- Built (2026-10-20): **the savings recap.** Some tills print what the
+  receipt saved under the total ("Sie sparen 2,40"), offers printed as the
+  price included. The reader already put it in `printed_savings`; now
+  `eval` scores it as a header field, `purchases.json` carries one recap per
+  receipt in `meta.printed_savings` (contract 9), and a month of
+  `discounts` whose receipts print one says what they add up to and what
+  they saved beyond the line discounts (`printed`, `beyond`; insights 12).
+  A receipt row says "saved 2,40 €" (its recap, else its line discounts),
+  and the discounts card adds "Receipts say …". Not shown to the owner yet.
 - Built (owner, 2026-10-19, "the demo isn't mirroring the normal app ...
   make sure it always does"): **the demo is a playground that mirrors the
   app.** 60 made-up receipts over six months at four chains
