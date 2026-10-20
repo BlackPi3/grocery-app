@@ -78,7 +78,8 @@ expensive and hard to see; it is wasted where a machine checks the result.
    edited to match a model, a test that makes a paid call, personal data in a
    fixture, a broken `purchases.json` seam, a plain logic error.
 2. Three setups review it: one general agent with full context; three narrow
-   reviewers on the same model; one reviewer on a different model.
+   reviewers on the same model; one reviewer on a different model (`/codex`); GitHub Copilot's
+   PR review (the owner has Copilot, confirmed 2026-10-20).
 3. Count bugs caught **and** false alarms per setup.
 4. Tests-first agent gets the spec only, never the code, so its tests cannot
    share the code's misunderstanding.
@@ -89,6 +90,8 @@ expensive and hard to see; it is wasted where a machine checks the result.
   with read-only tools and its own effort level. This is the main mechanism.
 - **gstack `/codex`**: a review by a different model (OpenAI Codex) — the
   cheapest way to get a reviewer that fails differently.
+- **GitHub Copilot PR review** (`gh pr edit --add-reviewer @copilot`): a
+  different vendor's reviewer that runs on GitHub, outside our sessions.
 - **gstack `/review`, `/cso`**: same-model pre-merge and security reviews.
 - **`/code-review ultra`**: Anthropic's multi-agent cloud review; billed.
 - **Ponytail** (github.com/DietrichGebert/ponytail): a "write less code" skill
