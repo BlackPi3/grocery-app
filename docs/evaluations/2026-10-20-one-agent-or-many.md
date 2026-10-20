@@ -88,6 +88,11 @@ expensive and hard to see; it is wasted where a machine checks the result.
 
 - **Claude Code subagents** (`.claude/agents/*.md`): each reviewer is a file
   with read-only tools and its own effort level. This is the main mechanism.
+- **Reviewers built (2026-10-20):** `.claude/agents/review-correctness.md`,
+  `review-guardrails.md`, `review-seams.md`, all read-only and `effort: high`.
+  Codex runs with `-c model_reasoning_effort="high"` (the installed CLI,
+  0.42, rejects the `xhigh` in `~/.codex/config.toml`). Copilot's PR review
+  has no effort setting.
 - **gstack `/codex`**: a review by a different model (OpenAI Codex) — the
   cheapest way to get a reviewer that fails differently.
 - **GitHub Copilot PR review** (`gh pr edit --add-reviewer @copilot`): a
