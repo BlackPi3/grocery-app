@@ -139,9 +139,10 @@ def test_a_receipts_photo_is_shown_to_whoever_may_see_the_receipt_only(history):
 
 def test_the_demo_shows_its_made_up_receipts_photos_and_no_guests(
         engine, session, tmp_path, monkeypatch):
-    """Every guest is the owner in the demo, so the receipt list is shared;
-    a photo a guest sent must still stay theirs. Only the photos the seed's
-    receipts were read from are shown (`demo.seeded_photos`)."""
+    """Every guest is the owner in the demo, so the receipt list is shared:
+    only the photos the seed's receipts were read from are shown
+    (`demo.seeded_photos`), never another upload's. Guests send none
+    (`demo.NO_UPLOADS`), so the other upload here comes in by a normal server."""
     from grocery_app import demo
 
     seeded = photo("green")
@@ -151,13 +152,14 @@ def test_the_demo_shows_its_made_up_receipts_photos_and_no_guests(
                     f"INSERT INTO public.receipts VALUES (1, '{sha256_of(seeded)}', 'made-up', "
                     f"'Musterladen', NULL, '{sha256_of(seeded)}', NULL);\n")
     monkeypatch.setattr(demo, "SEED", seed)
-    client = TestClient(create_app(PostgresRepository(make_session_factory(engine)),
-                                   DiskImageStore(tmp_path / "uploads"), EveryPhotoANewPaper(),
-                                   demo=True))
+    repository = PostgresRepository(make_session_factory(engine))
+    store = DiskImageStore(tmp_path / "uploads")
+    uploader = TestClient(create_app(repository, store, EveryPhotoANewPaper()))
+    client = TestClient(create_app(repository, store, EveryPhotoANewPaper(), demo=True))
     receipts = {}
     for name, image in (("seeded", seeded), ("guest", photo("blue"))):
-        job = client.post("/v1/receipts", files={"file": (name, image, "image/jpeg")}).json()
-        receipts[name] = client.get(f"/v1/jobs/{job['job_id']}").json()["receipt_id"]
+        job = uploader.post("/v1/receipts", files={"file": (name, image, "image/jpeg")}).json()
+        receipts[name] = uploader.get(f"/v1/jobs/{job['job_id']}").json()["receipt_id"]
 
     assert client.get(f"/v1/receipts/{receipts['seeded']}/photo").content == seeded
     assert client.get(f"/v1/receipts/{receipts['guest']}/photo").status_code == 403

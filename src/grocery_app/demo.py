@@ -1,56 +1,47 @@
 """The public demo: the same app, made-up receipts, open to any guest.
 
 Parham, 2026-10-12: a page anyone can poke around in (a recruiter, a
-friend), always the latest version, with dummy receipts in it; guests may
-scan and save receipts of their own, just for fun. It is a second server
+friend), always the latest version, with dummy receipts in it. 2026-10-19: it
+is a playground that mirrors the real app, not a second way in: a guest
+looks around and answers its questions, but sends no receipt of their own;
+the + says to ask the developer for an account. It is a second server
 running the same image with `GROCERY_DEMO=1` and its own database, so a
 guest never touches a real history, catalog or memory.
 
 - **Fresh on every start.** The server rebuilds its database from
   `demo_seed.sql` before it serves (`reset`). Cloud Run stops an idle server
   after a quiet spell and a deploy starts a new one, so whatever a guest
-  added is gone by the next visit, and every visitor finds the same demo.
-  A guest's photos go too (`prune_uploads`): nothing they sent is kept.
+  changed is gone by the next visit, and every visitor finds the same demo.
+- **Always this month.** Every date in the seed moves forward by the days
+  since the newest receipt, so that receipt is today's (`move_dates`): the
+  month page, "due again" and this month against the usual one show the
+  months around the visit, not the week the seed was made.
 - **The seed is the real pipeline's output.** `scripts/build_demo_seed.py`
   sends each made-up receipt (`demo/receipts/`) through the upload path a
   phone uses, with only the photo reading replaced by the made-up text: the
   catalog, the questions and the insights are what the app made of them.
-- **A daily cap on readings.** A guest's photo is read by the paid model
-  like anyone's; `READINGS_PER_DAY` keeps a public link from running up a
-  bill.
+  Insights are worked out on every request, so a change to them shows in the
+  demo at once; a change to what an upload does needs the seed built again.
 """
 
 from __future__ import annotations
 
 import os
 import re
-from datetime import UTC, datetime
+from datetime import date
 from pathlib import Path
 
-from sqlalchemy import create_engine, func, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, text
 
 ENV_VAR = "GROCERY_DEMO"
 SEED = Path(__file__).parent / "demo_seed.sql"
-# Ten photos a day at about 2.4 cents each: at most some 7 euros a month.
-READINGS_PER_DAY = 10
+# What the + says in the demo, and what the server answers an upload.
+NO_UPLOADS = ("This demo is a playground with made-up receipts. To use the app with "
+              "your own receipts, contact the developer to set up an account.")
 
 
 def is_demo() -> bool:
     return os.environ.get(ENV_VAR, "").strip().lower() in ("1", "true", "yes")
-
-
-def readings_per_day() -> int:
-    return int(os.environ.get("GROCERY_DEMO_READINGS_PER_DAY", READINGS_PER_DAY))
-
-
-def readings_today(session: Session) -> int:
-    """Photos sent today (UTC), whatever became of them: each was paid for."""
-    from grocery_app.db.models import Job
-
-    midnight = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-    return session.scalar(select(func.count()).select_from(Job)
-                          .where(Job.created_at >= midnight)) or 0
 
 
 def seed_statements(sql: str) -> str:
@@ -59,7 +50,7 @@ def seed_statements(sql: str) -> str:
     return "\n".join(line for line in sql.splitlines() if not line.startswith("\\"))
 
 
-def reset(url: str, seed: Path = SEED) -> None:
+def reset(url: str, seed: Path = SEED, today: date | None = None) -> None:
     """Empty the database and load the seed; the caller migrates after.
 
     Drops what this database user owns in `public` rather than the schema
@@ -87,8 +78,33 @@ def reset(url: str, seed: Path = SEED) -> None:
             # ("Milch 3,5%") is text, not a placeholder.
             connection.connection.dbapi_connection.cursor().execute(
                 seed_statements(seed.read_text(encoding="utf-8")))
+            connection.execute(text("SET search_path TO public"))
+            move_dates(connection, today or date.today())
     finally:  # the dump empties the search path: no connection of it is reused
         engine.dispose()
+
+
+def move_dates(connection, today: date) -> int:
+    """Move every date and time in the database forward by the days from the
+    newest receipt to `today`, so the demo's newest receipt is today's and the
+    rest keep their distance from it. Every such column, whatever its table,
+    so one added later moves too. Returns the days moved."""
+    if connection.execute(text("SELECT to_regclass('public.receipts')")).scalar() is None:
+        return 0
+    newest = connection.execute(text("SELECT max(date) FROM receipts")).scalar()
+    days = (today - newest).days if newest else 0
+    if days <= 0:
+        return 0
+    columns = connection.execute(text(
+        "SELECT c.table_name, c.column_name, c.data_type FROM information_schema.columns c "
+        "JOIN information_schema.tables t USING (table_schema, table_name) "
+        "WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE' AND c.data_type "
+        "IN ('date', 'timestamp with time zone', 'timestamp without time zone')")).all()
+    for table, column, kind in columns:
+        step = ":days" if kind == "date" else "make_interval(days => :days)"
+        connection.execute(text(f'UPDATE "{table}" SET "{column}" = "{column}" + {step}'),
+                           {"days": days})
+    return days
 
 
 def seeded_photos(seed: Path | None = None) -> frozenset[str]:

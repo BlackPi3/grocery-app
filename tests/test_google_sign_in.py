@@ -151,7 +151,7 @@ def test_an_invited_person_signs_in_and_sees_only_their_receipts(server):
     hers = client.post("/v1/auth/google", json={"credential": "sara"}).json()
     assert (hers["role"], hers["name"]) == ("user", "Sara")
     assert client.get("/v1/me", headers=bearer(hers)).json() == \
-        {"role": "user", "name": "Sara", "demo": False}
+        {"role": "user", "name": "Sara", "demo": False, "contact": None}
     assert client.get("/v1/receipts", headers=bearer(hers)).json() == []
     job = client.post("/v1/receipts", headers=bearer(hers),
                       files={"file": ("b.jpg", photo("blue"), "image/jpeg")}).json()

@@ -3,50 +3,52 @@
   "transcribed_by": "made-up",
   "store": "Lidl",
   "store_location": "Probeplatz 3, 66117 Saarbrücken",
-  "date": "2026-07-04",
-  "time": "15:31",
+  "date": "2026-05-18",
+  "time": "10:27",
   "currency": "EUR",
-  "printed_total": 18.27,
+  "printed_total": 33.14,
   "printed_savings": null,
   "tax_buckets": {
-    "7%": 16.72,
-    "19%": 1.55
+    "19%": 0.9,
+    "7%": 32.24
   },
   "lines": [
     {
       "type": "product",
       "raw_name": "Milbona Frische Vollmilch 1L",
-      "qty": 1,
-      "gross": 1.11,
+      "qty": 2,
+      "unit_gross": 1.09,
+      "gross": 2.18,
       "discount": 0.0,
-      "net": 1.11,
+      "net": 2.18,
       "tax_class": "A"
     },
     {
       "type": "product",
       "raw_name": "Barissimo Crema Bohnen 1kg",
-      "qty": 1,
-      "gross": 13.39,
+      "qty": 2,
+      "unit_gross": 12.99,
+      "gross": 25.98,
       "discount": 0.0,
-      "net": 13.39,
+      "net": 25.98,
       "tax_class": "A"
     },
     {
       "type": "product",
-      "raw_name": "Cien Zahncreme 125ml",
+      "raw_name": "Pilos Schmand 200g",
       "qty": 1,
-      "gross": 0.65,
+      "gross": 0.79,
       "discount": 0.0,
-      "net": 0.65,
-      "tax_class": "B"
+      "net": 0.79,
+      "tax_class": "A"
     },
     {
       "type": "product",
-      "raw_name": "Pilos Schmand 200g",
-      "qty": 2,
-      "gross": 1.58,
+      "raw_name": "Nutella 450g",
+      "qty": 1,
+      "gross": 3.29,
       "discount": 0.0,
-      "net": 1.58,
+      "net": 3.29,
       "tax_class": "A"
     },
     {
@@ -66,15 +68,6 @@
       "discount": 0.0,
       "net": 0.25,
       "tax_class": "B"
-    },
-    {
-      "type": "product",
-      "raw_name": "Salatgurke",
-      "qty": 1,
-      "gross": 0.64,
-      "discount": 0.0,
-      "net": 0.64,
-      "tax_class": "A"
     }
   ]
 }

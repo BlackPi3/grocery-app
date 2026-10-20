@@ -1,0 +1,35 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "Lidl",
+  "store_location": "Probeplatz 3, 66117 Saarbrücken",
+  "date": "2026-08-31",
+  "time": "15:02",
+  "currency": "EUR",
+  "printed_total": 3.55,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 3.55
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milbona Frische Vollmilch 1L",
+      "qty": 2,
+      "unit_gross": 1.15,
+      "gross": 2.3,
+      "discount": 0.0,
+      "net": 2.3,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen lose",
+      "qty": 1,
+      "gross": 1.25,
+      "discount": 0.0,
+      "net": 1.25,
+      "tax_class": "A"
+    }
+  ]
+}

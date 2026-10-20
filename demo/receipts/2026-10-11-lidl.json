@@ -1,0 +1,72 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "Lidl",
+  "store_location": "Probeplatz 3, 66117 Saarbrücken",
+  "date": "2026-10-11",
+  "time": "12:54",
+  "currency": "EUR",
+  "printed_total": 28.07,
+  "printed_savings": null,
+  "tax_buckets": {
+    "19%": 0.9,
+    "7%": 27.17
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milbona Frische Vollmilch 1L",
+      "qty": 1,
+      "gross": 1.15,
+      "discount": 0.0,
+      "net": 1.15,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bellarom Espresso Bohnen 1kg",
+      "qty": 2,
+      "unit_gross": 11.99,
+      "gross": 23.98,
+      "discount": 0.0,
+      "net": 23.98,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen lose",
+      "qty": 1,
+      "gross": 1.25,
+      "discount": 0.0,
+      "net": 1.25,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Salatgurke",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Freeway Cola 1,5L",
+      "qty": 1,
+      "gross": 0.65,
+      "discount": 0.0,
+      "net": 0.65,
+      "tax_class": "B"
+    },
+    {
+      "type": "deposit",
+      "raw_name": "Pfand",
+      "qty": 1,
+      "gross": 0.25,
+      "discount": 0.0,
+      "net": 0.25,
+      "tax_class": "B"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "Kaufland",
+  "store_location": "Testallee 9, 66119 Saarbrücken",
+  "date": "2026-06-07",
+  "time": "16:34",
+  "currency": "EUR",
+  "printed_total": 8.1,
+  "printed_savings": null,
+  "tax_buckets": {
+    "19%": 1.84,
+    "7%": 6.26
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "K-Classic Spaghetti 500g",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Barilla Spaghetti No.5 500g",
+      "qty": 1,
+      "gross": 1.69,
+      "discount": 0.0,
+      "net": 1.69,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kerrygold Butter 250g",
+      "qty": 1,
+      "gross": 2.59,
+      "discount": 0.0,
+      "net": 2.59,
+      "tax_class": "B"
+    },
+    {
+      "type": "product",
+      "raw_name": "Coca-Cola 1,5L",
+      "qty": 1,
+      "gross": 1.59,
+      "discount": 0.0,
+      "net": 1.59,
+      "tax_class": "A"
+    },
+    {
+      "type": "deposit",
+      "raw_name": "Pfand",
+      "qty": 1,
+      "gross": 0.25,
+      "discount": 0.0,
+      "net": 0.25,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Mutti Passata 500g",
+      "qty": 1,
+      "gross": 1.19,
+      "discount": 0.0,
+      "net": 1.19,
+      "tax_class": "B"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "Lidl",
+  "store_location": "Probeplatz 3, 66117 Saarbrücken",
+  "date": "2026-09-21",
+  "time": "18:17",
+  "currency": "EUR",
+  "printed_total": 15.64,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 15.64
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milbona Frische Vollmilch 1L",
+      "qty": 1,
+      "gross": 1.15,
+      "discount": 0.0,
+      "net": 1.15,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Barissimo Crema Bohnen 1kg",
+      "qty": 1,
+      "gross": 14.49,
+      "discount": 0.0,
+      "net": 14.49,
+      "tax_class": "A"
+    }
+  ]
+}

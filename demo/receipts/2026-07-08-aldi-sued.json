@@ -3,41 +3,41 @@
   "transcribed_by": "made-up",
   "store": "ALDI SÜD",
   "store_location": "Beispielweg 5, 66113 Saarbrücken",
-  "date": "2026-07-15",
-  "time": "11:58",
+  "date": "2026-07-08",
+  "time": "18:15",
   "currency": "EUR",
-  "printed_total": 15.78,
+  "printed_total": 13.94,
   "printed_savings": null,
   "tax_buckets": {
-    "7%": 14.89,
-    "19%": 0.89
+    "19%": 5.98,
+    "7%": 7.96
   },
   "lines": [
     {
       "type": "product",
-      "raw_name": "Rispentomaten 500g",
+      "raw_name": "Milsani H-Milch 1,5% 1L",
       "qty": 1,
-      "gross": 1.55,
+      "gross": 0.99,
       "discount": 0.0,
-      "net": 1.55,
+      "net": 0.99,
       "tax_class": "A"
     },
     {
       "type": "product",
       "raw_name": "Bananen",
-      "qty": 2,
-      "gross": 2.38,
+      "qty": 1,
+      "gross": 1.19,
       "discount": 0.0,
-      "net": 2.38,
+      "net": 1.19,
       "tax_class": "A"
     },
     {
       "type": "product",
-      "raw_name": "Milsani Joghurt Natur 500g",
+      "raw_name": "Hähnchenbrustfilet 400g",
       "qty": 1,
-      "gross": 0.79,
+      "gross": 4.79,
       "discount": 0.0,
-      "net": 0.79,
+      "net": 4.79,
       "tax_class": "A"
     },
     {
@@ -51,20 +51,12 @@
     },
     {
       "type": "product",
-      "raw_name": "Hähnchenbrustfilet 400g",
+      "raw_name": "Kokett Toilettenpapier 8x",
       "qty": 2,
-      "gross": 9.18,
+      "unit_gross": 2.99,
+      "gross": 5.98,
       "discount": 0.0,
-      "net": 9.18,
-      "tax_class": "A"
-    },
-    {
-      "type": "product",
-      "raw_name": "Lacura Duschgel 300ml",
-      "qty": 1,
-      "gross": 0.89,
-      "discount": 0.0,
-      "net": 0.89,
+      "net": 5.98,
       "tax_class": "B"
     }
   ]

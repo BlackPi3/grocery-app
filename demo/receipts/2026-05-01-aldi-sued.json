@@ -3,34 +3,16 @@
   "transcribed_by": "made-up",
   "store": "ALDI SÜD",
   "store_location": "Beispielweg 5, 66113 Saarbrücken",
-  "date": "2026-06-27",
-  "time": "17:42",
+  "date": "2026-05-01",
+  "time": "09:59",
   "currency": "EUR",
-  "printed_total": 18.53,
-  "printed_savings": 0.36,
+  "printed_total": 17.32,
+  "printed_savings": null,
   "tax_buckets": {
-    "7%": 14.12,
-    "19%": 4.41
+    "19%": 3.88,
+    "7%": 13.44
   },
   "lines": [
-    {
-      "type": "product",
-      "raw_name": "Milsani H-Milch 1,5% 1L",
-      "qty": 1,
-      "gross": 0.99,
-      "discount": 0.0,
-      "net": 0.99,
-      "tax_class": "A"
-    },
-    {
-      "type": "product",
-      "raw_name": "Rispentomaten 500g",
-      "qty": 1,
-      "gross": 1.49,
-      "discount": 0.0,
-      "net": 1.49,
-      "tax_class": "A"
-    },
     {
       "type": "product",
       "raw_name": "Bananen",
@@ -51,20 +33,21 @@
     },
     {
       "type": "product",
-      "raw_name": "Gouda jung Scheiben 400g",
+      "raw_name": "Milsani Joghurt Natur 500g",
       "qty": 1,
-      "gross": 2.79,
+      "gross": 0.79,
       "discount": 0.0,
-      "net": 2.79,
+      "net": 0.79,
       "tax_class": "A"
     },
     {
       "type": "product",
-      "raw_name": "Bio Haferflocken 500g",
-      "qty": 1,
-      "gross": 0.99,
+      "raw_name": "Gouda jung Scheiben 400g",
+      "qty": 2,
+      "unit_gross": 2.79,
+      "gross": 5.58,
       "discount": 0.0,
-      "net": 0.99,
+      "net": 5.58,
       "tax_class": "A"
     },
     {
@@ -78,15 +61,6 @@
     },
     {
       "type": "product",
-      "raw_name": "Lacura Duschgel 300ml",
-      "qty": 2,
-      "gross": 1.78,
-      "discount": -0.36,
-      "net": 1.42,
-      "tax_class": "B"
-    },
-    {
-      "type": "product",
       "raw_name": "Kokett Toilettenpapier 8x",
       "qty": 1,
       "gross": 2.99,
@@ -96,12 +70,12 @@
     },
     {
       "type": "product",
-      "raw_name": "Milsani Joghurt Natur 500g",
+      "raw_name": "Lacura Duschgel 300ml",
       "qty": 1,
-      "gross": 0.79,
+      "gross": 0.89,
       "discount": 0.0,
-      "net": 0.79,
-      "tax_class": "A"
+      "net": 0.89,
+      "tax_class": "B"
     }
   ]
 }

@@ -1,5 +1,5 @@
-"""The public demo (`grocery_app.demo`): a fresh copy on every start, a cap on
-paid readings, and no accounts to hand out."""
+"""The public demo (`grocery_app.demo`): a fresh copy on every start, dated
+around the visit, no receipts of a guest's own, and no accounts to hand out."""
 
 from __future__ import annotations
 
@@ -56,23 +56,46 @@ def demo_server(engine, tmp_path):
                                  demo=True))
 
 
-def test_the_demo_reads_only_so_many_photos_a_day(engine, session, tmp_path, monkeypatch):
-    monkeypatch.setenv("GROCERY_DEMO_READINGS_PER_DAY", "1")
+def test_a_guest_is_told_to_ask_for_an_account_rather_than_send_a_receipt(
+        engine, session, tmp_path, monkeypatch):
+    monkeypatch.setenv("GROCERY_OWNER_EMAIL", "dev@example.org")
     client = demo_server(engine, tmp_path)
-    first = client.post("/v1/receipts", files={"file": ("a.jpg", a_photo(), "image/jpeg")})
-    assert first.status_code == 202
-    second = client.post("/v1/receipts",
-                         files={"file": ("b.jpg", a_photo("blue"), "image/jpeg")})
-    assert second.status_code == 429 and "tomorrow" in second.json()["detail"]
+    sent = client.post("/v1/receipts", files={"file": ("a.jpg", a_photo(), "image/jpeg")})
+    assert sent.status_code == 403 and "contact the developer" in sent.json()["detail"]
+    assert not list(tmp_path.iterdir()), "nothing a guest sent is kept"
+    assert client.get("/v1/me").json()["contact"] == "dev@example.org"
+
+
+def test_the_demo_moves_its_dates_so_the_newest_receipt_is_today(engine, tmp_path):
+    from datetime import date
+
+    from grocery_app.db.migrate import upgrade
+    from grocery_app.demo import reset
+
+    seed = tmp_path / "seed.sql"
+    seed.write_text("""\\restrict AbC123
+SELECT pg_catalog.set_config('search_path', '', false);
+CREATE TABLE public.receipts (id integer, date date, created_at timestamp with time zone);
+INSERT INTO public.receipts VALUES (1, '2026-10-19', '2026-10-19 12:00:00+00');
+INSERT INTO public.receipts VALUES (2, '2026-09-30', '2026-10-19 12:00:00+00');
+CREATE VIEW public.receipt_days AS SELECT date FROM public.receipts;
+""")
+    reset(DATABASE_URL, seed, today=date(2026, 11, 2))
+    with engine.connect() as connection:
+        rows = connection.execute(text(
+            "SELECT date, created_at::date FROM receipts ORDER BY id")).all()
+        assert rows == [(date(2026, 11, 2), date(2026, 11, 2)),
+                        (date(2026, 10, 14), date(2026, 11, 2))], "14 days moved, every column"
+        connection.execute(text("DROP VIEW receipt_days; DROP TABLE receipts"))
+        connection.commit()
+    upgrade(DATABASE_URL)
 
 
 def test_a_guest_cannot_hand_out_accounts_and_the_page_knows_it_is_the_demo(
         engine, session, tmp_path):
     client = demo_server(engine, tmp_path)
     assert client.post("/v1/users", json={"name": "Gast"}).status_code == 403
-    # Every guest is the owner: one must not fetch the photo another sent.
-    job = client.post("/v1/receipts", files={"file": ("a.jpg", a_photo(), "image/jpeg")}).json()
-    assert client.get(f"/v1/inbox/{job['job_id']}/file").status_code == 403
+    assert client.get("/v1/inbox/1/file").status_code == 403
     assert client.post("/v1/inbox").status_code == 403
     assert client.get("/v1/me").json()["demo"] is True
 

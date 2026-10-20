@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
-from sqlalchemy import create_engine, func, text, update
+from sqlalchemy import create_engine, delete, func, select, text, update
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -59,32 +59,39 @@ from grocery_app.api.pictures import (  # noqa: E402
 )
 from grocery_app.api.repository import PostgresRepository  # noqa: E402
 from grocery_app.db.migrate import upgrade  # noqa: E402
-from grocery_app.db.models import Receipt  # noqa: E402
+from grocery_app.db.models import Check, Receipt  # noqa: E402
 from grocery_app.db.session import make_session_factory  # noqa: E402
 from grocery_app.extract import Extraction  # noqa: E402
 
 RECEIPTS = ROOT / "demo" / "receipts"
 SEED = ROOT / "src" / "grocery_app" / "demo_seed.sql"
 FONT = "/System/Library/Fonts/Menlo.ttc"
+CHECKED_RECEIPTS = 3  # whose spot checks a guest finds waiting
 
 
-def euro(amount: float) -> str:
-    return f"{amount:.2f}".replace(".", ",")
+def euro(amount: float, places: int = 2) -> str:
+    return f"{amount:.{places}f}".replace(".", ",")
 
 
 def draw(doc: dict) -> bytes:
-    """A till slip with the receipt's text, marked as made up."""
+    """A till slip with the receipt's text, marked as made up. No date: the
+    demo moves its dates to the visit (`demo.move_dates`), a drawn one would
+    not move with them."""
     font = ImageFont.truetype(FONT, 22)
     small = ImageFont.truetype(FONT, 18)
     rows = [(doc["store"], font, "center"), (doc["store_location"], small, "center"),
             ("", font, "")]
     for line in doc["lines"]:
         name = line["raw_name"] if line["qty"] == 1 else f"{line['qty']} x {line['raw_name']}"
-        rows.append((f"{name[:32]:<32}{euro(line['gross']):>8} {line['tax_class']}", font, ""))
-        if line["discount"]:
+        amount = line.get("gross", line["net"])
+        rows.append((f"{name[:32]:<32}{euro(amount):>8} {line['tax_class']}", font, ""))
+        if line.get("sold_by_weight"):
+            weighed = f"  {euro(line['weight_kg'], 3)} kg x {euro(line['unit_price'])} EUR/kg"
+            rows.append((weighed, small, ""))
+        if line.get("discount"):
             rows.append((f"{'  Rabatt':<32}{euro(line['discount']):>8}", font, ""))
     rows += [("-" * 42, font, ""), (f"{'SUMME EUR':<32}{euro(doc['printed_total']):>8}", font, ""),
-             ("", font, ""), (f"{doc['date']}  {doc['time']}", small, "center"),
+             ("", font, ""), (f"Uhrzeit {doc['time']}", small, "center"),
              ("MADE-UP DEMO RECEIPT", small, "center")]
     width, height = 620, 40 + 32 * len(rows)
     image = Image.new("RGB", (width, height), "#fbfaf6")
@@ -162,6 +169,30 @@ def main() -> None:
         job = client.post("/v1/receipts", files={"file": (path.stem + ".jpg", photo, "image/jpeg")})
         done = client.get(f"/v1/jobs/{job.json()['job_id']}").json()
         print(f"{path.stem}: {done['status']} {done.get('error') or ''}", flush=True)
+
+    # A line whose web search could not be made is left for a later run to
+    # read again (`identify.unsearched`); the live server gets that run, the
+    # seed gets it here, so no product is unplaced for want of a search.
+    from grocery_app.api.matching import match_receipt
+
+    for attempt in range(1, 4):
+        unsearched = 0
+        with factory() as session, spend.tagged("finding"):
+            for receipt_id in session.scalars(select(Receipt.id).order_by(Receipt.id)).all():
+                unsearched += match_receipt(session, receipt_id, matcher, identify,
+                                            checkpoint=session.commit).get("unsearched", 0)
+            session.commit()
+        print(f"read again, pass {attempt}: {unsearched} lines still unsearched", flush=True)
+        if not unsearched:
+            break
+
+    # A guest finds the spot checks of the newest receipts, as a shopper who
+    # answered the rest would, not one for every receipt of six months.
+    with factory() as session:
+        newest = select(Receipt.id).order_by(Receipt.date.desc(), Receipt.id.desc()).limit(
+            CHECKED_RECEIPTS)
+        session.execute(delete(Check).where(Check.receipt_id.not_in(newest)))
+        session.commit()
 
     # Said plainly: nobody read these off a photo. And a guest starts with no
     # "new" marks: the made-up receipts are already there, not just arrived.

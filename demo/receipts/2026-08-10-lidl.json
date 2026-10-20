@@ -1,0 +1,43 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "Lidl",
+  "store_location": "Probeplatz 3, 66117 Saarbrücken",
+  "date": "2026-08-10",
+  "time": "18:50",
+  "currency": "EUR",
+  "printed_total": 16.03,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 16.03
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Barissimo Crema Bohnen 1kg",
+      "qty": 1,
+      "gross": 13.99,
+      "discount": 0.0,
+      "net": 13.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bananen lose",
+      "qty": 1,
+      "gross": 1.25,
+      "discount": 0.0,
+      "net": 1.25,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Pilos Schmand 200g",
+      "qty": 1,
+      "gross": 0.79,
+      "discount": 0.0,
+      "net": 0.79,
+      "tax_class": "A"
+    }
+  ]
+}

@@ -523,6 +523,8 @@ class Me(BaseModel):
     name: str | None = Field(description="A user's name; none for the owner")
     demo: bool = Field(False, description="The public demo: made-up receipts, wiped on "
                                           "every restart (`grocery_app.demo`)")
+    contact: str | None = Field(None, description="In the demo, the developer's address, "
+                                "to ask for an account; none elsewhere")
 
 
 class UserSummary(BaseModel):

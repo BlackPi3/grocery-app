@@ -1,0 +1,83 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "GLOBUS",
+  "store_location": "Musterstraße 1, 66111 Saarbrücken",
+  "date": "2026-10-15",
+  "time": "10:59",
+  "currency": "EUR",
+  "printed_total": 11.12,
+  "printed_savings": null,
+  "tax_buckets": {
+    "19%": -1.75,
+    "7%": 12.87
+  },
+  "lines": [
+    {
+      "type": "deposit_return",
+      "raw_name": "Leergut",
+      "qty": 1,
+      "net": -1.75,
+      "tax_class": "1"
+    },
+    {
+      "type": "product",
+      "raw_name": "Weihenst. Frische Milch 3,5% 1L",
+      "qty": 1,
+      "gross": 1.59,
+      "discount": 0.0,
+      "net": 1.59,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Kerrygold Butter 250g",
+      "qty": 1,
+      "gross": 2.79,
+      "discount": 0.0,
+      "net": 2.79,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Mutti Passata 500g",
+      "qty": 2,
+      "unit_gross": 1.39,
+      "gross": 2.78,
+      "discount": 0.0,
+      "net": 2.78,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Rispentomaten",
+      "qty": 1,
+      "sold_by_weight": true,
+      "weight_kg": 0.581,
+      "unit_price": 3.49,
+      "unit_price_basis": "kg",
+      "gross": 2.03,
+      "discount": 0.0,
+      "net": 2.03,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Ja! Haferflocken 500g",
+      "qty": 1,
+      "gross": 0.89,
+      "discount": 0.0,
+      "net": 0.89,
+      "tax_class": "2"
+    },
+    {
+      "type": "product",
+      "raw_name": "Lindt Excellence 70% 100g",
+      "qty": 1,
+      "gross": 2.79,
+      "discount": 0.0,
+      "net": 2.79,
+      "tax_class": "2"
+    }
+  ]
+}

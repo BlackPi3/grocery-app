@@ -1,0 +1,64 @@
+{
+  "source_image": "",
+  "transcribed_by": "made-up",
+  "store": "ALDI SÜD",
+  "store_location": "Beispielweg 5, 66113 Saarbrücken",
+  "date": "2026-06-28",
+  "time": "10:23",
+  "currency": "EUR",
+  "printed_total": 19.52,
+  "printed_savings": null,
+  "tax_buckets": {
+    "7%": 19.52
+  },
+  "lines": [
+    {
+      "type": "product",
+      "raw_name": "Milsani H-Milch 1,5% 1L",
+      "qty": 1,
+      "gross": 0.99,
+      "discount": 0.0,
+      "net": 0.99,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Hähnchenbrustfilet 400g",
+      "qty": 2,
+      "unit_gross": 4.79,
+      "gross": 9.58,
+      "discount": 0.0,
+      "net": 9.58,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Gouda jung Scheiben 400g",
+      "qty": 2,
+      "unit_gross": 2.79,
+      "gross": 5.58,
+      "discount": 0.0,
+      "net": 5.58,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Moser Roth Edel-Vollmilch",
+      "qty": 1,
+      "gross": 1.39,
+      "discount": 0.0,
+      "net": 1.39,
+      "tax_class": "A"
+    },
+    {
+      "type": "product",
+      "raw_name": "Bio Haferflocken 500g",
+      "qty": 2,
+      "unit_gross": 0.99,
+      "gross": 1.98,
+      "discount": 0.0,
+      "net": 1.98,
+      "tax_class": "A"
+    }
+  ]
+}
