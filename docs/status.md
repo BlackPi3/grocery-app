@@ -4,16 +4,18 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-19, laptop: the demo mirrors the app (six months of made-up receipts, dates move to the visit, no guest uploads).
+**Last updated:** 2026-10-21, laptop: extra agents only for risky PRs and one audit.
 
 ## Now
 
-- Done (owner, 2026-10-20): **reviewer experiment, round 1.** 12 seeded bugs
-  on `experiment/seeded-defects` (draft PR #172, closed, never merged). One
-  full-context agent and three narrow reviewers both caught 12 of 12; the
-  narrow set cost about twice the tokens but found one real bug nobody planted.
-  Codex dropped (owner); Copilot's monthly review quota was used up, so it is
-  untested. Results: `docs/evaluations/2026-10-20-one-agent-or-many.md`.
+- Decided (owner, 2026-10-21, "it uses rate limit super fast"): **extra
+  agents only where they pay**: one `check-risky` agent on a PR that touches
+  sign-in, deleting, sharing, uploads or money (tests from the rule without
+  the code, then a review), and one full security and privacy audit before a
+  second person uses the app (not run yet). Rule in
+  `docs/working-agreement.md`, "Extra agents". The three narrow reviewers
+  are gone, and the reviewer experiment ends at round 1 (no Copilot round;
+  results in `docs/evaluations/2026-10-20-one-agent-or-many.md`).
 
 - Built (owner, 2026-10-19, "the demo isn't mirroring the normal app ...
   make sure it always does"): **the demo is a playground that mirrors the

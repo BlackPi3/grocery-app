@@ -3,6 +3,11 @@
 Question: for which parts of building software does a dedicated agent beat one
 general agent with full context, and where does splitting make things worse?
 
+**Superseded (owner, 2026-10-21):** extra agents use up the rate limit, so the
+rule now is one agent on risky PRs and one audit before a second user
+(`docs/working-agreement.md`, "Extra agents"). The reviewers below are
+removed and round 2 will not run. This page stays as the record.
+
 Status: desk research only. Nothing here is measured on this repo yet; the
 planted-bug experiment below is what would measure it. Several numbers come
 from secondary write-ups and are marked as such.
