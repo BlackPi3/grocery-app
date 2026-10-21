@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-21, laptop: extra agents only for risky PRs and one audit.
+**Last updated:** 2026-10-21, laptop: search cost per receipt parked.
 
 ## Now
 
@@ -591,6 +591,18 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+- (owner, 2026-10-21, parked: "not in a position to make important design
+  decisions") **Web searches cost more than reading.** The "unusual model
+  spending" emails are our own alert (each $1 a day), not a Google limit.
+  One receipt on 21 Oct cost about $3.30: reading $0.05, placing lines
+  $1.10 (67 searches), pictures $2.19 (152 searches for 8 pictures; the
+  model runs 11 to 29 searches per "find the product page"). October to the
+  21st: $57 at list price, $48 of it 3,401 searches; if the 5,000 free
+  searches a month hold (not checked on Google's page) the real bill is
+  about $10. Proposed: pictures from the shop's site and Open Food Facts
+  before any web search, and one search asked for; a cap on searches per
+  receipt when placing lines. Nuance to settle: a cap leaves some lines or
+  pictures unfound.
 - (owner, 2026-10-15) **A map of the screens with a name for every place**,
   so the owner can point at one ("Home → month tile → month page → Why").
 - (owner, 2026-10-15) **More colour and texture in the screens.**
