@@ -73,6 +73,26 @@ this is the long one. The current state of the work is in `docs/status.md`.
 - Never run the paid test while another pytest run is using `grocery_test`.
 - No known defect is left open while moving on.
 
+## Extra agents
+
+A second agent uses up the rate limit fast, so one runs only where a fresh
+pair of eyes is worth it (owner, 2026-10-21). This replaces every earlier
+agreement on reviewer agents: the three narrow reviewers, the reviewer
+experiment, a Copilot round.
+
+- **Risky PRs only**: a PR that touches sign-in, deleting data, sharing with
+  the developer, uploads, or anything that spends money. Before merge, one
+  agent (`check-risky`) does two jobs, in order. First it writes tests from
+  the rule alone, without seeing the code: it gets the rule in words ("a
+  removed user's photos are gone; the owner's account answers 403"), so if
+  the code misunderstood the rule, its tests fail. Then it reads the diff and
+  reviews it. Its useful tests stay in the PR.
+- **Once, before a second person uses the app**: a full security and privacy
+  audit. Can one user see another's receipts? Does the sign-in hold? What
+  reaches the logs? Does the privacy page promise only what the code does?
+- **Nothing else** gets an extra agent: not screens (the owner sees them), not
+  ordinary features, not docs, not searching the code.
+
 ## Money
 
 - No paid model call in tests (see `CLAUDE.md`).
