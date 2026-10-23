@@ -24,7 +24,11 @@ session (laptop or cloud) can pick up from here. How we work is in
   First week with words (live, 23 Oct): 26 offers for 6 of the owner's 20
   regulars, all "like yours", at most 4 regulars at one chain (Netto,
   Lidl). An offer with no brand comes marked `thisisnobrand123`; it is
-  shown with none. Step 2 waits for a week or two of real offers.
+  shown with none (#182). **Step 2's goal is open** (owner, 2026-10-23:
+  "drive was an example, not a goal"; he will give the goal later). Not
+  waiting on more offer data. One week's numbers for when it comes: one
+  offer pack each would save about 5.50 EUR at Kaufland (3 items), 2.60 at
+  Netto, 1.90 at Lidl, under 2 at the rest.
 
 - Agreed (owner, 2026-10-23): **offers, one step at a time.** Step 1:
   single offers for what a person buys, in a Home tile for the coming week,
@@ -757,13 +761,16 @@ agreed to build yet:**
   better"). Proposed wording, true today: only you see your receipts in the
   app; photos are read by Google's Gemini and stored in Frankfurt; the
   developer may look at an upload to fix reading mistakes; nothing is sold.
-- Privacy page and account deletion (owner, 2026-10-13: backlog, not now).
+- ~~Privacy page and account deletion~~ (owner, 2026-10-13: backlog). Both
+  exist now (`/privacy`, `DELETE /v1/me`); the paragraph below is history.
+  Still not run: the security and privacy audit before a second person,
+  though another person already has receipts on live.
   Needed before Google sign-in leaves Testing: publishing asks for a homepage
   and a privacy policy URL (`/privacy` on the server; Google may refuse a
   `run.app` address, then a domain of our own, about 10 EUR a year). GDPR
   starts with the second person's data: say what is stored, where (Frankfurt,
   read by Gemini) and who sees it (the owner), and let a person delete their
-  account and receipts (no route does that yet).
+  account and receipts.
 
 ## Gotchas
 
