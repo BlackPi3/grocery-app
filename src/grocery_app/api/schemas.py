@@ -653,6 +653,18 @@ class CostsDocument(BaseModel):
     finding_recorded_from: str
 
 
+class OffersRhythm(BaseModel):
+    """When one chain's offers are first seen (`offers.rhythm`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    chain: str
+    offers: int = Field(description="Offers first seen before their first day")
+    usual_day: str = Field(description="The weekday most of them were first seen, Mon to Sun")
+    days_ahead: int = Field(description="How many days before they start, on that weekday")
+    by_day: dict[str, int] = Field(description="Offers first seen on each weekday")
+
+
 class SurenessCounts(BaseModel):
     """Product lines by how sure the app is of them (`grocery_app.sureness`).
     A line the shopper left out of their numbers is not counted."""

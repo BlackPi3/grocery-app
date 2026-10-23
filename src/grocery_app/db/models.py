@@ -437,3 +437,39 @@ class ModelCall(Base):
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)  # thinking included
     searches: Mapped[int] = mapped_column(Integer, default=0)
     cost_usd: Mapped[Decimal | None] = mapped_column(Cost)
+
+
+class Offer(Base):
+    """A shop's offer, as the offers source showed it near a postcode
+    (`grocery_app.offers`). Public: the same for everyone, so it says nothing
+    about who searched. Kept after it ends, to learn each chain's rhythm."""
+
+    __tablename__ = "offers"
+    __table_args__ = (UniqueConstraint("source", "source_id", "postcode"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String)  # offers.SOURCE
+    source_id: Mapped[str] = mapped_column(String)
+    postcode: Mapped[str] = mapped_column(String(5), index=True)
+    chain: Mapped[str] = mapped_column(String)
+    valid_from: Mapped[date] = mapped_column(Date)
+    valid_to: Mapped[date] = mapped_column(Date, index=True)
+    record: Mapped[dict[str, Any]] = mapped_column(JSONB)  # offers.read_offer
+    # The first look that found it: before `valid_from`, it says how far
+    # ahead the chain publishes (`offers.rhythm`).
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class OfferSearch(Base):
+    """When a search word was last looked up near a postcode, so the server
+    asks again only once a day (`api.offers`). Neither says who asked."""
+
+    __tablename__ = "offer_searches"
+    __table_args__ = (UniqueConstraint("postcode", "word"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    postcode: Mapped[str] = mapped_column(String(5))
+    word: Mapped[str] = mapped_column(String)
+    searched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    found: Mapped[int] = mapped_column(Integer, default=0)

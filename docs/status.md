@@ -4,9 +4,33 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-21, laptop: search cost per receipt parked.
+**Last updated:** 2026-10-23, laptop: offers step 1a, keeping the offers.
 
 ## Now
+
+- Agreed (owner, 2026-10-23): **offers, one step at a time.** Step 1:
+  single offers for what a person buys, in a Home tile for the coming week,
+  refreshed on the day each chain publishes. Step 2, later: the whole
+  basket at a shop a little further away, shown only when the saving is
+  worth the drive (one or two items are not). Step 1 goes in three PRs, one
+  at a time: **(a) keeping the offers** (this one), (b) matching them to a
+  person's regulars, (c) the tile, shown to the owner before merge.
+  (a) built: `grocery_app/offers.py` reads marktguru's offers into our own
+  record (chain, brand, product, pack, price, price per unit, days valid in
+  Germany's time, loyalty card); a server thread (`api/offers.py`) searches,
+  once a day per pair, each person's shop postcodes (from the addresses on
+  their receipts, last 90 days) with the names of their regular groceries,
+  and keeps every offer with when it was first and last seen (tables
+  `offers`, `offer_searches`, migration 0023). `GET /v1/offers/rhythm`
+  (owner only) says on which weekday each chain's offers first appear and
+  how many days ahead; it needs a week or two of looks to mean anything.
+  The privacy page names marktguru and what is sent (product names, a shop
+  postcode, nothing about the person). Seen in one real answer
+  (2026-10-23, a Friday): offer weeks run Monday to Saturday, some chains
+  add Wednesday/Thursday-to-Saturday deals, and ALDI SÜD already listed
+  offers starting 2 Nov. Not settled yet: what counts as a match (the same
+  product, or the same kind at a like size), to be put to the owner with
+  numbers from (b).
 
 - Decided (owner, 2026-10-21, "it uses rate limit super fast"): **extra
   agents only where they pay**: one `check-risky` agent on a PR that touches
@@ -504,10 +528,8 @@ saved). Overall functions come before polishing the look. Other money areas
   exceed a small price, and each user must cost very little (a cheap model
   reads a receipt for well under a cent; most of today's cost is fixed
   hosting). Unanswered.
-- **Next build once decided: the offer test.** Take the owner's regular
-  items (bought on a cycle) and check this and next week's marktguru offers
-  near him: how many hit, and how many € a month they would save. If small,
-  the promise is weak and we learn it before building screens for it.
+- **The offer test** is now offers step 1 (see Now): its numbers come from
+  matching (b) on the live server, which reads the real history.
 
 ### Older open decisions (2026-10-14)
 
