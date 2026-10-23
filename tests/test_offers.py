@@ -60,10 +60,12 @@ def test_no_unit_means_no_pack_and_no_unit_price():
     assert record["price"] == 1.98
 
 
-def test_the_postcode_is_the_last_five_digits_of_the_address():
+def test_the_postcode_is_the_one_before_the_town():
     assert offers.postcode_of("Musterweg 12, 12345 Musterstadt") == "12345"
     assert offers.postcode_of("Hausnummer 54321, 12345 Musterstadt") == "12345"
     assert offers.postcode_of("Musterweg 12, Musterstadt") is None
+    assert offers.postcode_of("Musterweg 1, 12345 Musterstadt, Tel. 0621 98765") == "12345"
+    assert offers.postcode_of("D-12345 Musterstadt") == "12345"
     assert offers.postcode_of(None) is None
 
 
@@ -81,6 +83,10 @@ def test_a_product_is_searched_by_its_words_not_its_sizes():
     assert offers.search_word("Milch 1,5%") == "Milch"
     assert offers.search_word("Magerquark (low-fat quark)") == "Magerquark"
     assert offers.search_word("Rispentomaten") == "Rispentomaten"
+    assert offers.search_word("Skyr 450 g") == "Skyr"
+    assert offers.search_word("Mineralwasser 6 x 1,5 l") == "Mineralwasser"
+    assert offers.search_word("Vollmilch 1L") == "Vollmilch"
+    assert offers.search_word("Gouda jung 400g Scheiben") == "Gouda jung Scheiben"
     assert offers.search_word("500 g") is None
 
 
@@ -183,7 +189,8 @@ def _receipt(image, day, location, lines, user_id=None):
 
 @pytest.fixture
 def history(engine, session):
-    """The owner buys milk and flowers at 12345 on three days; Sara buys
+    """The owner buys milk, flowers and something not yet sorted at 12345 on
+    three days; Sara buys
     bananas at 54321 on three days, and milk once."""
     from grocery_app.api.repository import PostgresRepository
     from grocery_app.db.io import product_from_dict, resolution_from_dict
@@ -195,8 +202,13 @@ def history(engine, session):
     session.add(product_from_dict("p-0003", {**PRODUCTS["products"]["p-0002"],
                                              "label": "tulpen", "name": "Tulpen",
                                              "category": "blumen"}))
+    session.add(product_from_dict("p-0004", {**PRODUCTS["products"]["p-0002"],
+                                             "label": "raetsel", "name": "Rätselware",
+                                             "category": None}))
     for entry in RESOLUTION["entries"]:
         session.add(resolution_from_dict(entry))
+    session.add(resolution_from_dict({**RESOLUTION["entries"][1], "raw_name": "Raetsel",
+                                      "product_id": "p-0004"}))
     session.add(resolution_from_dict({**RESOLUTION["entries"][1], "raw_name": "Tulpen",
                                       "product_id": "p-0003"}))
     session.flush()
@@ -205,7 +217,7 @@ def history(engine, session):
     sara = repository.create_user("Sara")
     here, there = "Musterweg 1, 12345 Musterstadt", "Beispielweg 2, 54321 Beispieldorf"
     for day in (3, 10, 17):
-        session.add(_receipt(f"o{day}.jpeg", day, here, ["MU Milch 1,5%", "Tulpen"]))
+        session.add(_receipt(f"o{day}.jpeg", day, here, ["MU Milch 1,5%", "Tulpen", "Raetsel"]))
         session.add(_receipt(f"s{day}.jpeg", day, there, ["Bananen"], sara["id"]))
     session.add(_receipt("s1.jpeg", 1, there, ["MU Milch 1,5%"], sara["id"]))
     # Long ago, somewhere else: not where the owner shops now.
@@ -226,7 +238,8 @@ def test_each_person_is_searched_for_what_they_buy_where_they_shop(history, sess
     repository, sara = history
     assert wanted_searches(session, _people(repository, sara), TODAY) == {
         ("12345", "Milch"), ("54321", "Bananen")}, \
-        "no flowers (not groceries), no one-off milk, no old shop, nobody's mixed"
+        "no flowers (not groceries), nothing unsorted, no one-off milk, no old shop, " \
+        "nobody's mixed"
 
 
 @db
@@ -238,11 +251,12 @@ def test_a_search_is_made_once_a_day_and_its_offers_kept(history, session):
     site = FakeSite([raw_offer(1), raw_offer(2, chain="Mustermarkt")])
     source = offers.Marktguru(site)
     first = fetch_due(repository, source, now=NOW, pause=0)
-    assert first == {"due": 2, "searched": 2, "new_offers": 4}, "two offers near each postcode"
+    assert first == {"due": 2, "searched": 2, "failed": 0, "new_offers": 4}, \
+        "two offers near each postcode"
     assert fetch_due(repository, source, now=NOW + timedelta(hours=5), pause=0)["due"] == 0
     later = NOW + timedelta(hours=21)
     assert fetch_due(repository, source, now=later, pause=0) == {
-        "due": 2, "searched": 2, "new_offers": 0}
+        "due": 2, "searched": 2, "failed": 0, "new_offers": 0}
 
     session.expire_all()
     kept = session.query(Offer).filter_by(postcode="12345", source_id="1").one()
@@ -254,7 +268,7 @@ def test_a_search_is_made_once_a_day_and_its_offers_kept(history, session):
 
 
 @db
-def test_a_failed_source_stops_the_pass_and_keeps_what_was_found(history, session):
+def test_a_failed_search_is_skipped_and_stays_due(history, session):
     from grocery_app.api.offers import fetch_due
     from grocery_app.db.models import OfferSearch
 
@@ -268,8 +282,40 @@ def test_a_failed_source_stops_the_pass_and_keeps_what_was_found(history, sessio
 
     result = fetch_due(repository, offers.Marktguru(FailsSecond([raw_offer()])),
                        now=NOW, pause=0)
-    assert result == {"due": 2, "searched": 1, "new_offers": 1}
+    assert result == {"due": 2, "searched": 1, "failed": 1, "new_offers": 1}
     assert session.query(OfferSearch).count() == 1, "the failed one is due again"
+
+
+@db
+def test_a_source_that_is_down_is_given_up_on_for_the_pass(history, session):
+    from grocery_app.api import offers as offers_api
+
+    repository, _ = history
+    site = FakeSite([raw_offer()], fail_searches=99)
+    wanted = {("12345", f"Wort{i}") for i in range(10)}
+    real = offers_api.wanted_searches
+    offers_api.wanted_searches = lambda *a: wanted
+    try:
+        result = offers_api.fetch_due(repository, offers.Marktguru(site), now=NOW, pause=0)
+    finally:
+        offers_api.wanted_searches = real
+    assert result == {"due": 10, "searched": 0, "failed": 3, "new_offers": 0}
+
+
+@db
+def test_a_search_nobody_needs_is_forgotten(history, session):
+    """Once Sara's account is gone, nothing kept points at her shop and her
+    bananas."""
+    from grocery_app.api.offers import fetch_due
+    from grocery_app.db.models import OfferSearch
+
+    repository, sara = history
+    source = offers.Marktguru(FakeSite([raw_offer()]))
+    fetch_due(repository, source, now=NOW, pause=0)
+    repository.as_user({"id": sara["id"], "name": "Sara"}).remove_account()
+    fetch_due(repository, source, now=NOW + timedelta(hours=1), pause=0)
+    session.expire_all()
+    assert {(s.postcode, s.word) for s in session.query(OfferSearch)} == {("12345", "Milch")}
 
 
 @db

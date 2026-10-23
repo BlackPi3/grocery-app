@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import urllib.parse
 import urllib.request
 from collections import Counter, defaultdict
@@ -40,10 +41,15 @@ from zoneinfo import ZoneInfo
 SOURCE = "marktguru"
 HOME_URL = "https://www.marktguru.de/"
 SEARCH_URL = "https://api.marktguru.de/api/v1/offers/search"
-USER_AGENT = "Mozilla/5.0 (grocery-app; +https://github.com/BlackPi3/grocery-app)"
+# Names the app, not who runs it: the first searches are the owner's, and a
+# link to his account would tie them to where he shops.
+USER_AGENT = "Mozilla/5.0 (compatible; grocery-app)"
 GERMANY = ZoneInfo("Europe/Berlin")
 PAGE = 100  # the most one search answer holds
 TIMEOUT_S = 20
+# An answer of 100 offers is about 200 KB; one past these is not an answer.
+MAX_ANSWER_BYTES = 8 << 20
+MAX_ANSWER_S = 60
 
 
 class OffersUnavailable(Exception):
@@ -63,7 +69,15 @@ def _name(part: dict[str, Any] | None) -> str | None:
 
 def read_offer(raw: dict[str, Any]) -> dict[str, Any] | None:
     """One marktguru search result as our record, or None for one that is no
-    use: no chain, no price, or no dates."""
+    use: no chain, no price, no dates, or not in the shape it should be. One
+    odd offer is skipped, never the answer it came in."""
+    try:
+        return _read_offer(raw)
+    except (KeyError, TypeError, ValueError, AttributeError, IndexError):
+        return None
+
+
+def _read_offer(raw: dict[str, Any]) -> dict[str, Any] | None:
     advertisers = raw.get("advertisers") or []
     validity = raw.get("validityDates") or []
     if not advertisers or raw.get("price") is None or not validity:
@@ -91,15 +105,15 @@ def read_offer(raw: dict[str, Any]) -> dict[str, Any] | None:
 
 # --- what to search for --------------------------------------------------------
 
-_POSTCODE = re.compile(r"(?<!\d)(\d{5})(?!\d)")
+_POSTCODE = re.compile(r"(?<!\d)(\d{5})\s+(?=[^\W\d_])")
 
 
 def postcode_of(store_location: str | None) -> str | None:
-    """The German postcode in a receipt's printed address, if there is one.
-    An address prints it last, before the town, so the last five-digit run
-    wins over a five-digit house or phone number before it."""
-    found = _POSTCODE.findall(store_location or "")
-    return found[-1] if found else None
+    """The German postcode in a receipt's printed address, if there is one:
+    five digits followed by the town's name. A phone number or a house
+    number has no town after it."""
+    found = _POSTCODE.search(store_location or "")
+    return found[1] if found else None
 
 
 def shopping_postcodes(locations: Iterable[str | None], most: int = 3) -> list[str]:
@@ -112,14 +126,21 @@ def shopping_postcodes(locations: Iterable[str | None], most: int = 3) -> list[s
     return ranked[:most]
 
 
-_NOT_A_WORD = re.compile(r"\([^)]*\)|\b\d\S*|\b\w*\d\w*\b|[%,;/]")
+_BRACKETS = re.compile(r"\([^)]*\)")
+# A size or a count: a number, perhaps `6 x 1,5`, and the unit after it.
+_SIZE = re.compile(r"(?<!\w)\d+(?:[.,]\d+)?(?:\s*[x×]\s*\d+(?:[.,]\d+)?)?\s*"
+                   r"(?:kg|g|mg|ml|cl|l|ltr|liter|stk|stück|st|er|pack|pck|%)?(?!\w)",
+                   re.IGNORECASE)
+_NOT_A_WORD = re.compile(r"\b\w*\d\w*\b|[%,;/]")
 
 
 def search_word(name: str | None) -> str | None:
     """The words a product's name is searched by: without its sizes, counts
     and the bracketed English the first catalog added.
-    `Saatenbrötchen 3er (3x 1,000 Stück)` is searched as `Saatenbrötchen`."""
-    words = " ".join(_NOT_A_WORD.sub(" ", name or "").split())
+    `Saatenbrötchen 3er (3x 1,000 Stück)` is searched as `Saatenbrötchen`,
+    `Mineralwasser 6 x 1,5 l` as `Mineralwasser`."""
+    bare = _NOT_A_WORD.sub(" ", _SIZE.sub(" ", _BRACKETS.sub(" ", name or "")))
+    words = " ".join(bare.split())
     return words if len(words) >= 3 else None
 
 
@@ -129,9 +150,18 @@ Fetch = Callable[[str, dict[str, str]], bytes]
 
 
 def http_get(url: str, headers: dict[str, str]) -> bytes:
+    """The body at `url`, read in pieces: one too large, or too slow in
+    coming, is an error rather than the server's memory or its thread."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **headers})
+    started, body = time.monotonic(), bytearray()
     with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
-        return response.read()
+        while piece := response.read(1 << 16):
+            body += piece
+            if len(body) > MAX_ANSWER_BYTES:
+                raise OSError(f"answer over {MAX_ANSWER_BYTES} bytes")
+            if time.monotonic() - started > MAX_ANSWER_S:
+                raise OSError(f"answer took over {MAX_ANSWER_S} s")
+    return bytes(body)
 
 
 _CONFIG_KEYS = re.compile(r'"apiKey":"([^"]+)","clientKey":"([^"]+)"')
@@ -170,13 +200,17 @@ class Marktguru:
                                             "limit": PAGE, "offset": offset})
             try:
                 answer = json.loads(self.fetch(f"{SEARCH_URL}?{query}", headers))
-            except (OSError, ValueError) as exc:
+                results = answer.get("results") or []
+                if not isinstance(results, list) or not all(
+                        isinstance(r, dict) for r in results):
+                    raise ValueError("results are not a list of offers")
+                total = int(answer.get("totalResults") or 0)
+            except (OSError, ValueError, TypeError, AttributeError) as exc:
                 self._keys = None  # keys can change; read them again next time
                 raise OffersUnavailable(f"searching {word!r} failed: {exc}") from exc
-            results = answer.get("results") or []
             found.extend(o for o in map(read_offer, results) if o)
             offset += PAGE
-            if len(results) < PAGE or offset >= (answer.get("totalResults") or 0):
+            if len(results) < PAGE or offset >= total:
                 break
         return found
 

@@ -21,7 +21,13 @@ session (laptop or cloud) can pick up from here. How we work is in
   once a day per pair, each person's shop postcodes (from the addresses on
   their receipts, last 90 days) with the names of their regular groceries,
   and keeps every offer with when it was first and last seen (tables
-  `offers`, `offer_searches`, migration 0023). `GET /v1/offers/rhythm`
+  `offers`, `offer_searches`, migration 0023). A failed search is skipped
+  and stays due (three in a row end the pass); one odd offer is skipped, not
+  its answer; an answer is capped at 8 MB and 60 s. A search nobody needs
+  any more (an account deleted, a habit stopped) is forgotten on the next
+  pass. Only products with a known grocery category are searched, and the
+  request names the app, not the owner. Reviewed by `check-risky`
+  (its tests: `tests/test_offers_privacy.py`). `GET /v1/offers/rhythm`
   (owner only) says on which weekday each chain's offers first appear and
   how many days ahead; it needs a week or two of looks to mean anything.
   The privacy page names marktguru and what is sent (product names, a shop

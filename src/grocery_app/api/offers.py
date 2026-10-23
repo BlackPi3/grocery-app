@@ -35,6 +35,9 @@ RECENT = timedelta(days=90)
 SEARCH_AGAIN_AFTER = timedelta(hours=20)
 FETCH_EVERY_SECONDS = 3600
 PAUSE_BETWEEN_SEARCHES_S = 1.0
+# This many failed searches in a row and the source is taken to be down
+# until the next pass; a single failure only skips its own search.
+GIVE_UP_AFTER = 3
 # Offers that ended this long ago are of no use to the tile, but are kept
 # that long for the rhythm.
 KEEP_ENDED = timedelta(days=60)
@@ -58,7 +61,8 @@ def wanted_searches(session: Session, people: list[Any], today: date) -> set[tup
             continue
         rows = [r for r in _product_rows(person.purchases()["purchases"])
                 if r.get("date") and date.fromisoformat(r["date"]) >= since
-                and categories.is_grocery(r.get("category"))]
+                and r.get("category") in categories.CATEGORIES
+                and categories.is_grocery(r["category"])]
         ids = [r["product_id"] for r in regulars(rows, today)]
         names = dict(session.execute(select(Product.id, Product.name)
                                      .where(Product.id.in_(ids))).all()) if ids else {}
@@ -68,9 +72,16 @@ def wanted_searches(session: Session, people: list[Any], today: date) -> set[tup
 
 
 def due(session: Session, wanted: set[tuple[str, str]], now: datetime) -> list[tuple[str, str]]:
-    """The searches in `wanted` not made in the last `SEARCH_AGAIN_AFTER`."""
-    recent = {(s.postcode, s.word) for s in session.scalars(
-        select(OfferSearch).where(OfferSearch.searched_at > now - SEARCH_AGAIN_AFTER))}
+    """The searches in `wanted` not made in the last `SEARCH_AGAIN_AFTER`.
+    A search nobody wants any more is forgotten: once a person's account is
+    gone, or they stop buying a thing, nothing kept points at them."""
+    recent = set()
+    for search in session.scalars(select(OfferSearch)):
+        if (search.postcode, search.word) not in wanted:
+            session.delete(search)
+        elif search.searched_at > now - SEARCH_AGAIN_AFTER:
+            recent.add((search.postcode, search.word))
+    session.flush()
     return sorted(wanted - recent)
 
 
@@ -108,7 +119,8 @@ def keep(session: Session, postcode: str, word: str, found: list[dict[str, Any]]
 def fetch_due(repository: Any, source: offers.Marktguru, now: datetime | None = None,
               pause: float = PAUSE_BETWEEN_SEARCHES_S) -> dict[str, int]:
     """One pass: work out what everyone needs, search what is due, keep what
-    is found. A failed search stops the pass; what was found is kept."""
+    is found. A failed search is skipped and stays due; `GIVE_UP_AFTER` in a
+    row end the pass."""
     now = now or datetime.now(UTC)
     today = now.astimezone(offers.GERMANY).date()
     with repository.session_factory() as session:
@@ -116,23 +128,31 @@ def fetch_due(repository: Any, source: offers.Marktguru, now: datetime | None = 
             repository.as_user({"id": u.id, "name": u.name})
             for u in session.scalars(select(User).order_by(User.id))]
         todo = due(session, wanted_searches(session, people, today), now)
-    done = new = 0
-    for postcode, word in todo:
-        try:
-            found = source.search(word, postcode)
-        except offers.OffersUnavailable:
-            log.exception("offers: searching stopped after %d of %d", done, len(todo))
-            break
-        with repository.session_factory() as session:
-            new += keep(session, postcode, word, found, now)
-            session.commit()
-        done += 1
-        if pause:
-            time.sleep(pause)
-    with repository.session_factory() as session:
-        session.query(Offer).filter(Offer.valid_to < today - KEEP_ENDED).delete()
         session.commit()
-    return {"due": len(todo), "searched": done, "new_offers": new}
+    done = failed = in_a_row = new = 0
+    try:
+        for postcode, word in todo:
+            if pause and done + failed:
+                time.sleep(pause)
+            try:
+                found = source.search(word, postcode)
+            except offers.OffersUnavailable as exc:
+                failed, in_a_row = failed + 1, in_a_row + 1
+                log.warning("offers: %s", exc)
+                if in_a_row >= GIVE_UP_AFTER:
+                    log.warning("offers: %d failed in a row, trying again next pass", in_a_row)
+                    break
+                continue
+            in_a_row = 0
+            with repository.session_factory() as session:
+                new += keep(session, postcode, word, found, now)
+                session.commit()
+            done += 1
+    finally:
+        with repository.session_factory() as session:
+            session.query(Offer).filter(Offer.valid_to < today - KEEP_ENDED).delete()
+            session.commit()
+    return {"due": len(todo), "searched": done, "failed": failed, "new_offers": new}
 
 
 def keep_fetching(repository: Any, source: offers.Marktguru,
