@@ -305,3 +305,78 @@ def test_the_tile_shows_this_weeks_offers_only_and_when():
         console.log(offersCard({ offers: [] }), offersCard(null));
     """)
     assert out == ["2", "true true", "8", "null null"]
+
+
+# --- the word a flyer lists it under -----------------------------------------------------
+
+class FakeNamer:
+    """Gives the words it was told to for the products it is asked about."""
+
+    def __init__(self, said=None):
+        self.said, self.calls = said or {}, []
+
+    def __call__(self, system, prompt, schema):
+        self.calls.append(prompt)
+        return {"words": [{"product": p, "word": w} for p, w in self.said.items()
+                          if f"Product {p}:" in prompt]}
+
+
+def test_a_product_is_given_the_word_a_flyer_lists_it_under():
+    products = {"p-1": {"name": "Bio H-Alpenmilch 1,5% Fett", "brand": "Muster"},
+                "p-2": {"name": "salted pickled cucumbers", "brand": None},
+                "p-3": {"name": "Rätselware", "brand": None}}
+    namer = FakeNamer({"p-1": " H-Milch ", "p-2": "Gewürzgurken", "p-3": "Milch½",
+                       "p-9": "Brot"})
+    [(asked, said)] = list(offer_match.flyer_words(products, namer))
+    assert asked == {"p-1", "p-2", "p-3"}
+    assert said == {"p-1": "H-Milch", "p-2": "Gewürzgurken"}, \
+        "a size is not a search word, nor a product not asked about"
+    assert "brand Muster" in namer.calls[0]
+
+
+def test_words_are_asked_in_batches_and_not_at_all_for_nothing():
+    namer = FakeNamer()
+    products = {f"p-{i}": {"name": "Milch"} for i in range(45)}
+    assert len(list(offer_match.flyer_words(products, namer))) == 3
+    assert list(offer_match.flyer_words({}, namer)) == [] and len(namer.calls) == 3
+
+
+@db
+def test_a_regular_is_named_once_and_searched_by_its_flyer_word(shoppers, session):
+    from collections import Counter
+
+    from grocery_app.api.offers import word_due
+    from grocery_app.db.models import OfferSearch, Product
+
+    repository, _ = shoppers
+    asked: Counter = Counter()
+    namer = FakeNamer({"p-0001": "H-Milch"})
+    assert word_due(repository, namer, TODAY, asked) == 1
+    milk = session.get(Product, "p-0001")
+    assert (milk.offer_word, milk.offer_word_by) == ("H-Milch", offer_match.WORDS_VERSION)
+    assert "Product p-0002" in namer.calls[0], "Sara's bananas too"
+    word_due(repository, namer, TODAY, asked)
+    word_due(repository, namer, TODAY, asked)
+    assert len(namer.calls) == offer_match.MOST_ASKS, "bananas left unnamed are not asked forever"
+    assert all("p-0001" not in call for call in namer.calls[1:]), "a word is asked once"
+
+    _fetched(repository, [milk_offer(1, 0.79)])
+    session.expire_all()
+    assert {s.word for s in session.query(OfferSearch)} == {"H-Milch", "Bananen"}, \
+        "the flyer word, and the name for a product with none"
+
+
+@db
+def test_a_failed_naming_call_names_nothing(shoppers, session):
+    from grocery_app.api.offers import word_due
+    from grocery_app.db.models import Product
+
+    repository, _ = shoppers
+
+    class Down(FakeNamer):
+        def __call__(self, *a):
+            raise RuntimeError("busy")
+
+    with pytest.raises(RuntimeError):
+        word_due(repository, Down(), TODAY)
+    assert session.get(Product, "p-0001").offer_word is None

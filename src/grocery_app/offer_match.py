@@ -127,6 +127,52 @@ def judge(products: dict[str, dict[str, Any]], candidates: dict[str, list[dict[s
     return out
 
 
+# --- the word a flyer lists it under ---------------------------------------------------
+
+# A product's own name is a poor search: `Bio H-Alpenmilch 1,5% Fett, Laktosefrei`
+# finds nothing, and an early catalog name is English (`salted pickled
+# cucumbers`). The source matches the words it is given, so a product is
+# searched by the word a German flyer uses for its kind (`H-Milch`,
+# `Gewürzgurken`), asked once per product and kept (`products.offer_word`).
+WORDS_VERSION = "offer-words-v1"
+
+WORDS_SYSTEM = (
+    "For each grocery product, give the word a German supermarket flyer lists that kind "
+    "of product under, so a search for it finds offers for this product and others like "
+    "it: German, one or two words, no brand, no size, no 'Bio' (H-Milch, Magerquark, "
+    "Eier, Haferflocken, Gewürzgurken, Karotten). Answer every product id listed.")
+
+WORDS_SCHEMA = {"type": "object", "properties": {"words": {"type": "array", "items": {
+    "type": "object", "properties": {"product": {"type": "string"}, "word": {"type": "string"}},
+    "required": ["product", "word"]}}}, "required": ["words"]}
+
+
+def _is_a_word(word: Any) -> bool:
+    """One to three words, no numbers (`½` and `²` are numbers too), short:
+    what a search box takes."""
+    return (isinstance(word, str) and 3 <= len(word.strip()) <= 40
+            and len(word.split()) <= 3 and not any(c.isnumeric() for c in word))
+
+
+def flyer_words(products: dict[str, dict[str, Any]], decider: Any,
+                batch: int = 20) -> Iterator[tuple[set, dict[str, str]]]:
+    """One model call per `batch` products, each yielding the products it
+    asked about and the words it gave. A product left out or given something
+    that is not a word gets none, and is searched by its name meanwhile
+    (`offers.search_word`)."""
+    ids = sorted(products)
+    for start in range(0, len(ids), batch):
+        asked = ids[start:start + batch]
+        answer = decider(WORDS_SYSTEM, "\n".join(
+            f"Product {pid}: {_describe_product(products[pid])}" for pid in asked), WORDS_SCHEMA)
+        words = answer.get("words") if isinstance(answer, dict) else None
+        said: dict[str, str] = {}
+        for w in words if isinstance(words, list) else []:
+            if isinstance(w, dict) and str(w.get("product")) in asked and _is_a_word(w.get("word")):
+                said.setdefault(str(w["product"]), " ".join(w["word"].split()))
+        yield set(asked), said
+
+
 def shortlist(word: str, offers: list[dict[str, Any]],
               most: int = MOST_CANDIDATES) -> list[dict[str, Any]]:
     """The offers worth showing the judge for `word`, at most `most`: those

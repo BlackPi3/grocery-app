@@ -55,7 +55,8 @@ def shopping(session: Session, person: Any, today: date) -> dict[str, Any]:
     """Where and what one person shops now: `postcodes` (`offers.shopping_postcodes`)
     and `regulars`, product id -> {"product", "word", "rows"}: their regular
     groceries in the last `RECENT`, each with the catalog's product, its
-    search word and their purchases of it. `person` is a repository as that
+    search word (the flyer's word when one was given, else the name) and
+    their purchases of it. `person` is a repository as that
     person sees it (`PostgresRepository.as_user`)."""
     since = today - RECENT
     mine = (Receipt.user_id.is_(None) if person.user_id is None
@@ -71,7 +72,7 @@ def shopping(session: Session, person: Any, today: date) -> dict[str, Any]:
     ids = [r["product_id"] for r in regulars(rows, today)]
     found = {}
     for product in session.scalars(select(Product).where(Product.id.in_(ids))) if ids else []:
-        if word := offers.search_word(product.name):
+        if word := product.offer_word or offers.search_word(product.name):
             found[product.id] = {
                 "product": {"name": product.name, "brand": product.brand,
                             "details": list(product.details or []), "size": product.size},
@@ -213,11 +214,12 @@ def judge_due(repository: Any, decider: Any, today: date,
     asked = Counter() if asked is None else asked
     with repository.session_factory() as session:
         products: dict[str, dict[str, Any]] = {}
+        words: dict[str, str] = {}
         todo: dict[str, dict[str, dict[str, Any]]] = {}
         for person in everyone(repository, session):
             mine = shopping(session, person, today)
             for pid, regular in mine["regulars"].items():
-                products[pid] = regular["product"]
+                products[pid], words[pid] = regular["product"], regular["word"]
                 for offer in candidates(session, mine["postcodes"], regular["word"], today):
                     todo.setdefault(pid, {})[offer["id"]] = offer
         judged = _verdicts(session, list(todo))
@@ -227,8 +229,7 @@ def judge_due(repository: Any, decider: Any, today: date,
             waiting = [o for oid, o in found.items() if (pid, oid) not in judged
                        and asked[(pid, oid)] < offer_match.MOST_ASKS]
             if room > 0 and waiting:
-                unjudged[pid] = offer_match.shortlist(
-                    offers.search_word(products[pid]["name"]) or "", waiting, most=room)
+                unjudged[pid] = offer_match.shortlist(words[pid], waiting, most=room)
     made = 0
     for put, said in offer_match.judge_batches(products, unjudged, decider):
         for pair in put - said.keys():
@@ -238,6 +239,35 @@ def judge_due(repository: Any, decider: Any, today: date,
                 session.add(OfferVerdict(product_id=pid, source=offers.SOURCE,
                                          source_id=offer_id, verdict=verdict,
                                          judged_by=offer_match.JUDGE_VERSION))
+            session.commit()
+        made += len(said)
+    return made
+
+
+def word_due(repository: Any, decider: Any, today: date,
+             asked: Counter | None = None) -> int:
+    """Have the model give each regular product with no flyer word yet its
+    word (`offer_match.flyer_words`); how many were given. Each batch is
+    kept as soon as it is answered. `asked` counts, across passes, the
+    answers that gave a product none: one left `offer_match.MOST_ASKS` times
+    is searched by its name until the server starts anew."""
+    asked = Counter() if asked is None else asked
+    with repository.session_factory() as session:
+        people = everyone(repository, session)
+        ids = {pid for person in people for pid in shopping(session, person, today)["regulars"]}
+        products = {p.id: {"name": p.name, "brand": p.brand, "details": list(p.details or []),
+                           "size": p.size}
+                    for p in session.scalars(select(Product).where(
+                        Product.id.in_(ids), Product.offer_word.is_(None)))
+                    if asked[p.id] < offer_match.MOST_ASKS} if ids else {}
+    made = 0
+    for put, said in offer_match.flyer_words(products, decider):
+        for pid in put - said.keys():
+            asked[pid] += 1
+        with repository.session_factory() as session:
+            for product in session.scalars(select(Product).where(Product.id.in_(said))):
+                product.offer_word = said[product.id]
+                product.offer_word_by = offer_match.WORDS_VERSION
             session.commit()
         made += len(said)
     return made
@@ -274,7 +304,16 @@ def keep_fetching(repository: Any, source: offers.Marktguru, judge: Any = None,
     from grocery_app import spend
 
     asked: Counter = Counter()
+    unnamed: Counter = Counter()
     while True:
+        if judge is not None:
+            try:  # without a word a product is searched by its name
+                with spend.tagged("other"):
+                    today = datetime.now(UTC).astimezone(offers.GERMANY).date()
+                    if named := word_due(repository, judge, today, unnamed):
+                        log.info("offers: %d search words", named)
+            except Exception:
+                log.exception("naming products for the offers failed")
         try:
             if (result := fetch_due(repository, source))["searched"]:
                 log.info("offers: %s", result)
