@@ -142,6 +142,9 @@
   .glance .card { margin: 0; }
   .label.sub { margin: 14px 0 2px; }
   .glance .big { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; margin: 2px 0; }
+  .offer-price { display: flex; align-items: baseline; gap: 10px; margin: 2px 0; }
+  .offer-price .big { font-size: 24px; font-weight: 650; letter-spacing: -0.01em; }
+  .offer-price .down { font-weight: 650; }
   .turning .dots { display: flex; gap: 5px; margin-top: 10px; }
   .turning .dots span { width: 6px; height: 6px; border-radius: 3px; background: var(--grid); }
   .turning .dots span.on { width: 14px; background: var(--muted); }
@@ -582,7 +585,7 @@ function saveCopy() {
   try {
     localStorage.setItem(COPY_KEY, JSON.stringify({
       at: Date.now(), checks: state.checks, questions: state.questions, receipts: state.receipts,
-      insights: state.insights, costs: state.costs, me: state.me,
+      insights: state.insights, offers: state.offers, costs: state.costs, me: state.me,
       receiptLines: state.receiptLines }));
   } catch (_) { /* full, or private mode */ }
 }
@@ -1446,6 +1449,8 @@ function homeView() {
   cards.push(paceCard(month, thisMonth));
   // What a stop promises opens when the stop is reached.
   const reached = at => !start || start.count >= at;
+  const offer = offersCard(state.offers);
+  if (offer) cards.push(offer);
   const glance = [reached(START_GOAL) ? priceCard(d) : null,
                   reached(5) ? regularsCard(d) : null].filter(Boolean);
   if (glance.length) cards.push(el("div", { class: "glance" }, glance));
@@ -1831,6 +1836,36 @@ function priceCard(d) {
       el("div", { class: "what" }, easyName(m.product, m.brand)),
       el("div", { class: "meta" }, `${perText(m.before, m.per)} → ${perText(m.after, m.per)}`)];
   }, m => openProduct(m.product_id));
+}
+
+// The coming week's offers for what the shopper buys (the owner, 2026-10-23,
+// offers step 1): the server matches them (`GET /v1/offers`), the shopper's
+// own product first ("your product"), then another brand of the same kind
+// ("like yours"), biggest saving first. The price, the saving against what
+// they usually pay when it compares like for like, the shop and the days.
+const OFFERS_SHOWN = 8;
+function offerDays(o) {
+  const today = new Date().toISOString().slice(0, 10);
+  const when = iso => day(iso).toLocaleDateString("en-GB",
+    { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  return o.valid_from > today ? `from ${when(o.valid_from)}` : `until ${when(o.valid_to)}`;
+}
+function offersCard(doc) {
+  const today = new Date().toISOString().slice(0, 10);  // a kept copy may be days old
+  const shown = ((doc && doc.offers) || []).filter(m => m.offer.valid_to >= today)
+    .slice(0, OFFERS_SHOWN);
+  if (!shown.length) return null;  // none this week, or a server without offers
+  return turningCard("offer", shown, m => [
+    el("div", { class: "label" }, "On offer · " + m.label),
+    el("div", { class: "offer-price" },
+      el("span", { class: "big" }, euro(m.offer.price)),
+      m.saving ? el("span", { class: "down" }, `−${Math.round(100 * m.saving.share)}%`) : null),
+    el("div", { class: "what", lang: "de" }, easyName(m.offer.product, m.offer.brand)),
+    el("div", { class: "meta" }, `${m.offer.chain} · ${offerDays(m.offer)}`),
+    m.usual_per_unit ? el("div", { class: "meta" },
+      `${perText(m.offer.per_unit.amount, m.offer.per_unit.per)}, usually ` +
+      perText(m.usual_per_unit.amount, m.usual_per_unit.per)) : null,
+  ].filter(Boolean), m => openProduct(m.product_id));
 }
 
 // What the shopper buys again and again (the owner, 2026-10-14: "7× in 6
@@ -2546,6 +2581,12 @@ async function load({ jobs = true } = {}) {
       if (state.tab === "insights" || state.tab === "home") render();
     })
       .catch(error => { if (state.tab === "insights") toast("Insights: " + error.message); });
+    // The week's offers for what the shopper buys; none from an older server.
+    api("/v1/offers").then(doc => {
+      state.offers = doc;
+      saveCopy();
+      if (state.tab === "home") render();
+    }).catch(() => { state.offers = null; });
     // Who this password is, and for the owner what the app costs.
     api("/v1/me").then(async me => {
       state.me = me;
@@ -2707,8 +2748,8 @@ keepBackStep();  // after it: its answer is taken out of the address first
 const copy = savedCopy();
 if (copy && copy.checks && copy.questions && copy.receipts) {
   Object.assign(state, { checks: copy.checks, questions: copy.questions, receipts: copy.receipts,
-                         insights: copy.insights, costs: copy.costs, me: copy.me,
-                         receiptLines: copy.receiptLines || {},
+                         insights: copy.insights, offers: copy.offers, costs: copy.costs,
+                         me: copy.me, receiptLines: copy.receiptLines || {},
                          copyAt: copy.at });
   render();
 }
