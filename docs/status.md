@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-23, laptop: a receipt with no date broke the offers pass.
+**Last updated:** 2026-10-23, laptop: offers on live: an undated receipt, then search words.
 
 ## Now
 
@@ -14,7 +14,14 @@ session (laptop or cloud) can pick up from here. How we work is in
   before its first search (nothing kept, `/v1/offers` empty for everyone)
   and broke that person's Insights since 20 Oct. Now such a receipt's lines
   stay in the history, are left out of every insight, and are counted in
-  coverage as `undated`. Step 2 waits for a few days of real offers.
+  coverage as `undated` (#179). The first real pass then kept only 5
+  offers: a product was searched by its whole name (`Bio H-Alpenmilch Fett
+  Laktosefrei`, `salted pickled cucumbers`). Now a model gives each regular
+  product, once, the word a flyer lists its kind under (`H-Milch`,
+  `Gewürzgurken`; `products.offer_word`, migration 0025, prompt
+  `offer-words-v1`); the name is searched until then. One judge call also
+  timed out once (180 s) on live; it is asked again next pass. Step 2 waits
+  for a few days of real offers.
 
 - Agreed (owner, 2026-10-23): **offers, one step at a time.** Step 1:
   single offers for what a person buys, in a Home tile for the coming week,
