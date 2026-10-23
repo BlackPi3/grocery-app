@@ -58,7 +58,7 @@ def receipt_files(directory: str | Path) -> list[Path]:
 def load_receipts(receipts_dir: str | Path) -> list[dict[str, Any]]:
     """Load every receipt, sorted by date then source image for stable output."""
     receipts = [load_json(p) for p in receipt_files(receipts_dir)]
-    return sorted(receipts, key=lambda r: (r.get("date", ""), r.get("source_image", "")))
+    return sorted(receipts, key=lambda r: (r.get("date") or "", r.get("source_image") or ""))
 
 
 # --- unit-price derivation ---------------------------------------------------
@@ -629,7 +629,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     """
     line_resolutions = line_resolutions or {}
     shelf_prices = shelf_prices or {}
-    receipts = sorted(receipts, key=lambda r: (r.get("date", ""), r.get("source_image", "")))
+    receipts = sorted(receipts, key=lambda r: (r.get("date") or "", r.get("source_image") or ""))
 
     purchases: list[dict[str, Any]] = []
     used_receipts = 0
@@ -644,7 +644,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     # A family is not unresolved: brand and category are known, the variant is
     # not. It is listed separately so neither number lies.
     ambiguous = sorted({p["raw_name"] for p in product_lines if p["resolution"] == "family"})
-    dates = sorted({r["date"] for r in receipts})
+    dates = sorted({r["date"] for r in receipts if r.get("date")})
 
     return {
         "contract_version": 8,

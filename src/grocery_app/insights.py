@@ -902,12 +902,14 @@ def _not_grocery(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 def coverage(purchases: dict[str, Any], rows: list[dict[str, Any]],
              left_out: list[dict[str, Any]],
-             not_counted: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+             not_counted: list[dict[str, Any]] | None = None,
+             undated: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """What the insights rest on. `rows` are the grocery lines the shopper
-    counts; `left_out` the lines known not to be groceries, and `not_counted`
-    the grocery lines the shopper left out, each reported here and nowhere
-    else."""
+    counts; `left_out` the lines known not to be groceries, `not_counted`
+    the grocery lines the shopper left out, and `undated` the lines of
+    receipts with no date, each reported here and nowhere else."""
     not_counted = not_counted or []
+    undated = undated or []
     resolved = [p for p in rows if p.get("product_id")]
     spend = sum(p.get("net_paid") or 0.0 for p in rows)
     resolved_spend = sum(p.get("net_paid") or 0.0 for p in resolved)
@@ -933,9 +935,13 @@ def coverage(purchases: dict[str, Any], rows: list[dict[str, Any]],
         "not_grocery": _not_grocery(left_out),
         "not_counted": {"lines": len(not_counted),
                         "spend": round(sum(p.get("net_paid") or 0.0 for p in not_counted), 2)},
+        "undated": {"lines": len(undated),
+                    "spend": round(sum(p.get("net_paid") or 0.0 for p in undated), 2)},
         "note": "groceries only: lines known not to be groceries are counted under "
                 "not_grocery and left out of every insight; lines the shopper left out "
-                "are counted under not_counted and kept only for prices; product-level "
+                "are counted under not_counted and kept only for prices; lines of a "
+                "receipt with no date are counted under undated and left out of every "
+                "insight; product-level "
                 "insights use resolved lines only; spend figures use every counted "
                 "grocery line",
     }
@@ -948,7 +954,10 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None,
     `today` (default: the server's date) is where this month stops: on the
     14th, a month's `compared` sets 1-14 of it against 1-14 of the month
     before. Every other month is compared whole."""
-    lines = _product_rows(purchases.get("purchases", []))
+    # A line with no date cannot be placed in time, and every insight is in time.
+    every = _product_rows(purchases.get("purchases", []))
+    lines = [p for p in every if p.get("date")]
+    undated = [p for p in every if not p.get("date")]
     groceries = [p for p in lines if categories.is_grocery(p.get("category"))]
     left_out = [p for p in lines if not categories.is_grocery(p.get("category"))]
     # Prices are what the shop charged, whoever it was for; the rest is the
@@ -962,7 +971,7 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None,
     return {
         "contract_version": CONTRACT_VERSION,
         "as_of": as_of.isoformat(),
-        "coverage": coverage(purchases, rows, left_out, not_counted),
+        "coverage": coverage(purchases, rows, left_out, not_counted, undated),
         "repurchase": repurchase(rows, as_of),
         "regulars": regulars(rows, as_of),
         "price_changes": (changes := price_changes(groceries)),

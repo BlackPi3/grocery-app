@@ -5,6 +5,7 @@ import json
 import pytest
 
 from grocery_app.normalizer import (
+    assemble_purchases,
     load_receipts,
     load_resolution,
     lookup,
@@ -209,6 +210,17 @@ def test_meta_sidecars_are_not_mistaken_for_receipts(tmp_path):
         json.dumps({"source_image": "IMG_1.jpeg", "cost_usd": 0.03}), encoding="utf-8"
     )
     assert load_receipts(tmp_path) == [receipt]
+
+
+def test_a_receipt_with_no_date_does_not_stop_the_others():
+    """The reader may find no date on a receipt; sorting a person's receipts
+    by date must not fail on it (on live, one such receipt stopped the offers
+    pass for everyone, 2026-10-23)."""
+    dated = {"source_image": "IMG_1.jpeg", "store": "GLOBUS", "date": "2026-07-14",
+             "lines": [LINE]}
+    undated = {"source_image": None, "store": "GLOBUS", "date": None, "lines": [LINE]}
+    purchases = assemble_purchases([dated, undated], PRODUCTS, {})
+    assert len(purchases["purchases"]) == 2
 
 
 # --- the name, spelled two ways ------------------------------------------------
