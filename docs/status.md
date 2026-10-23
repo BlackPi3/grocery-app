@@ -4,9 +4,27 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-23, laptop: offers on live: an undated receipt, then search words.
+**Last updated:** 2026-10-23, laptop: the shopping list, step 1 (the engine and its backtest).
 
 ## Now
+
+- Agreed (owner, 2026-10-23): **the end goal is a shopping list.** A drafted
+  list of what a person needs now or is running out of, big enough that offer
+  savings add up across it; they remove what they don't need now and add what
+  they do; a line is a kind (eggs, quark) with the usual product as a hint.
+  Four steps: (1) the engine and its backtest, (2) keeping the person's edits
+  (a removal means only "not now": still have it or don't want it), (3) the
+  screen, shown before merge, (4) offers on the list, with a total per chain.
+  **(1) built:** `grocery_app/shopping_list.py` gives each kind a `chance` of
+  being bought in the coming week (recent buying days over days shopped,
+  half-life 28 days) and a `runs_out` day from how fast it is used (amounts
+  in usual buys, recent gaps weigh more), grouped `now`, `this_week`,
+  `later`. On the list from chance 25%. `grocery-app shopping-list` prints
+  it; `grocery-app eval-list` backtests it. On the owner's last 8 weeks
+  (`docs/evaluations/2026-10-23-shopping-list.md`): 28 kinds a week, 40% of
+  them bought, catching 49% of the week's kinds (the old gap rule: 20 kinds,
+  42%, 37%); the chance is honest (given 40-50%, 44% bought); urgency is weak
+  (`now` bought within 3 days 19%, `later` 14%). Next: (2).
 
 - Fixed (2026-10-23, found starting offers step 2): **offers had never run on
   live.** One person's receipt has no date (the reader found none); sorting
@@ -652,6 +670,15 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+- (owner, 2026-10-23) **Adding receipts should feel rewarding**: a small
+  reward after an upload, so the person feels they achieved something.
+- (owner, 2026-10-23) **A prompt per user**, for the list or the reader: an
+  idea, for later.
+- (owner, 2026-10-23) **How much fits at home**, the fridge and the cupboard
+  apart: whether it can be estimated at all, to be explained to the owner
+  before the list gets a size limit. Until then the list's length is its
+  chance cut-off.
+
 - (owner, 2026-10-23, parked: "we need to be more focused now") **A
   separate part for things people may mistake for groceries** (alcohol,
   toiletries, household, supplements, pet food): decided in principle, built
@@ -703,7 +730,8 @@ agreed to build yet:**
   Fixed, one cause (see Now).
 - **"Due again soon" reads as a recommendation**, made from two or three
   buys: too little to say someone will buy it again. Rework or remove (it
-  conflicts with "insights before recommendations").
+  conflicts with "insights before recommendations") The shopping
+  list (2026-10-23) replaces it when the list's screen comes (step 3).
 - **Which shop is cheaper for a kind of thing** (owner, 2026-10-14, from the
   onions' price line: "milk products are cheaper at GLOBUS overall"). A chart
   of where each shop lands, per category. Caution: a plain mean of a
