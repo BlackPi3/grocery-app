@@ -91,6 +91,15 @@ def read_offer(raw: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
 
+# The source's brand for an offer with none (`thisisnobrand123`, seen
+# 2026-10-23 on loose carrots and tomatoes): no brand, not one to show.
+_NO_BRAND = re.compile(r"thisisnobrand", re.IGNORECASE)
+
+
+def brand_of(name: str | None) -> str | None:
+    return None if not name or _NO_BRAND.match(name) else name
+
+
 def _read_offer(raw: dict[str, Any]) -> dict[str, Any] | None:
     advertisers = raw.get("advertisers") or []
     validity = raw.get("validityDates") or []
@@ -102,7 +111,7 @@ def _read_offer(raw: dict[str, Any]) -> dict[str, Any] | None:
         "source": SOURCE,
         "id": str(raw["id"]),
         "chain": advertisers[0]["name"],
-        "brand": _name(raw.get("brand")),
+        "brand": brand_of(_name(raw.get("brand"))),
         "product": _name(raw.get("product")),
         "description": (raw.get("description") or "").strip() or None,
         "category": _name((raw.get("categories") or [None])[0]),

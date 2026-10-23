@@ -380,3 +380,17 @@ def test_a_failed_naming_call_names_nothing(shoppers, session):
     with pytest.raises(RuntimeError):
         word_due(repository, Down(), TODAY)
     assert session.get(Product, "p-0001").offer_word is None
+
+
+@db
+def test_an_offer_kept_with_the_no_brand_mark_is_served_with_no_brand(shoppers, session):
+    from grocery_app.api.offers import candidates
+    from grocery_app.db.models import Offer
+
+    repository, _ = shoppers
+    _fetched(repository, [milk_offer(1, 0.79)])
+    row = session.query(Offer).filter_by(postcode="12345").one()
+    row.record = {**row.record, "brand": "thisisnobrand123"}  # as kept before the fix
+    session.commit()
+    [found] = candidates(session, ["12345"], "Milch", TODAY)
+    assert found["brand"] is None

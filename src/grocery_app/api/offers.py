@@ -191,7 +191,9 @@ def candidates(session: Session, postcodes: list[str], word: str,
         Offer.valid_to >= today, Offer.valid_from <= today + WEEK_AHEAD).order_by(Offer.id))
     seen: dict[str, dict[str, Any]] = {}
     for row in rows:
-        seen.setdefault(row.source_id, row.record)
+        # An offer kept before `offers.brand_of` may still carry the no-brand mark.
+        seen.setdefault(row.source_id, {**row.record,
+                                        "brand": offers.brand_of(row.record.get("brand"))})
     return list(seen.values())
 
 

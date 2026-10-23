@@ -20,8 +20,11 @@ session (laptop or cloud) can pick up from here. How we work is in
   product, once, the word a flyer lists its kind under (`H-Milch`,
   `Gewürzgurken`; `products.offer_word`, migration 0025, prompt
   `offer-words-v1`); the name is searched until then. One judge call also
-  timed out once (180 s) on live; it is asked again next pass. Step 2 waits
-  for a few days of real offers.
+  timed out once (180 s) on live; it is asked again next pass (#180).
+  First week with words (live, 23 Oct): 26 offers for 6 of the owner's 20
+  regulars, all "like yours", at most 4 regulars at one chain (Netto,
+  Lidl). An offer with no brand comes marked `thisisnobrand123`; it is
+  shown with none. Step 2 waits for a week or two of real offers.
 
 - Agreed (owner, 2026-10-23): **offers, one step at a time.** Step 1:
   single offers for what a person buys, in a Home tile for the coming week,
@@ -549,19 +552,6 @@ its promise is **lowering grocery cost**, not tracking (people pay for money
 saved). Overall functions come before polishing the look. Other money areas
 (eating out, travel, vice) come later.
 
-- **What counts as groceries: ECOICOP 01?** ECOICOP is the EU's official list
-  of household spending (Eurostat's inflation index and every EU household
-  survey use it); the other EU lists (customs CN, CPA, NACE, FoodEx2, food
-  law 178/2002) sort for other jobs. 01 is food and non-alcoholic drinks
-  (baby food in; milk is a food). Out: alcohol, **alcohol-free beer and wine
-  too** (02), tobacco (02), cafés (11), vitamins and supplements (06),
-  personal care, tissues and toilet paper (13.1), cleaning products, foil,
-  kitchen paper, bin bags (05.6.1), pet food (09.3). Recommendation: yes.
-  The owner agreed with the idea but asked about Haushaltsartikel; not yet
-  answered. The change if yes: add `alkohol`, `drogerie`, `haushalt` to
-  `NOT_GROCERY_BRANCHES` in `categories.py` (they stay in the history) and
-  add a pet food category; later an ECOICOP code under each category, for
-  comparing with official food inflation per country.
 - **Target group.** Destatis EVS 2023, food and non-alcoholic drinks only
   (alcohol and tobacco taken out), per household per month: under €1,000
   net ~€200, €2,600–3,600 ~€345, €3,600–5,000 ~€410, €5,000+ ~€525, all
@@ -658,6 +648,23 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+- (owner, 2026-10-23, parked: "we need to be more focused now") **A
+  separate part for things people may mistake for groceries** (alcohol,
+  toiletries, household, supplements, pet food): decided in principle, built
+  later. The research below stays for then.
+  **What counts as groceries: ECOICOP 01?** ECOICOP is the EU's official list
+  of household spending (Eurostat's inflation index and every EU household
+  survey use it); the other EU lists (customs CN, CPA, NACE, FoodEx2, food
+  law 178/2002) sort for other jobs. 01 is food and non-alcoholic drinks
+  (baby food in; milk is a food). Out: alcohol, **alcohol-free beer and wine
+  too** (02), tobacco (02), cafés (11), vitamins and supplements (06),
+  personal care, tissues and toilet paper (13.1), cleaning products, foil,
+  kitchen paper, bin bags (05.6.1), pet food (09.3). Recommendation: yes.
+  The owner agreed with the idea but asked about Haushaltsartikel; not yet
+  answered. The change if yes: add `alkohol`, `drogerie`, `haushalt` to
+  `NOT_GROCERY_BRANCHES` in `categories.py` (they stay in the history) and
+  add a pet food category; later an ECOICOP code under each category, for
+  comparing with official food inflation per country.
 - (owner, 2026-10-21, parked: "not in a position to make important design
   decisions") **Web searches cost more than reading.** The "unusual model
   spending" emails are our own alert (each $1 a day), not a Google limit.

@@ -40,6 +40,12 @@ def test_an_offer_is_read_into_our_record():
     }
 
 
+def test_an_offer_with_no_brand_has_none_not_the_sources_mark():
+    loose = raw_offer(brand={"name": "thisisnobrand123"}, product={"name": "Möhren"})
+    assert offers.read_offer(loose)["brand"] is None
+    assert offers.brand_of("Gut & Günstig") == "Gut & Günstig"
+
+
 def test_the_days_are_germanys_not_utcs():
     """Midnight in Germany is 22:00 or 23:00 UTC: the UTC date is the day before."""
     summer = raw_offer(validityDates=[{"from": "2026-07-05T22:00:00Z",
