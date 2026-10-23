@@ -280,3 +280,28 @@ def test_a_person_sees_their_own_offers_and_no_one_elses(shoppers):
     hers = client.get("/v1/offers", headers={"Authorization": f"Bearer {sara['password']}"})
     assert [(o["product"], o["offer"]["id"]) for o in hers.json()["offers"]] == [
         ("Bananen", "4")]
+
+
+# --- the Home tile (the page's own code, in Node) -----------------------------------------
+
+def test_the_tile_shows_this_weeks_offers_only_and_when():
+    """A kept copy of the page may be days old: an offer that ended is not
+    shown. One that has not started says from when, a running one until when."""
+    from grocery_app.api.app import REVIEW_PAGE
+    from tests.test_api import run_page_function
+
+    page = REVIEW_PAGE.read_text(encoding="utf-8")
+    assert "const OFFERS_SHOWN = 8;" in page
+    out = run_page_function(page, "offersCard offerDays", """
+        const OFFERS_SHOWN = 8;
+        const day = iso => new Date(iso + "T00:00:00Z");
+        globalThis.turningCard = (key, items, fill) => items.map(m => offerDays(m.offer));
+        const at = d => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
+        const m = (from, to) => ({ offer: { valid_from: at(from), valid_to: at(to) } });
+        const shown = offersCard({ offers: [m(-8, -2), m(-2, 1), m(3, 8)] });
+        console.log(shown.length);
+        console.log(shown[0].startsWith("until "), shown[1].startsWith("from "));
+        console.log(offersCard({ offers: Array.from({ length: 12 }, () => m(0, 3)) }).length);
+        console.log(offersCard({ offers: [] }), offersCard(null));
+    """)
+    assert out == ["2", "true true", "8", "null null"]

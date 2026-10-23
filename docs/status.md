@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-23, laptop: offers step 1b, matching offers to regulars.
+**Last updated:** 2026-10-23, laptop: offers step 1c, the Home tile (approved).
 
 ## Now
 
@@ -53,7 +53,14 @@ session (laptop or cloud) can pick up from here. How we work is in
   verdicts the model gave are kept (a cut-off answer leaves the rest to ask
   again, twice at most per server start), and each batch is kept as soon as
   it is answered. Reviewed by `check-risky` (its tests:
-  `tests/test_offer_match_rules.py`). Next: (c) the tile.
+  `tests/test_offer_match_rules.py`). (b) merged as #177 and deployed
+  2026-10-23. **(c) built and approved:** a full-width turning tile on Home above the two small ones, "On
+  offer · your product" or "· like yours", the price and the saving, the
+  offer's name and brand, the chain and "from Mon 26 Oct" or "until Sat 31
+  Oct", and the price per unit against what they usually pay. A tap opens
+  their product. Shown only when there are offers; an ended one from a kept
+  copy is dropped. Shows both labels: the owner approved the screens as
+  built, 2026-10-23 ("Look good"), so B ("like yours" too) stands.
 
 - Decided (owner, 2026-10-21, "it uses rate limit super fast"): **extra
   agents only where they pay**: one `check-risky` agent on a PR that touches
