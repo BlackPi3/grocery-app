@@ -37,7 +37,8 @@ its upload's response, as a test wants.
 `offers`, when given, is where the shops' weekly offers are searched
 (`grocery_app.offers.Marktguru`): a thread keeps those near the shops people
 visit, for what they buy (`api.offers`). Off by default and in the demo, so a
-test's app never reaches the network.
+test's app never reaches the network. `offer_judge`, with it, is the model
+that says which offers are a person's products (`offer_match.judge`).
 """
 
 from __future__ import annotations
@@ -112,6 +113,7 @@ from grocery_app.api.schemas import (
     Me,
     NewUser,
     NewUserRequest,
+    OffersDocument,
     OffersRhythm,
     ProductMatch,
     ProductPurchases,
@@ -192,7 +194,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                pictures: Pictures | None = None, demo: bool = False,
                google: GoogleSignIn | None = None, readers: Executor | None = None,
                sorter: Any | None = None, forget_photos: bool = False,
-               offers: Any | None = None) -> FastAPI:
+               offers: Any | None = None, offer_judge: Any | None = None) -> FastAPI:
     if demo:
         google = None  # the demo has no accounts: every guest is the owner
     @asynccontextmanager
@@ -221,7 +223,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
             from grocery_app.api.offers import keep_fetching
 
             app.state.offers = threading.Thread(
-                target=keep_fetching, args=(repository, offers),
+                target=keep_fetching, args=(repository, offers, offer_judge),
                 name="offers", daemon=True)
             app.state.offers.start()
         if forget_photos and uploads_available and not demo:
@@ -656,6 +658,19 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         owner_only(request)
         return SurenessDocument.model_validate(require_writes(request).sureness())
 
+    @app.get("/v1/offers", response_model=OffersDocument)
+    def my_offers(request: Request) -> OffersDocument:
+        """The asker's offers for the coming week: for each of their regular
+        groceries, offers near their shops that are that product ("your
+        product") or the same kind ("like yours"), and what they save per
+        unit against what the asker usually pays (`api.offers.offers_for`)."""
+        from grocery_app.api.offers import offers_for
+        from grocery_app.offers import GERMANY
+
+        today = datetime.now(UTC).astimezone(GERMANY).date()
+        return OffersDocument(as_of=today.isoformat(),
+                              offers=offers_for(require_writes(request), today))
+
     @app.get("/v1/offers/rhythm", response_model=list[OffersRhythm])
     def offers_rhythm(request: Request) -> list[OffersRhythm]:
         """On which weekday each chain's offers are first seen, and how many
@@ -957,6 +972,8 @@ def default_app() -> FastAPI:
                       if type(repository).__name__ == "PostgresRepository" else None,
                       forget_photos=True,
                       offers=Marktguru()
+                      if type(repository).__name__ == "PostgresRepository" else None,
+                      offer_judge=offer_judge()
                       if type(repository).__name__ == "PostgresRepository" else None)
 
 
@@ -1034,6 +1051,16 @@ def sorting_decider(kind: str | None = None) -> ClaudeCodeDecider | GeminiDecide
     if identify_reader_kind(kind) == "gemini":
         return GeminiDecider(GEMINI_MODEL, "data/categorized", "names-v1", search=False)
     return ClaudeCodeDecider("sonnet", "data/categorized", version="names-v1")
+
+
+def offer_judge(kind: str | None = None) -> ClaudeCodeDecider | GeminiDecider:
+    """Who judges which offers are a person's products (`offer_match.judge`),
+    on the identify reader, cached under data/offer-verdicts/."""
+    from grocery_app.offer_match import JUDGE_VERSION
+
+    if identify_reader_kind(kind) == "gemini":
+        return GeminiDecider(GEMINI_MODEL, "data/offer-verdicts", JUDGE_VERSION, search=False)
+    return ClaudeCodeDecider("sonnet", "data/offer-verdicts", version=JUDGE_VERSION)
 
 
 def identify_decider(kind: str | None = None) -> ClaudeCodeDecider | GeminiDecider:

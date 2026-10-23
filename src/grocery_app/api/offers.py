@@ -10,6 +10,11 @@ so two people who shop at the same place cost one search.
 Every offer found is kept with when it was first and last seen. The first
 sighting before an offer starts is what tells, after a couple of weeks, on
 which weekday each chain publishes (`offers.rhythm`, `GET /v1/offers/rhythm`).
+
+After each pass, a model judges which of the offers a product's word found
+are that product or its kind (`offer_match.judge`), once per product and
+offer, and a person's offers for the coming week are worked out from those
+verdicts when asked (`offers_for`, `GET /v1/offers`).
 """
 
 from __future__ import annotations
@@ -22,8 +27,8 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from grocery_app import categories, offers
-from grocery_app.db.models import Offer, OfferSearch, Product, Receipt, User
+from grocery_app import categories, offer_match, offers
+from grocery_app.db.models import Offer, OfferSearch, OfferVerdict, Product, Receipt, User
 from grocery_app.insights import _product_rows, regulars
 
 log = logging.getLogger(__name__)
@@ -41,33 +46,53 @@ GIVE_UP_AFTER = 3
 # Offers that ended this long ago are of no use to the tile, but are kept
 # that long for the rhythm.
 KEEP_ENDED = timedelta(days=60)
+# "The coming week": offers running on any day from today to this many after.
+WEEK_AHEAD = timedelta(days=7)
+
+
+def shopping(session: Session, person: Any, today: date) -> dict[str, Any]:
+    """Where and what one person shops now: `postcodes` (`offers.shopping_postcodes`)
+    and `regulars`, product id -> {"product", "word", "rows"}: their regular
+    groceries in the last `RECENT`, each with the catalog's product, its
+    search word and their purchases of it. `person` is a repository as that
+    person sees it (`PostgresRepository.as_user`)."""
+    since = today - RECENT
+    mine = (Receipt.user_id.is_(None) if person.user_id is None
+            else Receipt.user_id == person.user_id)
+    postcodes = offers.shopping_postcodes(session.scalars(
+        select(Receipt.store_location).where(mine, Receipt.date >= since)))
+    if not postcodes:
+        return {"postcodes": [], "regulars": {}}
+    rows = [r for r in _product_rows(person.purchases()["purchases"])
+            if r.get("date") and date.fromisoformat(r["date"]) >= since
+            and r.get("category") in categories.CATEGORIES
+            and categories.is_grocery(r["category"])]
+    ids = [r["product_id"] for r in regulars(rows, today)]
+    found = {}
+    for product in session.scalars(select(Product).where(Product.id.in_(ids))) if ids else []:
+        if word := offers.search_word(product.name):
+            found[product.id] = {
+                "product": {"name": product.name, "brand": product.brand,
+                            "details": list(product.details or []), "size": product.size},
+                "word": word, "rows": [r for r in rows if r["product_id"] == product.id]}
+    return {"postcodes": postcodes, "regulars": found}
+
+
+def everyone(repository: Any, session: Session) -> list[Any]:
+    """A repository per person: the owner, then each user."""
+    return [repository.as_user(None)] + [
+        repository.as_user({"id": u.id, "name": u.name})
+        for u in session.scalars(select(User).order_by(User.id))]
 
 
 def wanted_searches(session: Session, people: list[Any], today: date) -> set[tuple[str, str]]:
     """Every (postcode, word) the people in `people` need: each person's
-    shop postcodes with each of their regular groceries' names.
-
-    `people` holds a repository per person (`PostgresRepository.as_user`):
-    their purchases are read the way their own pages read them."""
-    since = today - RECENT
+    shop postcodes with each of their regular groceries' names."""
     wanted: set[tuple[str, str]] = set()
     for person in people:
-        mine = (Receipt.user_id.is_(None) if person.user_id is None
-                else Receipt.user_id == person.user_id)
-        locations = session.scalars(select(Receipt.store_location)
-                                    .where(mine, Receipt.date >= since))
-        postcodes = offers.shopping_postcodes(locations)
-        if not postcodes:
-            continue
-        rows = [r for r in _product_rows(person.purchases()["purchases"])
-                if r.get("date") and date.fromisoformat(r["date"]) >= since
-                and r.get("category") in categories.CATEGORIES
-                and categories.is_grocery(r["category"])]
-        ids = [r["product_id"] for r in regulars(rows, today)]
-        names = dict(session.execute(select(Product.id, Product.name)
-                                     .where(Product.id.in_(ids))).all()) if ids else {}
-        words = {w for w in map(offers.search_word, names.values()) if w}
-        wanted |= {(postcode, word) for postcode in postcodes for word in words}
+        mine = shopping(session, person, today)
+        wanted |= {(postcode, regular["word"]) for postcode in mine["postcodes"]
+                   for regular in mine["regulars"].values()}
     return wanted
 
 
@@ -106,6 +131,8 @@ def keep(session: Session, postcode: str, word: str, found: list[dict[str, Any]]
         row.valid_to = date.fromisoformat(record["valid_to"])
         row.record = record
         row.last_seen_at = now
+        if word not in (row.words or []):
+            row.words = [*(row.words or []), word]
     search = session.scalar(select(OfferSearch).where(OfferSearch.postcode == postcode,
                                                       OfferSearch.word == word))
     if search is None:
@@ -124,10 +151,7 @@ def fetch_due(repository: Any, source: offers.Marktguru, now: datetime | None = 
     now = now or datetime.now(UTC)
     today = now.astimezone(offers.GERMANY).date()
     with repository.session_factory() as session:
-        people = [repository.as_user(None)] + [
-            repository.as_user({"id": u.id, "name": u.name})
-            for u in session.scalars(select(User).order_by(User.id))]
-        todo = due(session, wanted_searches(session, people, today), now)
+        todo = due(session, wanted_searches(session, everyone(repository, session), today), now)
         session.commit()
     done = failed = in_a_row = new = 0
     try:
@@ -155,16 +179,95 @@ def fetch_due(repository: Any, source: offers.Marktguru, now: datetime | None = 
     return {"due": len(todo), "searched": done, "failed": failed, "new_offers": new}
 
 
-def keep_fetching(repository: Any, source: offers.Marktguru,
+def candidates(session: Session, postcodes: list[str], word: str,
+               today: date) -> list[dict[str, Any]]:
+    """The offers `word` found near any of `postcodes` that run on a day of
+    the coming week, each once."""
+    rows = session.scalars(select(Offer).where(
+        Offer.postcode.in_(postcodes), Offer.words.any(word),
+        Offer.valid_to >= today, Offer.valid_from <= today + WEEK_AHEAD).order_by(Offer.id))
+    seen: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        seen.setdefault(row.source_id, row.record)
+    return list(seen.values())
+
+
+def _verdicts(session: Session, product_ids: list[str]) -> dict[tuple[str, str], str]:
+    return {(v.product_id, v.source_id): v.verdict for v in session.scalars(
+        select(OfferVerdict).where(OfferVerdict.product_id.in_(product_ids)))
+    } if product_ids else {}
+
+
+def judge_due(repository: Any, decider: Any, today: date) -> int:
+    """Have the model judge every offer of the coming week that a person's
+    regular product's word found and that has no verdict for that product
+    yet; how many verdicts were made. Each (product, offer) is judged once,
+    whoever buys the product."""
+    with repository.session_factory() as session:
+        products: dict[str, dict[str, Any]] = {}
+        todo: dict[str, dict[str, dict[str, Any]]] = {}
+        for person in everyone(repository, session):
+            mine = shopping(session, person, today)
+            for pid, regular in mine["regulars"].items():
+                products[pid] = regular["product"]
+                for offer in candidates(session, mine["postcodes"], regular["word"], today):
+                    todo.setdefault(pid, {})[offer["id"]] = offer
+        judged = _verdicts(session, list(todo))
+        unjudged = {pid: offer_match.shortlist(
+            offers.search_word(products[pid]["name"]) or "",
+            [o for oid, o in found.items() if (pid, oid) not in judged])
+            for pid, found in todo.items()}
+        unjudged = {pid: found for pid, found in unjudged.items() if found}
+    if not unjudged:
+        return 0
+    said = offer_match.judge(products, unjudged, decider)
+    with repository.session_factory() as session:
+        for (pid, offer_id), verdict in said.items():
+            session.add(OfferVerdict(product_id=pid, source=offers.SOURCE, source_id=offer_id,
+                                     verdict=verdict, judged_by=offer_match.JUDGE_VERSION))
+        session.commit()
+    return len(said)
+
+
+def offers_for(person: Any, today: date) -> list[dict[str, Any]]:
+    """One person's offers for the coming week: for each regular grocery,
+    the judged offers near their shops that are that product or its kind and
+    cheaper than they usually pay (`offer_match.match`). Their own product
+    first, then the biggest saving."""
+    with person.session_factory() as session:
+        mine = shopping(session, person, today)
+        verdicts = _verdicts(session, list(mine["regulars"]))
+        out = []
+        for pid, regular in mine["regulars"].items():
+            for offer in candidates(session, mine["postcodes"], regular["word"], today):
+                found = offer_match.match(regular["product"], regular["rows"], offer,
+                                          verdicts.get((pid, offer["id"]), "unjudged"))
+                if found:
+                    out.append({"product_id": pid, "product": regular["product"]["name"],
+                                "brand": regular["product"]["brand"], **found})
+    out.sort(key=lambda m: (m["label"] != offer_match.LABELS["same_product"],
+                            -((m["saving"] or {}).get("share") or 0.0),
+                            m["product"], m["offer"]["chain"], m["offer"]["id"]))
+    return out
+
+
+def keep_fetching(repository: Any, source: offers.Marktguru, judge: Any = None,
                   every: float = FETCH_EVERY_SECONDS) -> None:
     """The server's offers thread: a pass, a pause, for as long as it runs.
     Each pass searches only what is a day old, so an hourly pass costs a
     database read when nothing is due, and a server that slept all night
-    catches up when it wakes."""
+    catches up when it wakes. With a `judge`, new offers are judged after."""
+    from grocery_app import spend
+
     while True:
         try:
             if (result := fetch_due(repository, source))["searched"]:
                 log.info("offers: %s", result)
+            if judge is not None:
+                with spend.tagged("other"):
+                    today = datetime.now(UTC).astimezone(offers.GERMANY).date()
+                    if judged := judge_due(repository, judge, today):
+                        log.info("offers: %d verdicts", judged)
         except Exception:  # an offer is never worth the server
             log.exception("fetching offers failed")
         time.sleep(every)

@@ -653,6 +653,58 @@ class CostsDocument(BaseModel):
     finding_recorded_from: str
 
 
+class OfferRecord(BaseModel):
+    """One shop offer as read from the offers source (`offers.read_offer`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: str
+    id: str
+    chain: str
+    brand: str | None
+    product: str | None
+    description: str | None
+    category: str | None
+    price: float
+    price_before: float | None
+    pack: dict[str, Any] | None = Field(description="amount of unit, count packs")
+    per_unit: dict[str, Any] | None
+    valid_from: str
+    valid_to: str
+    loyalty_card: bool
+
+
+class OfferSaving(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    per_unit: float = Field(description="Euros less per unit than usually paid")
+    share: float = Field(description="That as a share of the usual price, 0 to 1")
+
+
+class OfferMatch(BaseModel):
+    """An offer for one of the asker's regular groceries (`offer_match.match`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    product_id: str
+    product: str
+    brand: str | None
+    label: str = Field(description='"your product" or "like yours"')
+    offer: OfferRecord
+    usual_per_unit: UnitPrice | None = Field(
+        description="What the asker usually paid per the offer's unit; none to compare")
+    saving: OfferSaving | None
+
+
+class OffersDocument(BaseModel):
+    """The asker's offers for the coming week, their own products first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    as_of: str
+    offers: list[OfferMatch]
+
+
 class OffersRhythm(BaseModel):
     """When one chain's offers are first seen (`offers.rhythm`)."""
 
