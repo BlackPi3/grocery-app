@@ -4,7 +4,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from grocery_app.catalog_globus import (
@@ -14,6 +14,8 @@ from grocery_app.catalog_globus import (
     crawl,
 )
 from grocery_app.evaluate import evaluate, format_report
+from grocery_app.evaluate_list import backtest
+from grocery_app.evaluate_list import format_report as format_list_report
 from grocery_app.evaluate_matching import (
     article_index,
     evaluate_matching,
@@ -44,6 +46,7 @@ from grocery_app.resolver import (
 from grocery_app.resolver import (
     DEFAULT_OUTPUT as PROPOSALS_OUTPUT,
 )
+from grocery_app.shopping_list import list_rows, shopping_list
 
 # The model readings the history and the matcher scores were built from:
 # Claude Sonnet on prompt v1. Pinned, so a new prompt version does not point
@@ -208,6 +211,24 @@ def main() -> None:
     i.add_argument("--output", default="data/insights.json")
     i.add_argument("--as-of", default=None,
                    help="Date the cadence is judged against (default: the last receipt)")
+
+    sl = subparsers.add_parser(
+        "shopping-list",
+        help="Draft the shopping list from purchases.json: the kinds likely bought "
+             "this week, most urgent first",
+    )
+    sl.add_argument("--purchases", default="data/purchases.json")
+    sl.add_argument("--as-of", default=None,
+                    help="The list's day (default: the day after the last receipt)")
+
+    el = subparsers.add_parser(
+        "eval-list",
+        help="Backtest the shopping list on purchases.json: each past week drafted "
+             "from what came before, against what was bought",
+    )
+    el.add_argument("--purchases", default="data/purchases.json")
+    el.add_argument("--weeks", type=int, default=8)
+    el.add_argument("--json", action="store_true")
 
     n = subparsers.add_parser(
         "enrich",
@@ -482,6 +503,27 @@ def main() -> None:
                   f"€{bb['budget']+bb['name_brand']:.2f} with a known status")
         print(f"  cross-store:    {len(data['cross_store']['products'])} products "
               f"at more than one store")
+
+    if args.command == "shopping-list":
+        rows = list_rows(load_purchases(args.purchases))
+        if args.as_of:
+            as_of = date.fromisoformat(args.as_of)
+        else:
+            as_of = max((date.fromisoformat(p["date"]) for p in rows),
+                        default=date.today()) + timedelta(days=1)
+        drafted = shopping_list(rows, as_of)
+        print(f"Shopping list for {as_of}: {len(drafted)} kinds")
+        for k in drafted:
+            usual = k["usual"] or {}
+            hint = " ".join(x for x in (usual.get("product"), usual.get("brand")) if x)
+            print(f"  {k['when']:<10}{k['chance']:>4.0%}  {k['name']:<28}{hint}")
+
+    if args.command == "eval-list":
+        report = backtest(list_rows(load_purchases(args.purchases)), args.weeks)
+        if args.json:
+            print(json.dumps(report, indent=2, ensure_ascii=False))
+        else:
+            print(format_list_report(report))
 
     if args.command == "enrich":
         from grocery_app.openfoodfacts import enrich
