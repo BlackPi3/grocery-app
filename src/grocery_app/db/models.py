@@ -455,6 +455,9 @@ class Offer(Base):
     valid_from: Mapped[date] = mapped_column(Date)
     valid_to: Mapped[date] = mapped_column(Date, index=True)
     record: Mapped[dict[str, Any]] = mapped_column(JSONB)  # offers.read_offer
+    # The search words that found it near this postcode: which products'
+    # offers it may be (`offer_match`).
+    words: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, server_default="{}")
     # The first look that found it: before `valid_from`, it says how far
     # ahead the chain publishes (`offers.rhythm`).
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -473,3 +476,21 @@ class OfferSearch(Base):
     word: Mapped[str] = mapped_column(String)
     searched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     found: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class OfferVerdict(Base):
+    """What the judge said one offer is for one product (`offer_match.judge`):
+    `same_product`, `same_kind` or `no`. About a product and a public offer,
+    never a person: two people with the same regular share one verdict."""
+
+    __tablename__ = "offer_verdicts"
+    __table_args__ = (UniqueConstraint("product_id", "source", "source_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[str] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"))
+    source: Mapped[str] = mapped_column(String)
+    source_id: Mapped[str] = mapped_column(String)
+    verdict: Mapped[str] = mapped_column(String)  # offer_match.VERDICTS
+    judged_by: Mapped[str] = mapped_column(String)  # model and prompt version
+    judged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                server_default=func.now())

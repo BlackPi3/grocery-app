@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-23, laptop: offers step 1a, keeping the offers.
+**Last updated:** 2026-10-23, laptop: offers step 1b, matching offers to regulars.
 
 ## Now
 
@@ -37,6 +37,23 @@ session (laptop or cloud) can pick up from here. How we work is in
   offers starting 2 Nov. Not settled yet: what counts as a match (the same
   product, or the same kind at a like size), to be put to the owner with
   numbers from (b).
+  (a) merged as #176 and deployed 2026-10-23. **(b) built:** after each
+  pass a model (Gemini, prompt `offers-v1`, `offer_match.judge`) gives each
+  offer a product's word found for the coming week one verdict for that
+  product: `same_product`, `same_kind` or `no`, once per product and offer
+  (`offer_verdicts`, migration 0024, also `offers.words`). `GET /v1/offers`
+  gives the asker's offers: "your product" (same brand, any size) or "like
+  yours" (same kind, pack within a factor of two), with the saving per kg,
+  litre or piece against the median of their last five shelf prices. An
+  offer dearer than that is dropped; one with nothing like for like to
+  compare is kept with no saving. Both labels are made; which the tile shows
+  is the owner's A/B answer (asked 2026-10-23: A, your product only; B,
+  same kind too, recommended). Cost: at most 40 offers judged per regular
+  per week, 8 regulars per call, roughly a cent a week per person. Only
+  verdicts the model gave are kept (a cut-off answer leaves the rest to ask
+  again, twice at most per server start), and each batch is kept as soon as
+  it is answered. Reviewed by `check-risky` (its tests:
+  `tests/test_offer_match_rules.py`). Next: (c) the tile.
 
 - Decided (owner, 2026-10-21, "it uses rate limit super fast"): **extra
   agents only where they pay**: one `check-risky` agent on a PR that touches

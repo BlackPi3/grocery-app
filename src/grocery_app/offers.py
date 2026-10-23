@@ -22,7 +22,8 @@ flyer's description, the price, the price before if the flyer gives one,
 the pack (`amount` of `unit`, `count` packs) and the price per unit, the
 days it is valid (in Germany's time: the source gives UTC), and whether it
 needs the chain's loyalty card. On every offer read so far, price ÷ (amount
-× count) is the price per unit, so the three are kept as given.
+× count) is the price per unit, so the three are kept as given, and the
+price per unit is worked out that way when the source leaves it out.
 """
 
 from __future__ import annotations
@@ -67,6 +68,19 @@ def _name(part: dict[str, Any] | None) -> str | None:
     return (part or {}).get("name") or None
 
 
+def _per_unit(raw: dict[str, Any], unit: str | None, amount: float | None,
+              count: float | None) -> dict[str, Any] | None:
+    """The source's price per unit, or the price over the pack when it gives
+    none: an offer whose pack is known is never left without one."""
+    if not unit:
+        return None
+    if raw.get("referencePrice"):
+        return {"amount": raw["referencePrice"], "per": unit}
+    if amount and raw.get("price"):
+        return {"amount": round(raw["price"] / (amount * (count or 1)), 2), "per": unit}
+    return None
+
+
 def read_offer(raw: dict[str, Any]) -> dict[str, Any] | None:
     """One marktguru search result as our record, or None for one that is no
     use: no chain, no price, no dates, or not in the shape it should be. One
@@ -95,8 +109,7 @@ def _read_offer(raw: dict[str, Any]) -> dict[str, Any] | None:
         "price": raw["price"],
         "price_before": raw.get("oldPrice"),
         "pack": {"amount": amount, "unit": unit, "count": count} if amount and unit else None,
-        "per_unit": ({"amount": raw["referencePrice"], "per": unit}
-                     if raw.get("referencePrice") and unit else None),
+        "per_unit": _per_unit(raw, unit, amount, count),
         "valid_from": min(_local_day(v["from"]) for v in validity).isoformat(),
         "valid_to": max(_local_day(v["to"]) for v in validity).isoformat(),
         "loyalty_card": bool(raw.get("requiresLoyalityMembership")),
