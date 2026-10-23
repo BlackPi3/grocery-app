@@ -33,6 +33,11 @@ Off by default, so a test's app never sets work off on its own.
 `readers`, when given, is the line uploads wait in to be read
 (`jobs.reading_line`: a few at a time). Without it a job runs straight after
 its upload's response, as a test wants.
+
+`offers`, when given, is where the shops' weekly offers are searched
+(`grocery_app.offers.Marktguru`): a thread keeps those near the shops people
+visit, for what they buy (`api.offers`). Off by default and in the demo, so a
+test's app never reaches the network.
 """
 
 from __future__ import annotations
@@ -107,6 +112,7 @@ from grocery_app.api.schemas import (
     Me,
     NewUser,
     NewUserRequest,
+    OffersRhythm,
     ProductMatch,
     ProductPurchases,
     PurchasesDocument,
@@ -185,7 +191,8 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                token: str | None = None, resume_after: float | None = None,
                pictures: Pictures | None = None, demo: bool = False,
                google: GoogleSignIn | None = None, readers: Executor | None = None,
-               sorter: Any | None = None, forget_photos: bool = False) -> FastAPI:
+               sorter: Any | None = None, forget_photos: bool = False,
+               offers: Any | None = None) -> FastAPI:
     if demo:
         google = None  # the demo has no accounts: every guest is the owner
     @asynccontextmanager
@@ -209,6 +216,14 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                 target=keep_sorting, args=(repository.session_factory, sorter),
                 name="sorting", daemon=True)
             app.state.sorting.start()
+        if offers is not None and writes_available and not demo:
+            # The offers near the shops people visit, once a day (`api.offers`).
+            from grocery_app.api.offers import keep_fetching
+
+            app.state.offers = threading.Thread(
+                target=keep_fetching, args=(repository, offers),
+                name="offers", daemon=True)
+            app.state.offers.start()
         if forget_photos and uploads_available and not demo:
             # Photos no receipt came from are kept 30 days, then deleted.
             app.state.forgetting = threading.Thread(
@@ -641,6 +656,17 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         owner_only(request)
         return SurenessDocument.model_validate(require_writes(request).sureness())
 
+    @app.get("/v1/offers/rhythm", response_model=list[OffersRhythm])
+    def offers_rhythm(request: Request) -> list[OffersRhythm]:
+        """On which weekday each chain's offers are first seen, and how many
+        days before they start (`offers.rhythm`). The owner's only: it is
+        about the app, not one person's shopping."""
+        from grocery_app.api.offers import rhythm
+
+        owner_only(request)
+        with require_writes(request).session_factory() as session:
+            return [OffersRhythm.model_validate(r) for r in rhythm(session)]
+
     def not_in_demo() -> None:
         """In the demo every guest is the owner (there is no password), so
         what is the owner's for another person's sake is no one's there."""
@@ -893,6 +919,7 @@ def default_app() -> FastAPI:
     from grocery_app import matcher as matching
     from grocery_app.db.migrate import upgrade
     from grocery_app.db.session import database_url
+    from grocery_app.offers import Marktguru
 
     # The migrations run here rather than as a step before the server starts:
     # one Python start instead of two, and every start is a wait for whoever
@@ -928,7 +955,9 @@ def default_app() -> FastAPI:
                       readers=reading_line(),
                       sorter=sorting_decider()
                       if type(repository).__name__ == "PostgresRepository" else None,
-                      forget_photos=True)
+                      forget_photos=True,
+                      offers=Marktguru()
+                      if type(repository).__name__ == "PostgresRepository" else None)
 
 
 # A deploy stops the old server within ten seconds of starting the new one
