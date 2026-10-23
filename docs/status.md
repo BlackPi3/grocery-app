@@ -20,8 +20,11 @@ session (laptop or cloud) can pick up from here. How we work is in
   product, once, the word a flyer lists its kind under (`H-Milch`,
   `Gewürzgurken`; `products.offer_word`, migration 0025, prompt
   `offer-words-v1`); the name is searched until then. One judge call also
-  timed out once (180 s) on live; it is asked again next pass. Step 2 waits
-  for a few days of real offers.
+  timed out once (180 s) on live; it is asked again next pass (#180).
+  First week with words (live, 23 Oct): 26 offers for 6 of the owner's 20
+  regulars, all "like yours", at most 4 regulars at one chain (Netto,
+  Lidl). An offer with no brand comes marked `thisisnobrand123`; it is
+  shown with none. Step 2 waits for a week or two of real offers.
 
 - Agreed (owner, 2026-10-23): **offers, one step at a time.** Step 1:
   single offers for what a person buys, in a Home tile for the coming week,
