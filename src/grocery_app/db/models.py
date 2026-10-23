@@ -172,6 +172,9 @@ class Product(Base):
     # the server, not part of what the product is: not exported.
     picture: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     picture_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The word the shops' offers are searched by (`offer_match.flyer_words`), kept
+    # so it is asked once; not part of what the product is: not exported.
+    offer_word: Mapped[str | None] = mapped_column(String)
 
 
 class Resolution(Base):
