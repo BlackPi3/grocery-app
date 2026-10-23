@@ -55,8 +55,8 @@ def test_the_judge_reads_the_product_and_its_offers_and_answers_each():
                       extra=[{"product": "p-1", "offer": "c", "verdict": "probably"}])
     said = offer_match.judge({"p-1": QUARK},
                              {"p-1": [offer("a"), offer("b"), offer("c"), offer("d")]}, judge)
-    assert said == {("p-1", "a"): "same_product", ("p-1", "b"): "same_kind",
-                    ("p-1", "c"): "no", ("p-1", "d"): "no"}, "unknown or missing is no"
+    assert said == {("p-1", "a"): "same_product", ("p-1", "b"): "same_kind"}, \
+        "an odd verdict or none is no verdict: asked again, never a no it did not give"
     prompt = judge.calls[0]
     assert "Product p-1: Magerquark | brand Muster | 500 g" in prompt
     assert "offer a: Magerquark | brand Muster | 500-g-Becher | flyer section Quark" in prompt
@@ -127,6 +127,22 @@ def test_no_offer_that_costs_more_than_you_pay_and_none_that_is_not_it():
     assert offer_match.match(QUARK, rows, offer("a", per=0.5), "unjudged") is None
 
 
+def test_an_offer_with_a_pack_but_no_unit_price_is_compared_by_its_pack():
+    no_unit = {**offer("a", per=1.98), "per_unit": None}  # 0.99 for 500 g
+    assert offer_match.match(QUARK, bought(1.58, 1.58), no_unit, "same_product") is None
+    cheaper = {**offer("a", per=1.2), "per_unit": None}
+    assert offer_match.match(QUARK, bought(1.58), cheaper, "same_product")["saving"] == {
+        "per_unit": 0.38, "share": 0.24}
+    raw = {"id": 1, "advertisers": [{"name": "X"}], "price": 0.99, "volume": 0.5,
+           "quantity": 1.0, "unit": {"shortName": "kg"},
+           "validityDates": [{"from": "2026-10-25T23:00:00Z", "to": "2026-10-31T22:59:00Z"}]}
+    assert offers.read_offer(raw)["per_unit"] == {"amount": 1.98, "per": "kg"}
+
+
+def test_under_a_cent_less_is_no_saving():
+    assert offer_match.match(QUARK, bought(1.7), offer("a", per=1.699), "same_product") is None
+
+
 def test_with_nothing_like_for_like_to_compare_no_saving_is_claimed():
     eggs = {"name": "Eier", "brand": None, "details": [], "size": None}
     per_box = bought(2.0, 2.0, 2.0, per="item")  # a box with no size: not per piece
@@ -169,7 +185,8 @@ def test_each_offer_is_judged_once_per_product(shoppers, session):
 
     repository, _ = shoppers
     _fetched(repository, [milk_offer(1, 0.79), milk_offer(2, 0.89)])
-    judge = FakeJudge({("p-0001", "1"): "same_kind"})
+    judge = FakeJudge({("p-0001", "1"): "same_kind", ("p-0001", "2"): "no",
+                       ("p-0002", "1"): "no", ("p-0002", "2"): "no"})
     assert judge_due(repository, judge, TODAY) == 4, "two offers for milk, two for bananas"
     assert judge_due(repository, judge, TODAY) == 0
     assert len(judge.calls) == 1, "nothing judged twice"
@@ -177,6 +194,42 @@ def test_each_offer_is_judged_once_per_product(shoppers, session):
         ("p-0001", "1", "same_kind"), ("p-0001", "2", "no"),
         ("p-0002", "1", "no"), ("p-0002", "2", "no")}
     assert "Bananen" in judge.calls[0] and "Milch" in judge.calls[0]
+
+
+@db
+def test_a_pair_left_unanswered_is_asked_again_but_not_forever(shoppers, session):
+    from collections import Counter
+
+    from grocery_app.api.offers import judge_due
+
+    repository, _ = shoppers
+    _fetched(repository, [milk_offer(1, 0.79)])
+    asked: Counter = Counter()
+    silent = FakeJudge()
+    assert [judge_due(repository, silent, TODAY, asked) for _ in range(4)] == [0, 0, 0, 0]
+    assert len(silent.calls) == offer_match.MOST_ASKS, "then left until the server restarts"
+
+    class Down(FakeJudge):
+        def __call__(self, *a):
+            raise RuntimeError("busy")
+
+    for _ in range(4):
+        with pytest.raises(RuntimeError):
+            judge_due(repository, Down(), TODAY, Counter())
+    answering = FakeJudge({("p-0001", "1"): "no", ("p-0002", "1"): "no"})
+    assert judge_due(repository, answering, TODAY, Counter()) == 2, \
+        "a failed call costs its pairs nothing"
+
+
+@db
+def test_a_product_has_at_most_forty_offers_judged_a_week(shoppers, session):
+    from grocery_app.api.offers import judge_due
+
+    repository, _ = shoppers
+    _fetched(repository, [milk_offer(i, 0.5 + i / 1000) for i in range(60)])
+    every = {(p, str(i)): "no" for p in ("p-0001", "p-0002") for i in range(60)}
+    assert judge_due(repository, FakeJudge(every), TODAY) == 2 * offer_match.MOST_CANDIDATES
+    assert judge_due(repository, FakeJudge(every), TODAY) == 0, "not the next forty an hour on"
 
 
 @db
@@ -198,7 +251,7 @@ def test_an_offer_long_after_the_coming_week_is_not_judged_yet(shoppers):
     repository, _ = shoppers
     _fetched(repository, [milk_offer(3, 0.79, validityDates=[
         {"from": "2026-11-15T23:00:00Z", "to": "2026-11-21T22:59:00Z"}])])
-    judge = FakeJudge()
+    judge = FakeJudge({("p-0001", "3"): "no", ("p-0002", "3"): "no"})
     assert judge_due(repository, judge, TODAY) == 0 and not judge.calls
     assert judge_due(repository, judge, TODAY + timedelta(days=20)) == 2
 

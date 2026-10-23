@@ -48,8 +48,12 @@ session (laptop or cloud) can pick up from here. How we work is in
   offer dearer than that is dropped; one with nothing like for like to
   compare is kept with no saving. Both labels are made; which the tile shows
   is the owner's A/B answer (asked 2026-10-23: A, your product only; B,
-  same kind too, recommended). Cost: about 40 offers per regular per week in
-  one batched call, roughly a cent a week per person. Next: (c) the tile.
+  same kind too, recommended). Cost: at most 40 offers judged per regular
+  per week, 8 regulars per call, roughly a cent a week per person. Only
+  verdicts the model gave are kept (a cut-off answer leaves the rest to ask
+  again, twice at most per server start), and each batch is kept as soon as
+  it is answered. Reviewed by `check-risky` (its tests:
+  `tests/test_offer_match_rules.py`). Next: (c) the tile.
 
 - Decided (owner, 2026-10-21, "it uses rate limit super fast"): **extra
   agents only where they pay**: one `check-risky` agent on a PR that touches

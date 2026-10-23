@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
@@ -144,11 +145,12 @@ def keep(session: Session, postcode: str, word: str, found: list[dict[str, Any]]
 
 
 def fetch_due(repository: Any, source: offers.Marktguru, now: datetime | None = None,
-              pause: float = PAUSE_BETWEEN_SEARCHES_S) -> dict[str, int]:
+              pause: float | None = None) -> dict[str, int]:
     """One pass: work out what everyone needs, search what is due, keep what
     is found. A failed search is skipped and stays due; `GIVE_UP_AFTER` in a
     row end the pass."""
     now = now or datetime.now(UTC)
+    pause = PAUSE_BETWEEN_SEARCHES_S if pause is None else pause
     today = now.astimezone(offers.GERMANY).date()
     with repository.session_factory() as session:
         todo = due(session, wanted_searches(session, everyone(repository, session), today), now)
@@ -198,11 +200,17 @@ def _verdicts(session: Session, product_ids: list[str]) -> dict[tuple[str, str],
     } if product_ids else {}
 
 
-def judge_due(repository: Any, decider: Any, today: date) -> int:
-    """Have the model judge every offer of the coming week that a person's
-    regular product's word found and that has no verdict for that product
+def judge_due(repository: Any, decider: Any, today: date,
+              asked: Counter | None = None) -> int:
+    """Have the model judge the offers of the coming week that a person's
+    regular product's word found and that have no verdict for that product
     yet; how many verdicts were made. Each (product, offer) is judged once,
-    whoever buys the product."""
+    whoever buys the product, and at most `offer_match.MOST_CANDIDATES` of a
+    product's offers are judged for one week. Each batch is kept as soon as
+    it is answered. `asked` counts, across passes, the answers that left a
+    pair out: one left out `MOST_ASKS` times is not asked again. A call that
+    failed counts for nothing; its pairs are asked again next pass."""
+    asked = Counter() if asked is None else asked
     with repository.session_factory() as session:
         products: dict[str, dict[str, Any]] = {}
         todo: dict[str, dict[str, dict[str, Any]]] = {}
@@ -213,20 +221,26 @@ def judge_due(repository: Any, decider: Any, today: date) -> int:
                 for offer in candidates(session, mine["postcodes"], regular["word"], today):
                     todo.setdefault(pid, {})[offer["id"]] = offer
         judged = _verdicts(session, list(todo))
-        unjudged = {pid: offer_match.shortlist(
-            offers.search_word(products[pid]["name"]) or "",
-            [o for oid, o in found.items() if (pid, oid) not in judged])
-            for pid, found in todo.items()}
-        unjudged = {pid: found for pid, found in unjudged.items() if found}
-    if not unjudged:
-        return 0
-    said = offer_match.judge(products, unjudged, decider)
-    with repository.session_factory() as session:
-        for (pid, offer_id), verdict in said.items():
-            session.add(OfferVerdict(product_id=pid, source=offers.SOURCE, source_id=offer_id,
-                                     verdict=verdict, judged_by=offer_match.JUDGE_VERSION))
-        session.commit()
-    return len(said)
+        unjudged = {}
+        for pid, found in todo.items():
+            room = offer_match.MOST_CANDIDATES - sum((pid, oid) in judged for oid in found)
+            waiting = [o for oid, o in found.items() if (pid, oid) not in judged
+                       and asked[(pid, oid)] < offer_match.MOST_ASKS]
+            if room > 0 and waiting:
+                unjudged[pid] = offer_match.shortlist(
+                    offers.search_word(products[pid]["name"]) or "", waiting, most=room)
+    made = 0
+    for put, said in offer_match.judge_batches(products, unjudged, decider):
+        for pair in put - said.keys():
+            asked[pair] += 1
+        with repository.session_factory() as session:
+            for (pid, offer_id), verdict in said.items():
+                session.add(OfferVerdict(product_id=pid, source=offers.SOURCE,
+                                         source_id=offer_id, verdict=verdict,
+                                         judged_by=offer_match.JUDGE_VERSION))
+            session.commit()
+        made += len(said)
+    return made
 
 
 def offers_for(person: Any, today: date) -> list[dict[str, Any]]:
@@ -259,6 +273,7 @@ def keep_fetching(repository: Any, source: offers.Marktguru, judge: Any = None,
     catches up when it wakes. With a `judge`, new offers are judged after."""
     from grocery_app import spend
 
+    asked: Counter = Counter()
     while True:
         try:
             if (result := fetch_due(repository, source))["searched"]:
@@ -266,7 +281,7 @@ def keep_fetching(repository: Any, source: offers.Marktguru, judge: Any = None,
             if judge is not None:
                 with spend.tagged("other"):
                     today = datetime.now(UTC).astimezone(offers.GERMANY).date()
-                    if judged := judge_due(repository, judge, today):
+                    if judged := judge_due(repository, judge, today, asked):
                         log.info("offers: %d verdicts", judged)
         except Exception:  # an offer is never worth the server
             log.exception("fetching offers failed")

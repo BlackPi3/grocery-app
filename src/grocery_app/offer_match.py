@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import re
 import statistics
+from collections.abc import Iterator
 from typing import Any
 
 from grocery_app.insights import shelf_unit_price
@@ -37,8 +38,13 @@ from grocery_app.insights import shelf_unit_price
 VERDICTS = ("same_product", "same_kind", "no")
 LABELS = {"same_product": "your product", "same_kind": "like yours"}
 JUDGE_VERSION = "offers-v1"
-# Offers shown to the judge per product: a search can return hundreds.
+# Offers judged per product for one coming week: a search can find hundreds,
+# and past the best-named forty they are cheese for milk. Shown no more, the
+# rest are never matched; that is the price of a cent a week.
 MOST_CANDIDATES = 40
+# A pair the judge was asked about this many times without an answer is not
+# asked again until the server starts anew.
+MOST_ASKS = 2
 
 JUDGE_SYSTEM = (
     "You compare a shopper's grocery products with offers from supermarket flyers. "
@@ -83,25 +89,41 @@ def _describe_offer(offer: dict[str, Any]) -> str:
     return " | ".join(parts)
 
 
-def judge(products: dict[str, dict[str, Any]], candidates: dict[str, list[dict[str, Any]]],
-          decider: Any, batch: int = 8) -> dict[tuple[str, str], str]:
-    """(product id, offer id) -> verdict, for every offer in `candidates`.
-    One model call per `batch` products; an offer the model left out, or
-    gave a verdict it may not, is `no`."""
+def judge_batches(products: dict[str, dict[str, Any]],
+                  candidates: dict[str, list[dict[str, Any]]], decider: Any,
+                  batch: int = 8) -> Iterator[tuple[set, dict[tuple[str, str], str]]]:
+    """One model call per `batch` products, each yielding the (product id,
+    offer id) pairs it asked about and the verdicts for those it answered, so
+    a caller can keep each batch before the next is asked. Only what the model said:
+    a pair it left out, named wrongly or gave a verdict it may not stays
+    unjudged, to be asked again, never a `no` it did not give. (A cut-off
+    answer would otherwise turn a whole week's offers into `no`.)"""
     ids = sorted(pid for pid in candidates if candidates[pid] and pid in products)
-    out: dict[tuple[str, str], str] = {}
     for start in range(0, len(ids), batch):
-        lines = []
+        lines, asked = [], set()
         for pid in ids[start:start + batch]:
             lines.append(f"Product {pid}: {_describe_product(products[pid])}")
-            lines += [f"  - offer {o['id']}: {_describe_offer(o)}" for o in candidates[pid]]
+            for o in candidates[pid]:
+                lines.append(f"  - offer {o['id']}: {_describe_offer(o)}")
+                asked.add((pid, o["id"]))
         answer = decider(JUDGE_SYSTEM, "\n".join(lines), JUDGE_SCHEMA)
-        said = {(str(v.get("product")), str(v.get("offer"))): v.get("verdict")
-                for v in answer.get("verdicts") or [] if isinstance(v, dict)}
-        for pid in ids[start:start + batch]:
-            for offer in candidates[pid]:
-                verdict = said.get((pid, offer["id"]))
-                out[(pid, offer["id"])] = verdict if verdict in VERDICTS else "no"
+        verdicts = answer.get("verdicts") if isinstance(answer, dict) else None
+        said: dict[tuple[str, str], str] = {}
+        for v in verdicts if isinstance(verdicts, list) else []:
+            if not isinstance(v, dict):
+                continue
+            pair = (str(v.get("product")), str(v.get("offer")))
+            if pair in asked and v.get("verdict") in VERDICTS:
+                said.setdefault(pair, v["verdict"])
+        yield asked, said
+
+
+def judge(products: dict[str, dict[str, Any]], candidates: dict[str, list[dict[str, Any]]],
+          decider: Any, batch: int = 8) -> dict[tuple[str, str], str]:
+    """Every batch of `judge_batches` in one dict."""
+    out: dict[tuple[str, str], str] = {}
+    for _, said in judge_batches(products, candidates, decider, batch):
+        out |= said
     return out
 
 
@@ -162,6 +184,17 @@ def similar_size(size: dict[str, Any] | None, pack: dict[str, Any] | None) -> bo
     return 0.5 <= theirs[0] / mine[0] <= 2.0
 
 
+def _offer_per_unit(offer: dict[str, Any]) -> dict[str, Any]:
+    """The offer's price per unit, or its price over its pack when it has none."""
+    if (offer.get("per_unit") or {}).get("amount"):
+        return offer["per_unit"]
+    pack = offer.get("pack") or {}
+    if pack.get("amount") and pack.get("unit") and offer.get("price"):
+        return {"amount": offer["price"] / (pack["amount"] * (pack.get("count") or 1)),
+                "per": pack["unit"]}
+    return {}
+
+
 def match(product: dict[str, Any], rows: list[dict[str, Any]], offer: dict[str, Any],
           verdict: str) -> dict[str, Any] | None:
     """The offer as one for this person, or None when it is not one: not the
@@ -172,14 +205,14 @@ def match(product: dict[str, Any], rows: list[dict[str, Any]], offer: dict[str, 
     if verdict == "same_kind" and not similar_size(product.get("size"), offer.get("pack")):
         return None
     usual = usual_unit_price(rows)
-    per_unit = offer.get("per_unit") or {}
+    per_unit = _offer_per_unit(offer)
     comparable = (usual is not None and per_unit.get("amount")
                   and _unit(per_unit.get("per")) == usual["per"])
     saving = None
     if comparable:
-        if per_unit["amount"] >= usual["amount"]:
+        less = round(usual["amount"] - per_unit["amount"], 2)
+        if less <= 0:  # dearer, the same, or under a cent less: no saving
             return None
-        saving = {"per_unit": round(usual["amount"] - per_unit["amount"], 2),
-                  "share": round(1 - per_unit["amount"] / usual["amount"], 2)}
+        saving = {"per_unit": less, "share": round(less / usual["amount"], 2)}
     return {"label": LABELS[verdict], "offer": offer,
             "usual_per_unit": usual if comparable else None, "saving": saving}
