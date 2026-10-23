@@ -148,9 +148,10 @@ WORDS_SCHEMA = {"type": "object", "properties": {"words": {"type": "array", "ite
 
 
 def _is_a_word(word: Any) -> bool:
-    """One to three words, no digits, short: what a search box takes."""
+    """One to three words, no numbers (`½` and `²` are numbers too), short:
+    what a search box takes."""
     return (isinstance(word, str) and 3 <= len(word.strip()) <= 40
-            and len(word.split()) <= 3 and not re.search(r"\d", word))
+            and len(word.split()) <= 3 and not any(c.isnumeric() for c in word))
 
 
 def flyer_words(products: dict[str, dict[str, Any]], decider: Any,

@@ -175,6 +175,7 @@ class Product(Base):
     # The word the shops' offers are searched by (`offer_match.flyer_words`), kept
     # so it is asked once; not part of what the product is: not exported.
     offer_word: Mapped[str | None] = mapped_column(String)
+    offer_word_by: Mapped[str | None] = mapped_column(String)  # the prompt's version
 
 
 class Resolution(Base):

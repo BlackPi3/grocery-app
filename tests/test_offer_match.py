@@ -325,7 +325,7 @@ def test_a_product_is_given_the_word_a_flyer_lists_it_under():
     products = {"p-1": {"name": "Bio H-Alpenmilch 1,5% Fett", "brand": "Muster"},
                 "p-2": {"name": "salted pickled cucumbers", "brand": None},
                 "p-3": {"name": "Rätselware", "brand": None}}
-    namer = FakeNamer({"p-1": " H-Milch ", "p-2": "Gewürzgurken", "p-3": "Milch 1,5%",
+    namer = FakeNamer({"p-1": " H-Milch ", "p-2": "Gewürzgurken", "p-3": "Milch½",
                        "p-9": "Brot"})
     [(asked, said)] = list(offer_match.flyer_words(products, namer))
     assert asked == {"p-1", "p-2", "p-3"}
@@ -352,7 +352,8 @@ def test_a_regular_is_named_once_and_searched_by_its_flyer_word(shoppers, sessio
     asked: Counter = Counter()
     namer = FakeNamer({"p-0001": "H-Milch"})
     assert word_due(repository, namer, TODAY, asked) == 1
-    assert session.get(Product, "p-0001").offer_word == "H-Milch"
+    milk = session.get(Product, "p-0001")
+    assert (milk.offer_word, milk.offer_word_by) == ("H-Milch", offer_match.WORDS_VERSION)
     assert "Product p-0002" in namer.calls[0], "Sara's bananas too"
     word_due(repository, namer, TODAY, asked)
     word_due(repository, namer, TODAY, asked)

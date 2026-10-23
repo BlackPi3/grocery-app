@@ -267,6 +267,7 @@ def word_due(repository: Any, decider: Any, today: date,
         with repository.session_factory() as session:
             for product in session.scalars(select(Product).where(Product.id.in_(said))):
                 product.offer_word = said[product.id]
+                product.offer_word_by = offer_match.WORDS_VERSION
             session.commit()
         made += len(said)
     return made
