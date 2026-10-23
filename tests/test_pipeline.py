@@ -525,3 +525,34 @@ def test_the_sureness_counts_read_the_lines_the_history_holds(data, session):
     assert {k: measured[k] for k in sureness.COUNTS} == expected
     assert (measured["lines"], measured["answered"], measured["sure"]) == (4, 3, 1), \
         "January's bananas are left out; February's are the matcher's; the rest a person's"
+
+
+def test_a_receipt_with_no_date_stays_in_the_history_and_out_of_the_insights(data):
+    """The reader may find no date on a receipt. Its lines stay in the
+    history; the insights, which are all in time, leave them out and count
+    them under `undated`. On live, one such receipt broke a person's
+    Insights and every offers pass (2026-10-20 to 23)."""
+    from fastapi.testclient import TestClient
+
+    from grocery_app.api.app import create_app
+    from grocery_app.api.repository import InMemoryRepository
+    from grocery_app.api.schemas import PurchasesDocument
+
+    truth = data / "receipts" / "truth"
+    undated = json.loads((truth / "IMG_1.json").read_text(encoding="utf-8"))
+    undated.update(source_image="IMG_9.jpeg", date=None, time=None)
+    (truth / "IMG_9.json").write_text(json.dumps(undated), encoding="utf-8")
+    purchases = build_purchases(truth, data / "products" / "products.json",
+                                data / "products" / "resolution.json", None, data / "products")
+    PurchasesDocument.model_validate(purchases)
+    lines = [p for p in purchases["purchases"] if p["source_image"] == "IMG_9.jpeg"]
+    assert lines and purchases["meta"]["date_range"][0] is not None
+
+    insights = build_insights(purchases)
+    products = [p for p in lines if p["type"] == "product"]
+    assert insights["coverage"]["undated"] == {
+        "lines": len(products), "spend": round(sum(p["net_paid"] for p in products), 2)}
+
+    client = TestClient(create_app(InMemoryRepository(purchases)))
+    assert client.get("/v1/purchases").json() == purchases
+    assert client.get("/v1/insights").status_code == 200

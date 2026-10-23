@@ -4,9 +4,17 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-23, laptop: offers step 1c, the Home tile (approved).
+**Last updated:** 2026-10-23, laptop: a receipt with no date broke the offers pass.
 
 ## Now
+
+- Fixed (2026-10-23, found starting offers step 2): **offers had never run on
+  live.** One person's receipt has no date (the reader found none); sorting
+  their receipts by date failed, which stopped every hourly offers pass
+  before its first search (nothing kept, `/v1/offers` empty for everyone)
+  and broke that person's Insights since 20 Oct. Now such a receipt's lines
+  stay in the history, are left out of every insight, and are counted in
+  coverage as `undated`. Step 2 waits for a few days of real offers.
 
 - Agreed (owner, 2026-10-23): **offers, one step at a time.** Step 1:
   single offers for what a person buys, in a Home tile for the coming week,
