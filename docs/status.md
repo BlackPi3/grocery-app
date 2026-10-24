@@ -36,9 +36,8 @@ session (laptop or cloud) can pick up from here. How we work is in
   first, then the draft for the morning after, so today's receipts count)
   and what is snoozed until when; `PUT /v1/list/{kind}` with
   `{"on_list": true|false}` adds or removes a category and answers the new
-  list. Open for (3): how a person picks a kind they never bought without
-  typing (recommended: the category tree, their own kinds first). Next: (3),
-  the screen, shown before merge.
+  list. Next: (3), the screen, shown before merge: only kinds the receipts
+  give a clue to (owner, 2026-10-24); adding a kind never bought is parked.
 
 - Fixed (2026-10-23, found starting offers step 2): **offers had never run on
   live.** One person's receipt has no date (the reader found none); sorting
@@ -684,6 +683,11 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+- (owner, 2026-10-24, "first let's focus on things we have a clue the user
+  needs") **Adding a kind never bought** to the shopping list, without
+  typing. Recommended when it comes back: the category tree, the person's
+  own kinds first. The server already takes any category
+  (`PUT /v1/list/{kind}`); only the screen is missing.
 - (owner, 2026-10-24, planned and parked until the shopping list is done)
   **Questions that ask what is unclear, optional and rewarded.** Found on
   `Käse Bedienung 4,14 €`: the card "Käse von der Bedientheke" only
