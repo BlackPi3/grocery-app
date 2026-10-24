@@ -366,29 +366,37 @@ def test_without_a_database_there_is_no_list():
 
 # --- the screen (the page's own code, in Node) --------------------------------------
 
-def test_the_screen_groups_by_urgency_and_hides_what_was_just_taken_off():
+def test_the_list_reads_bottom_to_top_accepted_first_and_the_most_urgent_last():
+    """For the thumb (owner, 2026-10-24): what was accepted at the top, the
+    suggestions under it, the most urgent right above the tab bar. A kind
+    snoozed is off the page while its Undo runs."""
     from grocery_app.api.app import REVIEW_PAGE
     from tests.test_api import run_page_function
 
     page = REVIEW_PAGE.read_text(encoding="utf-8")
-    groups = 'const LIST_GROUPS = [["now", "Now"], ["this_week", "This week"], ["later", "Later"]];'
-    assert groups in page
-    out = run_page_function(page, "listLines listGroups backDay", groups + """
+    out = run_page_function(page, "listParts backDay", """
         const day = iso => new Date(iso + "T00:00:00Z");
-        const doc = { lines: [{ kind: "milch", when: "now" }, { kind: "quark", when: "later" },
-                              { kind: "eier", when: "now" }] };
-        console.log(JSON.stringify(listGroups(doc, new Set(["eier"])).map(
-          ([title, lines]) => [title, lines.map(l => l.kind)])));
-        console.log(JSON.stringify(listGroups(null, new Set())));
+        const doc = { lines: [{ kind: "brot", added: true }, { kind: "milch", added: false },
+                              { kind: "eier", added: false }, { kind: "quark", added: false }] };
+        const parts = listParts(doc, new Set(["eier"]));
+        console.log(parts.accepted.map(l => l.kind).join(","));
+        console.log(parts.suggested.map(l => l.kind).join(","));
+        console.log(JSON.stringify(listParts(null, new Set())));
         const at = d => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
         console.log(backDay(at(1)));
         console.log(backDay("2026-10-29"));
     """)
-    assert out[0] == '[["Now",["milch"]],["Later",["quark"]]]', \
-        "a kind taken off waits for its Undo off the page; empty groups are not shown"
-    assert out[1] == "[]"
-    assert out[2] == "Back tomorrow"
-    assert out[3] == "Back Thu 29 Oct"
+    assert out == ["brot", "quark,milch", '{"accepted":[],"suggested":[]}',
+                   "Back tomorrow", "Back Thu 29 Oct"]
+
+
+def test_the_list_has_the_tab_and_insights_opens_from_home():
+    from grocery_app.api.app import REVIEW_PAGE
+
+    page = REVIEW_PAGE.read_text(encoding="utf-8")
+    assert '<button id="tab-list">' in page and 'id="tab-insights"' not in page
+    assert 'const TABS = ["home", "receipts", "list", "you"];' in page
+    assert "cards.push(insightsTile());" in page
 
 
 def test_a_kind_taken_off_is_sent_when_its_undo_runs_out_or_the_page_is_left():
@@ -399,7 +407,7 @@ def test_a_kind_taken_off_is_sent_when_its_undo_runs_out_or_the_page_is_left():
 
     page = REVIEW_PAGE.read_text(encoding="utf-8")
     assert 'window.addEventListener("pagehide", sendListOffsNow)' in page
-    out = run_page_function(page, "takeOff sendListEdit sendListOffsNow", """
+    out = run_page_function(page, "snooze sendListEdit sendListOffsNow", """
         const UNDO_MS = 8000;
         const listOffs = new Map();
         const sent = [];
@@ -412,9 +420,9 @@ def test_a_kind_taken_off_is_sent_when_its_undo_runs_out_or_the_page_is_left():
         globalThis.render = () => {};
         globalThis.saveCopy = () => {};
         globalThis.state = {};
-        takeOff({ kind: "milch", name: "Milch" });
+        snooze({ kind: "milch", name: "Milch" });
         undo();
-        takeOff({ kind: "eier", name: "Eier" });
+        snooze({ kind: "eier", name: "Eier" });
         console.log([...listOffs.keys()].join(","));
         sendListOffsNow();
         sendListOffsNow();
