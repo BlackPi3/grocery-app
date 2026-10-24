@@ -407,7 +407,7 @@ def test_a_kind_taken_off_is_sent_when_its_undo_runs_out_or_the_page_is_left():
 
     page = REVIEW_PAGE.read_text(encoding="utf-8")
     assert 'window.addEventListener("pagehide", sendListOffsNow)' in page
-    out = run_page_function(page, "snooze sendListEdit sendListOffsNow", """
+    out = run_page_function(page, "snooze sendListEdit sendListOffsNow markListUsed", """
         const UNDO_MS = 8000;
         const listOffs = new Map();
         const sent = [];
@@ -476,3 +476,26 @@ def test_the_server_takes_an_item_the_asker_bought_and_nothing_made_up(two_lists
     assert snoozed.status_code == 200 and snoozed.json()["snoozed"][0]["name"] == "H-Milch"
     assert client.put("/v1/list/walnüsse", headers=OWNER,
                       json={"on_list": True}).status_code == 422, "never bought"
+
+
+def test_the_swipe_hint_goes_once_the_person_has_added_or_snoozed():
+    from grocery_app.api.app import REVIEW_PAGE
+    from tests.test_api import run_page_function
+
+    page = REVIEW_PAGE.read_text(encoding="utf-8")
+    assert "function accept(line) {\n  markListUsed();" in page
+    assert "function snooze(line) {\n  markListUsed();" in page
+    out = run_page_function(page, "listUsed markListUsed", """
+        const LIST_USED_KEY = "grocery-list-used";
+        const kept = {};
+        globalThis.localStorage = { getItem: k => kept[k] ?? null,
+                                    setItem: (k, v) => { kept[k] = v; } };
+        console.log(listUsed());
+        markListUsed();
+        console.log(listUsed());
+        globalThis.localStorage = { getItem: () => { throw new Error("private"); },
+                                    setItem: () => { throw new Error("private"); } };
+        markListUsed();
+        console.log(listUsed());
+    """)
+    assert out == ["false", "true", "false"], "no storage: the hint stays, nothing breaks"

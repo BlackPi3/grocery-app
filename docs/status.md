@@ -47,7 +47,14 @@ session (laptop or cloud) can pick up from here. How we work is in
   is left. "Snoozed (N)" at the top shows them with "Back Tue 27 Oct" and
   "Put back". No delete for now (owner). Only kinds the receipts give a
   clue to; adding one never bought is parked. On live data 2026-10-24: 35
-  suggestions. `scripts/preview.py --height` takes a taller shot.
+  suggestions. `scripts/preview.py --height` takes a taller shot. Merged as #188.
+  **Made clearer (owner, 2026-10-24: "a person might not know what's
+  happening"), waiting for his look:** suggestions look tentative (an empty
+  circle, lighter name; a tap on it adds), what was accepted solid (a filled
+  circle with a check); "Your list · N" and "Suggested · N" stay under the
+  header while their part is scrolled; an empty list says "Nothing yet: add
+  from the suggestions below"; "Swipe right to add · left to snooze" under
+  the list until the first add or snooze on that phone.
 
 - Built (owner, 2026-10-24, "instead of items, it's showing categories"):
   **the list is items, not categories.** A row says "Walnüsse", with the
@@ -706,6 +713,10 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+- (owner, 2026-10-24) **Splitting the list into several trips**: then where
+  to shop could change. For now one trip buys the whole list.
+- (owner, 2026-10-24) **The Insights tile on Home turns too**, through
+  its insights, as the other tiles do.
 - (owner, 2026-10-24) **How Home's tiles respond to a tap**, to be reworked:
   a tap does not open the very thing the tile shows (for instance, the
   item a turning tile is on right now).
