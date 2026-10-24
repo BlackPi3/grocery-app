@@ -325,6 +325,23 @@
     font-variant-numeric: tabular-nums; }
   .cover .link { font-size: inherit; padding: 0; cursor: pointer; }
   .more { margin-top: 6px; font-size: 13px; padding: 6px 12px; }
+  .list-item { cursor: default; position: relative; background: var(--card);
+    transition: transform 0.2s; touch-action: pan-y; }
+  .list-item .list-what { min-width: 0; }
+  .list-item .link { flex: none; font-size: 13px; }
+  .list-acts { display: flex; gap: 6px; flex: none; }
+  .list-acts button { font-size: 12px; padding: 6px 10px; }
+  .list-acts .accept { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* What a swipe does, under the row: Add on the left as it slides right,
+     Snooze on the right as it slides left. */
+  .slide { position: relative; overflow: hidden; border-top: 1px solid var(--grid); }
+  .slide:first-child { border-top: 0; }
+  .slide > .list-item { border-top: 0; }
+  .slide .under { position: absolute; inset: 0; display: none; align-items: center;
+    padding: 0 16px; font-size: 13px; font-weight: 600; color: #fff; }
+  .slide .under.left { display: flex; justify-content: flex-end; background: var(--muted); }
+  .slide.going-right .under.left { display: none; }
+  .slide.going-right .under.right { display: flex; background: var(--accent); }
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .pair .big { font-size: 24px; font-weight: 650; letter-spacing: -0.01em; margin: 2px 0; }
   h2 { font-size: 15px; margin: 0 0 4px; }
@@ -408,7 +425,7 @@
     <button id="tab-home" class="on"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h5v-6h4v6h5V9.5"/></svg>Home</button>
     <button id="tab-receipts"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Receipts</button>
     <label class="add" aria-label="Add a receipt"><span><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><input id="add-file" type="file" accept="image/*,application/pdf" multiple></label>
-    <button id="tab-insights"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Insights</button>
+    <button id="tab-list"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/></svg>List</button>
     <button id="tab-you"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>You</button>
   </nav>
 </div>
@@ -446,8 +463,10 @@ const state = { tab: "home", checks: null, questions: null, receipts: null, open
                 copyAt: null, removing: new Set(), step: {}, monthOpen: {}, year: null,
                 insights: null, jobs: null, sending: [], notSent: [], uploaded: new Set(),
                 noted: new Set(), dismissed: new Set(), lineAsk: null };
-const TABS = ["home", "receipts", "insights", "you"];
-const TITLES = { home: "Home", receipts: "Receipts", insights: "Insights", you: "You" };
+// The tab bar's tabs. Insights is a view too, opened from Home (`insightsTile`).
+const TABS = ["home", "receipts", "list", "you"];
+const TITLES = { home: "Home", receipts: "Receipts", list: "Shopping list", insights: "Insights",
+                 you: "You" };
 
 function el(tag, attrs, ...children) {
   const node = document.createElement(tag);
@@ -585,7 +604,8 @@ function saveCopy() {
   try {
     localStorage.setItem(COPY_KEY, JSON.stringify({
       at: Date.now(), checks: state.checks, questions: state.questions, receipts: state.receipts,
-      insights: state.insights, offers: state.offers, costs: state.costs, me: state.me,
+      insights: state.insights, offers: state.offers, list: state.list, costs: state.costs,
+      me: state.me,
       receiptLines: state.receiptLines }));
   } catch (_) { /* full, or private mode */ }
 }
@@ -1454,7 +1474,20 @@ function homeView() {
   const glance = [reached(START_GOAL) ? priceCard(d) : null,
                   reached(5) ? regularsCard(d) : null].filter(Boolean);
   if (glance.length) cards.push(el("div", { class: "glance" }, glance));
+  cards.push(insightsTile());
   return cards;
+}
+
+// Insights, a tap away from Home, no longer a tab: the tab is the shopping
+// list's (owner, 2026-10-24), and Insights is not the centre of attention.
+function insightsTile() {
+  return el("div", { class: "card tap", onclick: () => {
+    state.tab = "insights";
+    render();
+    window.scrollTo(0, 0);
+  } },
+    el("div", { class: "label" }, "Insights"),
+    el("div", { class: "meta" }, "Where the money goes, prices, how often you buy"));
 }
 
 // Am I going too fast, about as usual, or saving? (the owner, 2026-10-14). This
@@ -1866,6 +1899,136 @@ function offersCard(doc) {
       `${perText(m.offer.per_unit.amount, m.offer.per_unit.per)}, usually ` +
       perText(m.usual_per_unit.amount, m.usual_per_unit.per)) : null,
   ].filter(Boolean), m => openProduct(m.product_id));
+}
+
+// The shopping list, its own tab (the owner, 2026-10-24): one list the app
+// fills from the receipts (`GET /v1/list`), only kinds they give a clue to.
+// The app's suggestions are not fixed: the person accepts one (it joins what
+// they accepted, at the top, until a receipt shows it bought) or snoozes it
+// (a snooze the server doubles each time without a buy). Read bottom to top,
+// for the thumb: the most urgent suggestion sits right above the tab bar and
+// the tab opens at the bottom. A swipe right accepts, a swipe left snoozes,
+// or the row's buttons. A snooze leaves at once, with Undo, and is sent when
+// the Undo runs out or the page is left, as a removed receipt is.
+const listOffs = new Map();  // kind -> its Undo timer, or null once sent
+function listParts(doc, off) {
+  const lines = ((doc && doc.lines) || []).filter(l => !off.has(l.kind));
+  return { accepted: lines.filter(l => l.added),
+           // Most urgent last: nearest the thumb.
+           suggested: lines.filter(l => !l.added).reverse() };
+}
+function backDay(iso) {
+  const tomorrow = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+  if (iso <= tomorrow) return "Back tomorrow";
+  return "Back " + day(iso).toLocaleDateString("en-GB",
+    { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+}
+function listRow(line, suggested) {
+  const row = el("div", { class: "item list-item" },
+    el("div", { class: "list-what" }, el("div", { class: "what", lang: "de" }, line.name),
+       line.usual ? el("div", { class: "meta", lang: "de" },
+         easyName(line.usual.product, line.usual.brand)) : null),
+    el("div", { class: "list-acts" },
+      el("button", { class: "snooze", "aria-label": `Snooze ${line.name}`,
+                     onclick: () => snooze(line) }, "Snooze"),
+      suggested ? el("button", { class: "accept", "aria-label": `Add ${line.name}`,
+                                 onclick: () => accept(line) }, "Add") : null));
+  const wrap = el("div", { class: "slide" },
+    suggested ? el("div", { class: "under right" }, "Add") : null,
+    el("div", { class: "under left" }, "Snooze"), row);
+  swipeBothWays(wrap, row, suggested ? () => accept(line) : null, () => snooze(line));
+  return wrap;
+}
+function listView() {
+  if (!state.list) return [el("div", { class: "empty" }, "Loading…")];
+  const { accepted, suggested } = listParts(state.list, listOffs);
+  const snoozed = state.list.snoozed || [];
+  const out = [];
+  if (snoozed.length) {
+    out.push(el("button", { class: "link", onclick: () => {
+      state.showSnoozed = !state.showSnoozed;
+      render();
+    } }, state.showSnoozed ? "Hide snoozed" : `Snoozed (${snoozed.length})`));
+    if (state.showSnoozed) out.push(el("div", { class: "card" }, snoozed.map(s =>
+      el("div", { class: "item list-item" },
+        el("div", {}, el("div", { class: "what", lang: "de" }, s.name),
+           el("div", { class: "meta" }, backDay(s.until))),
+        el("button", { class: "link", onclick: () => sendListEdit(s.kind, true) },
+           "Put back")))));
+  }
+  if (accepted.length) out.push(el("div", { class: "card" },
+    accepted.map(l => listRow(l, false))));
+  if (suggested.length) out.push(el("div", { class: "label sub" }, "Suggested"),
+    el("div", { class: "card" }, suggested.map(l => listRow(l, true))));
+  if (!accepted.length && !suggested.length) {
+    out.push(el("div", { class: "empty" }, "Nothing on your list right now"));
+  }
+  return out;
+}
+function accept(line) {
+  // Moved up at once; the server's list replaces it when it answers.
+  line.added = true;
+  render();
+  sendListEdit(line.kind, true);
+}
+function snooze(line) {
+  listOffs.set(line.kind, setTimeout(() => sendListEdit(line.kind, false), UNDO_MS));
+  render();
+  toast(`${line.name}: snoozed`, () => {
+    clearTimeout(listOffs.get(line.kind));
+    listOffs.delete(line.kind);
+    render();
+  });
+}
+async function sendListEdit(kind, onList, leaving) {
+  clearTimeout(listOffs.get(kind));
+  if (onList) listOffs.delete(kind); else listOffs.set(kind, null);
+  // keepalive: the request outlives a page that is going away.
+  const sent = api(`/v1/list/${encodeURIComponent(kind)}`, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, keepalive: true,
+    body: JSON.stringify({ on_list: onList }) });
+  if (leaving) return sent.catch(() => {});
+  try {
+    state.list = await sent;
+    saveCopy();
+  } catch (error) { toast((onList ? "Not added: " : "Not snoozed: ") + error.message); }
+  if (!onList) listOffs.delete(kind);
+  render();
+}
+function sendListOffsNow() {
+  for (const [kind, timer] of [...listOffs]) if (timer !== null) sendListEdit(kind, false, true);
+}
+
+// Follow a finger either way on a row: let go past a third of its width and
+// the side's action runs (right: `onRight`, when there is one), else it
+// slides back. An up-and-down move is left to the page scroll.
+function swipeBothWays(wrap, row, onRight, onLeft) {
+  let start = null, moved = 0, sideways = false;
+  row.addEventListener("touchstart", event => {
+    const touch = event.touches[0];
+    start = { x: touch.clientX, y: touch.clientY };
+    moved = 0;
+    sideways = false;
+  }, { passive: true });
+  row.addEventListener("touchmove", event => {
+    if (!start) return;
+    const dx = event.touches[0].clientX - start.x, dy = event.touches[0].clientY - start.y;
+    if (!sideways && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) sideways = true;
+    if (!sideways) return;
+    moved = onRight ? dx : Math.min(0, dx);
+    wrap.classList.toggle("going-right", moved > 0);
+    row.style.transition = "none";
+    row.style.transform = `translateX(${moved}px)`;
+  }, { passive: true });
+  row.addEventListener("touchend", () => {
+    start = null;
+    row.style.transition = "";
+    row.style.transform = "";
+    if (!sideways) return;
+    const far = wrap.offsetWidth / 3;
+    if (moved > far && onRight) onRight();
+    else if (moved < -far) onLeft();
+  });
 }
 
 // What the shopper buys again and again (the owner, 2026-10-14: "7× in 6
@@ -2557,7 +2720,7 @@ function render() {
     return;
   }
   render.pending = false;
-  const views = { home: homeView, receipts: receiptsView, insights: insightsView,
+  const views = { home: homeView, receipts: receiptsView, insights: insightsView, list: listView,
                   you: youView };
   const shown = state.product && state.product.tab === state.tab ? productView
     : state.pace && state.tab === "home" ? paceView : views[state.tab];
@@ -2587,6 +2750,12 @@ async function load({ jobs = true } = {}) {
       saveCopy();
       if (state.tab === "home") render();
     }).catch(() => { state.offers = null; });
+    // The shopping list; none from an older server or one with no database.
+    api("/v1/list").then(doc => {
+      state.list = doc;
+      saveCopy();
+      if (state.tab === "list") render();
+    }).catch(() => { state.list = null; });
     // Who this password is, and for the owner what the app costs.
     api("/v1/me").then(async me => {
       state.me = me;
@@ -2679,9 +2848,11 @@ document.getElementById("add-file").addEventListener("change", event => {
 for (const tab of TABS) {
   document.getElementById("tab-" + tab).addEventListener("click", () => {
     state.tab = tab;
-    state.product = state.cameFrom = state.highlight = state.pace = null;  // a tab starts from its top
+    // A tab starts from its top.
+    state.product = state.cameFrom = state.highlight = state.pace = null;
     render();
-    window.scrollTo(0, 0);
+    // The list reads bottom to top: it opens at its most urgent suggestion.
+    window.scrollTo(0, tab === "list" ? document.body.scrollHeight : 0);
     if (tab === "home") refreshJobs();
   });
 }
@@ -2692,8 +2863,9 @@ document.getElementById("view").addEventListener("focusout", () => {
 });
 // Leaving the page, or hiding it, ends every Undo still running.
 window.addEventListener("pagehide", sendRemovalsNow);
+window.addEventListener("pagehide", sendListOffsNow);
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") sendRemovalsNow();
+  if (document.visibilityState === "hidden") { sendRemovalsNow(); sendListOffsNow(); }
 });
 // Back on the page: another device may have added a receipt meanwhile.
 document.addEventListener("visibilitychange", () => {
@@ -2748,7 +2920,8 @@ keepBackStep();  // after it: its answer is taken out of the address first
 const copy = savedCopy();
 if (copy && copy.checks && copy.questions && copy.receipts) {
   Object.assign(state, { checks: copy.checks, questions: copy.questions, receipts: copy.receipts,
-                         insights: copy.insights, offers: copy.offers, costs: copy.costs,
+                         insights: copy.insights, offers: copy.offers, list: copy.list,
+                         costs: copy.costs,
                          me: copy.me, receiptLines: copy.receiptLines || {},
                          copyAt: copy.at });
   render();

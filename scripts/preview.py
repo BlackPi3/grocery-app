@@ -117,11 +117,12 @@ def with_shelf_prices(product: tuple[int, str, bytes], history: tuple[int, str, 
     return 200, "application/json", json.dumps(doc).encode()
 
 
-def screenshot(url: str, out: Path) -> None:
-    """The page at an iPhone's width, once its reads have come back."""
+def screenshot(url: str, out: Path, height: int = 900) -> None:
+    """The page at an iPhone's width, once its reads have come back; taller
+    than a phone with `height`, to see a long page whole."""
     profile = Path("/tmp") / "grocery-preview-chrome"
     subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars",
-                    f"--user-data-dir={profile}", "--window-size=500,900",
+                    f"--user-data-dir={profile}", f"--window-size=500,{height}",
                     "--force-device-scale-factor=2", "--virtual-time-budget=15000",
                     f"--screenshot={out.resolve()}", url],
                    check=True, capture_output=True, timeout=120)
@@ -131,6 +132,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--shot", type=Path, help="save a phone-sized screenshot and stop")
+    parser.add_argument("--height", type=int, default=900, help="the shot's height in pixels")
     parser.add_argument("--then", help="JavaScript run before the screenshot, e.g. a click")
     args = parser.parse_args()
     live, token = server_and_token()
@@ -138,7 +140,7 @@ def main() -> None:
     url = f"http://localhost:{args.port}/"
     if args.shot:
         threading.Thread(target=server.serve_forever, daemon=True).start()
-        screenshot(url, args.shot)
+        screenshot(url, args.shot, args.height)
         server.shutdown()
         print(args.shot)
         return

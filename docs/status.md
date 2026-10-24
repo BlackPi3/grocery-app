@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-24, laptop: the shopping list, step 2 (keeping the person's edits).
+**Last updated:** 2026-10-24, laptop: the shopping list, step 3 (the screen, shown before merge).
 
 ## Now
 
@@ -36,8 +36,18 @@ session (laptop or cloud) can pick up from here. How we work is in
   first, then the draft for the morning after, so today's receipts count)
   and what is snoozed until when; `PUT /v1/list/{kind}` with
   `{"on_list": true|false}` adds or removes a category and answers the new
-  list. Next: (3), the screen, shown before merge: only kinds the receipts
-  give a clue to (owner, 2026-10-24); adding a kind never bought is parked.
+  list. Merged as #186.
+  **(3) built, waiting for the owner's look (#188):** the list is a tab,
+  "List", where Insights was; Insights is a quiet tile at the end of Home
+  (owner, 2026-10-24). One list, read bottom to top for the thumb: what the
+  person accepted at the top, the app's suggestions under it, the most
+  urgent right above the tab bar, and the tab opens at the bottom. A swipe
+  right or "Add" accepts (an `add` edit: kept until bought), a swipe left
+  or "Snooze" snoozes, with Undo, sent when the Undo runs out or the page
+  is left. "Snoozed (N)" at the top shows them with "Back Tue 27 Oct" and
+  "Put back". No delete for now (owner). Only kinds the receipts give a
+  clue to; adding one never bought is parked. On live data 2026-10-24: 35
+  suggestions. `scripts/preview.py --height` takes a taller shot.
 
 - Fixed (2026-10-23, found starting offers step 2): **offers had never run on
   live.** One person's receipt has no date (the reader found none); sorting
@@ -683,6 +693,16 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+- (owner, 2026-10-24) **How Home's tiles respond to a tap**, to be reworked:
+  a tap does not open the very thing the tile shows (for instance, the
+  item a turning tile is on right now).
+- (owner, 2026-10-24) **What counts as something a person needs**: one
+  rhythm does not fit every kind (milk every 3 days, a cleaner every two
+  months). Today offers search products bought on 3+ days in 90 (16 of the
+  list's 35 kinds), and the list needs a 25% chance this week, so a
+  two-monthly kind never shows even when due. To be decided later; until
+  then the owner watches how the current list does. Offers for the whole
+  list wait on it.
 - (owner, 2026-10-24, "first let's focus on things we have a clue the user
   needs") **Adding a kind never bought** to the shopping list, without
   typing. Recommended when it comes back: the category tree, the person's
