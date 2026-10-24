@@ -49,6 +49,19 @@ session (laptop or cloud) can pick up from here. How we work is in
   clue to; adding one never bought is parked. On live data 2026-10-24: 35
   suggestions. `scripts/preview.py --height` takes a taller shot.
 
+- Built (owner, 2026-10-24, "instead of items, it's showing categories"):
+  **the list is items, not categories.** A row says "Walnüsse", with the
+  product usually taken under it, not "Nüsse & Kerne". The item is the word
+  a model already gave regulars for the flyer search (`products.offer_word`,
+  no brand, size or "Bio"); now every grocery product anyone bought gets
+  one (`api.offers.word_due`, the offers thread, Gemini, 20 products a
+  call, a few cents once), and it travels in purchases.json as `item`
+  (contract 9). A product not named yet counts under its category until it
+  is. Edits made before by category key no longer match a line (a snooze
+  from 24 Oct is lost). The demo has no offers thread, so its list stays by
+  category. Next, agreed: with the items decided, which one shop gets the
+  whole list cheapest (one trip; several trips parked).
+
 - Fixed (2026-10-23, found starting offers step 2): **offers had never run on
   live.** One person's receipt has no date (the reader found none); sorting
   their receipts by date failed, which stopped every hourly offers pass

@@ -432,3 +432,47 @@ def test_a_kind_taken_off_is_sent_when_its_undo_runs_out_or_the_page_is_left():
     assert out == ["eier", 'PUT /v1/list/eier {"on_list":false} keepalive | '
                            'PUT /v1/list/quark {"on_list":true} keepalive'], \
         "Milch was undone; Eier sent once, on leaving; Quark put back at once"
+
+
+# --- items, not categories (owner, 2026-10-24) -------------------------------------
+
+def test_lines_are_items_and_a_product_not_named_yet_counts_under_its_category():
+    rows = (every("nuesse-kerne", 7, times=8, item="Walnüsse", pid="p-wal")
+            + every("nuesse-kerne", 7, times=8, item="Mandeln", pid="p-man")
+            + every("nuesse-kerne", 7, times=8, pid="p-mix"))           # not named yet
+    as_of = START + timedelta(days=57)
+    assert sorted((k["kind"], k["name"]) for k in kinds(rows, as_of)) == [
+        ("mandeln", "Mandeln"), ("nuesse-kerne", "Nuesse-Kerne"), ("walnüsse", "Walnüsse")]
+
+
+def test_one_item_however_its_word_is_written():
+    rows = (every("eier", 7, times=4, item="Eier", pid="p-a")
+            + every("eier", 7, start=START + timedelta(days=28), times=4, item="eier", pid="p-b"))
+    [line] = kinds(rows, START + timedelta(days=57))
+    assert (line["kind"], line["name"], line["products"]) == ("eier", "eier", 2), \
+        "the name as last written"
+
+
+def test_an_item_can_be_snoozed_and_put_back_by_its_key():
+    rows = every("nuesse-kerne", 6, times=10, item="Walnüsse") + every("brot", 7, times=9)
+    day = START + timedelta(days=57)
+    result = with_edits(rows, [edit("walnüsse", "remove", day)], day)
+    assert listed(result) == ["brot"] and result["snoozed"][0]["name"] == "Walnüsse"
+    put_back = with_edits(rows, [edit("walnüsse", "remove", day), edit("walnüsse", "add", day)],
+                          day)
+    assert listed(put_back)[0] == "walnüsse"
+
+
+@db
+def test_the_server_takes_an_item_the_asker_bought_and_nothing_made_up(two_lists, session):
+    from grocery_app.db.models import Product
+
+    repository, _ = two_lists
+    session.get(Product, "p-0001").offer_word = "H-Milch"
+    session.commit()
+    client = _client(repository)
+    assert listed(client.get("/v1/list", headers=OWNER).json()) == ["h-milch"]
+    snoozed = client.put("/v1/list/h-milch", headers=OWNER, json={"on_list": False})
+    assert snoozed.status_code == 200 and snoozed.json()["snoozed"][0]["name"] == "H-Milch"
+    assert client.put("/v1/list/walnüsse", headers=OWNER,
+                      json={"on_list": True}).status_code == 422, "never bought"
