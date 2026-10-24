@@ -33,6 +33,20 @@ The list knows nothing of the cupboard. It guesses from receipts, and the
 person removes what they don't need now and adds what they do. A habit that
 stops fades from the list as its chance falls; a missed receipt reads the
 same way.
+
+The person's edits (`with_edits`) are kept apart from the draft:
+
+- **A removal is a snooze.** It means only "not now": they still have some,
+  or their habit changed, and the app can't tell which (owner, 2026-10-23).
+  So the first removal hides the kind for half of what one usual buy lasts
+  (eggs every 6 days: 3 days), and each further removal without a buy for
+  twice as long as the one before (6, 12, 24): someone who still had some
+  loses a few days, and a changed habit is out of sight in a few taps
+  (owner, 2026-10-24).
+- **An addition** keeps a kind on the list, as needed now, until it is
+  bought.
+- **A buy ends both.** A receipt with the kind on or after the edit's day
+  starts it afresh, and the next removal is a first one again.
 """
 
 from __future__ import annotations
@@ -58,6 +72,11 @@ WEEK = 7
 NOW_DAYS = 1
 # The usual product is the most frequent among the kind's last few lines.
 USUAL_LOOKBACK = 5
+# A first removal hides a kind for this share of what one usual buy lasts;
+# each further one without a buy, twice as long as the one before.
+SNOOZE_SHARE = 0.5
+MIN_SNOOZE_DAYS = 1
+EDITS = ("add", "remove")
 
 
 def _weight(age_days: int) -> float:
@@ -170,6 +189,68 @@ def shopping_list(rows: list[dict[str, Any]], as_of: date) -> list[dict[str, Any
     out = [k for k in kinds(rows, as_of) if k["chance"] >= LIST_CHANCE]
     out.sort(key=lambda r: (_ORDER[r["when"]], r["days_left"], r["name"]))
     return out
+
+
+def snooze_days(days_per_buy: float, times: int) -> int:
+    """How long the `times`-th removal since the last buy hides a kind."""
+    return max(MIN_SNOOZE_DAYS, round(days_per_buy * SNOOZE_SHARE * 2 ** (times - 1)))
+
+
+def _added_line(kind_key: str, group: list[dict[str, Any]],
+                judged: dict[str, Any] | None) -> dict[str, Any]:
+    """An added kind, needed now. One bought on too few days to judge, or
+    never, has no chance or run-out: only what it is and the usual product."""
+    if judged is not None:
+        return {**judged, "when": "now", "added": True}
+    path = (max(group, key=lambda p: p["date"]).get("category_path") or []) if group else []
+    name = path[-1] if path else (categories.label(kind_key)
+                                  if kind_key in categories.CATEGORIES else kind_key)
+    return {"kind": kind_key, "name": name, "usual": _usual_product(group),
+            "products": len({p["product_id"] for p in group if p.get("product_id")}),
+            "days_bought": len({p["date"] for p in group}),
+            "last_bought": max(p["date"] for p in group) if group else None,
+            "chance": None, "days_per_buy": None, "runs_out": None, "days_left": None,
+            "when": "now", "added": True}
+
+
+def with_edits(rows: list[dict[str, Any]], edits: list[dict[str, Any]],
+               today: date) -> dict[str, Any]:
+    """Today's list with the person's edits: what they added first, in the
+    order added, then the draft without what is snoozed; and what is snoozed,
+    until when. `edits` are `{"kind", "edit", "day"}`, oldest first. Today's
+    receipts count: the draft is the one for the morning after."""
+    as_of = today + timedelta(days=1)
+    judged = {k["kind"]: k for k in kinds(rows, as_of)}
+    drafted = shopping_list(rows, as_of)
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for p in rows:
+        if p.get("category") and date.fromisoformat(p["date"]) < as_of:
+            groups[p["category"]].append(p)
+    last = {k: max(date.fromisoformat(p["date"]) for p in g) for k, g in groups.items()}
+
+    since: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for e in edits:
+        if e["edit"] in EDITS and (e["kind"] not in last or e["day"] > last[e["kind"]]):
+            since[e["kind"]].append(e)
+    added = sorted((k for k, own in since.items() if own[-1]["edit"] == "add"),
+                   key=lambda k: since[k][-1]["day"])
+    snoozed = []
+    for line in drafted:
+        own = since.get(line["kind"], [])
+        if not own or own[-1]["edit"] != "remove":
+            continue
+        removals = [e["day"] for e in own if e["edit"] == "remove"]
+        until = removals[-1] + timedelta(days=snooze_days(line["days_per_buy"], len(removals)))
+        if today < until:
+            snoozed.append({"kind": line["kind"], "name": line["name"],
+                            "until": until.isoformat(), "times": len(removals)})
+    hidden = {s["kind"] for s in snoozed} | set(added)
+    return {
+        "as_of": today.isoformat(),
+        "lines": [_added_line(k, groups.get(k, []), judged.get(k)) for k in added]
+                 + [{**line, "added": False} for line in drafted if line["kind"] not in hidden],
+        "snoozed": snoozed,
+    }
 
 
 def list_rows(purchases: dict[str, Any]) -> list[dict[str, Any]]:

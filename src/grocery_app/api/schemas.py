@@ -705,6 +705,65 @@ class OffersDocument(BaseModel):
     offers: list[OfferMatch]
 
 
+class ListUsual(BaseModel):
+    """The product a person usually takes of a kind: a hint, not the line."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    product_id: str
+    product: str | None
+    brand: str | None
+
+
+class ListLine(BaseModel):
+    """One kind on the shopping list (`shopping_list.kind`). An added kind
+    bought on too few days to judge has no chance or run-out."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str = Field(description="The category key, `eier`")
+    name: str
+    usual: ListUsual | None
+    products: int = Field(description="How many products of this kind were bought")
+    days_bought: int
+    last_bought: str | None
+    chance: float | None = Field(description="Of a buy in the coming week, 0 to 1")
+    days_per_buy: float | None = Field(description="How long one usual buy lasts")
+    runs_out: str | None
+    days_left: int | None
+    when: Literal["now", "this_week", "later"]
+    added: bool = Field(description="On the list because the person added it")
+
+
+class ListSnoozed(BaseModel):
+    """A kind the person removed for now: off the list until `until`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str
+    name: str
+    until: str = Field(description="The first day it is back")
+    times: int = Field(description="Removals since it was last bought")
+
+
+class ShoppingListDocument(BaseModel):
+    """The asker's shopping list today, with their edits (`shopping_list.with_edits`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    as_of: str
+    lines: list[ListLine] = Field(description="What they added first, then the most urgent")
+    snoozed: list[ListSnoozed]
+
+
+class ListEditRequest(BaseModel):
+    """One tap on the list: put a kind on it (`true`), or take it off for now."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    on_list: bool
+
+
 class OffersRhythm(BaseModel):
     """When one chain's offers are first seen (`offers.rhythm`)."""
 

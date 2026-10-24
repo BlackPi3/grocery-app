@@ -28,6 +28,7 @@ from grocery_app.db.models import (
     Job,
     LineGuess,
     LineResolution,
+    ListEdit,
     ModelCall,
     Product,
     Question,
@@ -126,6 +127,12 @@ class WriteRepository(Protocol):
         ...
 
     def mark_seen(self, receipt_id: int) -> str:
+        ...
+
+    def list_edits(self) -> list[dict[str, Any]]:
+        ...
+
+    def edit_list(self, kind: str, edit: str) -> None:
         ...
 
     def share_receipt(self, receipt_id: int, shared: bool) -> bool:
@@ -955,6 +962,29 @@ class PostgresRepository:
                 row.seen_at = datetime.now(UTC)
                 session.commit()
             return row.seen_at.astimezone(UTC).isoformat()
+
+    # --- the shopping list ------------------------------------------------------
+
+    def _my_edits(self) -> Any:
+        return (ListEdit.user_id.is_(None) if self.user is None
+                else ListEdit.user_id == self.user_id)
+
+    def list_edits(self) -> list[dict[str, Any]]:
+        """This person's changes to their list, oldest first, each on its day
+        in Germany's time (`shopping_list.with_edits`)."""
+        from grocery_app.offers import GERMANY
+
+        with self.session_factory() as session:
+            rows = session.scalars(select(ListEdit).where(self._my_edits())
+                                   .order_by(ListEdit.at, ListEdit.id))
+            return [{"kind": e.kind, "edit": e.edit, "day": e.at.astimezone(GERMANY).date()}
+                    for e in rows]
+
+    def edit_list(self, kind: str, edit: str) -> None:
+        """Keep one change to this person's list: a kind added or removed."""
+        with self.session_factory() as session:
+            session.add(ListEdit(user_id=self.user_id, kind=kind, edit=edit))
+            session.commit()
 
     def receipt_image(self, receipt_id: int) -> str | None:
         """The hash of the upload a receipt was read from, or None for one
