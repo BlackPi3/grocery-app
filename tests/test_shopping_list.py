@@ -362,3 +362,65 @@ def test_without_a_database_there_is_no_list():
     client = TestClient(create_app(InMemoryRepository({"purchases": []})))
     assert client.get("/v1/list").status_code == 503
     assert client.put("/v1/list/milch", json={"on_list": True}).status_code == 503
+
+
+# --- the screen (the page's own code, in Node) --------------------------------------
+
+def test_the_screen_groups_by_urgency_and_hides_what_was_just_taken_off():
+    from grocery_app.api.app import REVIEW_PAGE
+    from tests.test_api import run_page_function
+
+    page = REVIEW_PAGE.read_text(encoding="utf-8")
+    groups = 'const LIST_GROUPS = [["now", "Now"], ["this_week", "This week"], ["later", "Later"]];'
+    assert groups in page
+    out = run_page_function(page, "listLines listGroups backDay", groups + """
+        const day = iso => new Date(iso + "T00:00:00Z");
+        const doc = { lines: [{ kind: "milch", when: "now" }, { kind: "quark", when: "later" },
+                              { kind: "eier", when: "now" }] };
+        console.log(JSON.stringify(listGroups(doc, new Set(["eier"])).map(
+          ([title, lines]) => [title, lines.map(l => l.kind)])));
+        console.log(JSON.stringify(listGroups(null, new Set())));
+        const at = d => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
+        console.log(backDay(at(1)));
+        console.log(backDay("2026-10-29"));
+    """)
+    assert out[0] == '[["Now",["milch"]],["Later",["quark"]]]', \
+        "a kind taken off waits for its Undo off the page; empty groups are not shown"
+    assert out[1] == "[]"
+    assert out[2] == "Back tomorrow"
+    assert out[3] == "Back Thu 29 Oct"
+
+
+def test_a_kind_taken_off_is_sent_when_its_undo_runs_out_or_the_page_is_left():
+    """As a removed receipt: Undo sends nothing, leaving the page sends what
+    is still waiting, and a kind put back is sent at once."""
+    from grocery_app.api.app import REVIEW_PAGE
+    from tests.test_api import run_page_function
+
+    page = REVIEW_PAGE.read_text(encoding="utf-8")
+    assert 'window.addEventListener("pagehide", sendListOffsNow)' in page
+    out = run_page_function(page, "takeOff sendListEdit sendListOffsNow", """
+        const UNDO_MS = 8000;
+        const listOffs = new Map();
+        const sent = [];
+        let undo = null;
+        globalThis.api = async (path, opts) => {
+          sent.push([opts.method, path, opts.body, opts.keepalive ? "keepalive" : ""].join(" "));
+          return { lines: [], snoozed: [] };
+        };
+        globalThis.toast = (text, onUndo) => { undo = onUndo; };
+        globalThis.render = () => {};
+        globalThis.saveCopy = () => {};
+        globalThis.state = {};
+        takeOff({ kind: "milch", name: "Milch" });
+        undo();
+        takeOff({ kind: "eier", name: "Eier" });
+        console.log([...listOffs.keys()].join(","));
+        sendListOffsNow();
+        sendListOffsNow();
+        sendListEdit("quark", true);
+        setTimeout(() => { console.log(sent.join(" | ")); process.exit(0); }, 10);
+    """)
+    assert out == ["eier", 'PUT /v1/list/eier {"on_list":false} keepalive | '
+                           'PUT /v1/list/quark {"on_list":true} keepalive'], \
+        "Milch was undone; Eier sent once, on leaving; Quark put back at once"
