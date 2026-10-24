@@ -670,6 +670,26 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+- (owner, 2026-10-24, planned and parked until the shopping list is done)
+  **Questions that ask what is unclear, optional and rewarded.** Found on
+  `Käse Bedienung 4,14 €`: the card "Käse von der Bedientheke" only
+  reworded the line, so a Yes taught nothing. The owner's rules: questions
+  are optional (never bother the uninterested), answering and uploading are
+  visibly rewarded, and a confused question asks about the part that is
+  unclear, in steps, all taps. Old rules may change as the app grows: the
+  one-tap rule now holds for everyone else, not for those who choose to
+  answer. Plan:
+  1. Never show a card that only rewords its receipt line (no fact beyond
+     the paper). Small, for everyone.
+  2. Confused questions in steps. A counter line (`Bedienung`, `Theke`):
+     settled "from the counter", then **kind** (Gouda, …), **brand**,
+     **grams**. Kind and brand options come from a search of that shop's
+     counter range; gram options from the price paid over the chosen
+     product's €/kg. Stored on the line, so €/kg can be tracked.
+  3. Keep questions optional: the badge stays, nothing blocks or nags.
+  4. Rewards for answering and for uploading (merges the 2026-10-23 item
+     below): what the reward looks like is the owner's decision, to be
+     shown before merge.
 - (owner, 2026-10-23) **Adding receipts should feel rewarding**: a small
   reward after an upload, so the person feels they achieved something.
 - (owner, 2026-10-23) **A prompt per user**, for the list or the reader: an
