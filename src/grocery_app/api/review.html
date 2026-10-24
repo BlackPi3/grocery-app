@@ -325,6 +325,9 @@
     font-variant-numeric: tabular-nums; }
   .cover .link { font-size: inherit; padding: 0; cursor: pointer; }
   .more { margin-top: 6px; font-size: 13px; padding: 6px 12px; }
+  .list-item { cursor: default; }
+  .list-item .not-now { flex: none; font-size: 12px; padding: 5px 10px; }
+  .list-item .link { flex: none; font-size: 13px; }
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .pair .big { font-size: 24px; font-weight: 650; letter-spacing: -0.01em; margin: 2px 0; }
   h2 { font-size: 15px; margin: 0 0 4px; }
@@ -585,7 +588,8 @@ function saveCopy() {
   try {
     localStorage.setItem(COPY_KEY, JSON.stringify({
       at: Date.now(), checks: state.checks, questions: state.questions, receipts: state.receipts,
-      insights: state.insights, offers: state.offers, costs: state.costs, me: state.me,
+      insights: state.insights, offers: state.offers, list: state.list, costs: state.costs,
+      me: state.me,
       receiptLines: state.receiptLines }));
   } catch (_) { /* full, or private mode */ }
 }
@@ -1447,6 +1451,8 @@ function homeView() {
   const month = d.months[at];
   const thisMonth = now === new Date().toISOString().slice(0, 7);
   cards.push(paceCard(month, thisMonth));
+  const list = listCard(state.list);
+  if (list) cards.push(list);
   // What a stop promises opens when the stop is reached.
   const reached = at => !start || start.count >= at;
   const offer = offersCard(state.offers);
@@ -1866,6 +1872,100 @@ function offersCard(doc) {
       `${perText(m.offer.per_unit.amount, m.offer.per_unit.per)}, usually ` +
       perText(m.usual_per_unit.amount, m.usual_per_unit.per)) : null,
   ].filter(Boolean), m => openProduct(m.product_id));
+}
+
+// The shopping list (the owner, 2026-10-23, step 3): the kinds the receipts
+// say a person needs now or soon (`GET /v1/list`), most urgent first, with the
+// product they usually take as a hint. Only kinds the receipts give a clue to
+// (owner, 2026-10-24); adding one never bought is parked. One tap takes a kind
+// off for now: a snooze the server doubles each time it is taken off without
+// a buy (2026-10-24). It goes from the page at once and to the server when
+// its Undo runs out, as a removed receipt does; "Put back" ends a snooze.
+const LIST_GROUPS = [["now", "Now"], ["this_week", "This week"], ["later", "Later"]];
+const LIST_HOME_NAMES = 3;
+const listOffs = new Map();  // kind -> its Undo timer, or null once sent
+function listLines(doc, off) {
+  return ((doc && doc.lines) || []).filter(l => !off.has(l.kind));
+}
+function listGroups(doc, off) {
+  const lines = listLines(doc, off);
+  return LIST_GROUPS.map(([when, title]) => [title, lines.filter(l => l.when === when)])
+    .filter(([, shown]) => shown.length);
+}
+function backDay(iso) {
+  const tomorrow = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+  if (iso <= tomorrow) return "Back tomorrow";
+  return "Back " + day(iso).toLocaleDateString("en-GB",
+    { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+}
+function listCard(doc) {
+  const lines = listLines(doc, listOffs);
+  if (!lines.length) return null;  // nothing likely, or a server without the list
+  const now = lines.filter(l => l.when === "now").length;
+  const more = lines.length - LIST_HOME_NAMES;
+  return el("div", { class: "card tap", onclick: openList },
+    el("div", { class: "label" }, "Shopping list"),
+    el("div", { class: "says" },
+      el("span", { lang: "de" }, lines.slice(0, LIST_HOME_NAMES).map(l => l.name).join(", ")),
+      more > 0 ? ` and ${more} more` : null),
+    now ? el("div", { class: "meta" }, `${now} needed now`) : null);
+}
+function openList() {
+  state.listOpen = { scroll: window.scrollY };
+  render();
+  window.scrollTo(0, 0);
+}
+function closeList() {
+  const scroll = state.listOpen && state.listOpen.scroll;
+  state.listOpen = null;
+  render();
+  if (scroll) window.scrollTo(0, scroll);
+}
+function listView() {
+  const back = el("button", { class: "back", onclick: closeList }, "‹ Back");
+  if (!state.list) return [back, el("div", { class: "empty" }, "Loading…")];
+  const cards = listGroups(state.list, listOffs).map(([title, lines]) =>
+    el("div", { class: "card" }, el("h2", {}, title), lines.map(l =>
+      el("div", { class: "item list-item" },
+        el("div", {}, el("div", { class: "what", lang: "de" }, l.name),
+           l.usual ? el("div", { class: "meta", lang: "de" },
+             easyName(l.usual.product, l.usual.brand)) : null),
+        el("button", { class: "not-now", onclick: () => takeOff(l) }, "Not now")))));
+  if (!cards.length) cards.push(el("div", { class: "empty" }, "Nothing on your list right now"));
+  const snoozed = state.list.snoozed || [];
+  if (snoozed.length) cards.push(el("div", { class: "card" }, el("h2", {}, "Not now"),
+    snoozed.map(s => el("div", { class: "item list-item" },
+      el("div", {}, el("div", { class: "what", lang: "de" }, s.name),
+         el("div", { class: "meta" }, backDay(s.until))),
+      el("button", { class: "link", onclick: () => sendListEdit(s.kind, true) }, "Put back")))));
+  return [back, ...cards];
+}
+function takeOff(line) {
+  listOffs.set(line.kind, setTimeout(() => sendListEdit(line.kind, false), UNDO_MS));
+  render();
+  toast(`${line.name}: not now`, () => {
+    clearTimeout(listOffs.get(line.kind));
+    listOffs.delete(line.kind);
+    render();
+  });
+}
+async function sendListEdit(kind, onList, leaving) {
+  clearTimeout(listOffs.get(kind));
+  if (onList) listOffs.delete(kind); else listOffs.set(kind, null);
+  // keepalive: the request outlives a page that is going away.
+  const sent = api(`/v1/list/${encodeURIComponent(kind)}`, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, keepalive: true,
+    body: JSON.stringify({ on_list: onList }) });
+  if (leaving) return sent.catch(() => {});
+  try {
+    state.list = await sent;
+    saveCopy();
+  } catch (error) { toast((onList ? "Not put back: " : "Not taken off: ") + error.message); }
+  if (!onList) listOffs.delete(kind);
+  render();
+}
+function sendListOffsNow() {
+  for (const [kind, timer] of [...listOffs]) if (timer !== null) sendListEdit(kind, false, true);
 }
 
 // What the shopper buys again and again (the owner, 2026-10-14: "7× in 6
@@ -2529,7 +2629,8 @@ function render() {
   for (const tab of TABS) {
     document.getElementById("tab-" + tab).className = state.tab === tab ? "on" : "";
   }
-  document.getElementById("title").textContent = TITLES[state.tab];
+  const listShown = state.listOpen && state.tab === "home";
+  document.getElementById("title").textContent = listShown ? "Shopping list" : TITLES[state.tab];
   const demo = !!(state.me && state.me.demo);
   document.getElementById("demo").hidden = !demo;
   if (demo && !state.welcomed) {  // once per visit, on every visit
@@ -2560,6 +2661,7 @@ function render() {
   const views = { home: homeView, receipts: receiptsView, insights: insightsView,
                   you: youView };
   const shown = state.product && state.product.tab === state.tab ? productView
+    : listShown ? listView
     : state.pace && state.tab === "home" ? paceView : views[state.tab];
   view.replaceChildren(...shown().filter(Boolean));  // a view may skip a card
   document.getElementById("stats").textContent = state.copyAt
@@ -2587,6 +2689,12 @@ async function load({ jobs = true } = {}) {
       saveCopy();
       if (state.tab === "home") render();
     }).catch(() => { state.offers = null; });
+    // The shopping list; none from an older server or one with no database.
+    api("/v1/list").then(doc => {
+      state.list = doc;
+      saveCopy();
+      if (state.tab === "home") render();
+    }).catch(() => { state.list = null; });
     // Who this password is, and for the owner what the app costs.
     api("/v1/me").then(async me => {
       state.me = me;
@@ -2679,7 +2787,8 @@ document.getElementById("add-file").addEventListener("change", event => {
 for (const tab of TABS) {
   document.getElementById("tab-" + tab).addEventListener("click", () => {
     state.tab = tab;
-    state.product = state.cameFrom = state.highlight = state.pace = null;  // a tab starts from its top
+    // A tab starts from its top.
+    state.product = state.cameFrom = state.highlight = state.pace = state.listOpen = null;
     render();
     window.scrollTo(0, 0);
     if (tab === "home") refreshJobs();
@@ -2692,8 +2801,9 @@ document.getElementById("view").addEventListener("focusout", () => {
 });
 // Leaving the page, or hiding it, ends every Undo still running.
 window.addEventListener("pagehide", sendRemovalsNow);
+window.addEventListener("pagehide", sendListOffsNow);
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") sendRemovalsNow();
+  if (document.visibilityState === "hidden") { sendRemovalsNow(); sendListOffsNow(); }
 });
 // Back on the page: another device may have added a receipt meanwhile.
 document.addEventListener("visibilitychange", () => {
@@ -2728,6 +2838,7 @@ function goBack() {
   if (!viewer.hidden) return viewer.querySelector(".top button")?.click();
   if (!welcome.hidden) { welcome.hidden = true; return; }
   if (state.product && state.product.tab === state.tab) return closeProduct();
+  if (state.listOpen && state.tab === "home") return closeList();
   if (state.pace && state.tab === "home") return state.pace.why ? whyBack() : closePace();
   if (state.cameFrom && state.tab === "receipts") return backToProduct();
   if (state.tab === "receipts" && state.open !== null) { state.open = null; render(); return; }
@@ -2748,7 +2859,8 @@ keepBackStep();  // after it: its answer is taken out of the address first
 const copy = savedCopy();
 if (copy && copy.checks && copy.questions && copy.receipts) {
   Object.assign(state, { checks: copy.checks, questions: copy.questions, receipts: copy.receipts,
-                         insights: copy.insights, offers: copy.offers, costs: copy.costs,
+                         insights: copy.insights, offers: copy.offers, list: copy.list,
+                         costs: copy.costs,
                          me: copy.me, receiptLines: copy.receiptLines || {},
                          copyAt: copy.at });
   render();

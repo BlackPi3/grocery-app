@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-24, laptop: the shopping list, step 2 (keeping the person's edits).
+**Last updated:** 2026-10-24, laptop: the shopping list, step 3 (the screen, shown before merge).
 
 ## Now
 
@@ -36,8 +36,16 @@ session (laptop or cloud) can pick up from here. How we work is in
   first, then the draft for the morning after, so today's receipts count)
   and what is snoozed until when; `PUT /v1/list/{kind}` with
   `{"on_list": true|false}` adds or removes a category and answers the new
-  list. Next: (3), the screen, shown before merge: only kinds the receipts
-  give a clue to (owner, 2026-10-24); adding a kind never bought is parked.
+  list. Merged as #186.
+  **(3) built, waiting for the owner's look:** only kinds the receipts give
+  a clue to (owner, 2026-10-24; adding a kind never bought is parked). A
+  "Shopping list" tile on Home under the month (the first three kinds, "and
+  N more", "N needed now") opens the list: Now, This week, Later, each kind
+  with its usual product under it and a "Not now" button; the kind goes at
+  once, with Undo, and is sent when the Undo runs out or the page is left.
+  Snoozed kinds sit at the bottom under "Not now" with "Back Tue 27 Oct" and
+  "Put back". On live data 2026-10-24: 35 kinds (13 now, 12 this week, 10
+  later). `scripts/preview.py --height` takes a taller shot.
 
 - Fixed (2026-10-23, found starting offers step 2): **offers had never run on
   live.** One person's receipt has no date (the reader found none); sorting
