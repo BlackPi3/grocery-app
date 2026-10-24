@@ -244,6 +244,13 @@ def with_edits(rows: list[dict[str, Any]], edits: list[dict[str, Any]],
         if p.get("category") and date.fromisoformat(p["date"]) < as_of:
             groups[item_key(p)].append(p)
     last = {k: max(date.fromisoformat(p["date"]) for p in g) for k, g in groups.items()}
+    # An edit made while its product was not named yet carries the category
+    # key (`milch`); once the product is named its lines count as an item
+    # (`h-milch`), and a buy of the category still ends that edit.
+    for p in rows:
+        if p.get("category") and date.fromisoformat(p["date"]) < as_of:
+            bought = date.fromisoformat(p["date"])
+            last[p["category"]] = max(last.get(p["category"], bought), bought)
 
     since: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for e in edits:

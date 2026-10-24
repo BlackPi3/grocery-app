@@ -688,7 +688,9 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         they removed for now (`shopping_list.with_edits`)."""
         return my_list(require_writes(request))
 
-    @app.put("/v1/list/{kind}", response_model=ShoppingListDocument)
+    # `:path`: an item word may hold a slash (`Milch/Kakao`), which arrives
+    # decoded however the page encoded it.
+    @app.put("/v1/list/{kind:path}", response_model=ShoppingListDocument)
     def edit_list(request: Request, kind: str, body: ListEditRequest) -> ShoppingListDocument:
         """Put an item on the list, or take it off for now (a snooze that
         doubles each time it is taken off without a buy). Answers the new list."""
