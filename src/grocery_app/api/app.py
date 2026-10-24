@@ -110,6 +110,7 @@ from grocery_app.api.schemas import (
     JobsDocument,
     LineCountedRequest,
     LineResolutionRequest,
+    ListEditRequest,
     Me,
     NewUser,
     NewUserRequest,
@@ -124,6 +125,7 @@ from grocery_app.api.schemas import (
     ReceiptSummary,
     Seen,
     SharedRequest,
+    ShoppingListDocument,
     SignedIn,
     SurenessDocument,
     UserPatch,
@@ -670,6 +672,33 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         today = datetime.now(UTC).astimezone(GERMANY).date()
         return OffersDocument(as_of=today.isoformat(),
                               offers=offers_for(require_writes(request), today))
+
+    def my_list(person: WriteRepository) -> ShoppingListDocument:
+        from grocery_app.offers import GERMANY
+        from grocery_app.shopping_list import list_rows, with_edits
+
+        today = datetime.now(UTC).astimezone(GERMANY).date()
+        return ShoppingListDocument.model_validate(
+            with_edits(list_rows(person.purchases()), person.list_edits(), today))
+
+    @app.get("/v1/list", response_model=ShoppingListDocument)
+    def the_list(request: Request) -> ShoppingListDocument:
+        """The asker's shopping list today: the kinds they are likely to buy
+        this week, most urgent first, after what they added and without what
+        they removed for now (`shopping_list.with_edits`)."""
+        return my_list(require_writes(request))
+
+    @app.put("/v1/list/{kind}", response_model=ShoppingListDocument)
+    def edit_list(request: Request, kind: str, body: ListEditRequest) -> ShoppingListDocument:
+        """Put a kind on the list, or take it off for now (a snooze that
+        doubles each time it is taken off without a buy). Answers the new list."""
+        from grocery_app import categories
+
+        if kind not in categories.CATEGORIES:
+            raise HTTPException(status_code=422, detail=f"no kind {kind!r}")
+        person = require_writes(request)
+        person.edit_list(kind, "add" if body.on_list else "remove")
+        return my_list(person)
 
     @app.get("/v1/offers/rhythm", response_model=list[OffersRhythm])
     def offers_rhythm(request: Request) -> list[OffersRhythm]:

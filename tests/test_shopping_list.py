@@ -1,10 +1,21 @@
 """The shopping list over made-up purchase rows: nothing here comes from a receipt."""
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
+
+import pytest
 
 from grocery_app import shopping_list as sl
 from grocery_app.evaluate_list import backtest, format_report, gap_rule
-from grocery_app.shopping_list import chance, kinds, list_rows, runs_out, shopping_list
+from grocery_app.shopping_list import (
+    chance,
+    kinds,
+    list_rows,
+    runs_out,
+    shopping_list,
+    snooze_days,
+    with_edits,
+)
+from tests.conftest import DATABASE_URL
 
 START = date(2026, 1, 1)
 
@@ -130,6 +141,105 @@ def test_list_rows_keep_the_shoppers_own_dated_groceries():
     assert list_rows(purchases) == [purchases["purchases"][0]]
 
 
+# --- the person's edits --------------------------------------------------------
+
+# Quark every 6 days to day 54, bread every 7 to day 56: both due on day 57.
+STEADY = every("quark", 6, times=10) + every("brot", 7, times=9)
+DAY = START + timedelta(days=57)
+
+
+def edit(kind, edit, day):
+    return {"kind": kind, "edit": edit, "day": day}
+
+
+def listed(result):
+    return [line["kind"] for line in result["lines"]]
+
+
+def test_with_no_edits_the_list_is_the_draft_for_the_morning_after():
+    result = with_edits(STEADY, [], DAY)
+    assert result["lines"] == [{**k, "added": False}
+                               for k in shopping_list(STEADY, DAY + timedelta(days=1))]
+    assert set(listed(result)) == {"quark", "brot"} and result["snoozed"] == []
+
+
+def test_todays_receipt_counts():
+    today = START + timedelta(days=54)                       # quark bought today
+    quark = next(k for k in with_edits(STEADY, [], today)["lines"] if k["kind"] == "quark")
+    assert quark["last_bought"] == today.isoformat()
+
+
+def test_a_first_removal_snoozes_for_half_a_usual_buy():
+    result = with_edits(STEADY, [edit("quark", "remove", DAY)], DAY)
+    assert listed(result) == ["brot"]
+    assert result["snoozed"] == [{"kind": "quark", "name": "Quark",
+                                  "until": (DAY + timedelta(days=3)).isoformat(), "times": 1}]
+    assert "quark" not in listed(with_edits(STEADY, [edit("quark", "remove", DAY)],
+                                            DAY + timedelta(days=2)))
+    assert "quark" in listed(with_edits(STEADY, [edit("quark", "remove", DAY)],
+                                        DAY + timedelta(days=3))), "back on the third day"
+
+
+def test_each_removal_without_a_buy_snoozes_twice_as_long():
+    assert [snooze_days(6, n) for n in (1, 2, 3, 4)] == [3, 6, 12, 24]
+    second = DAY + timedelta(days=3)
+    edits = [edit("quark", "remove", DAY), edit("quark", "remove", second)]
+    snoozed = with_edits(STEADY, edits, second)["snoozed"]
+    assert snoozed == [{"kind": "quark", "name": "Quark",
+                        "until": (second + timedelta(days=6)).isoformat(), "times": 2}]
+
+
+def test_a_short_lived_kind_is_snoozed_for_a_day_at_least():
+    assert snooze_days(1, 1) == 1 and snooze_days(0.4, 1) == 1
+
+
+def test_a_buy_ends_the_snooze_and_the_next_removal_is_a_first_one_again():
+    edits = [edit("quark", "remove", DAY), edit("quark", "remove", DAY + timedelta(days=3))]
+    bought = STEADY + [row("quark", DAY + timedelta(days=4))]
+    later = DAY + timedelta(days=5)
+    assert "quark" in listed(with_edits(bought, edits, later + timedelta(days=4))), \
+        "bought after the removals: nothing is snoozed"
+    again = edits + [edit("quark", "remove", later)]
+    assert with_edits(bought, again, later)["snoozed"][0]["times"] == 1
+
+
+def test_a_removal_on_the_day_of_a_buy_is_undone_by_the_buy():
+    bought = STEADY + [row("quark", DAY)]
+    assert with_edits(bought, [edit("quark", "remove", DAY)], DAY)["snoozed"] == []
+
+
+def test_an_added_kind_comes_first_as_needed_now_until_it_is_bought():
+    rows = STEADY + [row("reibekaese", START + timedelta(days=2))]    # bought once
+    added = with_edits(rows, [edit("reibekaese", "add", DAY)], DAY)
+    assert listed(added)[0] == "reibekaese"
+    line = added["lines"][0]
+    assert line["added"] and line["when"] == "now" and line["chance"] is None
+    assert line["name"] == "Reibekaese" and line["usual"]["product_id"] == "p-1"
+    assert line["last_bought"] == (START + timedelta(days=2)).isoformat()
+    bought = rows + [row("reibekaese", DAY + timedelta(days=1))]
+    assert "reibekaese" not in listed(with_edits(bought, [edit("reibekaese", "add", DAY)],
+                                                 DAY + timedelta(days=1)))
+
+
+def test_a_kind_never_bought_can_be_added_by_its_name():
+    line = with_edits(STEADY, [edit("toilettenpapier", "add", DAY)], DAY)["lines"][0]
+    assert (line["kind"], line["name"], line["usual"], line["last_bought"]) == (
+        "toilettenpapier", "Toilettenpapier", None, None)
+
+
+def test_putting_a_snoozed_kind_back_lists_it_as_added():
+    edits = [edit("quark", "remove", DAY), edit("quark", "add", DAY)]
+    result = with_edits(STEADY, edits, DAY)
+    assert listed(result) == ["quark", "brot"] and result["snoozed"] == []
+    assert result["lines"][0]["added"] and result["lines"][0]["chance"] is not None
+
+
+def test_taking_an_added_kind_off_leaves_nothing():
+    edits = [edit("toilettenpapier", "add", DAY), edit("toilettenpapier", "remove", DAY)]
+    result = with_edits(STEADY, edits, DAY)
+    assert "toilettenpapier" not in listed(result) and result["snoozed"] == []
+
+
 # --- the backtest --------------------------------------------------------------
 
 def test_a_steady_shopper_is_caught_and_the_report_reads():
@@ -149,3 +259,106 @@ def test_the_gap_rule_calls_a_kind_due_when_its_median_gap_ends_within_the_week(
 def test_an_empty_history_has_nothing_to_test():
     assert backtest([])["weeks"] == 0
     assert "nothing to test" in format_report({"weeks": 0})
+
+
+# --- on the server (PostgreSQL) --------------------------------------------------
+
+db = pytest.mark.skipif(not DATABASE_URL, reason="DATABASE_URL not set")
+
+
+@pytest.fixture
+def two_lists(engine, session):
+    """The owner buys milk every 7 days lately; Sara buys bananas every 5."""
+    from grocery_app.api.repository import PostgresRepository
+    from grocery_app.db.io import product_from_dict, receipt_from_dict, resolution_from_dict
+    from grocery_app.db.session import make_session_factory
+    from grocery_app.offers import GERMANY
+    from tests.conftest import PRODUCTS, RESOLUTION
+
+    for pid, product in PRODUCTS["products"].items():
+        session.add(product_from_dict(pid, product))
+    for entry in RESOLUTION["entries"]:
+        session.add(resolution_from_dict(entry))
+    session.commit()
+    repository = PostgresRepository(make_session_factory(engine))
+    sara = repository.create_user("Sara")
+    today = datetime.now(UTC).astimezone(GERMANY).date()
+
+    def receipt(image, days_ago, raw_name, user_id=None):
+        made = receipt_from_dict({
+            "source_image": image, "store": "Musterladen",
+            "date": (today - timedelta(days=days_ago)).isoformat(), "currency": "EUR",
+            "lines": [{"type": "product", "raw_name": raw_name, "qty": 1, "gross": 1.0,
+                       "discount": 0.0, "net": 1.0, "tax_class": "A"}]})
+        made.user_id = user_id
+        return made
+
+    for days_ago in (5, 12, 19, 26):
+        session.add(receipt(f"o{days_ago}.jpeg", days_ago, "MU Milch 1,5%"))
+    for days_ago in (4, 9, 14, 19):
+        session.add(receipt(f"s{days_ago}.jpeg", days_ago, "Bananen", sara["id"]))
+    session.commit()
+    return repository, sara
+
+
+def _client(repository):
+    from fastapi.testclient import TestClient
+
+    from grocery_app.api.app import create_app
+
+    return TestClient(create_app(repository, token="owner-secret"))
+
+
+OWNER = {"Authorization": "Bearer owner-secret"}
+
+
+@db
+def test_each_person_has_their_own_list_and_their_own_edits(two_lists):
+    repository, sara = two_lists
+    client = _client(repository)
+    hers = {"Authorization": f"Bearer {sara['password']}"}
+    assert listed(client.get("/v1/list", headers=OWNER).json()) == ["milch"]
+    assert listed(client.get("/v1/list", headers=hers).json()) == ["gurken"]
+
+    taken_off = client.put("/v1/list/milch", headers=OWNER, json={"on_list": False}).json()
+    assert listed(taken_off) == [] and taken_off["snoozed"][0]["kind"] == "milch"
+    assert taken_off["snoozed"][0]["times"] == 1
+    assert listed(client.get("/v1/list", headers=OWNER).json()) == [], "kept"
+    assert listed(client.get("/v1/list", headers=hers).json()) == ["gurken"], \
+        "the owner's removal is not Sara's"
+
+    put_on = client.put("/v1/list/toilettenpapier", headers=hers, json={"on_list": True})
+    assert listed(put_on.json()) == ["toilettenpapier", "gurken"]
+    assert "toilettenpapier" not in listed(client.get("/v1/list", headers=OWNER).json())
+
+
+@db
+def test_a_kind_that_is_no_category_is_refused(two_lists):
+    repository, _ = two_lists
+    client = _client(repository)
+    answer = client.put("/v1/list/irgendwas", headers=OWNER, json={"on_list": True})
+    assert answer.status_code == 422
+    assert repository.list_edits() == [], "nothing kept"
+
+
+@db
+def test_a_deleted_account_takes_its_list_edits_with_it(two_lists, session):
+    from grocery_app.db.models import ListEdit
+
+    repository, sara = two_lists
+    as_sara = repository.as_user({"id": sara["id"], "name": "Sara"})
+    as_sara.edit_list("gurken", "remove")
+    repository.edit_list("milch", "remove")
+    as_sara.remove_account()
+    assert [(e.user_id, e.kind) for e in session.query(ListEdit)] == [(None, "milch")]
+
+
+def test_without_a_database_there_is_no_list():
+    from fastapi.testclient import TestClient
+
+    from grocery_app.api.app import create_app
+    from grocery_app.api.repository import InMemoryRepository
+
+    client = TestClient(create_app(InMemoryRepository({"purchases": []})))
+    assert client.get("/v1/list").status_code == 503
+    assert client.put("/v1/list/milch", json={"on_list": True}).status_code == 503

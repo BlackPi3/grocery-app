@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-23, laptop: the shopping list, step 1 (the engine and its backtest).
+**Last updated:** 2026-10-24, laptop: the shopping list, step 2 (keeping the person's edits).
 
 ## Now
 
@@ -24,7 +24,21 @@ session (laptop or cloud) can pick up from here. How we work is in
   (`docs/evaluations/2026-10-23-shopping-list.md`): 28 kinds a week, 40% of
   them bought, catching 49% of the week's kinds (the old gap rule: 20 kinds,
   42%, 37%); the chance is honest (given 40-50%, 44% bought); urgency is weak
-  (`now` bought within 3 days 19%, `later` 14%). Next: (2).
+  (`now` bought within 3 days 19%, `later` 14%).
+  **(2) built:** a removal is a snooze (owner, 2026-10-24): the first hides
+  a kind for half of what one usual buy lasts (eggs every 6 days: 3 days),
+  each further one without a buy twice as long (6, 12, 24), at least a day.
+  An addition stays on the list, as needed now, until it is bought. A buy on
+  or after an edit's day ends it, and the next removal is a first one again
+  (`shopping_list.with_edits`). Edits are kept as they happened
+  (`list_edits`, migration 0026) and go with a deleted account; the privacy
+  page says so. `GET /v1/list` gives the asker's list today (what they added
+  first, then the draft for the morning after, so today's receipts count)
+  and what is snoozed until when; `PUT /v1/list/{kind}` with
+  `{"on_list": true|false}` adds or removes a category and answers the new
+  list. Open for (3): how a person picks a kind they never bought without
+  typing (recommended: the category tree, their own kinds first). Next: (3),
+  the screen, shown before merge.
 
 - Fixed (2026-10-23, found starting offers step 2): **offers had never run on
   live.** One person's receipt has no date (the reader found none); sorting
