@@ -248,15 +248,21 @@ def judge_due(repository: Any, decider: Any, today: date,
 
 def word_due(repository: Any, decider: Any, today: date,
              asked: Counter | None = None) -> int:
-    """Have the model give each regular product with no flyer word yet its
-    word (`offer_match.flyer_words`); how many were given. Each batch is
-    kept as soon as it is answered. `asked` counts, across passes, the
-    answers that gave a product none: one left `offer_match.MOST_ASKS` times
-    is searched by its name until the server starts anew."""
+    """Have the model give each grocery product someone bought, with no word
+    yet, its word (`offer_match.flyer_words`); how many were given. The word
+    is what a flyer lists it under and what a shopping list calls it, so the
+    list is items (`Walnüsse`), not categories (owner, 2026-10-24): every
+    product bought is named, not only the regulars the offers search. Each
+    batch is kept as soon as it is answered. `asked` counts, across passes,
+    the answers that gave a product none: one left `offer_match.MOST_ASKS`
+    times is searched by its name until the server starts anew."""
     asked = Counter() if asked is None else asked
     with repository.session_factory() as session:
         people = everyone(repository, session)
-        ids = {pid for person in people for pid in shopping(session, person, today)["regulars"]}
+        ids = {r["product_id"] for person in people
+               for r in _product_rows(person.purchases()["purchases"])
+               if r.get("product_id") and r.get("category") in categories.CATEGORIES
+               and categories.is_grocery(r["category"])}
         products = {p.id: {"name": p.name, "brand": p.brand, "details": list(p.details or []),
                            "size": p.size}
                     for p in session.scalars(select(Product).where(

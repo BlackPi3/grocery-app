@@ -445,7 +445,10 @@ def priced_like(line: dict[str, Any], ids: list[str],
 # `is_budget_brand` is deliberately absent: it is not an attribute of the product
 # but of this line's store and the product's brand together, so it is derived
 # in `normalize_line` rather than copied across from the catalog.
-_SHARED = ("brand", "category", "is_organic")
+# `item` is what a shopping list calls the product (`Walnüsse`, `H-Milch`):
+# no brand, size or `Bio`. A model gives it (`offer_match.flyer_words`); a
+# catalog from files has none.
+_SHARED = ("brand", "category", "is_organic", "item")
 
 
 def shared_attributes(candidates: list[dict[str, Any]]) -> dict[str, Any]:
@@ -647,7 +650,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     dates = sorted({r["date"] for r in receipts if r.get("date")})
 
     return {
-        "contract_version": 8,
+        "contract_version": 9,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],

@@ -4,9 +4,12 @@ The owner, 2026-10-23: a drafted list of what they need now or will need
 soon, big enough that offers add up across it, which the person shortens and
 adds to. This module drafts it from the purchase history and nothing else.
 
-A line on the list is a kind of thing (the category: eggs, quark, tomatoes),
-with the product they usually take as a hint. On the owner's history 241 of
-322 products were bought only once, while 94% of a week's buys were of a kind
+A line on the list is an item (Walnüsse, Eier, H-Milch), with the product
+they usually take as a hint: what a person writes on a shopping list, the
+brand kept in mind (owner, 2026-10-24). The item is the product's `item` word
+in purchases.json, given by a model; a product not named yet counts under its
+category (Nüsse & Kerne) until it is. On the owner's history 241 of 322
+products were bought only once, while 94% of a week's buys were of a kind
 bought before: people take a different cheese, the one on offer, but they buy
 cheese.
 
@@ -77,6 +80,23 @@ USUAL_LOOKBACK = 5
 SNOOZE_SHARE = 0.5
 MIN_SNOOZE_DAYS = 1
 EDITS = ("add", "remove")
+
+
+def item_key(p: dict[str, Any]) -> str:
+    """Which line of the list a purchase counts for: its item word, any
+    case, else its category key."""
+    return (p.get("item") or "").casefold() or p["category"]
+
+
+def _item_name(group: list[dict[str, Any]], key: str) -> str:
+    """An item's name as last written, else its category's label."""
+    latest = max(group, key=lambda p: p["date"]) if group else {}
+    if latest.get("item"):
+        return latest["item"]
+    path = latest.get("category_path") or []
+    if path:
+        return path[-1]
+    return categories.label(key) if key in categories.CATEGORIES else key
 
 
 def _weight(age_days: int) -> float:
@@ -151,11 +171,10 @@ def kind(group: list[dict[str, Any]], first: date, as_of: date) -> dict[str, Any
         return None
     out_day, per_buy = runs_out(days)
     days_left = (out_day - as_of).days
-    latest = max(group, key=lambda p: p["date"])
-    path = latest.get("category_path") or []
+    key = item_key(group[0])
     return {
-        "kind": latest["category"],
-        "name": path[-1] if path else latest["category"],
+        "kind": key,
+        "name": _item_name(group, key),
         "usual": _usual_product(group),
         "products": len({p["product_id"] for p in group if p.get("product_id")}),
         "days_bought": len(days),
@@ -180,7 +199,7 @@ def kinds(rows: list[dict[str, Any]], as_of: date) -> list[dict[str, Any]]:
     first = min(date.fromisoformat(p["date"]) for p in before)
     by_kind: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for p in before:
-        by_kind[p["category"]].append(p)
+        by_kind[item_key(p)].append(p)
     return [line for group in by_kind.values() if (line := kind(group, first, as_of))]
 
 
@@ -202,10 +221,8 @@ def _added_line(kind_key: str, group: list[dict[str, Any]],
     never, has no chance or run-out: only what it is and the usual product."""
     if judged is not None:
         return {**judged, "when": "now", "added": True}
-    path = (max(group, key=lambda p: p["date"]).get("category_path") or []) if group else []
-    name = path[-1] if path else (categories.label(kind_key)
-                                  if kind_key in categories.CATEGORIES else kind_key)
-    return {"kind": kind_key, "name": name, "usual": _usual_product(group),
+    return {"kind": kind_key, "name": _item_name(group, kind_key),
+            "usual": _usual_product(group),
             "products": len({p["product_id"] for p in group if p.get("product_id")}),
             "days_bought": len({p["date"] for p in group}),
             "last_bought": max(p["date"] for p in group) if group else None,
@@ -225,7 +242,7 @@ def with_edits(rows: list[dict[str, Any]], edits: list[dict[str, Any]],
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for p in rows:
         if p.get("category") and date.fromisoformat(p["date"]) < as_of:
-            groups[p["category"]].append(p)
+            groups[item_key(p)].append(p)
     last = {k: max(date.fromisoformat(p["date"]) for p in g) for k, g in groups.items()}
 
     since: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -251,6 +268,11 @@ def with_edits(rows: list[dict[str, Any]], edits: list[dict[str, Any]],
                  + [{**line, "added": False} for line in drafted if line["kind"] not in hidden],
         "snoozed": snoozed,
     }
+
+
+def known(rows: list[dict[str, Any]]) -> set[str]:
+    """Every line key these purchases can make: what an edit may name."""
+    return {item_key(p) for p in rows if p.get("category")}
 
 
 def list_rows(purchases: dict[str, Any]) -> list[dict[str, Any]]:

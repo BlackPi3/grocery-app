@@ -260,7 +260,10 @@ def load_normalizer_inputs(session: Session,
     """
     receipts = [receipt_to_dict(r) for r in session.scalars(
         select(Receipt).where(whose(user_id)).options(selectinload(Receipt.lines)))]
-    products = {p.id: product_to_dict(p) for p in session.scalars(select(Product))}
+    # A product's item word (`products.offer_word`, given by a model) travels
+    # as `item`: what a shopping list calls it (`normalizer.shared_attributes`).
+    products = {p.id: {**product_to_dict(p), **({"item": p.offer_word} if p.offer_word else {})}
+                for p in session.scalars(select(Product))}
 
     resolution: dict[tuple[str, str], list[str]] = {}
     authors: dict[tuple[str, str], str | None] = {}

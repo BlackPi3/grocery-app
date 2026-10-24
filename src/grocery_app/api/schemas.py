@@ -36,7 +36,9 @@ from pydantic import BaseModel, ConfigDict, Field
 # their numbers with one tap.
 # And to 8 on 2026-10-09: `product_line` and `variant` became one list,
 # `details` (migration 0011): two fixed slots the reader guessed between.
-PURCHASES_CONTRACT_VERSION = 8
+# And to 9 on 2026-10-25: `item` says what a shopping list calls the product
+# (`Walnüsse`), so the list is items, not categories (owner, 2026-10-24).
+PURCHASES_CONTRACT_VERSION = 9
 #
 # Insights bumped to 3 on 2026-09-29: lines known not to be groceries (café,
 # flowers, cards) left every insight, so `coverage.spend` means grocery spend,
@@ -118,6 +120,10 @@ class Purchase(BaseModel):
     # (`["Molkereiprodukte & Eier", "Käse", "Reibekäse"]`), coarsest first.
     category: str | None = None
     category_path: list[str] | None = None
+    item: str | None = Field(
+        default=None, description="What a shopping list calls the product (`Walnüsse`, "
+                                  "`H-Milch`): no brand, size or `Bio`; none until a model "
+                                  "has named it")
     is_budget_brand: bool | None = None
     is_organic: bool | None = None
     not_counted: bool | None = Field(

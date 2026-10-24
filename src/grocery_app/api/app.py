@@ -690,13 +690,15 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
 
     @app.put("/v1/list/{kind}", response_model=ShoppingListDocument)
     def edit_list(request: Request, kind: str, body: ListEditRequest) -> ShoppingListDocument:
-        """Put a kind on the list, or take it off for now (a snooze that
+        """Put an item on the list, or take it off for now (a snooze that
         doubles each time it is taken off without a buy). Answers the new list."""
         from grocery_app import categories
+        from grocery_app.shopping_list import known, list_rows
 
-        if kind not in categories.CATEGORIES:
-            raise HTTPException(status_code=422, detail=f"no kind {kind!r}")
         person = require_writes(request)
+        # An item the asker bought (`walnüsse`), or any category.
+        if kind not in categories.CATEGORIES and kind not in known(list_rows(person.purchases())):
+            raise HTTPException(status_code=422, detail=f"no kind {kind!r}")
         person.edit_list(kind, "add" if body.on_list else "remove")
         return my_list(person)
 

@@ -2,9 +2,11 @@
 
 The rules, in words (owner, 2026-10-23):
 
-1. The offers thread asks a model, for each regular grocery product that has
-   no flyer word yet, for the word a German flyer lists that kind of product
-   under (`word_due(repository, decider, today, asked)`, returning how many
+1. The offers thread asks a model, for each grocery product someone bought
+   that has no flyer word yet, for the word a German flyer lists that kind of
+   product under (owner, 2026-10-24: the word also names the item on the
+   shopping list, so every product bought is named, not only the regulars)
+   (`word_due(repository, decider, today, asked)`, returning how many
    words were kept). A product with a word (`products.offer_word`) is never
    asked again. A product given no usable word is asked at most
    `offer_match.MOST_ASKS` times per `asked` counter. When nothing is due, no
@@ -146,13 +148,13 @@ def set_word(session, pid, word):
 # --- 1: who is asked, how often, and when not at all ---------------------------------
 
 @needs_db
-def test_each_regular_grocery_without_a_word_is_asked_and_only_those(people, session):
+def test_each_grocery_bought_without_a_word_is_asked_and_only_those(people, session):
     repository, _ = people
-    namer = Namer({"p-milch": "H-Milch", "p-gurke": "Gewürzgurken"})
-    assert offers_api.word_due(repository, namer, TODAY, Counter()) == 2
+    namer = Namer({"p-milch": "H-Milch", "p-gurke": "Gewürzgurken", "p-quark": "Quark"})
+    assert offers_api.word_due(repository, namer, TODAY, Counter()) == 3
     assert len(namer.calls) == 1, "one batched call"
-    assert namer.asked_about(0) == {"p-milch", "p-gurke"}, \
-        "not roses (no grocery), not the one-off quark, not the oat drink from long ago"
+    assert namer.asked_about(0) == {"p-milch", "p-gurke", "p-quark", "p-hafer"}, \
+        "every grocery anyone bought, a one-off and one from long ago too; not roses"
     assert (word_of(session, "p-milch"), word_of(session, "p-gurke")) == (
         "H-Milch", "Gewürzgurken")
 
@@ -186,6 +188,8 @@ def test_nothing_due_means_no_model_call(people, session):
     repository, _ = people
     set_word(session, "p-milch", "H-Milch")
     set_word(session, "p-gurke", "Gewürzgurken")
+    set_word(session, "p-quark", "Quark")
+    set_word(session, "p-hafer", "Haferdrink")
     namer = Namer()
     assert offers_api.word_due(repository, namer, TODAY, Counter()) == 0
     assert offers_api.word_due(repository, namer, TODAY) == 0
