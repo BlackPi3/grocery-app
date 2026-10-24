@@ -693,6 +693,9 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+- (owner, 2026-10-24) **How Home's tiles respond to a tap**, to be reworked:
+  a tap does not open the very thing the tile shows (for instance, the
+  item a turning tile is on right now).
 - (owner, 2026-10-24) **What counts as something a person needs**: one
   rhythm does not fit every kind (milk every 3 days, a cleaner every two
   months). Today offers search products bought on 3+ days in 90 (16 of the
