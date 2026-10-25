@@ -33,8 +33,16 @@ session (laptop or cloud) can pick up from here. How we work is in
   450 products, a few cents once), told only what the product is. No rule
   fills in a product it gave nothing usable (owner: "don't add rules like
   that"). Columns `products.storage`, `keeps_days`, `storage_by` (migration
-  0029); they travel in purchases.json (contract 10). Next: the trip plan
-  on top, its backtest first.
+  0029); they travel in purchases.json (contract 10). Reviewed by
+  `check-risky` (its tests: `tests/test_storage_rules.py`): a model call
+  that failed (Gemini's "no JSON") ended the pass, and the same batch was
+  sent again every hour while the products after it waited; now, in all
+  four model passes (judge, flyer words, list words, storage), a failed
+  call counts as an unanswered one and the pass goes on
+  (`offer_match.ask`). The count starts anew with the server, so an
+  outage delays answers only until the next start. Only products with a
+  known grocery category are asked, as only they reach the list. Next:
+  the trip plan on top, its backtest first.
 
 - Agreed (owner, 2026-10-25): **step 4, the list's cost at the shops near
   the person**, not only at those they go to ("the stores I buy from are
