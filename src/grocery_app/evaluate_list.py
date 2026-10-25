@@ -14,6 +14,11 @@ kinds actually bought in the seven days from it.
 - **urgency, checked**: kinds grouped by `when`, and the share bought within
   `NOW_CHECK_DAYS` days. `now` should be bought sooner than `later`.
 
+A kind is a line of the list (`shopping_list.item_key`): an item, or the
+category of a product not named yet. Every method is held to the list's own
+rule that a kind just bought is not suggested (`shopping_list.due`); one row
+shows the list without it, to show what that rule costs.
+
 The baseline is the rule the list replaces, applied to kinds: due when the
 median gap between buying days has passed since the last buy
 (`insights.repurchase`), stopped when three gaps and a week overdue.
@@ -29,7 +34,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any
 
-from grocery_app.shopping_list import LIST_CHANCE, MIN_DAYS, WEEK, kinds
+from grocery_app.shopping_list import LIST_CHANCE, MIN_DAYS, WEEK, due, item_key, kinds
 
 NOW_CHECK_DAYS = 3
 # Other cut-offs, to show what a longer or shorter list would cost.
@@ -42,7 +47,7 @@ def gap_rule(rows: list[dict[str, Any]], as_of: date) -> set[str]:
     for p in rows:
         d = date.fromisoformat(p["date"])
         if p.get("category") and d < as_of:
-            days[p["category"]].add(d)
+            days[item_key(p)].add(d)
     due = set()
     for k, ds in days.items():
         ds = sorted(ds)
@@ -58,7 +63,7 @@ def gap_rule(rows: list[dict[str, Any]], as_of: date) -> set[str]:
 
 def _bought(rows: list[dict[str, Any]], start: date, days: int) -> set[str]:
     end = start + timedelta(days=days)
-    return {p["category"] for p in rows
+    return {item_key(p) for p in rows
             if p.get("category") and start <= date.fromisoformat(p["date"]) < end}
 
 
@@ -76,6 +81,8 @@ def backtest(rows: list[dict[str, Any]], weeks: int = 8) -> dict[str, Any]:
     # The last week ends on the last day with a receipt.
     start = max(dated) - timedelta(days=WEEK * weeks - 1)
     methods = {f"chance >= {c:.0%}": [0, 0] for c in CHANCES}
+    no_wait = f"chance >= {LIST_CHANCE:.0%}, just bought too"
+    methods[no_wait] = [0, 0]
     methods["gap rule"] = [0, 0]
     calibration = defaultdict(lambda: [0, 0])
     urgency = defaultdict(lambda: [0, 0])
@@ -87,17 +94,20 @@ def backtest(rows: list[dict[str, Any]], weeks: int = 8) -> dict[str, Any]:
         bought_total += len(bought)
         drafted = kinds(rows, day)
         for c in CHANCES:
-            listed = {k["kind"] for k in drafted if k["chance"] >= c}
+            listed = {k["kind"] for k in drafted if k["chance"] >= c and due(k, day)}
             methods[f"chance >= {c:.0%}"][0] += len(listed)
             methods[f"chance >= {c:.0%}"][1] += len(listed & bought)
-        due = gap_rule(rows, day)
-        methods["gap rule"][0] += len(due)
-        methods["gap rule"][1] += len(due & bought)
+        listed = {k["kind"] for k in drafted if k["chance"] >= LIST_CHANCE}
+        methods[no_wait][0] += len(listed)
+        methods[no_wait][1] += len(listed & bought)
+        gap_due = gap_rule(rows, day)
+        methods["gap rule"][0] += len(gap_due)
+        methods["gap rule"][1] += len(gap_due & bought)
         for k in drafted:
             group = calibration[min(int(k["chance"] * 10), 9)]
             group[0] += 1
             group[1] += k["kind"] in bought
-            if k["chance"] >= LIST_CHANCE:
+            if k["chance"] >= LIST_CHANCE and due(k, day):
                 urgency[k["when"]][0] += 1
                 urgency[k["when"]][1] += k["kind"] in soon
     return {
@@ -129,9 +139,9 @@ def format_report(result: dict[str, Any]) -> str:
            f"{result['kinds_bought_per_week']} kinds bought a week; "
            f"the list is chance >= {result['list_chance']:.0%}",
            "",
-           f"{'method':14} {'on list':>8} {'bought':>7} {'caught':>7}"]
+           f"{'method':30} {'on list':>8} {'bought':>7} {'caught':>7}"]
     for m, r in result["methods"].items():
-        out.append(f"{m:14} {r['per_week']:>8} {pct(r['bought']):>7} {pct(r['caught']):>7}")
+        out.append(f"{m:30} {r['per_week']:>8} {pct(r['bought']):>7} {pct(r['caught']):>7}")
     out += ["", f"{'chance given':14} {'kinds':>8} {'bought':>7}"]
     for r in result["calibration"]:
         out.append(f"{r['chance']:14} {r['kinds']:>8} {pct(r['bought']):>7}")
