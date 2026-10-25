@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: the app as the person's shopping planner agreed; step 1, each product's storage (fridge, freezer, cupboard) and how long it keeps, built; next, the trip plan on top.
+**Last updated:** 2026-10-25, laptop: storage per product live (#207); next session, the trip plan, starting from the open topic below.
 
 ## Now
 
@@ -41,8 +41,20 @@ session (laptop or cloud) can pick up from here. How we work is in
   call counts as an unanswered one and the pass goes on
   (`offer_match.ask`). The count starts anew with the server, so an
   outage delays answers only until the next start. Only products with a
-  known grocery category are asked, as only they reach the list. Next:
-  the trip plan on top, its backtest first.
+  known grocery category are asked, as only they reach the list. **Live
+  2026-10-25:** 425 of the owner's products answered in one pass (about 25
+  calls, a few cents); read through: 1 clearly wrong (fresh Mango, cupboard
+  730 days), 2 debatable (one egg product cupboard, the rest fridge; a
+  baked salmon fillet fridge, likely frozen); the rest right, including
+  splits inside a category. One batch of 20 came back with nothing usable
+  and is asked again next pass. The lactose-free milk says cupboard
+  because its product is the wrong one (Parked, top).
+  **Next session, first:** the trip plan, starting from an open topic not
+  yet raised with the owner: he shops every 1-2 days (median gap 1 day,
+  118 shopping days, 6 lines a day, p90 18), so "until the next trip" is
+  usually tomorrow; the plan's horizon and "when" must work for that
+  rhythm as well as for weekly shoppers. Then the engine and its backtest
+  (on `evaluate_list`'s pattern) before any screen.
 
 - Agreed (owner, 2026-10-25): **step 4, the list's cost at the shops near
   the person**, not only at those they go to ("the stores I buy from are
