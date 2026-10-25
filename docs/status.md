@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: list step 4 (a), the supermarkets near your shops, built; security audit and list sync parked; next, offers on the list.
+**Last updated:** 2026-10-25, laptop: list step 4 (a) built; first number for (b): GLOBUS against ALDI; security audit and list sync parked; next, offers on the list.
 
 ## Now
 
@@ -45,6 +45,16 @@ session (laptop or cloud) can pick up from here. How we work is in
   says so (`extract` v7: the shop's own address, never a customer's
   delivery or billing address; "" when an invoice prints no seller's);
   paid test passed with Gemini and with the subscription.
+  **(b), the first number** (owner: "a number asap"; his list had 2 lines,
+  so his last 8 weeks of food at GLOBUS were priced instead,
+  `docs/evaluations/2026-10-25-globus-vs-aldi.md`): on the 57% ALDI's site
+  prices, ALDI is 13% cheaper at shelf price (3.73 EUR a week) but only 0.52
+  a week against what he paid (his 10% discounts). Jeden Tag costs what
+  ALDI's own brand costs; the whole gap is other brands. Not priced: loose
+  produce, bakery, some organic. Agreed for (b): price the list plus the
+  week's suggestions; one shop, a second only in the same place; a trip
+  costs its detour from the usual shop (car about 0.15 EUR/km; no car: only
+  within about 1 km); one optional tap asks car or not.
 
 - Agreed (owner, 2026-10-23): **the end goal is a shopping list.** A drafted
   list of what a person needs now or is running out of, big enough that offer
