@@ -327,7 +327,22 @@
   .more { margin-top: 6px; font-size: 13px; padding: 6px 12px; }
   .list-item { cursor: default; position: relative; background: var(--card);
     transition: transform 0.2s; touch-action: pan-y; }
-  .list-item .list-what { min-width: 0; }
+  .list-item .list-what { min-width: 0; display: flex; align-items: center; gap: 12px; }
+  .list-item.suggested .what { color: var(--ink2); }
+  /* Not decided yet: paler, inside a dashed line; what was accepted is solid. */
+  .card.tentative { border: 1px dashed var(--muted);
+    background: color-mix(in srgb, var(--card) 45%, var(--page)); }
+  .card.tentative .list-item { background: color-mix(in srgb, var(--card) 45%, var(--page)); }
+  .mark { flex: none; width: 22px; height: 22px; padding: 0; border-radius: 50%;
+    border: 2px solid var(--muted); background: none; }
+  .mark.on { background: var(--accent); border-color: var(--accent); }
+  .mark svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2.4;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .list-label { position: sticky; top: var(--head, 64px); z-index: 2; margin: 0;
+    padding: 14px 0 6px; background: var(--page); }
+  .list-part .card { margin-top: 0; }
+  .list-none { color: var(--muted); font-size: 14px; padding: 6px 0; }
+  .list-hint { text-align: center; color: var(--muted); font-size: 13px; margin: 4px 0 0; }
   .list-item .link { flex: none; font-size: 13px; }
   .list-acts { display: flex; gap: 6px; flex: none; }
   .list-acts button { font-size: 12px; padding: 6px 10px; }
@@ -486,13 +501,13 @@ function el(tag, attrs, ...children) {
 // longer: a tap by accident is taken back where it happened (2026-10-08). A
 // ring beside it empties as the time to undo runs out (the owner, 2026-10-14).
 const UNDO_MS = 8000;
-function toast(text, undo) {
+function toast(text, undo, ms = UNDO_MS) {
   const box = document.getElementById("toast");
   box.replaceChildren(el("span", {}, text));
   if (undo) {
     const ring = el("span", { "aria-hidden": "true" });
     ring.innerHTML = '<svg class="undo-ring" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" ' +
-      `style="animation-duration:${UNDO_MS}ms"/></svg>`;
+      `style="animation-duration:${ms}ms"/></svg>`;
     box.append(el("button", { class: "undo", onclick: () => {
       box.style.display = "none";
       undo();
@@ -500,7 +515,7 @@ function toast(text, undo) {
   }
   box.style.display = "flex";
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => { box.style.display = "none"; }, undo ? UNDO_MS : 3500);
+  toast.timer = setTimeout(() => { box.style.display = "none"; }, undo ? ms : 3500);
 }
 
 // A slim note at the top that stays a few seconds and fades: a receipt is
@@ -1909,13 +1924,19 @@ function offersCard(doc) {
 // for the thumb: the most urgent suggestion sits right above the tab bar and
 // the tab opens at the bottom. A swipe right accepts, a swipe left snoozes,
 // or the row's buttons. A snooze leaves at once, with Undo, and is sent when
-// the Undo runs out or the page is left, as a removed receipt is.
-const listOffs = new Map();  // kind -> its Undo timer, or null once sent
-function listParts(doc, off) {
-  const lines = ((doc && doc.lines) || []).filter(l => !off.has(l.kind));
-  return { accepted: lines.filter(l => l.added),
+// the Undo runs out or the page is left, as a removed receipt is. An add
+// works the same way: it moves up at once and Undo takes it back (owner,
+// 2026-10-25: 3 seconds, a mistake is noticed at once).
+const LIST_UNDO_MS = 3000;
+// kind -> { onList, timer }: shown as decided while its Undo runs (timer) and
+// until the server answers (timer null).
+const listWaiting = new Map();
+function listParts(doc, waiting) {
+  const lines = ((doc && doc.lines) || []).filter(l => waiting.get(l.kind)?.onList !== false);
+  const added = l => l.added || waiting.get(l.kind)?.onList === true;
+  return { accepted: lines.filter(added),
            // Most urgent last: nearest the thumb.
-           suggested: lines.filter(l => !l.added).reverse() };
+           suggested: lines.filter(l => !added(l)).reverse() };
 }
 function backDay(iso) {
   const tomorrow = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
@@ -1923,11 +1944,27 @@ function backDay(iso) {
   return "Back " + day(iso).toLocaleDateString("en-GB",
     { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 }
+// Once a person has added or snoozed something, they know the swipes: the
+// hint under the list goes (kept on this phone only).
+const LIST_USED_KEY = "grocery-list-used";
+function listUsed() {
+  try { return localStorage.getItem(LIST_USED_KEY) === "1"; } catch (_) { return false; }
+}
+function markListUsed() {
+  try { localStorage.setItem(LIST_USED_KEY, "1"); } catch (_) { /* private mode */ }
+}
 function listRow(line, suggested) {
-  const row = el("div", { class: "item list-item" },
-    el("div", { class: "list-what" }, el("div", { class: "what", lang: "de" }, line.name),
-       line.usual ? el("div", { class: "meta", lang: "de" },
-         easyName(line.usual.product, line.usual.brand)) : null),
+  // A suggestion looks tentative, an empty circle; what was accepted is solid,
+  // a filled one with a check. The circle adds, as a checkbox would.
+  const mark = el("button", { class: suggested ? "mark" : "mark on", "aria-label":
+    suggested ? `Add ${line.name}` : `${line.name} is on your list`,
+    onclick: suggested ? () => accept(line) : null });
+  if (!suggested) mark.innerHTML = '<svg viewBox="0 0 20 20"><path d="m5.5 10.5 3 3 6-6.5"/></svg>';
+  const row = el("div", { class: "item list-item" + (suggested ? " suggested" : "") },
+    el("div", { class: "list-what" }, mark,
+       el("div", {}, el("div", { class: "what", lang: "de" }, line.name),
+          line.usual ? el("div", { class: "meta", lang: "de" },
+            easyName(line.usual.product, line.usual.brand)) : null)),
     el("div", { class: "list-acts" },
       el("button", { class: "snooze", "aria-label": `Snooze ${line.name}`,
                      onclick: () => snooze(line) }, "Snooze"),
@@ -1939,9 +1976,15 @@ function listRow(line, suggested) {
   swipeBothWays(wrap, row, suggested ? () => accept(line) : null, () => snooze(line));
   return wrap;
 }
+// A part of the list under a label that stays in view while that part is
+// scrolled through: opened at the bottom, the person still sees where they are.
+function listSection(title, count, body) {
+  return el("section", { class: "list-part" },
+    el("div", { class: "label list-label" }, `${title} · ${count}`), body);
+}
 function listView() {
   if (!state.list) return [el("div", { class: "empty" }, "Loading…")];
-  const { accepted, suggested } = listParts(state.list, listOffs);
+  const { accepted, suggested } = listParts(state.list, listWaiting);
   const snoozed = state.list.snoozed || [];
   const out = [];
   if (snoozed.length) {
@@ -1956,33 +1999,34 @@ function listView() {
         el("button", { class: "link", onclick: () => sendListEdit(s.kind, true) },
            "Put back")))));
   }
-  if (accepted.length) out.push(el("div", { class: "card" },
-    accepted.map(l => listRow(l, false))));
-  if (suggested.length) out.push(el("div", { class: "label sub" }, "Suggested"),
-    el("div", { class: "card" }, suggested.map(l => listRow(l, true))));
-  if (!accepted.length && !suggested.length) {
-    out.push(el("div", { class: "empty" }, "Nothing on your list right now"));
+  out.push(listSection("Your list", accepted.length, el("div", { class: "card" },
+    accepted.length ? accepted.map(l => listRow(l, false))
+      : el("div", { class: "list-none" }, "Nothing yet: add from the suggestions below"))));
+  if (suggested.length) {
+    out.push(listSection("Suggested", suggested.length,
+      el("div", { class: "card tentative" }, suggested.map(l => listRow(l, true)))));
+    if (!listUsed()) {
+      out.push(el("div", { class: "list-hint" }, "Swipe right to add · left to snooze"));
+    }
   }
   return out;
 }
-function accept(line) {
-  // Moved up at once; the server's list replaces it when it answers.
-  line.added = true;
+function decide(line, onList) {
+  markListUsed();
+  listWaiting.set(line.kind, { onList,
+    timer: setTimeout(() => sendListEdit(line.kind, onList), LIST_UNDO_MS) });
   render();
-  sendListEdit(line.kind, true);
-}
-function snooze(line) {
-  listOffs.set(line.kind, setTimeout(() => sendListEdit(line.kind, false), UNDO_MS));
-  render();
-  toast(`${line.name}: snoozed`, () => {
-    clearTimeout(listOffs.get(line.kind));
-    listOffs.delete(line.kind);
+  toast(`${line.name}: ${onList ? "added" : "snoozed"}`, () => {
+    clearTimeout(listWaiting.get(line.kind)?.timer);
+    listWaiting.delete(line.kind);
     render();
-  });
+  }, LIST_UNDO_MS);
 }
+function accept(line) { decide(line, true); }
+function snooze(line) { decide(line, false); }
 async function sendListEdit(kind, onList, leaving) {
-  clearTimeout(listOffs.get(kind));
-  if (onList) listOffs.delete(kind); else listOffs.set(kind, null);
+  clearTimeout(listWaiting.get(kind)?.timer);
+  listWaiting.set(kind, { onList, timer: null });
   // keepalive: the request outlives a page that is going away.
   const sent = api(`/v1/list/${encodeURIComponent(kind)}`, {
     method: "PUT", headers: { "Content-Type": "application/json" }, keepalive: true,
@@ -1992,11 +2036,13 @@ async function sendListEdit(kind, onList, leaving) {
     state.list = await sent;
     saveCopy();
   } catch (error) { toast((onList ? "Not added: " : "Not snoozed: ") + error.message); }
-  if (!onList) listOffs.delete(kind);
+  listWaiting.delete(kind);
   render();
 }
-function sendListOffsNow() {
-  for (const [kind, timer] of [...listOffs]) if (timer !== null) sendListEdit(kind, false, true);
+function sendListWaitingNow() {
+  for (const [kind, { onList, timer }] of [...listWaiting]) {
+    if (timer !== null) sendListEdit(kind, onList, true);
+  }
 }
 
 // Follow a finger either way on a row: let go past a third of its width and
@@ -2700,6 +2746,8 @@ function render() {
     document.getElementById("welcome").hidden = false;
   }
   const view = document.getElementById("view");
+  document.documentElement.style.setProperty(
+    "--head", document.querySelector("header").offsetHeight + "px");
   document.getElementById("bar").hidden = !state.checks;
   if (!state.checks) return;
   // What waits for the shopper is a badge on Receipts, not a tab of its own:
@@ -2863,9 +2911,9 @@ document.getElementById("view").addEventListener("focusout", () => {
 });
 // Leaving the page, or hiding it, ends every Undo still running.
 window.addEventListener("pagehide", sendRemovalsNow);
-window.addEventListener("pagehide", sendListOffsNow);
+window.addEventListener("pagehide", sendListWaitingNow);
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") { sendRemovalsNow(); sendListOffsNow(); }
+  if (document.visibilityState === "hidden") { sendRemovalsNow(); sendListWaitingNow(); }
 });
 // Back on the page: another device may have added a receipt meanwhile.
 document.addEventListener("visibilitychange", () => {

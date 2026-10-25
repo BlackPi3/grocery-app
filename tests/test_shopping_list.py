@@ -368,8 +368,8 @@ def test_without_a_database_there_is_no_list():
 
 def test_the_list_reads_bottom_to_top_accepted_first_and_the_most_urgent_last():
     """For the thumb (owner, 2026-10-24): what was accepted at the top, the
-    suggestions under it, the most urgent right above the tab bar. A kind
-    snoozed is off the page while its Undo runs."""
+    suggestions under it, the most urgent right above the tab bar. While its
+    Undo runs, a kind snoozed is off the page and one added is on the list."""
     from grocery_app.api.app import REVIEW_PAGE
     from tests.test_api import run_page_function
 
@@ -378,15 +378,17 @@ def test_the_list_reads_bottom_to_top_accepted_first_and_the_most_urgent_last():
         const day = iso => new Date(iso + "T00:00:00Z");
         const doc = { lines: [{ kind: "brot", added: true }, { kind: "milch", added: false },
                               { kind: "eier", added: false }, { kind: "quark", added: false }] };
-        const parts = listParts(doc, new Set(["eier"]));
+        const waiting = new Map([["eier", { onList: false, timer: 1 }],
+                                 ["quark", { onList: true, timer: 2 }]]);
+        const parts = listParts(doc, waiting);
         console.log(parts.accepted.map(l => l.kind).join(","));
         console.log(parts.suggested.map(l => l.kind).join(","));
-        console.log(JSON.stringify(listParts(null, new Set())));
+        console.log(JSON.stringify(listParts(null, new Map())));
         const at = d => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
         console.log(backDay(at(1)));
         console.log(backDay("2026-10-29"));
     """)
-    assert out == ["brot", "quark,milch", '{"accepted":[],"suggested":[]}',
+    assert out == ["brot,quark", "milch", '{"accepted":[],"suggested":[]}',
                    "Back tomorrow", "Back Thu 29 Oct"]
 
 
@@ -399,39 +401,48 @@ def test_the_list_has_the_tab_and_insights_opens_from_home():
     assert "cards.push(insightsTile());" in page
 
 
-def test_a_kind_taken_off_is_sent_when_its_undo_runs_out_or_the_page_is_left():
+def test_an_add_or_snooze_is_sent_when_its_undo_runs_out_or_the_page_is_left():
     """As a removed receipt: Undo sends nothing, leaving the page sends what
-    is still waiting, and a kind put back is sent at once."""
+    is still waiting, and a kind put back is sent at once. Both an add and a
+    snooze can be undone, for 3 seconds (owner, 2026-10-25)."""
     from grocery_app.api.app import REVIEW_PAGE
     from tests.test_api import run_page_function
 
     page = REVIEW_PAGE.read_text(encoding="utf-8")
-    assert 'window.addEventListener("pagehide", sendListOffsNow)' in page
-    out = run_page_function(page, "snooze sendListEdit sendListOffsNow", """
-        const UNDO_MS = 8000;
-        const listOffs = new Map();
+    assert "const LIST_UNDO_MS = 3000;" in page
+    assert 'window.addEventListener("pagehide", sendListWaitingNow)' in page
+    out = run_page_function(page, "decide accept snooze sendListEdit sendListWaitingNow "
+                                  "markListUsed", """
+        const LIST_UNDO_MS = 3000;
+        const listWaiting = new Map();
         const sent = [];
-        let undo = null;
+        let undo = null, undoFor = null;
         globalThis.api = async (path, opts) => {
           sent.push([opts.method, path, opts.body, opts.keepalive ? "keepalive" : ""].join(" "));
           return { lines: [], snoozed: [] };
         };
-        globalThis.toast = (text, onUndo) => { undo = onUndo; };
+        globalThis.toast = (text, onUndo, ms) => { undo = onUndo; undoFor = ms; };
         globalThis.render = () => {};
         globalThis.saveCopy = () => {};
         globalThis.state = {};
         snooze({ kind: "milch", name: "Milch" });
+        console.log(undoFor);
+        undo();
+        accept({ kind: "brot", name: "Brot" });
         undo();
         snooze({ kind: "eier", name: "Eier" });
-        console.log([...listOffs.keys()].join(","));
-        sendListOffsNow();
-        sendListOffsNow();
+        accept({ kind: "skyr", name: "Skyr" });
+        console.log([...listWaiting.keys()].join(","));
+        sendListWaitingNow();
+        sendListWaitingNow();
         sendListEdit("quark", true);
         setTimeout(() => { console.log(sent.join(" | ")); process.exit(0); }, 10);
     """)
-    assert out == ["eier", 'PUT /v1/list/eier {"on_list":false} keepalive | '
-                           'PUT /v1/list/quark {"on_list":true} keepalive'], \
-        "Milch was undone; Eier sent once, on leaving; Quark put back at once"
+    assert out == ["3000", "eier,skyr",
+                   'PUT /v1/list/eier {"on_list":false} keepalive | '
+                   'PUT /v1/list/skyr {"on_list":true} keepalive | '
+                   'PUT /v1/list/quark {"on_list":true} keepalive'], \
+        "Milch and Brot undone; Eier and Skyr sent once, on leaving; Quark put back at once"
 
 
 # --- items, not categories (owner, 2026-10-24) -------------------------------------
@@ -476,3 +487,27 @@ def test_the_server_takes_an_item_the_asker_bought_and_nothing_made_up(two_lists
     assert snoozed.status_code == 200 and snoozed.json()["snoozed"][0]["name"] == "H-Milch"
     assert client.put("/v1/list/walnüsse", headers=OWNER,
                       json={"on_list": True}).status_code == 422, "never bought"
+
+
+def test_the_swipe_hint_goes_once_the_person_has_added_or_snoozed():
+    from grocery_app.api.app import REVIEW_PAGE
+    from tests.test_api import run_page_function
+
+    page = REVIEW_PAGE.read_text(encoding="utf-8")
+    assert "function decide(line, onList) {\n  markListUsed();" in page
+    assert "function accept(line) { decide(line, true); }" in page
+    assert "function snooze(line) { decide(line, false); }" in page
+    out = run_page_function(page, "listUsed markListUsed", """
+        const LIST_USED_KEY = "grocery-list-used";
+        const kept = {};
+        globalThis.localStorage = { getItem: k => kept[k] ?? null,
+                                    setItem: (k, v) => { kept[k] = v; } };
+        console.log(listUsed());
+        markListUsed();
+        console.log(listUsed());
+        globalThis.localStorage = { getItem: () => { throw new Error("private"); },
+                                    setItem: () => { throw new Error("private"); } };
+        markListUsed();
+        console.log(listUsed());
+    """)
+    assert out == ["false", "true", "false"], "no storage: the hint stays, nothing breaks"
