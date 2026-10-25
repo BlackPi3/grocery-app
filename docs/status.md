@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: security audit parked until publishing; next, offers on the list.
+**Last updated:** 2026-10-25, laptop: security audit and list sync parked; next, offers on the list.
 
 ## Now
 
@@ -755,6 +755,10 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   2026-10-25: many people use it now).
 
 ## Parked (later, not now)
+
+- (owner, 2026-10-25) **The list where the person already keeps one**: sync
+  it with the grocery list they use now (Reminders or whatever app), or let
+  our app be their grocery list app too.
 
 - (owner, 2026-10-25) **The security and privacy audit**, for when we start
   publishing (Google sign-in out of Testing, the App Store). Many people
