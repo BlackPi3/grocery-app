@@ -72,6 +72,22 @@ def test_a_broken_answer_answers_nothing():
         assert asked == {"p-1"} and said == {}
 
 
+def test_a_failed_batch_does_not_hold_up_the_next():
+    """Review of PR #207: a batch the model fails on is skipped, not the end
+    of the pass, so the products after it are still answered."""
+    calls = []
+
+    def flaky(system, prompt, schema):
+        calls.append(prompt)
+        if len(calls) == 1:
+            raise RuntimeError("no JSON")
+        return {"products": [{"product": "p-24", "storage": "fridge", "keeps_days": 5}]}
+
+    products = {f"p-{i:02}": {"name": "Milch"} for i in range(25)}
+    got = list(storage.answers(products, flaky))
+    assert [(len(asked), said) for asked, said in got] == [(20, {}), (5, {"p-24": ("fridge", 5)})]
+
+
 def test_products_are_asked_twenty_to_a_call_and_not_at_all_for_none():
     model = FakeModel()
     products = {f"p-{i:02}": {"name": "Milch"} for i in range(45)}
@@ -111,15 +127,21 @@ def test_a_bought_grocery_is_asked_once_and_carries_its_answer(offer_history, se
 
 
 @db
-def test_a_failed_call_keeps_nothing(offer_history, session):  # noqa: F811
+def test_a_failed_call_keeps_nothing_and_counts_as_asked(offer_history, session):  # noqa: F811
     from grocery_app.api.offers import storage_due
     from grocery_app.db.models import Product
 
     repository, _ = offer_history
 
-    def down(*a):
+    calls = []
+
+    def down(system, prompt, schema):
+        calls.append(prompt)
         raise RuntimeError("busy")
 
-    with pytest.raises(RuntimeError):
-        storage_due(repository, down)
+    asked: Counter = Counter()
+    for _ in range(offer_match.MOST_ASKS + 2):
+        assert storage_due(repository, down, asked) == 0
     assert session.get(Product, "p-0001").storage is None
+    assert len(calls) == offer_match.MOST_ASKS, \
+        "a call that keeps failing is not paid for every pass (risk check, PR #207)"

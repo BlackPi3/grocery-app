@@ -28,12 +28,15 @@ against is kept with no saving, and says so.
 
 from __future__ import annotations
 
+import logging
 import re
 import statistics
 from collections.abc import Iterator
 from typing import Any
 
 from grocery_app.insights import shelf_unit_price
+
+log = logging.getLogger(__name__)
 
 VERDICTS = ("same_product", "same_kind", "no")
 LABELS = {"same_product": "your product", "same_kind": "like yours"}
@@ -64,6 +67,18 @@ JUDGE_SCHEMA = {"type": "object", "properties": {"verdicts": {"type": "array", "
         "product": {"type": "string"}, "offer": {"type": "string"},
         "verdict": {"type": "string", "enum": list(VERDICTS)}},
     "required": ["product", "offer", "verdict"]}}}, "required": ["verdicts"]}
+
+
+def ask(decider: Any, system: str, prompt: str, schema: dict[str, Any]) -> Any:
+    """The model's answer, or None when the call failed. A failed call is an
+    unanswered one, counted against `MOST_ASKS` like any other, so a batch
+    the model keeps failing on is not paid for every hour, and does not hold
+    up the batches after it (risk check, PR #207)."""
+    try:
+        return decider(system, prompt, schema)
+    except Exception:
+        log.exception("a model call failed")
+        return None
 
 
 def _describe_product(product: dict[str, Any]) -> str:
@@ -106,7 +121,7 @@ def judge_batches(products: dict[str, dict[str, Any]],
             for o in candidates[pid]:
                 lines.append(f"  - offer {o['id']}: {_describe_offer(o)}")
                 asked.add((pid, o["id"]))
-        answer = decider(JUDGE_SYSTEM, "\n".join(lines), JUDGE_SCHEMA)
+        answer = ask(decider, JUDGE_SYSTEM, "\n".join(lines), JUDGE_SCHEMA)
         verdicts = answer.get("verdicts") if isinstance(answer, dict) else None
         said: dict[tuple[str, str], str] = {}
         for v in verdicts if isinstance(verdicts, list) else []:
@@ -163,7 +178,7 @@ def flyer_words(products: dict[str, dict[str, Any]], decider: Any,
     ids = sorted(products)
     for start in range(0, len(ids), batch):
         asked = ids[start:start + batch]
-        answer = decider(WORDS_SYSTEM, "\n".join(
+        answer = ask(decider, WORDS_SYSTEM, "\n".join(
             f"Product {pid}: {_describe_product(products[pid])}" for pid in asked), WORDS_SCHEMA)
         words = answer.get("words") if isinstance(answer, dict) else None
         said: dict[str, str] = {}
@@ -211,7 +226,7 @@ def list_words(words: list[str], given: list[str], decider: Any,
         prompt = "\n".join(f"Word: {w}" for w in asked)
         if given:
             prompt += "\n\nList words already given: " + ", ".join(given)
-        answer = decider(LIST_WORDS_SYSTEM, prompt, LIST_WORDS_SCHEMA)
+        answer = ask(decider, LIST_WORDS_SYSTEM, prompt, LIST_WORDS_SCHEMA)
         found = answer.get("words") if isinstance(answer, dict) else None
         said: dict[str, str] = {}
         for w in found if isinstance(found, list) else []:

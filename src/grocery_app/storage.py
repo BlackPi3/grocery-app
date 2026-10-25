@@ -26,7 +26,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
-from grocery_app.offer_match import _describe_product
+from grocery_app.offer_match import _describe_product, ask
 
 VERSION = "storage-v1"
 
@@ -67,12 +67,12 @@ def answers(products: dict[str, dict[str, Any]], decider: Any,
             batch: int = 20) -> Iterator[tuple[set[str], dict[str, tuple[str, int]]]]:
     """One model call per `batch` products, each yielding the products it
     asked about and, for those it answered usably, `(storage, keeps_days)`.
-    A place not in `PLACES` or a number of days out of range is no answer:
-    the product is left without either."""
+    A place not in `PLACES`, a number of days out of range, or a failed call
+    is no answer: the product is left without either."""
     ids = sorted(products)
     for start in range(0, len(ids), batch):
         asked = ids[start:start + batch]
-        answer = decider(SYSTEM, "\n".join(
+        answer = ask(decider, SYSTEM, "\n".join(
             f"Product {pid}: {_describe_product(products[pid])}" for pid in asked), SCHEMA)
         found = answer.get("products") if isinstance(answer, dict) else None
         said: dict[str, tuple[str, int]] = {}
