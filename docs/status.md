@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: list step 4 (a) built; first number for (b): GLOBUS against ALDI; security audit and list sync parked; next, offers on the list.
+**Last updated:** 2026-10-25, laptop: list step 4 (a) built; first numbers for (b): GLOBUS against ALDI, Lidl against ALDI; security audit and list sync parked; next, offers on the list.
 
 ## Now
 
@@ -55,6 +55,14 @@ session (laptop or cloud) can pick up from here. How we work is in
   week's suggestions; one shop, a second only in the same place; a trip
   costs its detour from the usual shop (car about 0.15 EUR/km; no car: only
   within about 1 km); one optional tap asks car or not.
+  The owner, 2026-10-25: all of step 4 is an experiment, nothing set in
+  stone; next idea, from the history: "bought at ALDI, you'd have saved X",
+  then lists big enough to justify a trip. **Lidl publishes no shelf
+  prices** (only flyer food); Open Prices' 343 Lidl products of 2026, like
+  for like with ALDI SÜD: 49% the same price to the cent, 62% within 10%,
+  median ratio 1.00; the far pairs are mostly matching mistakes (pack sizes,
+  brand against own brand) (`docs/evaluations/2026-10-25-lidl-vs-aldi.md`).
+  So ALDI's list stands in for Lidl's on own-brand basics.
 
 - Agreed (owner, 2026-10-23): **the end goal is a shopping list.** A drafted
   list of what a person needs now or is running out of, big enough that offer
