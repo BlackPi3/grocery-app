@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: rules compared, defaults parked; next, offers on the list.
+**Last updated:** 2026-10-25, laptop: milestone conditions met (owner); non-groceries parked; next, offers on the list.
 
 ## Now
 
@@ -747,11 +747,21 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 - The screens are settled: unchanged for 2 weeks after the designer's input.
   All screens are redesigned as of 2026-10-13 (Insights last); the two weeks
   run from there.
-- 2 weeks of real use with no database fix by hand.
+- ~~2 weeks of real use with no database fix by hand.~~ Met (owner,
+  2026-10-25: no fix by hand for some time).
 - ~~Google sign-in on the web.~~ Works (2026-10-13, the owner's phone).
-- A second person using it with real receipts.
+- ~~A second person using it with real receipts.~~ Met (owner,
+  2026-10-25: many people use it now).
 
 ## Parked (later, not now)
+
+- (owner, 2026-10-25) **Recognising what is not a grocery**: supplements,
+  alcohol, cigarettes, petrol, clothes. A person may upload such a receipt
+  and it is kept, but groceries are the focus. Today the code leaves out
+  only cafés and "Sonstiges" (`categories.NOT_GROCERY_BRANCHES`); alcohol is
+  a grocery branch, and supplements sit under Drogerie. Earlier direction
+  (2026-10-16): vice, beauty and supplements are not groceries; whether
+  that is the full definition is still open.
 
 - (owner, 2026-10-25) **A default lasting time per item, and learning from
   snoozes**, for when a second person starts: a new person has no history,
