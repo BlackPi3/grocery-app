@@ -755,6 +755,10 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+- (owner, 2026-10-25) **What the users' usage has taught us so far**, other
+  than asking them: what their uploads, edits, snoozes and visits say about
+  how the app is used. Not looked at yet.
+
 - (owner, 2026-10-25) **Recognising what is not a grocery**: supplements,
   alcohol, cigarettes, petrol, clothes. A person may upload such a receipt
   and it is kept, but groceries are the focus. Today the code leaves out
