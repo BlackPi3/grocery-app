@@ -47,7 +47,9 @@ DEFAULT_MODEL = "claude-sonnet-5"
 # as a receipt: the shop's own name, the order date, items as lines.
 # v6 (2026-10-11): a PDF can hold several purchases (an app's history over
 # weeks); one receipt each, never one for the whole file.
-PROMPT_VERSION = "v6"
+# v7 (2026-10-25): `store_location` is the shop's address, never a
+# customer's; it is sent to OpenStreetMap to find supermarkets nearby.
+PROMPT_VERSION = "v7"
 
 # Server-side refusal fallbacks are only accepted on these models; Sonnet and
 # Haiku reject the parameter with a 400.
@@ -159,7 +161,9 @@ Rules, in priority order:
    - `store`: the chain name as printed at the top (e.g. `Lidl`, `ALDI SÜD`),
      even when it is printed only as a large logo (`GLOBUS`). Never leave it
      empty.
-   - `store_location`: the address line(s) as printed, joined with ", ".
+   - `store_location`: the shop's own address line(s) as printed, joined
+     with ", ". Never a customer's delivery or billing address: on an invoice
+     or online order, the seller's address, or "" when it prints none.
    - `date` as YYYY-MM-DD, `time` as HH:MM (24h), `currency` "EUR". A
      two-digit year is in this century: `09.07.26` is 2026-07-09.
    - `printed_total`: the amount actually paid ("Summe", "zu zahlen", "Total").
