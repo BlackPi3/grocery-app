@@ -353,8 +353,9 @@ def test_undo_shows_a_ring_that_empties_in_the_time_left_to_undo(client):
     """The owner, 2026-10-14: the time to undo, shown as a clock-like ring."""
     page = client.get("/").text
     assert "const UNDO_MS = 8000;" in page
-    assert "animation-duration:${UNDO_MS}ms" in page, "the ring runs as long as the Undo"
-    assert "undo ? UNDO_MS : 3500" in page and "sendRemoval(receiptId), UNDO_MS)" in page, \
+    assert "function toast(text, undo, ms = UNDO_MS)" in page
+    assert "animation-duration:${ms}ms" in page, "the ring runs as long as the Undo"
+    assert "undo ? ms : 3500" in page and "sendRemoval(receiptId), UNDO_MS)" in page, \
         "the message and the removal end with the ring"
 
 def test_the_repository_is_chosen_by_the_environment(tmp_path, monkeypatch):

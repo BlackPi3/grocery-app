@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-24, laptop: the shopping list, step 3 (the screen, shown before merge).
+**Last updated:** 2026-10-25, laptop: the list's look agreed; just-bought items out of the suggestions.
 
 ## Now
 
@@ -49,12 +49,14 @@ session (laptop or cloud) can pick up from here. How we work is in
   clue to; adding one never bought is parked. On live data 2026-10-24: 35
   suggestions. `scripts/preview.py --height` takes a taller shot. Merged as #188.
   **Made clearer (owner, 2026-10-24: "a person might not know what's
-  happening"), waiting for his look:** suggestions look tentative (an empty
+  happening"), agreed 2026-10-25 (#189):** suggestions look tentative (an empty
   circle, lighter name; a tap on it adds), what was accepted solid (a filled
   circle with a check); "Your list · N" and "Suggested · N" stay under the
   header while their part is scrolled; an empty list says "Nothing yet: add
   from the suggestions below"; "Swipe right to add · left to snooze" under
-  the list until the first add or snooze on that phone.
+  the list until the first add or snooze on that phone. Agreed (owner,
+  2026-10-25): suggestions sit paler inside a dashed line, the list solid;
+  an add as well as a snooze has Undo, for 3 seconds (receipts keep 8).
 
 - Built (owner, 2026-10-24, "instead of items, it's showing categories"):
   **the list is items, not categories.** A row says "Walnüsse", with the
@@ -712,6 +714,10 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 - A second person using it with real receipts.
 
 ## Parked (later, not now)
+
+- (owner, 2026-10-25) **A reason on a suggestion other than need**: the
+  price dropped, so it may be a good time to buy if there is room to store
+  it. Belongs with step 4, offers on the list.
 
 - (owner, 2026-10-24) **Splitting the list into several trips**: then where
   to shop could change. For now one trip buys the whole list.
