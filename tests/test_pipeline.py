@@ -18,7 +18,7 @@ def test_receipts_become_purchases_become_insights(data):
                                 data / "products" / "products.json",
                                 data / "products" / "resolution.json",
                                 None, data / "products")
-    assert purchases["contract_version"] == 9
+    assert purchases["contract_version"] == 10
     assert purchases["meta"]["receipts"] == 2
     assert purchases["meta"]["product_lines"] == 5
     assert purchases["meta"]["unresolved_items"] == ["Geheimnis"]
@@ -579,9 +579,35 @@ def test_a_products_item_word_crosses_from_the_tables_into_the_list(data, sessio
     session.commit()
     history = PostgresRepository(make_session_factory(session.get_bind())).purchases()
 
-    assert history["contract_version"] == 9
+    assert history["contract_version"] == 10
     items = {(p["product_id"], p.get("item")) for p in history["purchases"]
              if p["type"] == "product" and p["product_id"]}
     assert items == {("p-0001", "H-Milch"), ("p-0002", None)}
     lines = kinds(list_rows(history), date(2026, 12, 1))
     assert [(k["kind"], k["name"]) for k in lines] == [("h-milch", "H-Milch")]
+
+
+def test_where_a_product_is_kept_crosses_from_the_tables_into_purchases(data, session):
+    """What a model said about a product's storage (`products.storage`,
+    `products.keeps_days`) reaches each of its lines in purchases.json, and
+    the document still passes its contract. A product it said nothing about
+    has neither (owner, 2026-10-25: storage is the product's)."""
+    from grocery_app.api.repository import PostgresRepository
+    from grocery_app.api.schemas import PurchasesDocument
+    from grocery_app.db.io import import_data
+    from grocery_app.db.models import Product
+    from grocery_app.db.session import make_session_factory
+
+    import_data(session, data / "receipts" / "truth", data / "products" / "products.json",
+                data / "products" / "resolution.json",
+                data / "receipts" / "line_resolutions.json", data / "products",
+                data / "receipts" / "uncounted_lines.json")
+    milk = session.get(Product, "p-0001")
+    milk.storage, milk.keeps_days = "fridge", 9
+    session.commit()
+    history = PostgresRepository(make_session_factory(session.get_bind())).purchases()
+
+    PurchasesDocument.model_validate(history)
+    kept = {(p["product_id"], p.get("storage"), p.get("keeps_days"))
+            for p in history["purchases"] if p["type"] == "product" and p["product_id"]}
+    assert kept == {("p-0001", "fridge", 9), ("p-0002", None, None)}

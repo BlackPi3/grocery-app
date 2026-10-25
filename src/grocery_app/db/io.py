@@ -265,9 +265,14 @@ def load_normalizer_inputs(session: Session,
     # (`normalizer.shared_attributes`). That is its flyer word's list word
     # (`list_words`: Romatomaten, Tomaten), else the flyer word itself
     # (`products.offer_word`) until it has one; both are given by a model.
+    # Where it is kept and how long it keeps travel as `storage` and
+    # `keeps_days` (`grocery_app.storage`), also a model's.
     listed = {w.word: w.list_word for w in session.scalars(select(ListWord))}
-    products = {p.id: {**product_to_dict(p), **({"item": listed.get(p.offer_word, p.offer_word)}
-                                                 if p.offer_word else {})}
+    products = {p.id: {**product_to_dict(p),
+                       **({"item": listed.get(p.offer_word, p.offer_word)}
+                          if p.offer_word else {}),
+                       **({"storage": p.storage, "keeps_days": p.keeps_days}
+                          if p.storage else {})}
                 for p in session.scalars(select(Product))}
 
     resolution: dict[tuple[str, str], list[str]] = {}
