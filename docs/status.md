@@ -4,9 +4,45 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: security audit and list sync parked; next, offers on the list.
+**Last updated:** 2026-10-25, laptop: list step 4 (a), the supermarkets near your shops, built; security audit and list sync parked; next, offers on the list.
 
 ## Now
+
+- Agreed (owner, 2026-10-25): **step 4, the list's cost at the shops near
+  the person**, not only at those they go to ("the stores I buy from are
+  known; just look for stores nearby"). (a) Which supermarkets are near the
+  shops on their receipts. (b) The list priced at each: per line, this
+  week's offer, else the chain's own website price (ALDI SÜD crawled, 3,220
+  products), else a price on anyone's receipt there, else their own; a line
+  is the same kind at a like size ("like yours"); a chain gets a total only
+  when most of the list is priced. When to show it and how big a saving is
+  worth how far are decided on those numbers. Shelf prices change rarely
+  (in waves, months apart; not measured yet), so the sites are read weekly
+  and what changed counted.
+  **(a) built:** `grocery_app/nearby.py` reads a receipt's printed address
+  as street and postcode (`Fischbachstr. 121 - 66125 Sbr.-Dudweiler`),
+  places it with OpenStreetMap's Nominatim, and lists every supermarket
+  within 3 km with Overpass, with its chain (the map's `brand`) and
+  distance. A server thread (`api/nearby.py`) does it for each person's
+  shops (receipts of the last 90 days, seen twice), once per shop for
+  everyone, again after 30 days; a shop nobody's receipts name is forgotten
+  (tables `shop_places`, `nearby_stores`, migration 0028). `GET
+  /v1/stores/nearby` gives the asker's shops and each chain's branch
+  nearest any of them. Only the printed street and postcode, then a point,
+  are sent; the privacy page names OpenStreetMap. Overpass turns away a
+  browser-like name (the offers' user agent) and took 30-40 s an answer on
+  25 Oct; the thread waits up to 90 s. Reviewed by `check-risky` (its tests:
+  `tests/test_nearby_stores_rule.py`): an answer cut short or an Overpass
+  time-out (200, no places, a `remark`) had passed as "no supermarkets" for
+  30 days; both are now a failed look, due again (the offers' search had the
+  same gap for a cut-short answer, closed too). A deleted account's shops go
+  at the deletion, not at the next pass. Live on the owner's eight printed
+  addresses: all placed; each receipt's own shop found within 6 m (Kaufland
+  236 m); REWE, PENNY, NORMA nearby though he never shops there. Open: the
+  reader is told `store_location` is "the address as printed", not "the
+  shop's, never a customer's"; a delivery invoice could print a home address.
+  Seen so far only a seller's address (one Amazon upload). Next: say so in
+  the prompt (with the paid test).
 
 - Agreed (owner, 2026-10-23): **the end goal is a shopping list.** A drafted
   list of what a person needs now or is running out of, big enough that offer

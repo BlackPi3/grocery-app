@@ -12,6 +12,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     Numeric,
@@ -529,3 +530,44 @@ class ListEdit(Base):
     kind: Mapped[str] = mapped_column(String)  # a category key, `eier`
     edit: Mapped[str] = mapped_column(String)  # shopping_list.EDITS
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ShopPlace(Base):
+    """Where a shop on people's receipts is, and when the supermarkets around
+    it were last looked up (`grocery_app.nearby`). Keyed by the printed
+    address (`nearby.place_key`), never by who shops there; forgotten once
+    nobody's receipts name it any more."""
+
+    __tablename__ = "shop_places"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String, unique=True)
+    street: Mapped[str | None] = mapped_column(String)
+    postcode: Mapped[str] = mapped_column(String(5))
+    # None when the map knows no such place (asked again after a while).
+    lat: Mapped[float | None] = mapped_column(Float)
+    lon: Mapped[float | None] = mapped_column(Float)
+    located_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    stores_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stores: Mapped[list[NearbyStore]] = relationship(
+        back_populates="place", cascade="all, delete-orphan", passive_deletes=True)
+
+
+class NearbyStore(Base):
+    """A supermarket within `nearby.RADIUS_M` of a shop place, as the map
+    lists it: public, the same for everyone."""
+
+    __tablename__ = "nearby_stores"
+    __table_args__ = (UniqueConstraint("place_id", "osm_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    place_id: Mapped[int] = mapped_column(ForeignKey("shop_places.id", ondelete="CASCADE"),
+                                          index=True)
+    osm_id: Mapped[str] = mapped_column(String)  # `node/123`
+    chain: Mapped[str | None] = mapped_column(String)  # the map's brand
+    name: Mapped[str] = mapped_column(String)
+    address: Mapped[str | None] = mapped_column(String)
+    lat: Mapped[float] = mapped_column(Float)
+    lon: Mapped[float] = mapped_column(Float)
+    distance_m: Mapped[int] = mapped_column(Integer)
+    place: Mapped[ShopPlace] = relationship(back_populates="stores")

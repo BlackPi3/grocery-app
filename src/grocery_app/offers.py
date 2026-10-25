@@ -28,6 +28,7 @@ price per unit is worked out that way when the source leaves it out.
 
 from __future__ import annotations
 
+import http.client
 import json
 import re
 import time
@@ -171,18 +172,19 @@ def search_word(name: str | None) -> str | None:
 Fetch = Callable[[str, dict[str, str]], bytes]
 
 
-def http_get(url: str, headers: dict[str, str]) -> bytes:
+def http_get(url: str, headers: dict[str, str], timeout: float = TIMEOUT_S,
+             most_s: float = MAX_ANSWER_S) -> bytes:
     """The body at `url`, read in pieces: one too large, or too slow in
     coming, is an error rather than the server's memory or its thread."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **headers})
     started, body = time.monotonic(), bytearray()
-    with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         while piece := response.read(1 << 16):
             body += piece
             if len(body) > MAX_ANSWER_BYTES:
                 raise OSError(f"answer over {MAX_ANSWER_BYTES} bytes")
-            if time.monotonic() - started > MAX_ANSWER_S:
-                raise OSError(f"answer took over {MAX_ANSWER_S} s")
+            if time.monotonic() - started > most_s:
+                raise OSError(f"answer took over {most_s} s")
     return bytes(body)
 
 
@@ -227,7 +229,8 @@ class Marktguru:
                         isinstance(r, dict) for r in results):
                     raise ValueError("results are not a list of offers")
                 total = int(answer.get("totalResults") or 0)
-            except (OSError, ValueError, TypeError, AttributeError) as exc:
+            except (OSError, ValueError, TypeError, AttributeError,
+                    http.client.HTTPException, RecursionError) as exc:
                 self._keys = None  # keys can change; read them again next time
                 raise OffersUnavailable(f"searching {word!r} failed: {exc}") from exc
             found.extend(o for o in map(read_offer, results) if o)

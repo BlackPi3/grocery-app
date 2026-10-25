@@ -85,7 +85,7 @@
 <section>
   <h2>Wer die Daten sieht</h2>
   <p>Ihre Bons sieht sonst niemand, außer denen, die Sie selbst mit dem Entwickler teilen. Der Betreiber sieht Ihren Namen, Ihre E-Mail-Adresse, die Zahl Ihrer Bons, wann Sie die App zuletzt genutzt haben und was Ihre Bons gekostet haben.</p>
-  <p>Google Cloud betreibt die App als Auftragsverarbeiter: Server, Datenbank und Fotos liegen in Frankfurt, Sicherungen in der EU. Die Fotos werden von Googles Modell Gemini in der EU gelesen; Google nutzt sie nicht zum Trainieren. Zur Bestimmung eines Produkts sucht die App bei Google nach dem Produktnamen, und nach Produktbildern auf Shop-Seiten und bei Open Food Facts: Dabei wird nur der Produktname gesendet, nie ein Foto oder etwas über Sie. Für die Angebote der Woche sucht die App bei marktguru.de nach der Art von Produkten, die Sie regelmäßig kaufen (ein Wort wie „H-Milch“, das Gemini aus dem Produktnamen macht), mit der Postleitzahl der Geschäfte auf Ihren Bons: Dabei wird nichts über Sie gesendet, weder Ihr Name noch Ihre Bons. Welche Angebote zu einem Produkt passen, liest Gemini aus dem Produktnamen und den Angebotstexten, ebenfalls ohne etwas über Sie. Die Anmeldung läuft über Google.</p>
+  <p>Google Cloud betreibt die App als Auftragsverarbeiter: Server, Datenbank und Fotos liegen in Frankfurt, Sicherungen in der EU. Die Fotos werden von Googles Modell Gemini in der EU gelesen; Google nutzt sie nicht zum Trainieren. Zur Bestimmung eines Produkts sucht die App bei Google nach dem Produktnamen, und nach Produktbildern auf Shop-Seiten und bei Open Food Facts: Dabei wird nur der Produktname gesendet, nie ein Foto oder etwas über Sie. Für die Angebote der Woche sucht die App bei marktguru.de nach der Art von Produkten, die Sie regelmäßig kaufen (ein Wort wie „H-Milch“, das Gemini aus dem Produktnamen macht), mit der Postleitzahl der Geschäfte auf Ihren Bons: Dabei wird nichts über Sie gesendet, weder Ihr Name noch Ihre Bons. Welche Angebote zu einem Produkt passen, liest Gemini aus dem Produktnamen und den Angebotstexten, ebenfalls ohne etwas über Sie. Welche Supermärkte in der Nähe Ihrer Geschäfte liegen, fragt die App bei OpenStreetMap (Nominatim und Overpass) mit der Straße und Postleitzahl, die auf den Bons dieser Geschäfte stehen: ebenfalls ohne etwas über Sie. Die Anmeldung läuft über Google.</p>
 </section>
 
 <section>
@@ -97,6 +97,7 @@
     <li>Bons, die Sie mit dem Entwickler geteilt haben: bei ihm höchstens 30 Tage, oder bis Sie „Stop sharing“ tippen.</li>
     <li>Sicherungen der Datenbank 7 Tage, gelöschte Fotos bei Google bis zu 7 Tage: Nach 7 Tagen ist eine Löschung vollständig.</li>
     <li>Die Angebotssuchen, solange jemand diese Produkte dort regelmäßig kauft: Nach dem Löschen eines Kontos sind seine innerhalb eines Tages fort. Angebote 60 Tage nach ihrem Ende.</li>
+    <li>Die Adressen der Geschäfte auf Ihren Bons und die Supermärkte in ihrer Nähe, solange jemand dort regelmäßig einkauft: Mit einem Konto werden die Geschäfte gelöscht, in denen sonst niemand einkauft.</li>
     <li>Server-Protokolle 30 Tage. Sie können Ihre E-Mail-Adresse enthalten, wenn eine Anmeldung scheitert.</li>
   </ul>
 </section>
@@ -146,7 +147,7 @@
 <section>
   <h2>Who sees it</h2>
   <p>Nobody else sees your receipts, except those you share with the developer yourself. The person who runs the app sees your name, your email address, how many receipts you have, when you last used the app, and what your receipts cost.</p>
-  <p>Google Cloud runs the app as a processor: the server, the database and the photos are in Frankfurt, backups in the EU. Photos are read by Google's Gemini model in the EU; Google does not train on them. To tell what a product is, the app searches Google for the product's name, and looks for product pictures on shop websites and Open Food Facts: only the product's name is sent, never a photo or anything about you. For the week's offers, the app searches marktguru.de for the kind of product you buy regularly (a word like "H-Milch", which Gemini makes from the product's name), with the postcode of the shops on your receipts: nothing about you is sent, neither your name nor your receipts. Which offers fit a product, Gemini reads from the product's name and the offers' texts, again with nothing about you. Sign-in goes through Google.</p>
+  <p>Google Cloud runs the app as a processor: the server, the database and the photos are in Frankfurt, backups in the EU. Photos are read by Google's Gemini model in the EU; Google does not train on them. To tell what a product is, the app searches Google for the product's name, and looks for product pictures on shop websites and Open Food Facts: only the product's name is sent, never a photo or anything about you. For the week's offers, the app searches marktguru.de for the kind of product you buy regularly (a word like "H-Milch", which Gemini makes from the product's name), with the postcode of the shops on your receipts: nothing about you is sent, neither your name nor your receipts. Which offers fit a product, Gemini reads from the product's name and the offers' texts, again with nothing about you. Which supermarkets are near your shops, the app asks OpenStreetMap (Nominatim and Overpass), with the street and postcode printed on those shops' receipts: again with nothing about you. Sign-in goes through Google.</p>
 </section>
 
 <section>
@@ -158,6 +159,7 @@
     <li>Receipts you shared with the developer: with them for at most 30 days, or until you tap "Stop sharing".</li>
     <li>Database backups 7 days, deleted photos held by Google up to 7 days: after 7 days a deletion is complete.</li>
     <li>Offer searches, while someone still buys those products there regularly: after an account is deleted, its searches are gone within a day. Offers 60 days after they end.</li>
+    <li>The addresses of the shops on your receipts and the supermarkets near them, while someone still shops there regularly: deleting an account deletes the shops nobody else shops at.</li>
     <li>Server logs 30 days. They can hold your email address when a sign-in fails.</li>
   </ul>
 </section>

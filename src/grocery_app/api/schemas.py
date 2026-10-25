@@ -770,6 +770,39 @@ class ListEditRequest(BaseModel):
     on_list: bool
 
 
+class NearbyShop(BaseModel):
+    """A shop on the asker's receipts, by its printed address."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    street: str | None
+    postcode: str
+    found: bool | None = Field(
+        description="Whether the map knows it; null while it is not looked up yet")
+
+
+class NearbyStoreOut(BaseModel):
+    """A chain's supermarket nearest the asker's shops (`nearby.chains_near`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    osm_id: str
+    chain: str | None = Field(description="The map's brand; null for an independent shop")
+    name: str
+    address: str | None
+    distance_m: int = Field(description="As the crow flies from the shop it is near")
+    near: str = Field(description="That shop's street, or its postcode")
+
+
+class NearbyDocument(BaseModel):
+    """The shops the asker uses and the supermarkets near them, nearest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    shops: list[NearbyShop]
+    stores: list[NearbyStoreOut]
+
+
 class OffersRhythm(BaseModel):
     """When one chain's offers are first seen (`offers.rhythm`)."""
 
