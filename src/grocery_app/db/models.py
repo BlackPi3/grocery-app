@@ -500,6 +500,20 @@ class OfferVerdict(Base):
                                                 server_default=func.now())
 
 
+class ListWord(Base):
+    """The word a shopping list calls a flyer word's kind (`Romatomaten`:
+    `Tomaten`), given once by a model (`offer_match.list_words`). Keyed by
+    the flyer word as `products.offer_word` holds it; the same for everyone."""
+
+    __tablename__ = "list_words"
+
+    word: Mapped[str] = mapped_column(String, primary_key=True)
+    list_word: Mapped[str] = mapped_column(String)
+    given_by: Mapped[str] = mapped_column(String)  # the prompt's version
+    given_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                               server_default=func.now())
+
+
 class ListEdit(Base):
     """One change a person made to their shopping list: a kind added, or
     removed for now (`shopping_list.with_edits`). Kept as it happened, never

@@ -173,6 +173,54 @@ def flyer_words(products: dict[str, dict[str, Any]], decider: Any,
         yield set(asked), said
 
 
+# --- the word on a shopping list ------------------------------------------------------
+
+# A flyer word is too fine for a list line: Romatomaten and Rispentomaten are
+# two flyer words, and to a shopper one line, "Tomaten" (owner, 2026-10-25:
+# a line is the word a person writes on a paper list). Each flyer word is
+# given its list word once (`list_words`); one field, one job, so the flyer
+# word stays what the offers are searched by. The model sees only the words,
+# all of a batch at once and the list words already given, so the same thing
+# gets the same line.
+LIST_WORDS_VERSION = "list-words-v1"
+
+LIST_WORDS_SYSTEM = (
+    "Each word below names a kind of grocery as a German supermarket flyer lists it. "
+    "For each, give the word a person writes on their own shopping list for it: German, "
+    "usually one word, the plural where a list says it (Tomaten, Eier), no brand, no size, "
+    "no 'Bio'. Kinds a shopper would take one for the other, and only those, share a word "
+    "(Cherrytomaten and Rispentomaten: Tomaten). Keep a kind's own word when a shopper "
+    "would not take the other instead. Where a list word already given fits, use it, "
+    "written the same way. Answer every word listed.")
+
+LIST_WORDS_SCHEMA = {"type": "object", "properties": {"words": {"type": "array", "items": {
+    "type": "object", "properties": {"word": {"type": "string"}, "list": {"type": "string"}},
+    "required": ["word", "list"]}}}, "required": ["words"]}
+
+
+def list_words(words: list[str], given: list[str], decider: Any,
+               batch: int = 60) -> Iterator[tuple[set, dict[str, str]]]:
+    """One model call per `batch` flyer words, each yielding the words it
+    asked about and the list words it gave, keyed as asked. `given` are the
+    list words already given, for the model to reuse; each batch's answers
+    join them for the next. A word left out or given something that is not a
+    word gets none, and its flyer word names the line meanwhile."""
+    given = sorted(set(given))
+    for start in range(0, len(words), batch):
+        asked = words[start:start + batch]
+        prompt = "\n".join(f"Word: {w}" for w in asked)
+        if given:
+            prompt += "\n\nList words already given: " + ", ".join(given)
+        answer = decider(LIST_WORDS_SYSTEM, prompt, LIST_WORDS_SCHEMA)
+        found = answer.get("words") if isinstance(answer, dict) else None
+        said: dict[str, str] = {}
+        for w in found if isinstance(found, list) else []:
+            if isinstance(w, dict) and w.get("word") in asked and _is_a_word(w.get("list")):
+                said.setdefault(w["word"], " ".join(w["list"].split()))
+        given = sorted(set(given) | set(said.values()))
+        yield set(asked), said
+
+
 def shortlist(word: str, offers: list[dict[str, Any]],
               most: int = MOST_CANDIDATES) -> list[dict[str, Any]]:
     """The offers worth showing the judge for `word`, at most `most`: those
