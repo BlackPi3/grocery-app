@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: the list's look agreed; just-bought items out of the suggestions.
+**Last updated:** 2026-10-25, laptop: just-bought items out of the suggestions.
 
 ## Now
 
@@ -70,6 +70,17 @@ session (laptop or cloud) can pick up from here. How we work is in
   from 24 Oct is lost). The demo has no offers thread, so its list stays by
   category. Next, agreed: with the items decided, which one shop gets the
   whole list cheapest (one trip; several trips parked).
+
+- Built (owner, 2026-10-25, "these aren't suggestions when I just bought
+  them"): **an item just bought is not suggested** until half of what one
+  usual buy lasts has passed (`shopping_list.due`). On the owner's last 8
+  weeks: 6.9 items a week instead of 17.1, 42% of them bought that week
+  instead of 31%, catching 10% of the week's items instead of 18%
+  (`docs/evaluations/2026-10-25-list-just-bought.md`). The backtest now
+  scores items, not categories: since #190 it had compared items listed with
+  categories bought. Items are much harder to foresee than categories were
+  (49% caught); how fine an item is (Romatomaten and Rispentomaten are two)
+  decides most of it.
 
 - Fixed (2026-10-23, found starting offers step 2): **offers had never run on
   live.** One person's receipt has no date (the reader found none); sorting

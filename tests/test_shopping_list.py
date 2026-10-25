@@ -94,7 +94,7 @@ def test_urgency_follows_the_day_it_runs_out():
 
 def test_the_list_takes_kinds_above_the_chance_most_urgent_first():
     rows = (every("quark", 3, times=20, pid="p-q")
-            + every("brot", 7, times=9, pid="p-b", start=START + timedelta(days=3))
+            + every("brot", 7, times=9, pid="p-b")
             + every("salz", 40, times=2, pid="p-s"))
     as_of = START + timedelta(days=61)
     out = shopping_list(rows, as_of)
@@ -143,8 +143,9 @@ def test_list_rows_keep_the_shoppers_own_dated_groceries():
 
 # --- the person's edits --------------------------------------------------------
 
-# Quark every 6 days to day 54, bread every 7 to day 56: both due on day 57.
-STEADY = every("quark", 6, times=10) + every("brot", 7, times=9)
+# Quark every 6 days to day 54, bread every 7 to day 53: both on the list
+# for day 58, the morning after day 57.
+STEADY = every("quark", 6, times=10) + every("brot", 7, times=9, start=START - timedelta(days=3))
 DAY = START + timedelta(days=57)
 
 
@@ -165,8 +166,18 @@ def test_with_no_edits_the_list_is_the_draft_for_the_morning_after():
 
 def test_todays_receipt_counts():
     today = START + timedelta(days=54)                       # quark bought today
-    quark = next(k for k in with_edits(STEADY, [], today)["lines"] if k["kind"] == "quark")
-    assert quark["last_bought"] == today.isoformat()
+    assert "quark" in listed(with_edits(STEADY, [], today - timedelta(days=1)))
+    assert "quark" not in listed(with_edits(STEADY, [], today)), "just bought"
+
+
+def test_a_kind_just_bought_is_not_suggested_until_half_a_usual_buy_has_passed():
+    """The owner, 2026-10-25: "these aren't suggestions when I just bought
+    them". Eggs every 6 days: back on the list 3 days after a buy, whatever
+    their chance."""
+    rows = every("eier", 6, times=10)                        # last on day 54
+    assert [k["kind"] for k in kinds(rows, START + timedelta(days=56))] == ["eier"]
+    assert shopping_list(rows, START + timedelta(days=56)) == []
+    assert [k["kind"] for k in shopping_list(rows, START + timedelta(days=57))] == ["eier"]
 
 
 def test_a_first_removal_snoozes_for_half_a_usual_buy():
@@ -196,7 +207,7 @@ def test_a_short_lived_kind_is_snoozed_for_a_day_at_least():
 def test_a_buy_ends_the_snooze_and_the_next_removal_is_a_first_one_again():
     edits = [edit("quark", "remove", DAY), edit("quark", "remove", DAY + timedelta(days=3))]
     bought = STEADY + [row("quark", DAY + timedelta(days=4))]
-    later = DAY + timedelta(days=5)
+    later = DAY + timedelta(days=7)                         # on the list again
     assert "quark" in listed(with_edits(bought, edits, later + timedelta(days=4))), \
         "bought after the removals: nothing is snoozed"
     again = edits + [edit("quark", "remove", later)]
@@ -243,10 +254,14 @@ def test_taking_an_added_kind_off_leaves_nothing():
 # --- the backtest --------------------------------------------------------------
 
 def test_a_steady_shopper_is_caught_and_the_report_reads():
+    """Bread every 7 days, last bought the day before each week is drafted:
+    the list leaves it out as just bought, and misses it."""
     rows = every("quark", 3, times=40) + every("brot", 7, times=18)
     result = backtest(rows, weeks=4)
-    assert result["methods"]["chance >= 25%"]["caught"] == 1.0
+    assert result["methods"]["chance >= 25%, just bought too"] == {
+        "per_week": 2.0, "bought": 1.0, "caught": 1.0}
     assert result["methods"]["chance >= 25%"]["bought"] == 1.0
+    assert result["methods"]["chance >= 25%"]["caught"] < 1.0
     assert "gap rule" in format_report(result)
 
 
@@ -465,7 +480,8 @@ def test_one_item_however_its_word_is_written():
 
 
 def test_an_item_can_be_snoozed_and_put_back_by_its_key():
-    rows = every("nuesse-kerne", 6, times=10, item="Walnüsse") + every("brot", 7, times=9)
+    rows = (every("nuesse-kerne", 6, times=10, item="Walnüsse")
+            + every("brot", 7, times=9, start=START - timedelta(days=3)))
     day = START + timedelta(days=57)
     result = with_edits(rows, [edit("walnüsse", "remove", day)], day)
     assert listed(result) == ["brot"] and result["snoozed"][0]["name"] == "Walnüsse"
@@ -511,3 +527,11 @@ def test_the_swipe_hint_goes_once_the_person_has_added_or_snoozed():
         console.log(listUsed());
     """)
     assert out == ["false", "true", "false"], "no storage: the hint stays, nothing breaks"
+
+
+def test_the_backtest_scores_items_not_categories():
+    """Walnuts every 3 days are listed and bought as walnuts: scored by
+    category, the buys would count for "nuesse-kerne" and none would match."""
+    rows = every("nuesse-kerne", 3, times=40, item="Walnüsse")
+    walnuts = backtest(rows, weeks=4)["methods"]["chance >= 25%"]
+    assert walnuts["bought"] == 1.0 and walnuts["caught"] == 1.0

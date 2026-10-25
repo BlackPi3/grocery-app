@@ -28,6 +28,13 @@ Two numbers per kind, each with one job:
   tubs last twice as long as one. Recent gaps count more. The day sorts the
   list: `now` (out, or by tomorrow), `this_week`, `later`.
 
+A kind just bought is not suggested, whatever its chance (owner,
+2026-10-25: "these aren't suggestions when I just bought them"). It waits
+until `DUE_SHARE` of what one usual buy lasts has passed since the last buy:
+on the owner's history a kind still in the first quarter of that time was
+bought within three days 9% of the time, in the second quarter 13%, after
+it about 20%. The list is shorter for it, and need not be full.
+
 Ordering by run-out alone did no better than the chance at picking the week's
 kinds (backtest, 2026-10-23), which is why the chance decides what is on the
 list and the run-out only how urgent it is.
@@ -70,6 +77,9 @@ MIN_DAYS = 2
 HALF_LIFE_DAYS = 28
 # On the list from this chance of being bought in the coming week.
 LIST_CHANCE = 0.25
+# Suggested once this share of what one usual buy lasts has passed since the
+# last buy.
+DUE_SHARE = 0.5
 WEEK = 7
 # Runs out by this many days after the list's day: needed now.
 NOW_DAYS = 1
@@ -203,9 +213,17 @@ def kinds(rows: list[dict[str, Any]], as_of: date) -> list[dict[str, Any]]:
     return [line for group in by_kind.values() if (line := kind(group, first, as_of))]
 
 
+def due(line: dict[str, Any], as_of: date) -> bool:
+    """Whether enough of a kind's usual time between buys has passed since
+    its last buy for it to be suggested."""
+    since = (as_of - date.fromisoformat(line["last_bought"])).days
+    return since >= DUE_SHARE * line["days_per_buy"]
+
+
 def shopping_list(rows: list[dict[str, Any]], as_of: date) -> list[dict[str, Any]]:
-    """The kinds likely bought in the week from `as_of`, most urgent first."""
-    out = [k for k in kinds(rows, as_of) if k["chance"] >= LIST_CHANCE]
+    """The kinds likely bought in the week from `as_of` and not just bought,
+    most urgent first."""
+    out = [k for k in kinds(rows, as_of) if k["chance"] >= LIST_CHANCE and due(k, as_of)]
     out.sort(key=lambda r: (_ORDER[r["when"]], r["days_left"], r["name"]))
     return out
 
