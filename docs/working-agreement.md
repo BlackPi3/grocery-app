@@ -87,7 +87,8 @@ experiment, a Copilot round.
   removed user's photos are gone; the owner's account answers 403"), so if
   the code misunderstood the rule, its tests fail. Then it reads the diff and
   reviews it. Its useful tests stay in the PR.
-- **Once, before a second person uses the app**: a full security and privacy
+- **Once, before the app is published** (owner, 2026-10-25; it was "before a
+  second person", and many already use it): a full security and privacy
   audit. Can one user see another's receipts? Does the sign-in hold? What
   reaches the logs? Does the privacy page promise only what the code does?
 - **Nothing else** gets an extra agent: not screens (the owner sees them), not
