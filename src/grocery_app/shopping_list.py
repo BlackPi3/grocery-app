@@ -7,11 +7,12 @@ adds to. This module drafts it from the purchase history and nothing else.
 A line on the list is an item (Walnüsse, Eier, H-Milch), with the product
 they usually take as a hint: what a person writes on a shopping list, the
 brand kept in mind (owner, 2026-10-24). The item is the product's `item` word
-in purchases.json, given by a model; a product not named yet counts under its
-category (Nüsse & Kerne) until it is. On the owner's history 241 of 322
-products were bought only once, while 94% of a week's buys were of a kind
-bought before: people take a different cheese, the one on offer, but they buy
-cheese.
+in purchases.json, given by a model: the word a paper list uses, so
+Romatomaten and Rispentomaten are one line, "Tomaten" (owner, 2026-10-25). A
+product not named yet counts under its category (Nüsse & Kerne) until it is.
+On the owner's history 241 of 322 products were bought only once, while 94%
+of a week's buys were of a kind bought before: people take a different
+cheese, the one on offer, but they buy cheese.
 
 Two numbers per kind, each with one job:
 
@@ -270,14 +271,16 @@ def with_edits(rows: list[dict[str, Any]], edits: list[dict[str, Any]],
             bought = date.fromisoformat(p["date"])
             last[p["category"]] = max(last.get(p["category"], bought), bought)
 
-    # A category whose products all have item words now is no line any more:
-    # an edit made under it (Haushaltswaren, 24 Oct) names nothing the person
-    # would know, and is dropped. A category never bought can still be added.
-    gone = {p["category"] for p in rows if p.get("category")} - set(groups)
+    # An edit names a line of the list, or a category never bought. One whose
+    # line is gone, because its products are named otherwise now (an add
+    # under Haushaltswaren, 24 Oct; a snooze of Romatomaten, now Tomaten),
+    # names nothing the person would know, and is dropped.
+    bought = {p["category"] for p in rows if p.get("category")}
 
     since: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for e in edits:
-        if e["kind"] in gone:
+        if e["kind"] not in groups and (e["kind"] in bought
+                                        or e["kind"] not in categories.CATEGORIES):
             continue
         if e["edit"] in EDITS and (e["kind"] not in last or e["day"] > last[e["kind"]]):
             since[e["kind"]].append(e)

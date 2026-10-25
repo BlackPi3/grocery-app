@@ -492,6 +492,15 @@ def test_an_add_under_a_category_whose_products_all_have_items_now_is_dropped():
         == "haushaltswaren", "while a product still counts under it, the line is there"
 
 
+def test_a_snooze_of_an_item_that_is_named_otherwise_now_is_dropped():
+    """Romatomaten became Tomaten (owner, 2026-10-25: a line is the word on a
+    paper list); a snooze under the old name names no line."""
+    rows = every("tomaten", 6, times=10, item="Tomaten") + STEADY
+    result = with_edits(rows, [edit("romatomaten", "remove", DAY)], DAY)
+    assert "tomaten" in listed(result) and result["snoozed"] == []
+    assert "romatomaten" not in listed(with_edits(rows, [edit("romatomaten", "add", DAY)], DAY))
+
+
 def test_an_item_can_be_snoozed_and_put_back_by_its_key():
     rows = (every("nuesse-kerne", 6, times=10, item="Walnüsse")
             + every("brot", 7, times=9, start=START - timedelta(days=3)))

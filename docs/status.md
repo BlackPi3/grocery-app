@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: the owner's verdict on today's list; stale category adds dropped.
+**Last updated:** 2026-10-25, laptop: a list line is the word on a paper list.
 
 ## Now
 
@@ -91,10 +91,23 @@ session (laptop or cloud) can pick up from here. How we work is in
   when a discount makes it worth buying early; amounts bought count, but err
   toward suggesting (guests eat too; the person can snooze). He rejected a
   hand-set wait after a buy as overfitting: the list should follow from
-  usage, reset by a buy. Not yet decided: whether a line is the word on a
-  paper list (Tomaten), and how long a window the habits are read over.
+  usage, reset by a buy. Not yet decided: how long a window the habits are
+  read over (one for every kind for now: too little history to learn more).
   An add made under a category before #190 (Haushaltswaren) named nothing
   he knew; such edits are dropped now.
+
+- Built (owner, 2026-10-25, "yes, that makes sense"): **a list line is the
+  word a person writes on a paper list.** Romatomaten and Rispentomaten are
+  one line, "Tomaten"; Kekse and Doppelkekse stay two. The flyer word
+  (`products.offer_word`) stays what offers are searched by; each flyer word
+  is given its list word once (`list_words`, migration 0027, prompt
+  `list-words-v1`), by the offers thread's model, the words only, 60 to a
+  call with the list words already given, so a new tomato joins "Tomaten".
+  `item` in purchases.json is the list word, else the flyer word until it
+  has one. Tried on the owner's 226 flyer words (Claude, before Gemini on
+  live): 36 lines merged or renamed, e.g. five tomatoes, Karotten and Möhren,
+  Frischmilch and Vollmilch; H-Milch and Magerquark kept their own. Edits
+  made under a line's old name are dropped (a snooze of Romatomaten).
 
 - Fixed (2026-10-23, found starting offers step 2): **offers had never run on
   live.** One person's receipt has no date (the reader found none); sorting

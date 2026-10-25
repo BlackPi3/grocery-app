@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session, selectinload
 from grocery_app.db.models import (
     Correction,
     LineResolution,
+    ListWord,
     Product,
     Receipt,
     ReceiptLine,
@@ -260,9 +261,13 @@ def load_normalizer_inputs(session: Session,
     """
     receipts = [receipt_to_dict(r) for r in session.scalars(
         select(Receipt).where(whose(user_id)).options(selectinload(Receipt.lines)))]
-    # A product's item word (`products.offer_word`, given by a model) travels
-    # as `item`: what a shopping list calls it (`normalizer.shared_attributes`).
-    products = {p.id: {**product_to_dict(p), **({"item": p.offer_word} if p.offer_word else {})}
+    # A product's item travels as `item`: what a shopping list calls it
+    # (`normalizer.shared_attributes`). That is its flyer word's list word
+    # (`list_words`: Romatomaten, Tomaten), else the flyer word itself
+    # (`products.offer_word`) until it has one; both are given by a model.
+    listed = {w.word: w.list_word for w in session.scalars(select(ListWord))}
+    products = {p.id: {**product_to_dict(p), **({"item": listed.get(p.offer_word, p.offer_word)}
+                                                 if p.offer_word else {})}
                 for p in session.scalars(select(Product))}
 
     resolution: dict[tuple[str, str], list[str]] = {}

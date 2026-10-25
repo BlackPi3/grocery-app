@@ -445,9 +445,10 @@ def priced_like(line: dict[str, Any], ids: list[str],
 # `is_budget_brand` is deliberately absent: it is not an attribute of the product
 # but of this line's store and the product's brand together, so it is derived
 # in `normalize_line` rather than copied across from the catalog.
-# `item` is what a shopping list calls the product (`Walnüsse`, `H-Milch`):
-# no brand, size or `Bio`. A model gives it (`offer_match.flyer_words`); a
-# catalog from files has none.
+# `item` is what a shopping list calls the product (`Tomaten`, `Walnüsse`):
+# no brand, size or `Bio`. A model gives it, as the list word of the
+# product's flyer word (`offer_match.list_words`, `offer_match.flyer_words`);
+# a catalog from files has none.
 _SHARED = ("brand", "category", "is_organic", "item")
 
 

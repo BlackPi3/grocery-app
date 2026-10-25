@@ -29,7 +29,15 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from grocery_app import categories, offer_match, offers
-from grocery_app.db.models import Offer, OfferSearch, OfferVerdict, Product, Receipt, User
+from grocery_app.db.models import (
+    ListWord,
+    Offer,
+    OfferSearch,
+    OfferVerdict,
+    Product,
+    Receipt,
+    User,
+)
 from grocery_app.insights import _product_rows, regulars
 
 log = logging.getLogger(__name__)
@@ -281,6 +289,33 @@ def word_due(repository: Any, decider: Any, today: date,
     return made
 
 
+def list_word_due(repository: Any, decider: Any, asked: Counter | None = None) -> int:
+    """Have the model give each flyer word a product has, with no list word
+    yet, the word a shopping list calls it (`offer_match.list_words`); how
+    many were given. The list words already given go with the question, so
+    a new tomato joins "Tomaten". Each batch is kept as soon as it is
+    answered. `asked` counts the answers that gave a word none: one left
+    `offer_match.MOST_ASKS` times is not asked again until the server starts
+    anew."""
+    asked = Counter() if asked is None else asked
+    with repository.session_factory() as session:
+        done = {w.word: w.list_word for w in session.scalars(select(ListWord))}
+        words = sorted({w for w in session.scalars(
+            select(Product.offer_word).where(Product.offer_word.is_not(None)))
+            if w not in done and asked[w] < offer_match.MOST_ASKS})
+    made = 0
+    for put, said in offer_match.list_words(words, list(done.values()), decider):
+        for word in put - said.keys():
+            asked[word] += 1
+        with repository.session_factory() as session:
+            for word, list_word in said.items():
+                session.add(ListWord(word=word, list_word=list_word,
+                                     given_by=offer_match.LIST_WORDS_VERSION))
+            session.commit()
+        made += len(said)
+    return made
+
+
 def offers_for(person: Any, today: date) -> list[dict[str, Any]]:
     """One person's offers for the coming week: for each regular grocery,
     the judged offers near their shops that are that product or its kind and
@@ -313,6 +348,7 @@ def keep_fetching(repository: Any, source: offers.Marktguru, judge: Any = None,
 
     asked: Counter = Counter()
     unnamed: Counter = Counter()
+    unlisted: Counter = Counter()
     while True:
         if judge is not None:
             try:  # without a word a product is searched by its name
@@ -320,6 +356,8 @@ def keep_fetching(repository: Any, source: offers.Marktguru, judge: Any = None,
                     today = datetime.now(UTC).astimezone(offers.GERMANY).date()
                     if named := word_due(repository, judge, today, unnamed):
                         log.info("offers: %d search words", named)
+                    if listed := list_word_due(repository, judge, unlisted):
+                        log.info("offers: %d list words", listed)
             except Exception:
                 log.exception("naming products for the offers failed")
         try:

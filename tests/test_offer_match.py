@@ -341,6 +341,71 @@ def test_words_are_asked_in_batches_and_not_at_all_for_nothing():
     assert list(offer_match.flyer_words({}, namer)) == [] and len(namer.calls) == 3
 
 
+class FakeLister:
+    """Gives the list words it was told to for the flyer words it is asked about."""
+
+    def __init__(self, said=None):
+        self.said, self.calls = said or {}, []
+
+    def __call__(self, system, prompt, schema):
+        self.calls.append(prompt)
+        return {"words": [{"word": w, "list": lw} for w, lw in self.said.items()
+                          if f"Word: {w}\n" in prompt + "\n"]}
+
+
+def test_a_flyer_word_is_given_the_word_a_shopping_list_calls_it():
+    """The owner, 2026-10-25: Romatomaten and Rispentomaten are one line,
+    "Tomaten"; a list word already given is offered for reuse."""
+    lister = FakeLister({"Romatomaten": " Tomaten ", "Rispentomaten": "Tomaten",
+                         "H-Milch": "Milch 1,5%", "Brot": "Brot"})
+    [(asked, said)] = list(offer_match.list_words(
+        ["H-Milch", "Rispentomaten", "Romatomaten"], ["Eier", "Quark"], lister))
+    assert asked == {"H-Milch", "Rispentomaten", "Romatomaten"}
+    assert said == {"Romatomaten": "Tomaten", "Rispentomaten": "Tomaten"}, \
+        "a number is not a list word, nor a word not asked about"
+    assert lister.calls[0].endswith("List words already given: Eier, Quark")
+
+
+def test_list_words_go_sixty_to_a_call_and_each_answer_is_offered_to_the_next():
+    words = [f"Wort{chr(65 + i // 26)}{chr(65 + i % 26)}" for i in range(130)]
+    lister = FakeLister({words[0]: "Tomaten", words[61]: "Kekse"})
+    assert [len(a) for a, _ in offer_match.list_words(words, [], lister)] == [60, 60, 10]
+    assert "already given" not in lister.calls[0]
+    assert lister.calls[1].endswith("List words already given: Tomaten")
+    assert lister.calls[2].endswith("List words already given: Kekse, Tomaten")
+    assert list(offer_match.list_words([], ["Eier"], lister)) == [] and len(lister.calls) == 3
+
+
+@db
+def test_a_flyer_word_is_listed_once_and_its_products_carry_the_list_word(shoppers, session):
+    from collections import Counter
+
+    from grocery_app.api.offers import list_word_due
+    from grocery_app.db.io import load_normalizer_inputs
+    from grocery_app.db.models import ListWord, Product
+
+    repository, _ = shoppers
+    session.get(Product, "p-0001").offer_word = "H-Milch"
+    session.get(Product, "p-0002").offer_word = "Bananen"
+    session.commit()
+    asked: Counter = Counter()
+    lister = FakeLister({"H-Milch": "Milch"})
+    assert list_word_due(repository, lister, asked) == 1
+    assert lister.calls == ["Word: Bananen\nWord: H-Milch"], "the words only, nothing else"
+    milk = session.get(ListWord, "H-Milch")
+    assert (milk.list_word, milk.given_by) == ("Milch", offer_match.LIST_WORDS_VERSION)
+    list_word_due(repository, lister, asked)
+    list_word_due(repository, lister, asked)
+    assert len(lister.calls) == offer_match.MOST_ASKS, "bananas left unlisted are not asked forever"
+    assert all("H-Milch" not in call.split("already given")[0] for call in lister.calls[1:])
+    assert lister.calls[1].endswith("List words already given: Milch")
+
+    session.expire_all()
+    items = {pid: p.get("item") for pid, p in load_normalizer_inputs(session)["products"].items()}
+    assert items["p-0001"] == "Milch", "the list word"
+    assert items["p-0002"] == "Bananen", "the flyer word until it has one"
+
+
 @db
 def test_a_regular_is_named_once_and_searched_by_its_flyer_word(shoppers, session):
     from collections import Counter
