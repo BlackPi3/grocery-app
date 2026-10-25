@@ -28,7 +28,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from grocery_app import categories, offer_match, offers
+from grocery_app import categories, offer_match, offers, storage
 from grocery_app.db.models import (
     ListWord,
     Offer,
@@ -254,6 +254,19 @@ def judge_due(repository: Any, decider: Any, today: date,
     return made
 
 
+def bought_groceries(repository: Any, session: Session) -> set[str]:
+    """Every grocery product anyone has bought, by id."""
+    return {r["product_id"] for person in everyone(repository, session)
+            for r in _product_rows(person.purchases()["purchases"])
+            if r.get("product_id") and r.get("category") in categories.CATEGORIES
+            and categories.is_grocery(r["category"])}
+
+
+def _what_it_is(p: Product) -> dict[str, Any]:
+    """What a model is told about a product: nothing about who bought it."""
+    return {"name": p.name, "brand": p.brand, "details": list(p.details or []), "size": p.size}
+
+
 def word_due(repository: Any, decider: Any, today: date,
              asked: Counter | None = None) -> int:
     """Have the model give each grocery product someone bought, with no word
@@ -266,14 +279,8 @@ def word_due(repository: Any, decider: Any, today: date,
     times is searched by its name until the server starts anew."""
     asked = Counter() if asked is None else asked
     with repository.session_factory() as session:
-        people = everyone(repository, session)
-        ids = {r["product_id"] for person in people
-               for r in _product_rows(person.purchases()["purchases"])
-               if r.get("product_id") and r.get("category") in categories.CATEGORIES
-               and categories.is_grocery(r["category"])}
-        products = {p.id: {"name": p.name, "brand": p.brand, "details": list(p.details or []),
-                           "size": p.size}
-                    for p in session.scalars(select(Product).where(
+        ids = bought_groceries(repository, session)
+        products = {p.id: _what_it_is(p) for p in session.scalars(select(Product).where(
                         Product.id.in_(ids), Product.offer_word.is_(None)))
                     if asked[p.id] < offer_match.MOST_ASKS} if ids else {}
     made = 0
@@ -316,6 +323,32 @@ def list_word_due(repository: Any, decider: Any, asked: Counter | None = None) -
     return made
 
 
+def storage_due(repository: Any, decider: Any, asked: Counter | None = None) -> int:
+    """Have the model say, for each grocery product someone bought with no
+    answer yet, where it is kept and how long it keeps (`storage.answers`);
+    how many were given. What limits buying ahead (owner, 2026-10-25). Each
+    batch is kept as soon as it is answered. `asked` counts the answers that
+    gave a product none: one left `offer_match.MOST_ASKS` times is not asked
+    again until the server starts anew."""
+    asked = Counter() if asked is None else asked
+    with repository.session_factory() as session:
+        ids = bought_groceries(repository, session)
+        products = {p.id: _what_it_is(p) for p in session.scalars(select(Product).where(
+                        Product.id.in_(ids), Product.storage.is_(None)))
+                    if asked[p.id] < offer_match.MOST_ASKS} if ids else {}
+    made = 0
+    for put, said in storage.answers(products, decider):
+        for pid in put - said.keys():
+            asked[pid] += 1
+        with repository.session_factory() as session:
+            for product in session.scalars(select(Product).where(Product.id.in_(said))):
+                product.storage, product.keeps_days = said[product.id]
+                product.storage_by = storage.VERSION
+            session.commit()
+        made += len(said)
+    return made
+
+
 def offers_for(person: Any, today: date) -> list[dict[str, Any]]:
     """One person's offers for the coming week: for each regular grocery,
     the judged offers near their shops that are that product or its kind and
@@ -349,6 +382,7 @@ def keep_fetching(repository: Any, source: offers.Marktguru, judge: Any = None,
     asked: Counter = Counter()
     unnamed: Counter = Counter()
     unlisted: Counter = Counter()
+    unstored: Counter = Counter()
     while True:
         if judge is not None:
             try:  # without a word a product is searched by its name
@@ -358,8 +392,10 @@ def keep_fetching(repository: Any, source: offers.Marktguru, judge: Any = None,
                         log.info("offers: %d search words", named)
                     if listed := list_word_due(repository, judge, unlisted):
                         log.info("offers: %d list words", listed)
+                    if stored := storage_due(repository, judge, unstored):
+                        log.info("offers: %d storage answers", stored)
             except Exception:
-                log.exception("naming products for the offers failed")
+                log.exception("asking the model about products failed")
         try:
             if (result := fetch_due(repository, source))["searched"]:
                 log.info("offers: %s", result)
