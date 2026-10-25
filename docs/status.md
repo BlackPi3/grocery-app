@@ -4,9 +4,45 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: list step 4 (a) built; first numbers for (b) (GLOBUS, Lidl against ALDI); next agreed, later: the history comparison for every user; security audit and list sync parked; next, offers on the list.
+**Last updated:** 2026-10-25, laptop: the app as the person's shopping planner agreed; step 1, each product's storage (fridge, freezer, cupboard) and how long it keeps, built; next, the trip plan on top.
 
 ## Now
+
+- Agreed (owner, 2026-10-25): **the app plans the person's shopping**,
+  rather than the person drafting a list and the app pricing it ("almost
+  fully delegate my shopping list to the app, and add things it might have
+  missed"). A plan is the next trip: when, where, and what (proposed, not
+  yet answered: the likely items on it by default, the unsure ones
+  suggested). It looks past the next
+  few days: perishables only until the next trip, long-life things up to
+  about 4 weeks ahead when cheaper now. What limits buying ahead: how long a
+  thing keeps, and room at home, in the fridge above all (owner:
+  "perishables are the real bottleneck; also things that must be in the
+  fridge, because that depends on the person's fridge size"). Room is read
+  from the receipts: the most fridge, freezer and cupboard things a person
+  has brought home at once, a lower bound the plan stays within; no
+  question about storage. Getting to shops: the shops on their receipts,
+  and a new one priced by its detour (step 4 above). A whole month ahead was
+  weighed and left: a week's guesses are already weak.
+  **Step 1 built: where each product is kept and how long it keeps**
+  (`grocery_app/storage.py`): `storage` (`fridge`, `freezer`, `cupboard`,
+  until opened) and `keeps_days` (from the day bought, unopened), per
+  product, not per category (owner: tinned Thunfisch and fresh Lachs share
+  a category); a model gives both once per grocery product anyone bought
+  (`api.offers.storage_due`, the offers thread, Gemini, 20 a call; about
+  450 products, a few cents once), told only what the product is. No rule
+  fills in a product it gave nothing usable (owner: "don't add rules like
+  that"). Columns `products.storage`, `keeps_days`, `storage_by` (migration
+  0029); they travel in purchases.json (contract 10). Reviewed by
+  `check-risky` (its tests: `tests/test_storage_rules.py`): a model call
+  that failed (Gemini's "no JSON") ended the pass, and the same batch was
+  sent again every hour while the products after it waited; now, in all
+  four model passes (judge, flyer words, list words, storage), a failed
+  call counts as an unanswered one and the pass goes on
+  (`offer_match.ask`). The count starts anew with the server, so an
+  outage delays answers only until the next start. Only products with a
+  known grocery category are asked, as only they reach the list. Next:
+  the trip plan on top, its backtest first.
 
 - Agreed (owner, 2026-10-25): **step 4, the list's cost at the shops near
   the person**, not only at those they go to ("the stores I buy from are
@@ -820,6 +856,13 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   2026-10-25: many people use it now).
 
 ## Parked (later, not now)
+
+- (owner, 2026-10-25) **A line that fits several products was matched to
+  one without asking.** The owner's GLOBUS "BIO MILCH LACT.FREI" (11
+  lines) carries the product "Bio H-Alpenmilch 1,5% Fett, Laktosefrei",
+  but it is not H-Milch; he picked it as the nearest option, and the app
+  never offered the choice. He has never seen the app ask between two
+  products in practice. Look at why the line was not a question.
 
 - (owner, 2026-10-25) **The list where the person already keeps one**: sync
   it with the grocery list they use now (Reminders or whatever app), or let

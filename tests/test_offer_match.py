@@ -210,15 +210,19 @@ def test_a_pair_left_unanswered_is_asked_again_but_not_forever(shoppers, session
     assert len(silent.calls) == offer_match.MOST_ASKS, "then left until the server restarts"
 
     class Down(FakeJudge):
-        def __call__(self, *a):
+        def __call__(self, system, prompt, schema):
+            self.calls.append(prompt)
             raise RuntimeError("busy")
 
-    for _ in range(4):
-        with pytest.raises(RuntimeError):
-            judge_due(repository, Down(), TODAY, Counter())
+    # A failed call is an unanswered one: a batch the model keeps failing on
+    # is not paid for every hour (risk check, PR #207). The count starts anew
+    # with the server, so an outage costs a pair only until the next start.
+    down, after_outage = Down(), Counter()
+    assert [judge_due(repository, down, TODAY, after_outage) for _ in range(4)] == [0, 0, 0, 0]
+    assert len(down.calls) == offer_match.MOST_ASKS
     answering = FakeJudge({("p-0001", "1"): "no", ("p-0002", "1"): "no"})
     assert judge_due(repository, answering, TODAY, Counter()) == 2, \
-        "a failed call costs its pairs nothing"
+        "after a restart the pairs are asked again"
 
 
 @db
@@ -442,8 +446,7 @@ def test_a_failed_naming_call_names_nothing(shoppers, session):
         def __call__(self, *a):
             raise RuntimeError("busy")
 
-    with pytest.raises(RuntimeError):
-        word_due(repository, Down(), TODAY)
+    assert word_due(repository, Down(), TODAY) == 0, "a failed call is no answer, not a crash"
     assert session.get(Product, "p-0001").offer_word is None
 
 

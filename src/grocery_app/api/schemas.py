@@ -38,7 +38,9 @@ from pydantic import BaseModel, ConfigDict, Field
 # `details` (migration 0011): two fixed slots the reader guessed between.
 # And to 9 on 2026-10-25: `item` says what a shopping list calls the product
 # (`Walnüsse`), so the list is items, not categories (owner, 2026-10-24).
-PURCHASES_CONTRACT_VERSION = 9
+# And to 10 on 2026-10-25: `storage` and `keeps_days` say where a product is
+# kept and how long it keeps, what limits buying ahead (owner, 2026-10-25).
+PURCHASES_CONTRACT_VERSION = 10
 #
 # Insights bumped to 3 on 2026-09-29: lines known not to be groceries (café,
 # flowers, cards) left every insight, so `coverage.spend` means grocery spend,
@@ -124,6 +126,12 @@ class Purchase(BaseModel):
         default=None, description="What a shopping list calls the product (`Walnüsse`, "
                                   "`H-Milch`): no brand, size or `Bio`; none until a model "
                                   "has named it")
+    storage: Literal["fridge", "freezer", "cupboard"] | None = Field(
+        default=None, description="Where it is kept at home until opened; none until a "
+                                  "model has said")
+    keeps_days: int | None = Field(
+        default=None, description="Days it keeps from the day bought, unopened and kept "
+                                  "there; none until a model has said")
     is_budget_brand: bool | None = None
     is_organic: bool | None = None
     not_counted: bool | None = Field(

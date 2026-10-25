@@ -449,7 +449,10 @@ def priced_like(line: dict[str, Any], ids: list[str],
 # no brand, size or `Bio`. A model gives it, as the list word of the
 # product's flyer word (`offer_match.list_words`, `offer_match.flyer_words`);
 # a catalog from files has none.
-_SHARED = ("brand", "category", "is_organic", "item")
+# `storage` and `keeps_days` say where it is kept until opened and how long it
+# keeps (`grocery_app.storage`), also a model's; a family has them only when
+# every member agrees.
+_SHARED = ("brand", "category", "is_organic", "item", "storage", "keeps_days")
 
 
 def shared_attributes(candidates: list[dict[str, Any]]) -> dict[str, Any]:
@@ -651,7 +654,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     dates = sorted({r["date"] for r in receipts if r.get("date")})
 
     return {
-        "contract_version": 9,
+        "contract_version": 10,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],

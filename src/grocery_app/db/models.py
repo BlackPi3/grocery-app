@@ -177,6 +177,12 @@ class Product(Base):
     # so it is asked once; not part of what the product is: not exported.
     offer_word: Mapped[str | None] = mapped_column(String)
     offer_word_by: Mapped[str | None] = mapped_column(String)  # the prompt's version
+    # Where it is kept until opened (fridge, freezer, cupboard) and how many
+    # days it keeps from the day bought (`grocery_app.storage`). A model's
+    # answer, asked again if lost: not exported with the catalog.
+    storage: Mapped[str | None] = mapped_column(String)
+    keeps_days: Mapped[int | None] = mapped_column(Integer)
+    storage_by: Mapped[str | None] = mapped_column(String)  # the prompt's version
 
 
 class Resolution(Base):
