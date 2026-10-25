@@ -41,8 +41,10 @@ session (laptop or cloud) can pick up from here. How we work is in
   236 m); REWE, PENNY, NORMA nearby though he never shops there. Open: the
   reader is told `store_location` is "the address as printed", not "the
   shop's, never a customer's"; a delivery invoice could print a home address.
-  Seen so far only a seller's address (one Amazon upload). Next: say so in
-  the prompt (with the paid test).
+  Seen so far only a seller's address (one Amazon upload). Now the prompt
+  says so (`extract` v7: the shop's own address, never a customer's
+  delivery or billing address; "" when an invoice prints no seller's);
+  paid test passed with Gemini and with the subscription.
 
 - Agreed (owner, 2026-10-23): **the end goal is a shopping list.** A drafted
   list of what a person needs now or is running out of, big enough that offer

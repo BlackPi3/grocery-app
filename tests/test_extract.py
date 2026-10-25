@@ -365,3 +365,12 @@ def test_a_server_on_vertex_needs_no_key(monkeypatch):
 
     monkeypatch.setenv("GEMINI_VERTEX_PROJECT", "my-proj")
     assert jobs.configured_extractor("gemini").__qualname__.startswith("gemini_reader")
+
+
+def test_the_address_read_is_the_shops_never_a_customers():
+    """It is sent to OpenStreetMap to find the supermarkets nearby
+    (`grocery_app.nearby`): a home address must never be read into it."""
+    from grocery_app import extract
+
+    rule = extract.SYSTEM_PROMPT.split("`store_location`:", 1)[1].split("\n   - ", 1)[0]
+    assert "shop's own address" in rule and "Never a customer's delivery or billing" in rule
