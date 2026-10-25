@@ -82,11 +82,12 @@ session (laptop or cloud) can pick up from here. How we work is in
   (49% caught); how fine an item is (Romatomaten and Rispentomaten are two)
   decides most of it.
   **The owner on the list of 25 Oct** (what a backtest can't tell): of the
-  six most urgent, right were Cola (close to running out) and quark (needed,
-  though the app had it lasting to 31 Oct: 2 tubs on 21 Oct did not last
-  twice as long). Wrong: Eier and Doppelkekse (not needed), Romatomaten
-  (Rispentomaten bought the day before: to him both are "Tomaten"), Kekse
-  (bought 3 days before). His guidance: suggest close to running out, or
+  six most urgent, right was Cola (close to running out); wrong were Eier
+  and Doppelkekse (not needed), Romatomaten (Rispentomaten bought the day
+  before: to him both are "Tomaten") and Kekse (bought 3 days before);
+  Kartoffelchips not judged. Outside the six he named quark as needed,
+  ninth on the list: the app had it lasting to 31 Oct, as 2 tubs on 21 Oct
+  were taken to last twice as long. His guidance: suggest close to running out, or
   when a discount makes it worth buying early; amounts bought count, but err
   toward suggesting (guests eat too; the person can snooze). He rejected a
   hand-set wait after a buy as overfitting: the list should follow from
