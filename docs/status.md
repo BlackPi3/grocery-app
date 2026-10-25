@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: list step 4 (a) built; first numbers for (b): GLOBUS against ALDI, Lidl against ALDI; security audit and list sync parked; next, offers on the list.
+**Last updated:** 2026-10-25, laptop: list step 4 (a) built; first numbers for (b) (GLOBUS, Lidl against ALDI); next agreed, later: the history comparison for every user; security audit and list sync parked; next, offers on the list.
 
 ## Now
 
@@ -63,6 +63,15 @@ session (laptop or cloud) can pick up from here. How we work is in
   median ratio 1.00; the far pairs are mostly matching mistakes (pack sizes,
   brand against own brand) (`docs/evaluations/2026-10-25-lidl-vs-aldi.md`).
   So ALDI's list stands in for Lidl's on own-brand basics.
+  **Agreed, for later** (owner, 2026-10-25, "yes but later"): for every
+  user, from their history, "bought at a discounter, you'd have saved X"
+  (ALDI's list, standing in for Lidl on own brands), as an owner-only figure
+  first, before any screen. **His idea, to weigh then:** once the app knows a
+  person's shopping, help them optimize the list itself (cheaper kinds,
+  brands, when and where), seen from how they shop; maybe more feasible
+  than cross-shop trips. Not started: the scripts of 25 Oct (scratchpad)
+  were one-off; the matching would be a stored model verdict per product
+  and chain, like `offer_verdicts`, and ALDI's site read again weekly.
 
 - Agreed (owner, 2026-10-23): **the end goal is a shopping list.** A drafted
   list of what a person needs now or is running out of, big enough that offer
