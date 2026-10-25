@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: milestone conditions met (owner); non-groceries parked; next, offers on the list.
+**Last updated:** 2026-10-25, laptop: security audit parked until publishing; next, offers on the list.
 
 ## Now
 
@@ -188,8 +188,9 @@ session (laptop or cloud) can pick up from here. How we work is in
 - Decided (owner, 2026-10-21, "it uses rate limit super fast"): **extra
   agents only where they pay**: one `check-risky` agent on a PR that touches
   sign-in, deleting, sharing, uploads or money (tests from the rule without
-  the code, then a review), and one full security and privacy audit before a
-  second person uses the app (not run yet). Rule in
+  the code, then a review), and one full security and privacy audit before the
+  app is published (not run yet; was "before a second person", moved by the
+  owner 2026-10-25). Rule in
   `docs/working-agreement.md`, "Extra agents". The three narrow reviewers
   are gone, and the reviewer experiment ends at round 1 (no Copilot round;
   results in `docs/evaluations/2026-10-20-one-agent-or-many.md`).
@@ -755,6 +756,10 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+- (owner, 2026-10-25) **The security and privacy audit**, for when we start
+  publishing (Google sign-in out of Testing, the App Store). Many people
+  already use the app without it.
+
 - (owner, 2026-10-25) **What the users' usage has taught us so far**, other
   than asking them: what their uploads, edits, snoozes and visits say about
   how the app is used. Not looked at yet.
@@ -940,8 +945,7 @@ agreed to build yet:**
   developer may look at an upload to fix reading mistakes; nothing is sold.
 - ~~Privacy page and account deletion~~ (owner, 2026-10-13: backlog). Both
   exist now (`/privacy`, `DELETE /v1/me`); the paragraph below is history.
-  Still not run: the security and privacy audit before a second person,
-  though another person already has receipts on live.
+  The security and privacy audit waits for publishing (Parked, top).
   Needed before Google sign-in leaves Testing: publishing asks for a homepage
   and a privacy policy URL (`/privacy` on the server; Google may refuse a
   `run.app` address, then a domain of our own, about 10 EUR a year). GDPR
