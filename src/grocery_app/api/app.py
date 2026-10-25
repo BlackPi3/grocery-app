@@ -112,6 +112,7 @@ from grocery_app.api.schemas import (
     LineResolutionRequest,
     ListEditRequest,
     Me,
+    NearbyDocument,
     NewUser,
     NewUserRequest,
     OffersDocument,
@@ -196,7 +197,8 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                pictures: Pictures | None = None, demo: bool = False,
                google: GoogleSignIn | None = None, readers: Executor | None = None,
                sorter: Any | None = None, forget_photos: bool = False,
-               offers: Any | None = None, offer_judge: Any | None = None) -> FastAPI:
+               offers: Any | None = None, offer_judge: Any | None = None,
+               maps: Any | None = None) -> FastAPI:
     if demo:
         google = None  # the demo has no accounts: every guest is the owner
     @asynccontextmanager
@@ -228,6 +230,13 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                 target=keep_fetching, args=(repository, offers, offer_judge),
                 name="offers", daemon=True)
             app.state.offers.start()
+        if maps is not None and writes_available and not demo:
+            # The supermarkets near the shops people use (`api.nearby`).
+            from grocery_app.api.nearby import keep_looking
+
+            app.state.nearby = threading.Thread(
+                target=keep_looking, args=(repository, maps), name="nearby", daemon=True)
+            app.state.nearby.start()
         if forget_photos and uploads_available and not demo:
             # Photos no receipt came from are kept 30 days, then deleted.
             app.state.forgetting = threading.Thread(
@@ -673,6 +682,17 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         return OffersDocument(as_of=today.isoformat(),
                               offers=offers_for(require_writes(request), today))
 
+    @app.get("/v1/stores/nearby", response_model=NearbyDocument)
+    def stores_nearby(request: Request) -> NearbyDocument:
+        """The shops on the asker's receipts, and for each chain its
+        supermarket nearest any of them (`api.nearby.stores_near`): where the
+        shopping list can be priced, whether or not the asker goes there."""
+        from grocery_app.api.nearby import stores_near
+        from grocery_app.offers import GERMANY
+
+        today = datetime.now(UTC).astimezone(GERMANY).date()
+        return NearbyDocument.model_validate(stores_near(require_writes(request), today))
+
     def my_list(person: WriteRepository) -> ShoppingListDocument:
         from grocery_app.offers import GERMANY
         from grocery_app.shopping_list import list_rows, with_edits
@@ -967,6 +987,7 @@ def default_app() -> FastAPI:
     from grocery_app import matcher as matching
     from grocery_app.db.migrate import upgrade
     from grocery_app.db.session import database_url
+    from grocery_app.nearby import OpenStreetMap
     from grocery_app.offers import Marktguru
 
     # The migrations run here rather than as a step before the server starts:
@@ -1007,6 +1028,8 @@ def default_app() -> FastAPI:
                       offers=Marktguru()
                       if type(repository).__name__ == "PostgresRepository" else None,
                       offer_judge=offer_judge()
+                      if type(repository).__name__ == "PostgresRepository" else None,
+                      maps=OpenStreetMap()
                       if type(repository).__name__ == "PostgresRepository" else None)
 
 
