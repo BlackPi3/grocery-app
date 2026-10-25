@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: a list line is the word on a paper list.
+**Last updated:** 2026-10-25, laptop: rules compared, defaults parked; next, offers on the list.
 
 ## Now
 
@@ -752,6 +752,15 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 - A second person using it with real receipts.
 
 ## Parked (later, not now)
+
+- (owner, 2026-10-25) **A default lasting time per item, and learning from
+  snoozes**, for when a second person starts: a new person has no history,
+  and a snooze says the guess was too short, a buy sooner than guessed too
+  long. Tested on the owner's history
+  (`docs/evaluations/2026-10-25-list-rules-compared.md`): defaults alone
+  catch 32% at 18% right; added to his history mostly noise. The live rule
+  (often, and half its usual time passed) stays meanwhile: the least noise
+  of seven rules.
 
 - (owner, 2026-10-25) **A reason on a suggestion other than need**: the
   price dropped, so it may be a good time to buy if there is room to store
