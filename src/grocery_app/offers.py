@@ -28,6 +28,7 @@ price per unit is worked out that way when the source leaves it out.
 
 from __future__ import annotations
 
+import http.client
 import json
 import re
 import time
@@ -228,7 +229,8 @@ class Marktguru:
                         isinstance(r, dict) for r in results):
                     raise ValueError("results are not a list of offers")
                 total = int(answer.get("totalResults") or 0)
-            except (OSError, ValueError, TypeError, AttributeError) as exc:
+            except (OSError, ValueError, TypeError, AttributeError,
+                    http.client.HTTPException, RecursionError) as exc:
                 self._keys = None  # keys can change; read them again next time
                 raise OffersUnavailable(f"searching {word!r} failed: {exc}") from exc
             found.extend(o for o in map(read_offer, results) if o)

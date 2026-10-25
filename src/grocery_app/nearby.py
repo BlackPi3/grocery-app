@@ -20,6 +20,7 @@ then that shop's point on the map. Nothing about the person.
 from __future__ import annotations
 
 import functools
+import http.client
 import json
 import math
 import re
@@ -136,7 +137,9 @@ class OpenStreetMap:
     def _ask(self, url: str) -> Any:
         try:
             return json.loads(self.fetch(url, {"User-Agent": USER_AGENT}))
-        except (OSError, ValueError) as exc:
+        # Cut short mid-answer is an HTTPException, nested past reading a
+        # RecursionError: neither an OSError nor a ValueError.
+        except (OSError, ValueError, http.client.HTTPException, RecursionError) as exc:
             raise MapUnavailable(f"the map did not answer: {exc}") from exc
 
     def locate(self, address: dict[str, Any]) -> tuple[float, float] | None:
@@ -164,10 +167,13 @@ class OpenStreetMap:
                  f"(around:{radius},{lat},{lon});out center tags;")
         answer = self._ask(f"{AROUND_URL}?{urllib.parse.urlencode({'data': query})}")
         elements = answer.get("elements") if isinstance(answer, dict) else None
-        if not isinstance(elements, list):
+        if not isinstance(elements, list) or not all(isinstance(e, dict) for e in elements):
             raise MapUnavailable("the map answered no list of places")
-        stores = [s for s in (read_store(e, lat, lon) for e in elements
-                              if isinstance(e, dict)) if s]
+        # A question that ran out of time comes back 200, its places empty,
+        # with a `remark` saying so: not "no supermarkets here".
+        if answer.get("remark"):
+            raise MapUnavailable(f"the map gave up: {answer['remark']}")
+        stores = [s for s in (read_store(e, lat, lon) for e in elements) if s]
         return sorted(stores, key=lambda s: (s["distance_m"], s["osm_id"]))
 
 

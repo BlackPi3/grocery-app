@@ -950,6 +950,13 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         for photo in require_writes(request).remove_account():
             if image_store is not None:
                 image_store.delete(photo)
+        from grocery_app.api.nearby import forget_unused
+        from grocery_app.offers import GERMANY
+
+        # The shops only they used, and what was found around them, go now.
+        with repository.session_factory() as session:
+            forget_unused(repository, session, datetime.now(UTC).astimezone(GERMANY).date())
+            session.commit()
         return Response(status_code=204)
 
     @app.put("/v1/receipts/{receipt_id}/lines/{position}/counted",

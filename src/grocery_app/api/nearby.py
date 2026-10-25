@@ -43,6 +43,20 @@ def places_for(session: Session, person: Any, today: date) -> list[dict[str, Any
         select(Receipt.store_location).where(mine, Receipt.date >= today - RECENT)))
 
 
+def forget_unused(repository: Any, session: Session, today: date) -> dict[str, dict[str, Any]]:
+    """Delete every shop place nobody uses now, with the stores found around
+    it; the shops everyone uses, by key. Run at each pass and when an account
+    is deleted, so a deleted person's shops go then, not at the next pass
+    (the server may be asleep for days). The caller commits."""
+    wanted = {nearby.place_key(a): a for person in everyone(repository, session)
+              for a in places_for(session, person, today)}
+    for place in session.scalars(select(ShopPlace)):
+        if place.key not in wanted:
+            session.delete(place)
+    session.flush()
+    return wanted
+
+
 def _needs(place: ShopPlace | None, now: datetime) -> tuple[bool, bool]:
     """Whether a shop is to be placed on the map, and whether its
     surroundings are to be looked up: a new shop both; one the map did not
@@ -65,14 +79,8 @@ def look_up_due(repository: Any, maps: nearby.OpenStreetMap, now: datetime | Non
     pause = PAUSE_BETWEEN_ASKS_S if pause is None else pause
     today = now.astimezone(GERMANY).date()
     with repository.session_factory() as session:
-        wanted = {nearby.place_key(a): a for person in everyone(repository, session)
-                  for a in places_for(session, person, today)}
-        known = {}
-        for place in session.scalars(select(ShopPlace)):
-            if place.key in wanted:
-                known[place.key] = place
-            else:
-                session.delete(place)
+        wanted = forget_unused(repository, session, today)
+        known = {p.key: p for p in session.scalars(select(ShopPlace))}
         todo = sorted(k for k in wanted if any(_needs(known.get(k), now)))
         session.commit()
     asked = failed = in_a_row = found = 0

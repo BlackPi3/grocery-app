@@ -126,8 +126,10 @@ def test_the_supermarkets_around_a_point_are_nearest_first():
     stores = nearby.OpenStreetMap(fetch).around(50.0, 8.0)
     assert [s["osm_id"] for s in stores] == ["node/2", "node/1"], "a nameless one left out"
     assert "around:3000,50.0,8.0" in urllib.parse.unquote(fetch.asked[0])
+    timed_out = {"version": 0.6, "elements": [],
+                 "remark": 'runtime error: Query timed out in "query" at line 1 after 91 seconds.'}
     with pytest.raises(nearby.MapUnavailable):
-        nearby.OpenStreetMap(FakeFetch({"remark": "timeout"})).around(50.0, 8.0)
+        nearby.OpenStreetMap(FakeFetch(timed_out)).around(50.0, 8.0)
 
 
 def test_each_chain_is_its_branch_nearest_any_shop():
@@ -308,3 +310,23 @@ def test_the_privacy_page_names_openstreetmap_and_what_is_sent_in_both_languages
     page = files("grocery_app.api").joinpath("privacy.html").read_text()
     assert page.count("OpenStreetMap") >= 2, "named in German and in English"
     assert "Straße und Postleitzahl" in page and "street and postcode" in page
+
+
+@db
+def test_deleting_an_account_forgets_its_shops_at_once(shoppers, session):
+    """No pass needed: the server may sleep for days after the deletion."""
+    from fastapi.testclient import TestClient
+
+    from grocery_app.api.app import create_app
+    from grocery_app.api.nearby import look_up_due
+    from grocery_app.db.models import NearbyStore, ShopPlace
+
+    repository, sara = shoppers
+    look_up_due(repository, FakeMap(), now=NOW, pause=0)
+    client = TestClient(create_app(repository, token="owner-secret"))
+    assert client.delete("/v1/me", headers={"Authorization": f"Bearer {sara['password']}"}
+                         ).status_code == 204
+    session.expire_all()
+    assert [p.key for p in session.query(ShopPlace)] == ["12345 musterstr. 12"], \
+        "THERE was only hers; HERE is the owner's too"
+    assert session.query(NearbyStore).count() == 2

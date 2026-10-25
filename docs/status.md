@@ -31,7 +31,18 @@ session (laptop or cloud) can pick up from here. How we work is in
   nearest any of them. Only the printed street and postcode, then a point,
   are sent; the privacy page names OpenStreetMap. Overpass turns away a
   browser-like name (the offers' user agent) and took 30-40 s an answer on
-  25 Oct; the thread waits up to 90 s.
+  25 Oct; the thread waits up to 90 s. Reviewed by `check-risky` (its tests:
+  `tests/test_nearby_stores_rule.py`): an answer cut short or an Overpass
+  time-out (200, no places, a `remark`) had passed as "no supermarkets" for
+  30 days; both are now a failed look, due again (the offers' search had the
+  same gap for a cut-short answer, closed too). A deleted account's shops go
+  at the deletion, not at the next pass. Live on the owner's eight printed
+  addresses: all placed; each receipt's own shop found within 6 m (Kaufland
+  236 m); REWE, PENNY, NORMA nearby though he never shops there. Open: the
+  reader is told `store_location` is "the address as printed", not "the
+  shop's, never a customer's"; a delivery invoice could print a home address.
+  Seen so far only a seller's address (one Amazon upload). Next: say so in
+  the prompt (with the paid test).
 
 - Agreed (owner, 2026-10-23): **the end goal is a shopping list.** A drafted
   list of what a person needs now or is running out of, big enough that offer
