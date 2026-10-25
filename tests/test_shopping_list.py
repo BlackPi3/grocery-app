@@ -533,5 +533,5 @@ def test_the_backtest_scores_items_not_categories():
     """Walnuts every 3 days are listed and bought as walnuts: scored by
     category, the buys would count for "nuesse-kerne" and none would match."""
     rows = every("nuesse-kerne", 3, times=40, item="Walnüsse")
-    walnuts = backtest(rows, weeks=4)["methods"]["chance >= 25%"]
+    walnuts = backtest(rows, weeks=4)["methods"]["chance >= 25%, just bought too"]
     assert walnuts["bought"] == 1.0 and walnuts["caught"] == 1.0
