@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: just-bought items out of the suggestions.
+**Last updated:** 2026-10-25, laptop: the owner's verdict on today's list; stale category adds dropped.
 
 ## Now
 
@@ -81,6 +81,19 @@ session (laptop or cloud) can pick up from here. How we work is in
   categories bought. Items are much harder to foresee than categories were
   (49% caught); how fine an item is (Romatomaten and Rispentomaten are two)
   decides most of it.
+  **The owner on the list of 25 Oct** (what a backtest can't tell): of the
+  six most urgent, right were Cola (close to running out) and quark (needed,
+  though the app had it lasting to 31 Oct: 2 tubs on 21 Oct did not last
+  twice as long). Wrong: Eier and Doppelkekse (not needed), Romatomaten
+  (Rispentomaten bought the day before: to him both are "Tomaten"), Kekse
+  (bought 3 days before). His guidance: suggest close to running out, or
+  when a discount makes it worth buying early; amounts bought count, but err
+  toward suggesting (guests eat too; the person can snooze). He rejected a
+  hand-set wait after a buy as overfitting: the list should follow from
+  usage, reset by a buy. Not yet decided: whether a line is the word on a
+  paper list (Tomaten), and how long a window the habits are read over.
+  An add made under a category before #190 (Haushaltswaren) named nothing
+  he knew; such edits are dropped now.
 
 - Fixed (2026-10-23, found starting offers step 2): **offers had never run on
   live.** One person's receipt has no date (the reader found none); sorting

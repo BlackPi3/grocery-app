@@ -479,6 +479,19 @@ def test_one_item_however_its_word_is_written():
         "the name as last written"
 
 
+def test_an_add_under_a_category_whose_products_all_have_items_now_is_dropped():
+    """The owner, 2026-10-25: "Haushaltswaren", added under the category the
+    day before the list became items, named nothing he knew. Gloves and
+    distilled water have item words now, so no line is "haushaltswaren"."""
+    rows = (STEADY + every("haushaltswaren", 20, times=3, item="Handschuhe")
+            + every("haushaltswaren", 25, times=2, item="Destilliertes Wasser"))
+    result = with_edits(rows, [edit("haushaltswaren", "add", DAY - timedelta(days=1))], DAY)
+    assert "haushaltswaren" not in listed(result)
+    named_later = rows + [row("haushaltswaren", START + timedelta(days=3))]   # one not named
+    assert listed(with_edits(named_later, [edit("haushaltswaren", "add", DAY)], DAY))[0] \
+        == "haushaltswaren", "while a product still counts under it, the line is there"
+
+
 def test_an_item_can_be_snoozed_and_put_back_by_its_key():
     rows = (every("nuesse-kerne", 6, times=10, item="Walnüsse")
             + every("brot", 7, times=9, start=START - timedelta(days=3)))

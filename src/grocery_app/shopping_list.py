@@ -270,8 +270,15 @@ def with_edits(rows: list[dict[str, Any]], edits: list[dict[str, Any]],
             bought = date.fromisoformat(p["date"])
             last[p["category"]] = max(last.get(p["category"], bought), bought)
 
+    # A category whose products all have item words now is no line any more:
+    # an edit made under it (Haushaltswaren, 24 Oct) names nothing the person
+    # would know, and is dropped. A category never bought can still be added.
+    gone = {p["category"] for p in rows if p.get("category")} - set(groups)
+
     since: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for e in edits:
+        if e["kind"] in gone:
+            continue
         if e["edit"] in EDITS and (e["kind"] not in last or e["day"] > last[e["kind"]]):
             since[e["kind"]].append(e)
     added = sorted((k for k, own in since.items() if own[-1]["edit"] == "add"),
