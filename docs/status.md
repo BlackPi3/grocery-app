@@ -4,11 +4,30 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, cloud: picture web search off (owner, parked, #218); a test-teardown hang fixed (#218); the paper list and its Home line merged (#219); asking less (fewer checks, nothing asked on old receipts). Before that, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
+**Last updated:** 2026-10-26, cloud, session end: picture web search off (#218, parked); a test-teardown hang fixed (#218); Skip (#215), the paper list and its Home line (#219), asking less (#220) merged and live; `eval-trips` built (#221); the trip plan's objective and the rule "choose safely, observe, adapt" agreed (#222, #223). **Next session starts with "Next session, 2026-10-27" below.**
 
 ## Now
 
-- **Open, 2026-10-26 (owner: "a subject for a new session"), in this order.**
+- **Next session, 2026-10-27, in this order.**
+  1. **The trip plan's engine and its backtest** (agreed, see "The trip
+     plan's goal" and "The plan's objective" under the plan track below):
+     each trip goes to one shop, from the shops on the person's receipts,
+     chosen to cover the biggest share of the list at the lowest price;
+     small top-ups at a shop they use are fine; no price on time, no
+     question about travel; the receipts show whether the plan was
+     followed. Build the engine and a backtest on `evaluate_list`'s
+     pattern before any screen. Prices per shop come from step 4 (b)
+     (offers, ALDI SÜD's crawl, prices on anyone's receipts there).
+  2. **On the laptop only:** run `grocery-app eval-trips` on the owner's
+     `data/purchases.json` and bring him the table; check whether Vertex
+     still answers 429 to large calls (item 1 below; the owner: "I'll do
+     it later").
+  3. Waiting a few days: whether the line searches (6-7 per new line) need
+     cutting, after the picture search was turned off (item 2 below).
+  4. A stray branch `pictures/no-web-search` on GitHub (pushed by mistake,
+     its delete was refused in the cloud): delete it.
+
+- **Open, 2026-10-26 (owner: "a subject for a new session"); items 3-5 done.**
   The owner continues in a cloud session, which has the repo and GitHub
   but not `gcloud`, the live server's password or Vertex (see "Laptop
   only"). There: item 1's live probe and item 2's live numbers cannot be
