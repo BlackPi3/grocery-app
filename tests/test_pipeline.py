@@ -611,3 +611,26 @@ def test_where_a_product_is_kept_crosses_from_the_tables_into_purchases(data, se
     kept = {(p["product_id"], p.get("storage"), p.get("keeps_days"))
             for p in history["purchases"] if p["type"] == "product" and p["product_id"]}
     assert kept == {("p-0001", "fridge", 9), ("p-0002", None, None)}
+
+
+def test_the_trip_plan_prices_shops_from_what_the_normalizer_built(data):
+    """The plan reads purchases.json as the normalizer writes it: the store as
+    printed, two spellings one shop; the price per litre or kilo from
+    `unit_price` and `net_paid`; a line with no product category left out."""
+    from datetime import date
+
+    from grocery_app.shopping_list import list_rows
+    from grocery_app.trip_plan import base_shop, plan_trip, price_book
+
+    purchases = build_purchases(data / "receipts" / "truth",
+                                data / "products" / "products.json",
+                                data / "products" / "resolution.json",
+                                None, data / "products")
+    rows = list_rows(purchases)
+    day = date(2026, 3, 1)
+    book = price_book(rows, day)
+    assert book == {"musterladen": {"milch": {"l": 1.14}, "gurken": {"kg": 1.75}}}, \
+        "1.09 and 1.19 a litre, median 1.14; Geheimnis has no category"
+    assert base_shop(rows, day) == "musterladen"
+    trip = plan_trip([{"kind": "milch", "amount": 2, "unit": "l"}], book, "musterladen")
+    assert (trip["shop"], trip["shops"][0]["total"]) == ("musterladen", 2.28)

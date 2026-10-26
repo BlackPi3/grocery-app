@@ -239,6 +239,25 @@ def main() -> None:
     et.add_argument("--weeks", type=int, default=8)
     et.add_argument("--json", action="store_true")
 
+    tp = subparsers.add_parser(
+        "plan",
+        help="Which one shop the next trip goes to, for the list drafted from "
+             "purchases.json, and what each shop would cost",
+    )
+    tp.add_argument("--purchases", default="data/purchases.json")
+    tp.add_argument("--as-of", default=None,
+                    help="The trip's day (default: the day after the last receipt)")
+
+    ep = subparsers.add_parser(
+        "eval-plan",
+        help="Backtest the trip plan on purchases.json: what one shop a trip, picked "
+             "from what came before, would have saved",
+    )
+    ep.add_argument("--purchases", default="data/purchases.json")
+    ep.add_argument("--weeks", type=int, default=8)
+    ep.add_argument("--every", type=int, default=7, help="Days between trips")
+    ep.add_argument("--json", action="store_true")
+
     n = subparsers.add_parser(
         "enrich",
         help="Fill null product attributes from Open Food Facts, by barcode",
@@ -542,6 +561,40 @@ def main() -> None:
             print(json.dumps(report, indent=2, ensure_ascii=False))
         else:
             print(evaluate_trips.format_report(report))
+
+    if args.command == "plan":
+        from grocery_app.trip_plan import named, next_trip
+
+        rows = list_rows(load_purchases(args.purchases))
+        if args.as_of:
+            as_of = date.fromisoformat(args.as_of)
+        else:
+            as_of = max((date.fromisoformat(p["date"]) for p in rows),
+                        default=date.today()) + timedelta(days=1)
+        trip = next_trip(rows, as_of)
+        trip = trip and named(trip, rows)
+        if trip is None:
+            print(f"Trip on {as_of}: nothing on the list, or no shop yet")
+        else:
+            print(f"Trip on {as_of}: {trip['shop']} (base {trip['base']}), "
+                  f"{trip['lines']} lines, {trip['compared']} compared, "
+                  f"saves {trip['saves']:.2f} EUR against the base")
+            if trip["top_up"]:
+                print(f"  top up at {trip['base']}: {', '.join(trip['top_up'])}")
+            for s in trip["shops"]:
+                total = "-" if s["total"] is None else f"{s['total']:.2f}"
+                print(f"  {s['shop']:<20}{s['priced']:>4} priced {s['cover']:>5.0%}  "
+                      f"{total:>8}{'' if s['candidate'] else '  (prices too little)'}")
+
+    if args.command == "eval-plan":
+        from grocery_app import evaluate_plan
+
+        report = evaluate_plan.backtest(list_rows(load_purchases(args.purchases)),
+                                        args.weeks, args.every)
+        if args.json:
+            print(json.dumps(report, indent=2, ensure_ascii=False))
+        else:
+            print(evaluate_plan.format_report(report))
 
     if args.command == "enrich":
         from grocery_app.openfoodfacts import enrich
