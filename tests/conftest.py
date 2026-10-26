@@ -155,16 +155,52 @@ def engine():
     from grocery_app.db.migrate import downgrade, upgrade
     from grocery_app.db.session import make_engine
 
-    upgrade(DATABASE_URL)
+    _change_schema(upgrade)
     engine = make_engine(DATABASE_URL)
     yield engine
     engine.dispose()
-    # A server thread a test started (offers, nearby, pictures) outlives it
-    # and keeps reading. Holding `users` while it waits for `receipts`, it
-    # hung the downgrade, which had `receipts` and wanted `users` (CI,
-    # 2026-10-26). Its connections are closed first; it reconnects later.
-    _close_other_connections(DATABASE_URL)
-    downgrade(DATABASE_URL)
+    _change_schema(downgrade)
+
+
+# How long a schema change waits for a table another connection holds, and
+# how often it is tried.
+SCHEMA_LOCK_WAIT = "10s"
+SCHEMA_TRIES = 5
+
+
+def _change_schema(change):
+    """`change(DATABASE_URL)`, an upgrade or a downgrade, with every other
+    connection closed first.
+
+    A server thread a test started (offers, nearby, pictures) outlives it and
+    keeps reading. Holding `users` while it waited for `receipts`, it hung the
+    downgrade, which had `receipts` and wanted `users` (CI, 2026-10-26). Its
+    connections are closed first, but it reconnects, and one that slipped in
+    between hung CI's Python 3.11 job again the same afternoon (`skipping
+    analyze of "receipts" --- lock not available` for five minutes). So the
+    change waits `SCHEMA_LOCK_WAIT` for a lock rather than for ever, and on
+    a wait that long the others are closed again and it is tried again (it
+    runs in one transaction: a failed try leaves nothing behind)."""
+    import os
+
+    from sqlalchemy.exc import OperationalError
+
+    before = os.environ.get("PGOPTIONS")
+    os.environ["PGOPTIONS"] = f"-c lock_timeout={SCHEMA_LOCK_WAIT}"
+    try:
+        for attempt in range(SCHEMA_TRIES):
+            _close_other_connections(DATABASE_URL)
+            try:
+                change(DATABASE_URL)
+                return
+            except OperationalError:
+                if attempt == SCHEMA_TRIES - 1:
+                    raise
+    finally:
+        if before is None:
+            os.environ.pop("PGOPTIONS", None)
+        else:
+            os.environ["PGOPTIONS"] = before
 
 
 def _close_other_connections(url):

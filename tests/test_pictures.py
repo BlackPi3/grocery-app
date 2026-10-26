@@ -171,3 +171,24 @@ def test_a_picture_search_waits_longer_than_a_search_takes(monkeypatch):
     monkeypatch.setattr(gemini, "generate", generate)
     assert gemini_search("gemini-test")("Muster Ding") == []
     assert waited and waited[0] >= 120
+
+
+def test_the_server_searches_the_web_for_no_picture_unless_told_to(monkeypatch, tmp_path):
+    """Parked 2026-10-26 for its cost: a product only a web search could give
+    a picture is settled without one, and no search is paid for."""
+    from grocery_app import gemini, pictures
+    from grocery_app.api.pictures import default_pictures
+
+    searched = []
+    monkeypatch.setattr(gemini, "configured", lambda: True)
+    monkeypatch.setattr(pictures, "gemini_search",
+                        lambda model: lambda text: searched.append(text) or [])
+    monkeypatch.delenv("GROCERY_MAX_PICTURE_SEARCHES", raising=False)
+    monkeypatch.setenv("GROCERY_PICTURES", str(tmp_path))
+
+    assert default_pictures(tmp_path, model="gemini-test").find(FOUND, []) is None
+    assert searched == []
+
+    monkeypatch.setenv("GROCERY_MAX_PICTURE_SEARCHES", "1")
+    assert default_pictures(tmp_path, model="gemini-test").find(FOUND, []) is None
+    assert searched == [pictures.search_text(FOUND)], "set, the search is back"

@@ -295,7 +295,14 @@ def default_pictures(products_dir: str | Path = "data/products",
     """The real thing: shop pages, Open Food Facts and (with Gemini set up) a
     web search over the network, ALDI SÜD's crawl from `products_dir` (read
     once), copies kept under `GROCERY_PICTURES` (else `data/pictures`). At
-    most `GROCERY_MAX_PICTURE_SEARCHES` searches (300 unless set) per run."""
+    most `GROCERY_MAX_PICTURE_SEARCHES` searches per run, none unless set.
+
+    The web search is off by default (Parham, 2026-10-26, parked: "let's get
+    rid of image for now if it costs so much"). One "find the product page"
+    request runs 11 to 29 Google searches; October's pictures cost about $41
+    of $122. Shop pages and Open Food Facts cost nothing and stay. A product
+    looked up meanwhile is settled without a picture; `forget_missing_pictures`
+    makes it due again once the search is back."""
     from grocery_app import gemini
 
     aldi_path = Path(products_dir) / "aldi-sued" / "crawl.json"
@@ -304,9 +311,9 @@ def default_pictures(products_dir: str | Path = "data/products",
     def crawled(store: str, article: str) -> dict[str, Any] | None:
         return aldi.get(article) if "aldi" in fold(store) else None
 
-    search = (limited(pictures.gemini_search(model),
-                      int(os.environ.get("GROCERY_MAX_PICTURE_SEARCHES", "300")))
-              if model and gemini.configured() else None)
+    most = int(os.environ.get("GROCERY_MAX_PICTURE_SEARCHES", "0"))
+    search = (limited(pictures.gemini_search(model), most)
+              if most > 0 and model and gemini.configured() else None)
     find = partial(pictures.find_picture, fetch_page=pictures.fetch_page, crawled=crawled,
                    fetch_off=pictures.fetch_off, search=search)
     return Pictures(find=find, download=pictures.fetch_bytes,
