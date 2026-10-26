@@ -159,7 +159,7 @@ def listed(result):
 
 def test_with_no_edits_the_list_is_the_draft_for_the_morning_after():
     result = with_edits(STEADY, [], DAY)
-    assert result["lines"] == [{**k, "added": False}
+    assert result["lines"] == [{**k, "added": False, "crossed": False, "typed": False}
                                for k in shopping_list(STEADY, DAY + timedelta(days=1))]
     assert set(listed(result)) == {"quark", "brot"} and result["snoozed"] == []
 
@@ -228,8 +228,11 @@ def test_an_added_kind_comes_first_as_needed_now_until_it_is_bought():
     assert line["name"] == "Reibekaese" and line["usual"]["product_id"] == "p-1"
     assert line["last_bought"] == (START + timedelta(days=2)).isoformat()
     bought = rows + [row("reibekaese", DAY + timedelta(days=1))]
+    crossed = with_edits(bought, [edit("reibekaese", "add", DAY)], DAY + timedelta(days=1))
+    assert crossed["lines"][0]["kind"] == "reibekaese" and crossed["lines"][0]["crossed"], \
+        "the receipt crosses it off for the rest of the day"
     assert "reibekaese" not in listed(with_edits(bought, [edit("reibekaese", "add", DAY)],
-                                                 DAY + timedelta(days=1)))
+                                                 DAY + timedelta(days=2)))
 
 
 def test_a_kind_never_bought_can_be_added_by_its_name():
@@ -245,10 +248,85 @@ def test_putting_a_snoozed_kind_back_lists_it_as_added():
     assert result["lines"][0]["added"] and result["lines"][0]["chance"] is not None
 
 
-def test_taking_an_added_kind_off_leaves_nothing():
+def test_an_added_kind_can_be_snoozed_and_comes_back_on_the_list():
+    """The owner, 2026-10-26: anything on the list can be snoozed. One of the
+    person's own, with no usual buy to go by, for a day, then two, then four."""
     edits = [edit("toilettenpapier", "add", DAY), edit("toilettenpapier", "remove", DAY)]
     result = with_edits(STEADY, edits, DAY)
-    assert "toilettenpapier" not in listed(result) and result["snoozed"] == []
+    assert "toilettenpapier" not in listed(result)
+    assert result["snoozed"] == [{"kind": "toilettenpapier", "name": "Toilettenpapier",
+                                  "until": (DAY + timedelta(days=1)).isoformat(), "times": 1}]
+    back = with_edits(STEADY, edits, DAY + timedelta(days=1))
+    assert back["lines"][0]["kind"] == "toilettenpapier" and back["lines"][0]["added"]
+    twice = edits + [edit("toilettenpapier", "remove", DAY + timedelta(days=1))]
+    assert with_edits(STEADY, twice, DAY + timedelta(days=1))["snoozed"][0]["until"] == \
+        (DAY + timedelta(days=3)).isoformat()
+
+
+# --- the paper list (owner, 2026-10-26) -------------------------------------------
+
+def test_typed_words_are_a_line_of_their_own_until_deleted():
+    edits = [edit("Geburtstagskerzen", "write", DAY)]
+    line = with_edits(STEADY, edits, DAY)["lines"][0]
+    assert (line["kind"], line["name"], line["typed"], line["added"], line["crossed"]) == (
+        "Geburtstagskerzen", "Geburtstagskerzen", True, True, False)
+    assert line["usual"] is None and line["when"] == "now"
+    assert "Geburtstagskerzen" in listed(with_edits(STEADY, edits, DAY + timedelta(days=9))), \
+        "a typed line waits for the person, not for a usual buy"
+    gone = edits + [edit("Geburtstagskerzen", "delete", DAY + timedelta(days=1))]
+    result = with_edits(STEADY, gone, DAY + timedelta(days=1))
+    assert "Geburtstagskerzen" not in listed(result) and result["snoozed"] == []
+
+
+def test_a_crossed_line_stays_crossed_today_and_is_gone_tomorrow():
+    edits = [edit("Geburtstagskerzen", "write", DAY), edit("Geburtstagskerzen", "cross", DAY)]
+    assert with_edits(STEADY, edits, DAY)["lines"][0]["crossed"]
+    assert "Geburtstagskerzen" not in listed(with_edits(STEADY, edits, DAY + timedelta(days=1)))
+    undone = edits + [edit("Geburtstagskerzen", "uncross", DAY)]
+    assert not with_edits(STEADY, undone, DAY)["lines"][0]["crossed"], "a mistap undone"
+    assert "Geburtstagskerzen" in listed(with_edits(STEADY, undone, DAY + timedelta(days=1)))
+
+
+def test_a_receipt_crosses_off_a_typed_line_whose_words_end_what_was_bought():
+    """`Tomaten` is bought as Rispentomaten, `Milch` as H-Milch; a receipt
+    from before the line was typed buys nothing for it."""
+    rows = STEADY + [row("gemuese", DAY, item="Rispentomaten", product="Rispentomaten lose"),
+                     row("milch", DAY, item="H-Milch", product="Haltbare Milch 1,5%")]
+    edits = [edit("Tomaten", "write", DAY), edit("milch", "write", DAY),
+             edit("Brot vom Bäcker", "write", DAY)]
+    result = with_edits(rows, edits, DAY)
+    crossed = {line["kind"]: line["crossed"] for line in result["lines"] if line["typed"]}
+    assert crossed == {"Tomaten": True, "milch": True, "Brot vom Bäcker": False}
+    earlier = [edit("Tomaten", "write", DAY + timedelta(days=1))]
+    line = with_edits(rows, earlier, DAY + timedelta(days=1))["lines"][0]
+    assert line["kind"] == "Tomaten" and not line["crossed"]
+
+
+def test_too_short_typed_words_are_never_crossed_off_by_a_receipt():
+    from grocery_app.shopping_list import bought_as
+
+    brei = row("babynahrung", DAY, item="Brei", product="Hirsebrei")
+    assert not bought_as("Ei", brei)
+    assert bought_as("brei", brei)
+
+
+def test_crossing_off_a_suggested_item_counts_as_a_buy_until_the_receipt_comes():
+    """Quark every 6 days, last bought day 54: on the list on day 57. Put on
+    and crossed off then, it is not suggested again the next day, as if
+    bought (half a usual buy, 3 days, must pass)."""
+    today = START + timedelta(days=57)
+    assert "quark" in listed(with_edits(STEADY, [], today))
+    edits = [edit("quark", "add", today), edit("quark", "cross", today)]
+    assert with_edits(STEADY, edits, today)["lines"][0]["crossed"]
+    assert "quark" not in listed(with_edits(STEADY, edits, today + timedelta(days=1)))
+    assert "quark" in listed(with_edits(STEADY, edits, today + timedelta(days=3)))
+
+
+def test_a_typed_line_can_be_snoozed():
+    edits = [edit("Kerzen", "write", DAY), edit("Kerzen", "remove", DAY)]
+    result = with_edits(STEADY, edits, DAY)
+    assert "Kerzen" not in listed(result) and result["snoozed"][0]["kind"] == "Kerzen"
+    assert "Kerzen" in listed(with_edits(STEADY, edits, DAY + timedelta(days=1)))
 
 
 # --- the backtest --------------------------------------------------------------
@@ -357,6 +435,35 @@ def test_a_kind_that_is_no_category_is_refused(two_lists):
 
 
 @db
+def test_typed_words_go_on_the_asker_list_and_only_theirs(two_lists):
+    """The paper list over the server: words naming an item they bought put
+    that item on; any other words are a line of their own, crossed off and
+    deleted by those words, and by no one else."""
+    repository, sara = two_lists
+    client = _client(repository)
+    hers = {"Authorization": f"Bearer {sara['password']}"}
+
+    typed = client.post("/v1/list", headers=OWNER, json={"text": "  Geburtstags   kerzen "})
+    assert typed.status_code == 200
+    line = typed.json()["lines"][0]
+    assert (line["kind"], line["typed"], line["added"]) == ("Geburtstags kerzen", True, True)
+    milk = client.post("/v1/list", headers=OWNER, json={"text": "MILCH"}).json()["lines"]
+    assert [(l["kind"], l["typed"]) for l in milk][:2] == [
+        ("Geburtstags kerzen", True), ("milch", False)], "the item, not new words"
+
+    assert client.put("/v1/list/Geburtstags kerzen", headers=hers,
+                      json={"edit": "cross"}).status_code == 422, "not Sara's line"
+    crossed = client.put("/v1/list/Geburtstags kerzen", headers=OWNER, json={"edit": "cross"})
+    assert crossed.json()["lines"][0]["crossed"]
+    deleted = client.put("/v1/list/Geburtstags kerzen", headers=OWNER,
+                         json={"edit": "delete"}).json()
+    assert "Geburtstags kerzen" not in listed(deleted)
+    assert client.post("/v1/list", headers=OWNER, json={"text": "   "}).status_code == 422
+    assert client.put("/v1/list/milch", headers=OWNER,
+                      json={"edit": "cross", "on_list": True}).status_code == 422
+
+
+@db
 def test_a_deleted_account_takes_its_list_edits_with_it(two_lists, session):
     from grocery_app.db.models import ListEdit
 
@@ -393,8 +500,8 @@ def test_the_list_reads_bottom_to_top_accepted_first_and_the_most_urgent_last():
         const day = iso => new Date(iso + "T00:00:00Z");
         const doc = { lines: [{ kind: "brot", added: true }, { kind: "milch", added: false },
                               { kind: "eier", added: false }, { kind: "quark", added: false }] };
-        const waiting = new Map([["eier", { onList: false, timer: 1 }],
-                                 ["quark", { onList: true, timer: 2 }]]);
+        const waiting = new Map([["eier", { edit: "remove", timer: 1 }],
+                                 ["quark", { edit: "add", timer: 2 }]]);
         const parts = listParts(doc, waiting);
         console.log(parts.accepted.map(l => l.kind).join(","));
         console.log(parts.suggested.map(l => l.kind).join(","));
@@ -429,6 +536,7 @@ def test_an_add_or_snooze_is_sent_when_its_undo_runs_out_or_the_page_is_left():
     out = run_page_function(page, "decide accept snooze sendListEdit sendListWaitingNow "
                                   "markListUsed", """
         const LIST_UNDO_MS = 3000;
+        const LIST_SAID = { add: "added", remove: "snoozed", delete: "deleted" };
         const listWaiting = new Map();
         const sent = [];
         let undo = null, undoFor = null;
@@ -450,13 +558,13 @@ def test_an_add_or_snooze_is_sent_when_its_undo_runs_out_or_the_page_is_left():
         console.log([...listWaiting.keys()].join(","));
         sendListWaitingNow();
         sendListWaitingNow();
-        sendListEdit("quark", true);
+        sendListEdit("quark", "add");
         setTimeout(() => { console.log(sent.join(" | ")); process.exit(0); }, 10);
     """)
     assert out == ["3000", "eier,skyr",
-                   'PUT /v1/list/eier {"on_list":false} keepalive | '
-                   'PUT /v1/list/skyr {"on_list":true} keepalive | '
-                   'PUT /v1/list/quark {"on_list":true} keepalive'], \
+                   'PUT /v1/list/eier {"edit":"remove"} keepalive | '
+                   'PUT /v1/list/skyr {"edit":"add"} keepalive | '
+                   'PUT /v1/list/quark {"edit":"add"} keepalive'], \
         "Milch and Brot undone; Eier and Skyr sent once, on leaving; Quark put back at once"
 
 
@@ -527,14 +635,68 @@ def test_the_server_takes_an_item_the_asker_bought_and_nothing_made_up(two_lists
                       json={"on_list": True}).status_code == 422, "never bought"
 
 
+def test_typing_crossing_off_and_deleting_on_the_page():
+    """The paper list (owner, 2026-10-26): what is typed is sent as typed and
+    the field empties only once it is on the list; a cross is sent at once,
+    and a second tap uncrosses; a delete waits out its Undo, hidden."""
+    from grocery_app.api.app import REVIEW_PAGE
+    from tests.test_api import run_page_function
+
+    page = REVIEW_PAGE.read_text(encoding="utf-8")
+    out = run_page_function(page, "writeOnList crossOff sendListEdit decide deleteTyped "
+                                  "markListUsed listParts", """
+        const LIST_UNDO_MS = 3000;
+        const LIST_SAID = { add: "added", remove: "snoozed", delete: "deleted" };
+        const listWaiting = new Map();
+        const sent = [];
+        let fail = false;
+        globalThis.api = async (path, opts) => {
+          sent.push([opts.method, path, opts.body].join(" "));
+          if (fail) throw new Error("offline");
+          return { lines: [{ kind: "Kerzen", added: true, typed: true }], snoozed: [] };
+        };
+        globalThis.toast = text => sent.push("toast " + text);
+        globalThis.render = () => {};
+        globalThis.saveCopy = () => {};
+        globalThis.document = { querySelector: () => null };
+        globalThis.state = { listDraft: "Kerzen" };
+        (async () => {
+          const input = { value: "Kerzen" };
+          await writeOnList("   ", input);
+          await writeOnList("Kerzen", input);
+          console.log(JSON.stringify([input.value, state.listDraft, state.list.lines.length]));
+          fail = true;
+          input.value = "Ballons";
+          await writeOnList("Ballons", input);
+          console.log(input.value);
+          fail = false;
+          const line = { kind: "Kerzen", name: "Kerzen", crossed: false };
+          crossOff(line);
+          console.log(line.crossed);
+          crossOff(line);
+          console.log(line.crossed);
+          deleteTyped({ kind: "Kerzen", name: "Kerzen" });
+          console.log(listParts({ lines: [{ kind: "Kerzen", added: true }] },
+                                listWaiting).accepted.length);
+          setTimeout(() => { console.log(sent.join(" | ")); process.exit(0); }, 20);
+        })();
+    """)
+    assert out[:5] == ['["","",1]', "Ballons", "true", "false", "0"], out
+    assert out[5] == ('POST /v1/list {"text":"Kerzen"} | POST /v1/list {"text":"Ballons"} | '
+                      'toast Not added: offline | '
+                      'PUT /v1/list/Kerzen {"edit":"cross"} | '
+                      'PUT /v1/list/Kerzen {"edit":"uncross"} | toast Kerzen: deleted'), \
+        "nothing typed sends nothing; a failed add keeps the words"
+
+
 def test_the_swipe_hint_goes_once_the_person_has_added_or_snoozed():
     from grocery_app.api.app import REVIEW_PAGE
     from tests.test_api import run_page_function
 
     page = REVIEW_PAGE.read_text(encoding="utf-8")
-    assert "function decide(line, onList) {\n  markListUsed();" in page
-    assert "function accept(line) { decide(line, true); }" in page
-    assert "function snooze(line) { decide(line, false); }" in page
+    assert "function decide(line, edit) {\n  markListUsed();" in page
+    assert 'function accept(line) { decide(line, "add"); }' in page
+    assert 'function snooze(line) { decide(line, "remove"); }' in page
     out = run_page_function(page, "listUsed markListUsed", """
         const LIST_USED_KEY = "grocery-list-used";
         const kept = {};

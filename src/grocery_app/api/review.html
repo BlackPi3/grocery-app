@@ -343,15 +343,23 @@
   .mark.on { background: var(--accent); border-color: var(--accent); }
   .mark svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2.4;
     stroke-linecap: round; stroke-linejoin: round; }
+  .mark.add { border-style: dashed; }
+  .mark.add svg { stroke: var(--muted); }
+  .list-item.crossed .what { text-decoration: line-through; color: var(--muted); }
+  .list-item.crossed .meta { opacity: 0.6; }
+  .list-write { gap: 8px; }
+  .list-input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 7px 10px;
+    border: 1px solid var(--grid); border-radius: 8px; background: var(--page);
+    color: var(--ink); }
+  .list-write .accept { font-size: 12px; padding: 6px 10px; background: var(--accent);
+    border-color: var(--accent); color: #fff; }
   .list-label { position: sticky; top: var(--head, 64px); z-index: 2; margin: 0;
     padding: 14px 0 6px; background: var(--page); }
   .list-part .card { margin-top: 0; }
-  .list-none { color: var(--muted); font-size: 14px; padding: 6px 0; }
   .list-hint { text-align: center; color: var(--muted); font-size: 13px; margin: 4px 0 0; }
   .list-item .link { flex: none; font-size: 13px; }
   .list-acts { display: flex; gap: 6px; flex: none; }
   .list-acts button { font-size: 12px; padding: 6px 10px; }
-  .list-acts .accept { background: var(--accent); border-color: var(--accent); color: #fff; }
   /* What a swipe does, under the row: Add on the left as it slides right,
      Snooze on the right as it slides left. */
   .slide { position: relative; overflow: hidden; border-top: 1px solid var(--grid); }
@@ -1987,17 +1995,24 @@ function offersCard(doc) {
 // (a snooze the server doubles each time without a buy). Read bottom to top,
 // for the thumb: the most urgent suggestion sits right above the tab bar and
 // the tab opens at the bottom. A swipe right accepts, a swipe left snoozes,
-// or the row's buttons. A snooze leaves at once, with Undo, and is sent when
-// the Undo runs out or the page is left, as a removed receipt is. An add
-// works the same way: it moves up at once and Undo takes it back (owner,
-// 2026-10-25: 3 seconds, a mistake is noticed at once).
+// or the row's circle and Snooze. A snooze leaves at once, with Undo, and is
+// sent when the Undo runs out or the page is left, as a removed receipt is.
+// An add works the same way: it moves up at once and Undo takes it back
+// (owner, 2026-10-25: 3 seconds, a mistake is noticed at once).
+//
+// It is also a paper list (owner, 2026-10-26): the person types an item
+// (`POST /v1/list`), and taps the circle of a line on their list to cross it
+// off as it goes in the trolley; a tap again uncrosses it. A crossed line
+// stays crossed for the day, and a receipt crosses off what it shows bought.
+// Anything on it can be snoozed; a typed line can be deleted, with Undo.
 const LIST_UNDO_MS = 3000;
-// kind -> { onList, timer }: shown as decided while its Undo runs (timer) and
-// until the server answers (timer null).
+// kind -> { edit, timer }: shown as decided while its Undo runs (timer) and
+// until the server answers (timer null). `edit` as `PUT /v1/list/{kind}` takes it.
 const listWaiting = new Map();
 function listParts(doc, waiting) {
-  const lines = ((doc && doc.lines) || []).filter(l => waiting.get(l.kind)?.onList !== false);
-  const added = l => l.added || waiting.get(l.kind)?.onList === true;
+  const gone = l => ["remove", "delete"].includes(waiting.get(l.kind)?.edit);
+  const lines = ((doc && doc.lines) || []).filter(l => !gone(l));
+  const added = l => l.added || waiting.get(l.kind)?.edit === "add";
   return { accepted: lines.filter(added),
            // Most urgent last: nearest the thumb.
            suggested: lines.filter(l => !added(l)).reverse() };
@@ -2017,28 +2032,52 @@ function listUsed() {
 function markListUsed() {
   try { localStorage.setItem(LIST_USED_KEY, "1"); } catch (_) { /* private mode */ }
 }
+const CHECK_SVG = '<svg viewBox="0 0 20 20"><path d="m5.5 10.5 3 3 6-6.5"/></svg>';
+const PLUS_SVG = '<svg viewBox="0 0 20 20"><path d="M10 5.5v9M5.5 10h9"/></svg>';
 function listRow(line, suggested) {
-  // A suggestion looks tentative, an empty circle; what was accepted is solid,
-  // a filled one with a check. The circle adds, as a checkbox would.
-  const mark = el("button", { class: suggested ? "mark" : "mark on", "aria-label":
-    suggested ? `Add ${line.name}` : `${line.name} is on your list`,
-    onclick: suggested ? () => accept(line) : null });
-  if (!suggested) mark.innerHTML = '<svg viewBox="0 0 20 20"><path d="m5.5 10.5 3 3 6-6.5"/></svg>';
-  const row = el("div", { class: "item list-item" + (suggested ? " suggested" : "") },
+  // A suggestion's circle adds it (a plus); on the person's list the circle
+  // crosses the line off (a check), as a pen would.
+  const crossed = !suggested && line.crossed;
+  const mark = el("button", { class: "mark" + (suggested ? " add" : crossed ? " on" : ""),
+    "aria-label": suggested ? `Add ${line.name}`
+      : crossed ? `${line.name} is crossed off; tap to undo` : `Cross off ${line.name}`,
+    onclick: suggested ? () => accept(line) : () => crossOff(line) });
+  mark.innerHTML = suggested ? PLUS_SVG : crossed ? CHECK_SVG : "";
+  const acts = crossed ? [] : [
+    line.typed ? el("button", { class: "delete", "aria-label": `Delete ${line.name}`,
+                               onclick: () => deleteTyped(line) }, "Delete") : null,
+    el("button", { class: "snooze", "aria-label": `Snooze ${line.name}`,
+                   onclick: () => snooze(line) }, "Snooze")];
+  const row = el("div", { class: "item list-item" + (suggested ? " suggested" : "")
+                                 + (crossed ? " crossed" : "") },
     el("div", { class: "list-what" }, mark,
        el("div", {}, el("div", { class: "what", lang: "de" }, line.name),
           line.usual ? el("div", { class: "meta", lang: "de" },
             easyName(line.usual.product, line.usual.brand)) : null)),
-    el("div", { class: "list-acts" },
-      el("button", { class: "snooze", "aria-label": `Snooze ${line.name}`,
-                     onclick: () => snooze(line) }, "Snooze"),
-      suggested ? el("button", { class: "accept", "aria-label": `Add ${line.name}`,
-                                 onclick: () => accept(line) }, "Add") : null));
+    el("div", { class: "list-acts" }, ...acts));
+  if (crossed) return el("div", { class: "slide" }, row);
   const wrap = el("div", { class: "slide" },
     suggested ? el("div", { class: "under right" }, "Add") : null,
     el("div", { class: "under left" }, "Snooze"), row);
   swipeBothWays(wrap, row, suggested ? () => accept(line) : null, () => snooze(line));
   return wrap;
+}
+// The last row of the person's list: what they type goes on it (Enter, or
+// the button).
+function listWriter() {
+  const input = el("input", { type: "text", class: "list-input", maxlength: "60",
+    placeholder: "Add an item", "aria-label": "Add an item", autocomplete: "off",
+    enterkeyhint: "done", lang: "de" });
+  // Kept across a redraw (an Undo running out redraws the page).
+  input.value = state.listDraft || "";
+  input.addEventListener("input", () => { state.listDraft = input.value; });
+  const form = el("form", { class: "item list-item list-write" }, input,
+    el("button", { type: "submit", class: "accept" }, "Add"));
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    writeOnList(input.value, input);
+  });
+  return form;
 }
 // A part of the list under a label that stays in view while that part is
 // scrolled through: opened at the bottom, the person still sees where they are.
@@ -2060,12 +2099,11 @@ function listView() {
       el("div", { class: "item list-item" },
         el("div", {}, el("div", { class: "what", lang: "de" }, s.name),
            el("div", { class: "meta" }, backDay(s.until))),
-        el("button", { class: "link", onclick: () => sendListEdit(s.kind, true) },
+        el("button", { class: "link", onclick: () => sendListEdit(s.kind, "add") },
            "Put back")))));
   }
   out.push(listSection("Your list", accepted.length, el("div", { class: "card" },
-    accepted.length ? accepted.map(l => listRow(l, false))
-      : el("div", { class: "list-none" }, "Nothing yet: add from the suggestions below"))));
+    ...accepted.map(l => listRow(l, false)), listWriter())));
   if (suggested.length) {
     out.push(listSection("Suggested", suggested.length,
       el("div", { class: "card tentative" }, suggested.map(l => listRow(l, true)))));
@@ -2075,38 +2113,62 @@ function listView() {
   }
   return out;
 }
-function decide(line, onList) {
+const LIST_SAID = { add: "added", remove: "snoozed", delete: "deleted" };
+function decide(line, edit) {
   markListUsed();
-  listWaiting.set(line.kind, { onList,
-    timer: setTimeout(() => sendListEdit(line.kind, onList), LIST_UNDO_MS) });
+  listWaiting.set(line.kind, { edit,
+    timer: setTimeout(() => sendListEdit(line.kind, edit), LIST_UNDO_MS) });
   render();
-  toast(`${line.name}: ${onList ? "added" : "snoozed"}`, () => {
+  toast(`${line.name}: ${LIST_SAID[edit]}`, () => {
     clearTimeout(listWaiting.get(line.kind)?.timer);
     listWaiting.delete(line.kind);
     render();
   }, LIST_UNDO_MS);
 }
-function accept(line) { decide(line, true); }
-function snooze(line) { decide(line, false); }
-async function sendListEdit(kind, onList, leaving) {
+function accept(line) { decide(line, "add"); }
+function snooze(line) { decide(line, "remove"); }
+function deleteTyped(line) { decide(line, "delete"); }
+// A cross shows at once and is sent at once: a second tap is its undo.
+function crossOff(line) {
+  line.crossed = !line.crossed;
+  render();
+  sendListEdit(line.kind, line.crossed ? "cross" : "uncross");
+}
+async function sendListEdit(kind, edit, leaving) {
   clearTimeout(listWaiting.get(kind)?.timer);
-  listWaiting.set(kind, { onList, timer: null });
+  listWaiting.set(kind, { edit, timer: null });
   // keepalive: the request outlives a page that is going away.
   const sent = api(`/v1/list/${encodeURIComponent(kind)}`, {
     method: "PUT", headers: { "Content-Type": "application/json" }, keepalive: true,
-    body: JSON.stringify({ on_list: onList }) });
+    body: JSON.stringify({ edit }) });
   if (leaving) return sent.catch(() => {});
   try {
     state.list = await sent;
     saveCopy();
-  } catch (error) { toast((onList ? "Not added: " : "Not snoozed: ") + error.message); }
+  } catch (error) { toast(`Not ${LIST_SAID[edit] || "saved"}: ${error.message}`); }
   listWaiting.delete(kind);
   render();
 }
 function sendListWaitingNow() {
-  for (const [kind, { onList, timer }] of [...listWaiting]) {
-    if (timer !== null) sendListEdit(kind, onList, true);
+  for (const [kind, { edit, timer }] of [...listWaiting]) {
+    if (timer !== null) sendListEdit(kind, edit, true);
   }
+}
+// What was typed is sent as typed; the server decides whether it names an
+// item already bought. The field empties only once it is on the list.
+async function writeOnList(text, input) {
+  if (!text.trim()) return;
+  markListUsed();
+  try {
+    state.list = await api("/v1/list", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }) });
+    saveCopy();
+    state.listDraft = "";
+    input.value = "";
+    render();
+    document.querySelector(".list-input")?.focus();
+  } catch (error) { toast("Not added: " + error.message); }
 }
 
 // Follow a finger either way on a row: let go past a third of its width and

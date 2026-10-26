@@ -58,11 +58,29 @@ The person's edits (`with_edits`) are kept apart from the draft:
   bought.
 - **A buy ends both.** A receipt with the kind on or after the edit's day
   starts it afresh, and the next removal is a first one again.
+
+The list is also a paper list (owner, 2026-10-26: the one place a person
+types):
+
+- **A typed line** (`write`) is the person's own words, for a thing the
+  receipts give no clue to. Words that name an item they bought (`Eier`) put
+  that item on instead. A typed line stays until it is crossed off, bought,
+  or deleted (`delete`).
+- **Crossing off** (`cross`, undone by `uncross`) marks what is in the
+  trolley. A crossed line shows crossed for the rest of the day and is gone
+  the next. A receipt crosses off what it shows bought, the same way; a
+  typed line is bought when each of its words ends a word of the item, the
+  product or the category (`Tomaten`: Rispentomaten). Until the receipt
+  comes, a cross counts as a buy: the item is not suggested again as just
+  bought.
+- **Anything on the list can be snoozed**, the person's own lines too: one
+  of theirs comes back on their list when its snooze runs out.
 """
 
 from __future__ import annotations
 
 import math
+import re
 import statistics
 from collections import Counter, defaultdict
 from datetime import date, timedelta
@@ -70,6 +88,7 @@ from typing import Any
 
 from grocery_app import categories
 from grocery_app.insights import _product_rows, _quantity
+from grocery_app.resolver import fold
 
 # Bought on this many days or more before a kind is judged: one day is
 # something tried, not a habit.
@@ -90,7 +109,11 @@ USUAL_LOOKBACK = 5
 # each further one without a buy, twice as long as the one before.
 SNOOZE_SHARE = 0.5
 MIN_SNOOZE_DAYS = 1
-EDITS = ("add", "remove")
+EDITS = ("add", "remove", "cross", "uncross", "write", "delete")
+# A typed line has no usual buy to time its snoozes by: 1, 2, 4 days.
+TYPED_DAYS_PER_BUY = 2.0
+# Typed words shorter than this match too much to be crossed off by a receipt.
+MIN_TYPED_LETTERS = 3
 
 
 def item_key(p: dict[str, Any]) -> str:
@@ -249,65 +272,169 @@ def _added_line(kind_key: str, group: list[dict[str, Any]],
             "when": "now", "added": True}
 
 
+def _typed_line(text: str) -> dict[str, Any]:
+    return {"kind": text, "name": text, "usual": None, "products": 0, "days_bought": 0,
+            "last_bought": None, "chance": None, "days_per_buy": None, "runs_out": None,
+            "days_left": None, "when": "now", "added": True}
+
+
+def written(text: str) -> str:
+    """Typed words as a line keeps them: outer and repeated spaces dropped."""
+    return " ".join(text.split())
+
+
+def _words(text: str | None) -> list[str]:
+    return [w for w in re.split(r"[^a-z0-9]+", fold(text or "")) if w]
+
+
+def bought_as(text: str, p: dict[str, Any]) -> bool:
+    """Whether a purchase is of a typed line: each typed word ends a word of
+    its item, product or category, as German compounds end in what they are
+    (`Milch`: H-Milch; `Tomaten`: Rispentomaten)."""
+    typed = _words(text)
+    if sum(len(w) for w in typed) < MIN_TYPED_LETTERS:
+        return False
+    path = p.get("category_path") or []
+    have = [w for name in (p.get("item"), p.get("product"), path[-1] if path else None)
+            for w in _words(name)]
+    return all(any(h.endswith(w) for h in have) for w in typed)
+
+
+def _replay(events: list[tuple[date, int, str]], today: date) -> dict[str, Any]:
+    """One line's state today from its edits and buys, oldest first (a day's
+    edits before its buys: a buy on an edit's day ends it).
+
+    `on`: when the person put it on their list (day, order), or None;
+    `crossed`: the day it was crossed off, by them or a receipt, when that is
+    today (a line crossed before today is gone); `removals`: snooze days since
+    the last buy or cross; `resting`: a snooze is its last word; `crossed_last`:
+    the last day they crossed it off themselves."""
+    on: tuple[date, int] | None = None
+    crossed: date | None = None
+    removals: list[date] = []
+    resting = False
+    crossed_last: date | None = None
+    for day, order, what in events:
+        if crossed is not None and day > crossed:
+            on, crossed = None, None
+        if what in ("add", "write"):
+            on, crossed, resting = (day, order), None, False
+        elif what == "remove":
+            removals.append(day)
+            resting = True
+        elif what == "cross" and on is not None:
+            crossed, crossed_last, removals, resting = day, day, [], False
+        elif what == "uncross":
+            crossed = None
+        elif what == "delete":
+            on, crossed, removals, resting = None, None, [], False
+        elif what == "buy":
+            if on is not None and crossed is None:
+                crossed = day
+            removals, resting = [], False
+    if crossed is not None and today > crossed:
+        on, crossed = None, None
+    return {"on": on, "crossed": crossed, "removals": removals, "resting": resting,
+            "crossed_last": crossed_last}
+
+
 def with_edits(rows: list[dict[str, Any]], edits: list[dict[str, Any]],
                today: date) -> dict[str, Any]:
-    """Today's list with the person's edits: what they added first, in the
-    order added, then the draft without what is snoozed; and what is snoozed,
+    """Today's list with the person's edits: what they put on it first, in the
+    order put on, then the draft without what is snoozed; and what is snoozed,
     until when. `edits` are `{"kind", "edit", "day"}`, oldest first. Today's
     receipts count: the draft is the one for the morning after."""
     as_of = today + timedelta(days=1)
     judged = {k["kind"]: k for k in kinds(rows, as_of)}
     drafted = shopping_list(rows, as_of)
+    before = [p for p in rows if p.get("category") and date.fromisoformat(p["date"]) < as_of]
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for p in rows:
-        if p.get("category") and date.fromisoformat(p["date"]) < as_of:
-            groups[item_key(p)].append(p)
-    last = {k: max(date.fromisoformat(p["date"]) for p in g) for k, g in groups.items()}
+    for p in before:
+        groups[item_key(p)].append(p)
+    typed = {e["kind"] for e in edits if e["edit"] == "write"}
     # An edit made while its product was not named yet carries the category
     # key (`milch`); once the product is named its lines count as an item
     # (`h-milch`), and a buy of the category still ends that edit.
-    for p in rows:
-        if p.get("category") and date.fromisoformat(p["date"]) < as_of:
-            bought = date.fromisoformat(p["date"])
-            last[p["category"]] = max(last.get(p["category"], bought), bought)
+    buys: dict[str, set[date]] = defaultdict(set)
+    for p in before:
+        bought = date.fromisoformat(p["date"])
+        buys[item_key(p)].add(bought)
+        buys[p["category"]].add(bought)
+        for text in typed:
+            if bought_as(text, p):
+                buys[text].add(bought)
 
-    # An edit names a line of the list, or a category never bought. One whose
-    # line is gone, because its products are named otherwise now (an add
-    # under Haushaltswaren, 24 Oct; a snooze of Romatomaten, now Tomaten),
-    # names nothing the person would know, and is dropped.
-    bought = {p["category"] for p in rows if p.get("category")}
-
-    since: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for e in edits:
-        if e["kind"] not in groups and (e["kind"] in bought
-                                        or e["kind"] not in categories.CATEGORIES):
+    # An edit names a line of the list, a typed line, or a category never
+    # bought. One whose line is gone, because its products are named otherwise
+    # now (an add under Haushaltswaren, 24 Oct; a snooze of Romatomaten, now
+    # Tomaten), names nothing the person would know, and is dropped.
+    bought_categories = {p["category"] for p in rows if p.get("category")}
+    events: dict[str, list[tuple[date, int, int, str]]] = defaultdict(list)
+    for order, e in enumerate(edits):
+        if e["edit"] not in EDITS or (
+                e["kind"] not in groups and e["kind"] not in typed
+                and (e["kind"] in bought_categories
+                     or e["kind"] not in categories.CATEGORIES)):
             continue
-        if e["edit"] in EDITS and (e["kind"] not in last or e["day"] > last[e["kind"]]):
-            since[e["kind"]].append(e)
-    added = sorted((k for k, own in since.items() if own[-1]["edit"] == "add"),
-                   key=lambda k: since[k][-1]["day"])
+        events[e["kind"]].append((e["day"], 0, order, e["edit"]))
+    states = {}
+    for key, own in events.items():
+        own += [(day, 1, 0, "buy") for day in buys.get(key, ())]
+        states[key] = _replay([(d, o, w) for d, _, o, w in sorted(own)], today)
+
     snoozed = []
+
+    def resting(key: str, name: str, days_per_buy: float | None) -> bool:
+        state = states[key]
+        if not (state["resting"] and state["removals"]):
+            return False
+        removals = state["removals"]
+        until = removals[-1] + timedelta(days=snooze_days(
+            days_per_buy or TYPED_DAYS_PER_BUY, len(removals)))
+        if today >= until:
+            return False
+        snoozed.append({"kind": key, "name": name, "until": until.isoformat(),
+                        "times": len(removals)})
+        return True
+
+    mine = []
+    for key in sorted((k for k, st in states.items() if st["on"]),
+                      key=lambda k: states[k]["on"]):
+        line = (_added_line(key, groups.get(key, []), judged.get(key))
+                if key in groups or key not in typed else _typed_line(key))
+        if not resting(key, line["name"], line["days_per_buy"]):
+            mine.append({**line, "crossed": states[key]["crossed"] is not None,
+                         "typed": key in typed and key not in groups})
+    suggested = []
     for line in drafted:
-        own = since.get(line["kind"], [])
-        if not own or own[-1]["edit"] != "remove":
-            continue
-        removals = [e["day"] for e in own if e["edit"] == "remove"]
-        until = removals[-1] + timedelta(days=snooze_days(line["days_per_buy"], len(removals)))
-        if today < until:
-            snoozed.append({"kind": line["kind"], "name": line["name"],
-                            "until": until.isoformat(), "times": len(removals)})
-    hidden = {s["kind"] for s in snoozed} | set(added)
-    return {
-        "as_of": today.isoformat(),
-        "lines": [_added_line(k, groups.get(k, []), judged.get(k)) for k in added]
-                 + [{**line, "added": False} for line in drafted if line["kind"] not in hidden],
-        "snoozed": snoozed,
-    }
+        state = states.get(line["kind"])
+        if state is not None:
+            if state["on"]:
+                continue
+            # Crossed off and no receipt yet: as good as bought that day.
+            crossed = state["crossed_last"]
+            if crossed and crossed.isoformat() > line["last_bought"] and not due(
+                    {**line, "last_bought": crossed.isoformat()}, as_of):
+                continue
+            if resting(line["kind"], line["name"], line["days_per_buy"]):
+                continue
+        suggested.append({**line, "added": False, "crossed": False, "typed": False})
+    return {"as_of": today.isoformat(), "lines": mine + suggested, "snoozed": snoozed}
 
 
 def known(rows: list[dict[str, Any]]) -> set[str]:
     """Every line key these purchases can make: what an edit may name."""
     return {item_key(p) for p in rows if p.get("category")}
+
+
+def typed_key(text: str, rows: list[dict[str, Any]]) -> str | None:
+    """The item or category typed words name, any case (`eier`), or None
+    when they name neither and stay the person's own words."""
+    key = written(text).casefold()
+    if key in known(rows):
+        return key
+    return next((k for k in categories.CATEGORIES
+                 if k == key or categories.label(k).casefold() == key), None)
 
 
 def list_rows(purchases: dict[str, Any]) -> list[dict[str, Any]]:

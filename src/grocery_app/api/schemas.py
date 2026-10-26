@@ -17,7 +17,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Bumped to 3 and 2 on 2026-09-22, when `is_own_brand` became `is_budget_brand`
 # and the insight section `own_brand` became `budget_brand`. Renaming a field is
@@ -748,7 +748,7 @@ class ListLine(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(description="The category key, `eier`")
+    kind: str = Field(description="The item or category key, `eier`, or a typed line's words")
     name: str
     usual: ListUsual | None
     products: int = Field(description="How many products of this kind were bought")
@@ -760,6 +760,8 @@ class ListLine(BaseModel):
     days_left: int | None
     when: Literal["now", "this_week", "later"]
     added: bool = Field(description="On the list because the person added it")
+    crossed: bool = Field(description="Crossed off today, by the person or a receipt")
+    typed: bool = Field(description="The person's own words, no item the receipts know")
 
 
 class ListSnoozed(BaseModel):
@@ -784,11 +786,32 @@ class ShoppingListDocument(BaseModel):
 
 
 class ListEditRequest(BaseModel):
-    """One tap on the list: put a kind on it (`true`), or take it off for now."""
+    """One tap on the list (`shopping_list.EDITS`): put a line on it, snooze
+    it, cross it off or back, or delete a typed one. `on_list` is the older
+    page's way of saying add (`true`) or snooze (`false`)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    on_list: bool
+    edit: Literal["add", "remove", "cross", "uncross", "delete"] | None = None
+    on_list: bool | None = None
+
+    @model_validator(mode="after")
+    def one_edit(self) -> ListEditRequest:
+        if (self.edit is None) == (self.on_list is None):
+            raise ValueError("give `edit`, or `on_list`, not both")
+        return self
+
+    @property
+    def what(self) -> str:
+        return self.edit or ("add" if self.on_list else "remove")
+
+
+class ListWriteRequest(BaseModel):
+    """Words a person typed onto their list."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=60)
 
 
 class CountedKinds(BaseModel):
