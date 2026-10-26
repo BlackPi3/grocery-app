@@ -40,7 +40,9 @@ from pydantic import BaseModel, ConfigDict, Field
 # (`Walnüsse`), so the list is items, not categories (owner, 2026-10-24).
 # And to 10 on 2026-10-25: `storage` and `keeps_days` say where a product is
 # kept and how long it keeps, what limits buying ahead (owner, 2026-10-25).
-PURCHASES_CONTRACT_VERSION = 10
+# 11 on 2026-10-26: `guessed_category`, the photo reading's category for a
+# line nothing placed, so a guessed T-shirt does not count as groceries.
+PURCHASES_CONTRACT_VERSION = 11
 #
 # Insights bumped to 3 on 2026-09-29: lines known not to be groceries (café,
 # flowers, cards) left every insight, so `coverage.spend` means grocery spend,
@@ -141,6 +143,11 @@ class Purchase(BaseModel):
         description="Present and true when the shopper left this line out of their numbers "
                     "(bought for someone else, a mistake): it stays on the receipt and in "
                     "price comparisons, and leaves spend, habits and the basket")
+    guessed_category: str | None = Field(
+        default=None,
+        description="Only on a product line nothing placed: the category the photo reading "
+                    "guessed. It decides whether the line counts (groceries, or a kind the "
+                    "person counts), never what the line is")
 
 
 class PurchasesMeta(BaseModel):
@@ -319,6 +326,8 @@ class Question(BaseModel):
         default_factory=list,
         description="What to ask with, one yes/no card at a time, first card first: the "
                     "price paid picks the order (`api.cards`)")
+    skipped_at: str | None = Field(
+        default=None, description="When the shopper last skipped it; skipped cards come last")
 
 
 class SpotCheck(BaseModel):
@@ -331,6 +340,8 @@ class SpotCheck(BaseModel):
     raw_name: str
     paid: float | None = Field(description="Shelf price paid, before discount (per kg if weighed)")
     app_product_id: str = Field(description="What the app said the line is")
+    skipped_at: str | None = Field(
+        default=None, description="When the shopper last skipped it; skipped cards come last")
     app_product: str | None = Field(description="That product's name")
     brand: str | None
     details: list[str]

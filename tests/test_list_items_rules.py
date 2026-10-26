@@ -309,7 +309,7 @@ def test_the_word_reaches_every_line_of_the_product_for_everyone_who_bought_it(
     offers_api.word_due(repository, Namer({"p-milch": "H-Milch"}), today(), Counter())
     client = client_for(repository)
     doc, owners = lines_of(client, OWNER, "p-milch")
-    assert doc["contract_version"] == 10
+    assert doc["contract_version"] == 11
     _, saras = lines_of(client, as_sara(sara), "p-milch")
     assert len(owners) == 4 and len(saras) == 2
     assert [p.get("item") for p in owners + saras] == ["H-Milch"] * 6

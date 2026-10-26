@@ -1009,6 +1009,16 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return ReceiptDocument.model_validate(updated)
 
+    @app.put("/v1/receipts/{receipt_id}/lines/{position}/skipped", status_code=204)
+    def skip_line(request: Request, receipt_id: int, position: int) -> Response:
+        """Skip what the app asks about this line: no answer, the line keeps the
+        app's guess, and the card comes again after the others."""
+        try:
+            require_writes(request).skip_line(receipt_id, position)
+        except NotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return Response(status_code=204)
+
     return app
 
 

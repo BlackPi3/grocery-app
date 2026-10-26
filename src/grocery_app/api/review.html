@@ -229,6 +229,7 @@
   .deck .what { font-weight: 600; margin-bottom: 2px; }
   .deck .row { margin-top: 12px; }
   .deck .row button { padding: 12px; font-size: 16px; font-weight: 600; }
+  .deck button.skip { display: block; margin: 10px auto 0; font-size: 14px; padding: 6px 16px; }
   .stat { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
   .months { display: flex; gap: 6px; overflow-x: auto; margin: 0 -2px 12px; padding: 0 2px; }
   .months button { flex: 0 0 auto; padding: 6px 12px; font-size: 13px; }
@@ -820,9 +821,28 @@ function asks() {
                     picture: c.picture, yes: { candidate: c.number } };
     }).filter(Boolean) }));
   // A question with nothing to show could only be answered by typing: not asked.
-  // Nor one on a receipt being removed (the owner, 2026-10-14).
+  // Nor one on a receipt being removed (the owner, 2026-10-14). A skipped card
+  // comes after the others, the longest skipped first (owner, 2026-10-26).
+  const skipped = a => a.item.skipped_at || "";
   return [...checks, ...questions].filter(a => a.cards.length
-    && !(state.removing && state.removing.has(a.item.receipt_id)));
+    && !(state.removing && state.removing.has(a.item.receipt_id)))
+    .map((a, i) => [a, i])
+    .sort(([a, i], [b, j]) => (skipped(a) > skipped(b)) - (skipped(a) < skipped(b)) || i - j)
+    .map(([a]) => a);
+}
+
+// Skip: no answer (they don't want to, or don't remember). The line keeps the
+// app's guess and the card goes to the back, here at once and on the server.
+async function skip(line) {
+  delete state.step[`${line.receipt_id}:${line.position}`];
+  line.skipped_at = new Date().toISOString();
+  render();
+  try {
+    await api(`/v1/receipts/${line.receipt_id}/lines/${line.position}/skipped`,
+              { method: "PUT" });
+  } catch (error) {
+    toast("Not saved: " + error.message);
+  }
 }
 
 function deckCard(ask) {
@@ -869,6 +889,7 @@ function deckCard(ask) {
     el("div", { class: "row" },
        el("button", { class: "bad", onclick: () => say(false) }, "No"),
        el("button", { class: "good", onclick: () => say(true) }, "Yes")),
+    el("button", { class: "quiet skip", onclick: () => skip(line) }, "Skip"),
     // Kind, and short (the owner, 2026-10-14).
     el("div", { class: "cover" }, "Thank you: your answer helps the app learn."));
   flingable(card, say);

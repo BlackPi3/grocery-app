@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from grocery_app.db.models import (
     Correction,
+    LineGuess,
     LineResolution,
     ListWord,
     Product,
@@ -298,9 +299,15 @@ def load_normalizer_inputs(session: Session,
                  session.execute(select(UncountedLine, Receipt.source_image).join(Receipt)
                                  .where(whose(user_id)))}
 
+    # What the photo reading guessed a line is, by category only: it says
+    # whether a line nothing placed counts (owner, 2026-10-26), never what it is.
+    guesses = {(source_image, g.position): g.category for g, source_image in
+               session.execute(select(LineGuess, Receipt.source_image).join(Receipt)
+                               .where(whose(user_id), LineGuess.category.is_not(None)))}
+
     return {"receipts": receipts, "products": products, "resolution": resolution,
             "line_resolutions": line_resolutions, "shelf_prices": shelf_prices,
-            "authors": authors, "uncounted": uncounted}
+            "authors": authors, "uncounted": uncounted, "guesses": guesses}
 
 
 # --- import ------------------------------------------------------------------

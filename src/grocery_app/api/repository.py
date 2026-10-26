@@ -166,6 +166,9 @@ class WriteRepository(Protocol):
     def set_counted(self, receipt_id: int, position: int, counted: bool) -> dict[str, Any]:
         ...
 
+    def skip_line(self, receipt_id: int, position: int) -> None:
+        ...
+
     def remove_receipt(self, receipt_id: int) -> str | None:
         ...
 
@@ -914,6 +917,9 @@ class PostgresRepository:
                         "unclear": (proposal.get("identity") or {}).get("reason"),
                         "choices": choices,
                         "cards": cards,
+                        "skipped_at": (question.skipped_at.isoformat()
+                                       if question is not None and question.skipped_at
+                                       else None),
                     })
             authors = [r.confirmed_by for r in session.scalars(select(Resolution))]
             matcher_answers, identify_answers = (authors.count("matcher"),
@@ -1134,6 +1140,7 @@ class PostgresRepository:
                     "store": receipt.store, "date": doc.get("date"),
                     "raw_name": check.raw_name, "paid": matching.paid_price(line),
                     "app_product_id": check.app_product_id,
+                    "skipped_at": check.skipped_at.isoformat() if check.skipped_at else None,
                     "app_product": product.get("name"), "brand": product.get("brand"),
                     "details": list(product.get("details") or []),
                     "sold_as": record.get("sold_as"),
@@ -1365,6 +1372,25 @@ class PostgresRepository:
                 existing.raw_name = line.raw_name
             session.commit()
             return self._receipt_view(session, self._get(session, receipt_id))
+
+    def skip_line(self, receipt_id: int, position: int) -> None:
+        """The shopper skipped what the app asks about this line (owner,
+        2026-10-26: they don't want to answer, or don't remember). Not an
+        answer: the line keeps the app's guess, and the card comes again
+        after the others. `NotFound` when nothing is asked about it."""
+        with self.session_factory() as session:
+            self._get(session, receipt_id)  # this person's receipt, or NotFound
+            asked = [*session.scalars(select(Question).where(
+                         Question.receipt_id == receipt_id, Question.position == position,
+                         Question.answered_at.is_(None))),
+                     *session.scalars(select(Check).where(
+                         Check.receipt_id == receipt_id, Check.position == position))]
+            if not asked:
+                raise NotFound(f"nothing is asked about line {position} of receipt "
+                               f"{receipt_id}")
+            for row in asked:
+                row.skipped_at = datetime.now(UTC)
+            session.commit()
 
     def job_for_image(self, image_sha256: str) -> dict[str, Any] | None:
         """The newest job for these exact bytes, unless it failed.

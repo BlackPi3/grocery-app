@@ -341,6 +341,8 @@ class Question(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  server_default=func.now())
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When the shopper last skipped it: not an answer, the card goes last.
+    skipped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Check(Base):
@@ -365,6 +367,8 @@ class Check(Base):
     app_product_id: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  server_default=func.now())
+    # When the shopper last skipped it: not an answer, the card goes last.
+    skipped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Job(Base):
