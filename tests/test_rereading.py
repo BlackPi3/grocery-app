@@ -50,7 +50,7 @@ def test_a_line_whose_search_failed_waits_and_is_placed_when_read_again(factory,
     assert waiting_receipts(session) == [receipt], "unplaced, unasked, unanswered"
 
     working = Reader(search_works=True)
-    assert reread_waiting(factory, TableMatcher({}), working, {}) == [receipt]
+    assert reread_waiting(factory, TableMatcher({}), working) == [receipt]
     assert working.calls == ["XY APFEL ROT"]
     session.expire_all()
     assert session.scalars(select(Resolution).where(
@@ -65,6 +65,15 @@ def test_a_line_already_asked_or_placed_does_not_wait(factory, session):
     assert waiting_receipts(session) == []
 
 
+def test_a_line_the_shopper_left_out_does_not_wait(factory, session):
+    from grocery_app.db.models import UncountedLine
+
+    receipt = add_receipt(session, "IMG_1.jpeg", ["XY GESCHENK"])
+    session.add(UncountedLine(receipt_id=receipt, position=0, raw_name="XY GESCHENK"))
+    session.commit()
+    assert waiting_receipts(session) == [], "not theirs to count, not ours to pay for"
+
+
 def test_a_receipt_still_being_read_is_left_to_its_upload(factory, session):
     receipt = add_receipt(session, "IMG_1.jpeg", ["XY DING"])
     session.add(Job(status="running", image_sha256="a" * 64, receipt_id=receipt))
@@ -72,19 +81,27 @@ def test_a_receipt_still_being_read_is_left_to_its_upload(factory, session):
     assert waiting_receipts(session) == []
 
 
-def test_a_receipt_is_tried_a_few_times_then_waits_for_the_next_start(factory, session):
+def test_each_try_is_kept_on_the_receipt_and_the_next_waits_longer(factory, session):
+    from datetime import UTC, datetime, timedelta
+
+    from grocery_app.db.models import Receipt
+
     receipt = add_receipt(session, "IMG_1.jpeg", ["XY DING"])
-    reader, tried = Reader(), {}
-    for _ in range(matching.REREAD_TRIES + 2):
-        reread_waiting(factory, TableMatcher({}), reader, tried)
-    assert reader.calls == ["XY DING"] * matching.REREAD_TRIES
-    assert tried == {receipt: matching.REREAD_TRIES}
+    reader, start = Reader(), datetime(2026, 10, 26, 12, tzinfo=UTC)
+    for hours, read in ((0, True), (0.9, False), (1, True), (24, False), (25, True),
+                        (24 * 365, False)):
+        before = len(reader.calls)
+        reread_waiting(factory, TableMatcher({}), reader, start + timedelta(hours=hours))
+        assert (len(reader.calls) > before) == read, hours
+    session.expire_all()
+    kept = session.get(Receipt, receipt)
+    assert (kept.reread_tries, kept.reread_at) == (3, start + timedelta(hours=25))
 
 
 def test_a_pass_reads_a_few_receipts_oldest_first(factory, session):
     receipts = [add_receipt(session, f"IMG_{n}.jpeg", [f"XY DING {n}"])
                 for n in range(matching.REREAD_PER_PASS + 2)]
-    due = reread_waiting(factory, TableMatcher({}), Reader(), {})
+    due = reread_waiting(factory, TableMatcher({}), Reader())
     assert due == receipts[:matching.REREAD_PER_PASS]
 
 

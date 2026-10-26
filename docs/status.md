@@ -40,9 +40,17 @@ session (laptop or cloud) can pick up from here. How we work is in
      (`matching.keep_rereading`, only where `create_app(reread=True)`, the
      deployed server) finds receipts with a product line nothing placed,
      asked or answered (`waiting_receipts`; not one whose upload is still
-     being read) and matches them again as a new upload's: 5 receipts every
-     5 minutes, oldest first, each at most 3 times per server start (a line
-     whose search keeps failing waits for the next start). About $5-10 of searches at list price for
+     being read, nor a line the shopper left out) and matches them again as
+     a new upload's: 5 receipts every 5 minutes, oldest first, the first
+     pass 30 s after a start. Each receipt is tried 3 times, at once, an hour
+     later, a day later, then never by itself (`receipts.reread_tries`,
+     `reread_at`, migration 0031: kept on the receipt, since the server stops
+     and starts often). Reviewed by `check-risky` (its tests:
+     `tests/test_reread_waiting_lines_rule.py`); fixed from it: a PDF
+     export's other receipts were not seen as busy while their job ran; an
+     answer given while a receipt was read again could be overridden (each
+     line is now checked just before it is read, `answered_since`); tries
+     counted per server start; no wait after a deploy; left-out lines read. About $5-10 of searches at list price for
      his 175, likely inside Google's free monthly searches (not checked).
   3. **"Skip" on a question** (owner's word: don't want to answer, or don't
      remember). A skipped line keeps the app's best guess, counts only if
