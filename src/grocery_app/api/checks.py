@@ -14,6 +14,15 @@ shopper has answered is `you`, so it is never one. A receipt is picked for
 once. The seed is the receipt id, so the choice is random across receipts and
 the same on a re-run.
 
+Far fewer since 2026-10-26 (owner: "what's the point of random check at this
+moment? it has proved the app is finding things alright. make far less
+frequent. not necessarily per receipt"; 100 of 103 answered right): one
+check a week per person at most (`CHECK_EVERY`), only on groceries (an
+Action glass carafe was asked about), never on an old receipt
+(`cards.too_old_to_ask`). An open check is shown for `CHECK_EVERY` after it
+was picked; one left unanswered longer is let go, so the checks picked two
+a receipt before that do not come back as a pile.
+
 The shopper answers a check as any line: `PUT .../lines/{position}/resolution`
 with the product the app said (right) or another one (corrected).
 """
@@ -22,19 +31,24 @@ from __future__ import annotations
 
 import random
 import re
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from grocery_app import categories
+from grocery_app.api.cards import too_old_to_ask
 from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict
 from grocery_app.db.models import Check, Receipt
 from grocery_app.normalizer import SOLD_AS_WORDS, normalize_receipt, printed_size
 from grocery_app.resolver import fold
 
-# Parham's call, 2026-09-30: about ten seconds per receipt, and after twenty
-# receipts forty checked lines.
-SPOT_CHECKS_PER_RECEIPT = 2
+# One line when a receipt is picked from (it was two, Parham's call of
+# 2026-09-30: about ten seconds per receipt).
+SPOT_CHECKS_PER_RECEIPT = 1
+# At most one pick a week per person, and a check is shown for that long.
+CHECK_EVERY = timedelta(days=7)
 
 
 _TO_BASE = {"kg": ("g", 1000), "l": ("ml", 1000)}
@@ -76,12 +90,27 @@ def says_more_than_print(raw_name: str, product: dict[str, Any]) -> bool:
     return size is not None and size != _amount(printed_size(raw_name))
 
 
+def picked_lately(session: Session, user_id: int | None,
+                  now: datetime | None = None) -> bool:
+    """Whether this person (None: the owner) had a check picked in the last
+    `CHECK_EVERY`."""
+    since = (now or datetime.now(UTC)) - CHECK_EVERY
+    whose = Receipt.user_id.is_(None) if user_id is None else Receipt.user_id == user_id
+    return session.scalars(select(Check.id).join(Receipt, Receipt.id == Check.receipt_id)
+                           .where(whose, Check.created_at >= since)).first() is not None
+
+
 def pick_checks(session: Session, receipt_id: int,
                 n: int = SPOT_CHECKS_PER_RECEIPT) -> int:
-    """Choose this receipt's spot checks, if it has none yet. The caller commits."""
+    """Choose this receipt's spot checks, if it has none yet, it is not old,
+    and its person had none picked in the last `CHECK_EVERY`. The caller
+    commits."""
     receipt = session.get(Receipt, receipt_id)
     if receipt is None or session.scalars(
             select(Check).where(Check.receipt_id == receipt_id)).first() is not None:
+        return 0
+    if too_old_to_ask(receipt.date, receipt.created_at) \
+            or picked_lately(session, receipt.user_id):
         return 0
     inputs = load_normalizer_inputs(session)
     doc = receipt_to_dict(receipt)
@@ -90,10 +119,10 @@ def pick_checks(session: Session, receipt_id: int,
                                 inputs["authors"])
     by_name: dict[str, int] = {}
     for position, record in enumerate(records):
+        product = inputs["products"].get(record["product_id"], {})
         if (record["type"] == "product" and record["said_by"] == "app"
-                and record["product_id"]
-                and says_more_than_print(record["raw_name"],
-                                         inputs["products"].get(record["product_id"], {}))):
+                and record["product_id"] and categories.is_grocery(product.get("category"))
+                and says_more_than_print(record["raw_name"], product)):
             by_name.setdefault(record["raw_name"], position)
     chosen = sorted(random.Random(receipt_id).sample(sorted(by_name.values()),
                                                      min(n, len(by_name))))

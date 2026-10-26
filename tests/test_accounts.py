@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import io
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,7 +25,7 @@ from grocery_app.db.io import receipt_from_dict
 from grocery_app.db.models import LineResolution, Product, Resolution
 from grocery_app.db.session import make_session_factory
 from tests.conftest import DATABASE_URL as URL
-from tests.test_upload import FakeExtractor
+from tests.test_upload import RECEIPT, FakeExtractor, todays
 
 OWNER = {"Authorization": "Bearer owner-secret"}
 
@@ -75,8 +76,8 @@ def two_people(engine, session, tmp_path):
     session.commit()
     repository = PostgresRepository(make_session_factory(engine))
     sara = repository.create_user("Sara")
-    client = TestClient(create_app(repository, DiskImageStore(tmp_path), FakeExtractor(),
-                                   token="owner-secret"))
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path),
+                                   FakeExtractor(todays(RECEIPT)), token="owner-secret"))
     return client, repository, {"Authorization": f"Bearer {sara['password']}"}
 
 
@@ -202,6 +203,8 @@ def add_receipt(session, source_image, raw_names, user_id=None):
         "date": "2026-03-01", "currency": "EUR", "printed_total": 1.0 * len(raw_names),
         "lines": [{"type": "product", "raw_name": name, "qty": 1, "gross": 1.0,
                    "discount": 0.0, "net": 1.0, "tax_class": "A"} for name in raw_names]})
+    # Uploaded the day it was printed: not an old receipt (`cards.too_old_to_ask`).
+    receipt.created_at = datetime(2026, 3, 1, 12, tzinfo=UTC)
     receipt.user_id = user_id
     session.add(receipt)
     session.commit()

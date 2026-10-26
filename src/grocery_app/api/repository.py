@@ -843,12 +843,15 @@ class PostgresRepository:
         and counts them (`held_back`): nothing reaches the shopper unsearched
         (Parham, 2026-10-02). They are not answered or dropped, only not shown.
 
+        A receipt dated more than a week before its upload asks nothing
+        (`cards.too_old_to_ask`): its lines wait for a newer receipt to ask.
+
         `cards` is what the page asks with, one yes/no card at a time
         (`api.cards`). Like a spot check, a question waits until the products
         on its cards have had their pictures looked up, or `picture_wait`.
         """
         from grocery_app import matcher as matching
-        from grocery_app.api.cards import card_order, nearest_price
+        from grocery_app.api.cards import card_order, nearest_price, too_old_to_ask
         from grocery_app.api.pictures import shown
 
         with self.session_factory() as session:
@@ -871,6 +874,9 @@ class PostgresRepository:
             questions = []
             held_back = 0
             for receipt in receipts:
+                # Old: its lines wait for a newer receipt (`cards.too_old_to_ask`).
+                if too_old_to_ask(receipt.date, receipt.created_at):
+                    continue
                 doc = receipt_to_dict(receipt)
                 records = normalize_receipt(doc, inputs["resolution"], inputs["products"],
                                             inputs["line_resolutions"], inputs["shelf_prices"],
@@ -1094,9 +1100,14 @@ class PostgresRepository:
         or not: the card shows complete, never with its picture arriving
         after it (Parham, 2026-10-12). After `picture_wait` it shows anyway:
         a lookup that slow is not coming.
+
+        Since 2026-10-26 an open check is shown for `checks.CHECK_EVERY` after
+        it was picked, and never on an old receipt or a product that is not
+        groceries (`api.checks`).
         """
         from grocery_app import matcher as matching
-        from grocery_app.api.checks import says_more_than_print
+        from grocery_app.api.cards import too_old_to_ask
+        from grocery_app.api.checks import CHECK_EVERY, says_more_than_print
         from grocery_app.api.pictures import shown
         from grocery_app.normalizer import entry_key
 
@@ -1113,8 +1124,12 @@ class PostgresRepository:
             inputs = load_normalizer_inputs(session, self.user_id)
             views, held_back = [], 0
             waited_long_enough = datetime.now(UTC) - self.picture_wait
+            let_go = datetime.now(UTC) - CHECK_EVERY
             for check in open_checks:
                 receipt = session.get(Receipt, check.receipt_id)
+                if check.created_at < let_go or too_old_to_ask(receipt.date,
+                                                               receipt.created_at):
+                    continue  # unanswered for a week, or on an old receipt: let go
                 doc = receipt_to_dict(receipt)
                 line = doc["lines"][check.position]
                 if (doc["source_image"], check.position, line["raw_name"]) in inputs["uncounted"]:
@@ -1122,6 +1137,8 @@ class PostgresRepository:
                 product = inputs["products"].get(check.app_product_id, {})
                 if not says_more_than_print(check.raw_name, product):
                     continue  # picked before 2026-10-10: nothing to ask
+                if not categories.is_grocery(product.get("category")):
+                    continue  # picked before 2026-10-26: not groceries
                 looked_up = session.scalar(select(Product.picture_checked_at).where(
                     Product.id == check.app_product_id))
                 if (check.app_product_id in inputs["products"] and looked_up is None

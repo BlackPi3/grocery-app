@@ -49,6 +49,16 @@ META = {"model": "test-model", "prompt_version": "v1", "request_id": "req_1",
         "usage": {"input_tokens": 1500, "output_tokens": 900}, "cost_usd": 0.03102}
 
 
+def todays(receipt: dict) -> dict:
+    """The receipt as printed today: not old, so its lines are asked about
+    (`cards.too_old_to_ask`); `RECEIPT` is dated months back."""
+    from datetime import UTC, datetime
+
+    from grocery_app.offers import GERMANY
+
+    return {**receipt, "date": datetime.now(UTC).astimezone(GERMANY).date().isoformat()}
+
+
 class FakeExtractor:
     """Stands in for the paid call, and counts how often it was made."""
 
@@ -353,8 +363,8 @@ def test_a_photo_gets_its_spot_checks_before_its_job_is_done(engine, session, tm
         return {"verdict": "accept", "pick": {"product_id": "p-0001"}, "versions": [],
                 "candidates": [], "creates": []}
 
-    client = TestClient(create_app(repository, DiskImageStore(tmp_path), FakeExtractor(),
-                                   matcher))
+    client = TestClient(create_app(repository, DiskImageStore(tmp_path),
+                                   FakeExtractor(todays(RECEIPT)), matcher))
     job = client.post("/v1/receipts", files={"file": ("image.jpg", a_photo("red"), "image/jpeg")})
     done = client.get(f"/v1/jobs/{job.json()['job_id']}").json()
     assert (done["status"], done["error"]) == ("done", None)
@@ -636,7 +646,7 @@ def test_a_second_photo_of_the_same_paper_is_not_kept(engine, session, tmp_path)
         return butter_matcher(line, store, inputs)
 
     repository = PostgresRepository(make_session_factory(engine))
-    timed = {**RECEIPT, "time": "11:30"}
+    timed = {**todays(RECEIPT), "time": "11:30"}
     client = TestClient(create_app(repository, DiskImageStore(tmp_path), FakeExtractor(timed),
                                    matcher))
     first = client.post("/v1/receipts", files={"file": ("a.jpg", a_photo("red"), "image/jpeg")})
@@ -761,7 +771,8 @@ def test_a_spot_check_shows_everything_the_app_claims(engine, session, tmp_path)
     session.add(Product(id="p-0001", name="Butter", brand="Muster",
                         details=["Alm", "gesalzen"], category="butter"))
     session.commit()
-    sized = {**RECEIPT, "lines": [{**RECEIPT["lines"][0], "raw_name": "MU Butter gesalz. 250g"}]}
+    sized = {**todays(RECEIPT),
+             "lines": [{**RECEIPT["lines"][0], "raw_name": "MU Butter gesalz. 250g"}]}
     repository = PostgresRepository(make_session_factory(engine))
     client = TestClient(create_app(repository, DiskImageStore(tmp_path), FakeExtractor(sized),
                                    butter_matcher))

@@ -9,6 +9,8 @@ line's reading on this screen is the reading the insights will use.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -18,6 +20,7 @@ from grocery_app.api.repository import InMemoryRepository, PostgresRepository
 from grocery_app.db.models import Product, Receipt, Resolution
 from grocery_app.db.session import make_session_factory
 from tests.conftest import DATABASE_URL as URL
+from tests.conftest import uploaded_when_printed
 
 pytestmark = pytest.mark.skipif(not URL, reason="DATABASE_URL not set")
 
@@ -32,6 +35,7 @@ def corrections(engine, session, data):
                 data / "products" / "resolution.json", data / "absent.json",
                 data / "products")
     session.commit()
+    uploaded_when_printed(session)
     client = TestClient(create_app(PostgresRepository(make_session_factory(engine))))
     receipt_id = session.scalars(
         select(Receipt).where(Receipt.source_image == "IMG_2.jpeg")).one().id
@@ -235,6 +239,8 @@ def add_receipt(session, source_image, store, raw_names):
         "date": "2026-03-01", "currency": "EUR", "printed_total": 1.0 * len(raw_names),
         "lines": [{"type": "product", "raw_name": name, "qty": 1, "gross": 1.0,
                    "discount": 0.0, "net": 1.0, "tax_class": "A"} for name in raw_names]})
+    # Uploaded the day it was printed: not an old receipt (`cards.too_old_to_ask`).
+    receipt.created_at = datetime(2026, 3, 1, 12, tzinfo=UTC)
     session.add(receipt)
     session.commit()
     return receipt.id
