@@ -4,9 +4,44 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, laptop: what counts as groceries live (#209, #211); stuck lines read again (#212, live; a 429 and search-limit fix next); Skip in progress (branch `skip/guessed-category`, not pushed).
+**Last updated:** 2026-10-26, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
 
 ## Now
+
+- **Open, 2026-10-26 (owner: "a subject for a new session"), in this order:**
+  1. **Gemini 429 since about 09:54 on 26 Oct: temporary or not?** Vertex
+     (EU multi-region endpoint, `gemini-3.8-flash`) answers 429
+     `RESOURCE_EXHAUSTED` to large calls; a tiny prompt passes from the
+     laptop, a ~23,000-character one (about 6,000 tokens) is refused even
+     after the 20 s retry. Hit: identifying a line (system prompt 12,900
+     chars, 7,800 of them the category list, plus the line's context) and
+     once an offers batch; the photo reading still worked at 11:37. No
+     fixed Gemini quota is listed for the project (dynamic shared quota),
+     so nothing to raise. Since then the server has completed no model
+     call (month cost unchanged for hours), so new uploads get grey lines.
+     Check first: is it still refused (repeat the small/large probe:
+     `gemini.generate` with `GEMINI_VERTEX_PROJECT` set)? Options put to
+     the owner, unanswered: wait (longer retries), shrink the identify
+     prompt (send the category list only when needed; recommended to try
+     first), or the global endpoint (more capacity, but data may leave the
+     EU: the privacy page would change).
+  2. **Search efficiency** (owner: "we have passed 100$ on google
+     console. The app works, but maybe it is working in an inefficient
+     way"). October so far (`/v1/costs`): 122 USD at list price, billed
+     about 52; finding (identify + search) 74, pictures 41, reading 4;
+     7,197 searches. Earlier finding (Parked, 2026-10-21): a picture costs
+     11-29 searches, placing a receipt's lines about 67. Also: the
+     searcher stops at 150 searches per server start
+     (`GROCERY_MAX_SEARCHES`), which the owner's batch of old receipts
+     passed, so its later lines were never searched (receipts 248-252
+     show finding cost but 0 searches): the first cause of the 175 grey
+     lines.
+  3. **Skip, PR #215**, built and shown, waiting for the owner's yes.
+  4. **The list as a paper list** (item 4 below), not started.
+  5. Waiting topics: fewer random checks (97% yes; some are on
+     non-groceries, e.g. an Action glass carafe, and should not be asked);
+     how much to trust an answer about an old receipt.
+
 
 - Agreed (owner, 2026-10-26, his list of problems after adding many old
   receipts), **in this order, each its own PR**:
