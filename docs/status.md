@@ -50,8 +50,9 @@ session (laptop or cloud) can pick up from here. How we work is in
      receipts passed, so its later lines were never searched (receipts
      248-252 show finding cost but 0 searches): the first cause of the 175
      grey lines.
-  3. **Skip, PR #215**, built and shown, waiting for the owner's yes.
-  4. **The list as a paper list** (item 4 below), not started.
+  3. **Skip, PR #215**: merged (owner's yes, 26 Oct).
+  4. **The list as a paper list** (item 4 below): agreed (owner, 26 Oct),
+     next.
   5. Waiting topics: fewer random checks (97% yes; some are on
      non-groceries, e.g. an Action glass carafe, and should not be asked);
      how much to trust an answer about an old receipt.
