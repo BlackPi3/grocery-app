@@ -538,6 +538,20 @@ class ListEdit(Base):
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class CountedKind(Base):
+    """A kind close to groceries a person counts as well (`categories.CLOSE_KINDS`):
+    one row per kind switched on, none when only groceries count. Goes with
+    their account."""
+
+    __tablename__ = "counted_kinds"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Whose choice: a user's, or the owner's when empty.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String)
+
+
 class ShopPlace(Base):
     """Where a shop on people's receipts is, and when the supermarkets around
     it were last looked up (`grocery_app.nearby`). Keyed by the printed

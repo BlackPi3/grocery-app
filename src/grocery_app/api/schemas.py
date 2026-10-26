@@ -58,8 +58,10 @@ PURCHASES_CONTRACT_VERSION = 10
 # Insights bumped to 10 on 2026-10-14: `regulars`, the products bought on 3
 # days or more, for Home's rotating tile.
 # Insights bumped to 11 on 2026-10-15: each month's `why`, why it is off its
-# usual (parts of the shop, trips, prices), for the month page.
-INSIGHTS_CONTRACT_VERSION = 11
+# usual (parts of the shop, trips, prices), for the month page. 12 on
+# 2026-10-26: a month counts only what the person counts (groceries and the
+# close kinds they chose), no longer everything bought.
+INSIGHTS_CONTRACT_VERSION = 12
 
 
 class UnitPrice(BaseModel):
@@ -776,6 +778,25 @@ class ListEditRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     on_list: bool
+
+
+class CountedKinds(BaseModel):
+    """What a person's history counts: groceries always, and the kinds close
+    to groceries they switched on (`categories.CLOSE_KINDS`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kinds: list[str] = Field(description="The close kinds switched on")
+    choices: dict[str, str] = Field(default_factory=dict,
+                                    description="Every close kind there is, key to name")
+
+
+class CountedKindsRequest(BaseModel):
+    """The close kinds to count from now on; the rest are off."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kinds: list[str]
 
 
 class NearbyShop(BaseModel):

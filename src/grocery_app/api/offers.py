@@ -76,7 +76,7 @@ def shopping(session: Session, person: Any, today: date) -> dict[str, Any]:
     rows = [r for r in _product_rows(person.purchases()["purchases"])
             if r.get("date") and date.fromisoformat(r["date"]) >= since
             and r.get("category") in categories.CATEGORIES
-            and categories.is_grocery(r["category"])]
+            and not categories.never_counted(r["category"])]
     ids = [r["product_id"] for r in regulars(rows, today)]
     found = {}
     for product in session.scalars(select(Product).where(Product.id.in_(ids))) if ids else []:
@@ -259,7 +259,7 @@ def bought_groceries(repository: Any, session: Session) -> set[str]:
     return {r["product_id"] for person in everyone(repository, session)
             for r in _product_rows(person.purchases()["purchases"])
             if r.get("product_id") and r.get("category") in categories.CATEGORIES
-            and categories.is_grocery(r["category"])}
+            and not categories.never_counted(r["category"])}
 
 
 def _what_it_is(p: Product) -> dict[str, Any]:

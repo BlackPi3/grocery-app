@@ -103,6 +103,8 @@ from grocery_app.api.schemas import (
     AuthConfig,
     ChecksDocument,
     CostsDocument,
+    CountedKinds,
+    CountedKindsRequest,
     GoogleSignInRequest,
     Health,
     InsightsDocument,
@@ -374,7 +376,8 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
         except ValueError as exc:
             raise HTTPException(
                 status_code=422, detail=f"as_of is not an ISO date: {as_of!r}") from exc
-        doc = build_insights(seen_by(request).purchases(), as_of=as_of_date)
+        person = seen_by(request)
+        doc = build_insights(person.purchases(), as_of=as_of_date, also=person.counted_kinds())
         return InsightsDocument.model_validate(doc)
 
     def require_uploads(request: Request) -> WriteRepository:
@@ -723,6 +726,30 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
             raise HTTPException(status_code=422, detail=f"no kind {kind!r}")
         person.edit_list(kind, "add" if body.on_list else "remove")
         return my_list(person)
+
+    def counted(person: Repository) -> CountedKinds:
+        from grocery_app import categories
+
+        return CountedKinds(kinds=sorted(person.counted_kinds()),
+                            choices=categories.CLOSE_KINDS)
+
+    @app.get("/v1/counted", response_model=CountedKinds)
+    def counted_kinds(request: Request) -> CountedKinds:
+        """What the asker's history counts: groceries, and the kinds close to
+        groceries they switched on."""
+        return counted(seen_by(request))
+
+    @app.put("/v1/counted", response_model=CountedKinds)
+    def set_counted_kinds(request: Request, body: CountedKindsRequest) -> CountedKinds:
+        """Count exactly these close kinds beside groceries from now on."""
+        from grocery_app import categories
+
+        person = require_writes(request)
+        unknown = sorted(set(body.kinds) - set(categories.CLOSE_KINDS))
+        if unknown:
+            raise HTTPException(status_code=422, detail=f"no kind {', '.join(unknown)}")
+        person.set_counted_kinds(frozenset(body.kinds))
+        return counted(person)
 
     @app.get("/v1/offers/rhythm", response_model=list[OffersRhythm])
     def offers_rhythm(request: Request) -> list[OffersRhythm]:

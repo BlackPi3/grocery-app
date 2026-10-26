@@ -266,6 +266,9 @@
   .switch { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; }
   .switch button { font-size: 13px; padding: 4px 12px; border-radius: 999px; }
   .switch button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .counted .line { align-items: center; }
+  .counted .switch { margin: 0; }
+  .counted .switch button { min-width: 52px; }
   .viz .track { height: 12px; margin-top: 6px; }
   .vbar, .vbar.more { position: absolute; top: 0; bottom: 0; margin: 0; padding: 0;
     border-radius: 4px; font-size: 0; }
@@ -1348,6 +1351,39 @@ function peopleCard() {
       el("div", { class: "money" }, usd(u.month_cost_usd)))));
 }
 
+// What counts as spending (owner, 2026-10-26): groceries always; the kinds
+// close to groceries, which a market sells too, when the person switches them
+// on. Everything else on a receipt never counts.
+function countedCard() {
+  const d = state.counted;
+  if (!d) return null;
+  const on = new Set(d.kinds);
+  return el("div", { class: "card counted" }, el("h2", {}, "What counts"),
+    el("div", { class: "meta" }, "Groceries always count. Also count:"),
+    Object.entries(d.choices).map(([kind, name]) => el("div", { class: "line" },
+      el("div", { class: "what" }, name),
+      el("div", { class: "switch" }, el("button", {
+        class: on.has(kind) ? "on" : "", "aria-pressed": String(on.has(kind)),
+        onclick: () => setCounted(kind, !on.has(kind)) }, on.has(kind) ? "On" : "Off")))));
+}
+
+async function setCounted(kind, yes) {
+  const kinds = new Set(state.counted.kinds);
+  if (yes) kinds.add(kind); else kinds.delete(kind);
+  try {
+    state.counted = await api("/v1/counted", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kinds: [...kinds] }) });
+    render();
+    // Home and Insights now count the new kinds.
+    state.insights = await api("/v1/insights");
+    saveCopy();
+  } catch (error) {
+    toast(error.message);
+  }
+  render();
+}
+
 function accountCard() {
   if (!state.me) return null;
   if (state.me.demo) {
@@ -2131,6 +2167,7 @@ function surenessCard() {
 function youView() {
   const owner = state.me && state.me.role === "owner";
   return [
+    countedCard(),
     owner ? surenessCard() : null,
     costsCard(),
     peopleCard(),
@@ -2804,6 +2841,11 @@ async function load({ jobs = true } = {}) {
       saveCopy();
       if (state.tab === "list") render();
     }).catch(() => { state.list = null; });
+    // What this person counts beside groceries; none from an older server.
+    api("/v1/counted").then(doc => {
+      state.counted = doc;
+      if (state.tab === "you") render();
+    }).catch(() => { state.counted = null; });
     // Who this password is, and for the owner what the app costs.
     api("/v1/me").then(async me => {
       state.me = me;

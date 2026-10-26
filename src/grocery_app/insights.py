@@ -24,17 +24,17 @@ data until a product resolves at two stores, and the month view (`months`):
 what the money went on, by kind of thing, and against the same days of the
 month before (`compare_month`), and what printed discounts saved (`discounts`).
 
-Only groceries count. A café breakfast, flowers or a birthday card stays in the
-history, but a basket index or a budget-brand share that included them would
-answer a question nobody asked. `categories.is_grocery` is the one place that
-says what is not a grocery; coverage reports what was left out and how much
-money it was, so the exclusion is visible rather than silent.
+Only groceries count, and the kinds close to groceries a person chose to
+count as well (alcohol, supplements, household, ...: `categories.CLOSE_KINDS`).
+A café breakfast, a T-shirt or a birthday card stays in the history, but a
+basket index or a month's spend that included them would answer a question
+nobody asked. `categories.spending_kind` is the one place that says what is a
+grocery; coverage reports what was left out and how much money it was, so the
+exclusion is visible rather than silent.
 
-The month view is the exception: it counts everything the shopper bought,
-groceries or not, because its question is "what did I spend it on last month?"
-(Parham, 2026-10-09) and a café breakfast is part of that answer. What
-discounts saved counts the same lines: a café breakfast's discount was money
-saved too.
+The month view counts the same lines (Parham, 2026-10-26: "the things that
+are wrong shouldn't be included in users prices"; until then it counted
+everything bought, 2026-10-09).
 
 Only the shopper's own shopping counts towards spend and habits. A line they
 marked `not_counted` (a wine bought for a friend) leaves spend, cadence, the
@@ -54,7 +54,7 @@ from typing import Any
 from grocery_app import categories
 from grocery_app.resolver import store_key
 
-CONTRACT_VERSION = 11
+CONTRACT_VERSION = 12
 
 # A basket index over fewer products than this says more about one item than
 # about the basket; it is reported as unavailable with the reason.
@@ -579,7 +579,7 @@ def months(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """What the money went on, month by month, newest first: spend per branch
     of the category tree (Obst & Gemüse, Getränke, ...) and the products in it.
 
-    `rows` are every product line the shopper counts, groceries or not. A line
+    `rows` are every product line the shopper counts. A line
     with no category yet is its own group (`branch` null), so the total is all
     the money and nothing is quietly dropped (the page calls it "Not sorted
     yet"). Deposits are not product lines
@@ -948,23 +948,24 @@ def coverage(purchases: dict[str, Any], rows: list[dict[str, Any]],
 
 
 def build_insights(purchases: dict[str, Any], as_of: date | None = None,
-                   today: date | None = None) -> dict[str, Any]:
+                   today: date | None = None,
+                   also: frozenset[str] = frozenset()) -> dict[str, Any]:
     """The insights contract, from a purchases.json document.
 
     `today` (default: the server's date) is where this month stops: on the
     14th, a month's `compared` sets 1-14 of it against 1-14 of the month
-    before. Every other month is compared whole."""
+    before. Every other month is compared whole. `also` are the close kinds
+    the person counts beside groceries."""
     # A line with no date cannot be placed in time, and every insight is in time.
     every = _product_rows(purchases.get("purchases", []))
     lines = [p for p in every if p.get("date")]
     undated = [p for p in every if not p.get("date")]
-    groceries = [p for p in lines if categories.is_grocery(p.get("category"))]
-    left_out = [p for p in lines if not categories.is_grocery(p.get("category"))]
+    groceries = [p for p in lines if categories.is_counted(p.get("category"), also)]
+    left_out = [p for p in lines if not categories.is_counted(p.get("category"), also)]
     # Prices are what the shop charged, whoever it was for; the rest is the
     # shopper's own shopping.
     rows = [p for p in groceries if not p.get("not_counted")]
     not_counted = [p for p in groceries if p.get("not_counted")]
-    counted = [p for p in lines if not p.get("not_counted")]
     dates = sorted(p["date"] for p in lines if p.get("date"))
     if as_of is None:
         as_of = _parse(dates[-1]) if dates else date.today()
@@ -979,8 +980,8 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None,
         "basket_index": basket_index(rows),
         "budget_brand": budget_brand(rows),
         "cross_store": cross_store(groceries),
-        "months": _compared(months(counted), counted, today or date.today()),
-        "discounts": discounts(counted),
+        "months": _compared(months(rows), rows, today or date.today()),
+        "discounts": discounts(rows),
     }
 
 

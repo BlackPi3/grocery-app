@@ -4,9 +4,55 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-25, laptop: storage per product live (#207); next session, the trip plan, starting from the open topic below.
+**Last updated:** 2026-10-26, laptop: what counts as groceries (PR open, shown to the owner before merge); then the owner's list of 26 Oct below.
 
 ## Now
+
+- Agreed (owner, 2026-10-26, his list of problems after adding many old
+  receipts), **in this order, each its own PR**:
+  1. **What counts as groceries** (built, PR open, the You card shown before
+     merge). Every category has a kind (`categories.spending_kind`):
+     groceries (food and drinks without alcohol), counted for everyone; five
+     kinds close to groceries, which a market sells too, counted only when
+     the person switches them on (`CLOSE_KINDS`: alcohol & tobacco,
+     supplements, drugstore, household, pet food; fuel maybe later); and
+     other (cafés, clothes, toys, decoration, ...), kept on the receipt,
+     never counted. A line with no known category counts as groceries. New
+     categories: Tiernahrung, Tierzubehör, and for discounters like Action
+     or TEDi Kleidung & Schuhe, Spielwaren, Deko & Wohnen, Büro &
+     Schreibwaren, Elektro & Multimedia. Each person's switches:
+     `counted_kinds` (migration 0030), `GET/PUT /v1/counted`, the "What
+     counts" card at the top of You; they go with a deleted account (privacy
+     page says so). The insights, the month view too, count only groceries
+     and the switched-on kinds (insights contract 12; until now the month
+     counted everything bought, 2026-10-09). Unchanged: the list, offers and
+     storage keep every kind but other (toilet paper belongs on a list), and
+     only other is never searched (`categories.never_counted`).
+  2. **Stuck lines are read again.** All 175 of the owner's grey lines (no
+     product, `resolution` none) have a question with no candidates and no
+     cards: the reader's search did not run (`identify.unsearched`), so
+     nothing was saved or asked, and only the CLI's `--retry-unsearched`
+     reads them again. They count as groceries meanwhile, which is how
+     Action and TEDi lines reached his spending. To build: the server reads
+     such lines again by itself. About $5-10 of searches at list price for
+     his 175, likely inside Google's free monthly searches (not checked).
+  3. **"Skip" on a question** (owner's word: don't want to answer, or don't
+     remember). A skipped line keeps the app's best guess, counts only if
+     that guess is groceries; skipped does not mean never asked again (it
+     goes to the back).
+  4. **The list as a paper list**: type an item (the list is the exception
+     to "never types", owner 2026-10-26), tap to cross off what is bought;
+     one add control on a suggestion (the circle; the right side only
+     Snooze); anything on the list can be snoozed; a typed line can be
+     deleted.
+  Waiting topics, not yet raised: how much to trust an answer about an old
+  receipt; fewer random checks (100 of 103 answered yes, 97%: they only
+  measure the app's error rate). Facts given to the owner: there are two
+  kinds of question, a random check (one card, the app's own pick, a known
+  product, so a picture) and a question (up to 5 options, one card at a
+  time, mostly search finds with no picture), so a choice between two
+  products is never seen side by side. Others help little so far: 10 other
+  people, 75 receipts, about 800 lines, about 40 answered (the owner 547).
 
 - Agreed (owner, 2026-10-25): **the app plans the person's shopping**,
   rather than the person drafting a list and the app pricing it ("almost
@@ -888,7 +934,7 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   than asking them: what their uploads, edits, snoozes and visits say about
   how the app is used. Not looked at yet.
 
-- (owner, 2026-10-25) **Recognising what is not a grocery**: supplements,
+- (Built 2026-10-26, see Now.) (owner, 2026-10-25) **Recognising what is not a grocery**: supplements,
   alcohol, cigarettes, petrol, clothes. A person may upload such a receipt
   and it is kept, but groceries are the focus. Today the code leaves out
   only cafés and "Sonstiges" (`categories.NOT_GROCERY_BRANCHES`); alcohol is
@@ -957,7 +1003,7 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   before the list gets a size limit. Until then the list's length is its
   chance cut-off.
 
-- (owner, 2026-10-23, parked: "we need to be more focused now") **A
+- (Built 2026-10-26, see Now.) (owner, 2026-10-23, parked: "we need to be more focused now") **A
   separate part for things people may mistake for groceries** (alcohol,
   toiletries, household, supplements, pet food): decided in principle, built
   later. The research below stays for then.

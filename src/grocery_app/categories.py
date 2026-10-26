@@ -72,9 +72,10 @@ BRANCHES: dict[str, str] = {
     "tiefkuehl": "Tiefkühlung",
     "haushalt": "Haushaltsartikel",
     "drogerie": "Drogerie & Kosmetik",
+    "tierbedarf": "Tierbedarf",
     # Kept in the history, kept out of the grocery insights (Parham,
     # 2026-09-27): a café breakfast or a birthday card is money spent, not a
-    # grocery bought. `is_grocery` is the one place that says so.
+    # grocery bought. `spending_kind` is the one place that says so.
     "kein-lebensmitteleinkauf": "Kein Lebensmitteleinkauf",
 }
 
@@ -115,6 +116,7 @@ SECTIONS: dict[str, tuple[str, str]] = {
     "haushaltshelfer": ("Haushaltshelfer", "haushalt"),
     "koerperpflege": ("Körperpflege", "drogerie"),
     "gesundheit": ("Gesundheit", "drogerie"),
+    "tierbedarf": ("Tierbedarf", "tierbedarf"),
     "gastronomie": ("Gastronomie", "kein-lebensmitteleinkauf"),
     "sonstiger-einkauf": ("Sonstiges", "kein-lebensmitteleinkauf"),
 }
@@ -426,6 +428,24 @@ CATEGORIES: dict[str, tuple[str, str, tuple[str, ...]]] = {
                         ("schwangerschaftstest",)),
     # GLOBUS has a Tabakwaren department; cigarettes had nowhere to go (2026-10-09).
     "tabak": ("Tabakwaren", "sonstiger-einkauf", ("zigaretten", "tabak")),
+    # What a discounter like Action or TEDi sells beside a few snacks (Parham,
+    # 2026-10-26: his old receipts from such shops were counted as
+    # groceries). Never counted; their names are the shops' own departments.
+    "kleidung": ("Kleidung & Schuhe", "sonstiger-einkauf",
+                 ("socken", "t-shirt", "hose", "schuhe", "jacke", "unterwaesche")),
+    "spielwaren": ("Spielwaren", "sonstiger-einkauf",
+                   ("spielzeug", "puzzle", "plueschtier", "knete")),
+    "deko-wohnen": ("Deko & Wohnen", "sonstiger-einkauf",
+                    ("deko", "dekoration", "bilderrahmen", "kissen", "vase", "lichterkette")),
+    "schreibwaren": ("Büro & Schreibwaren", "sonstiger-einkauf",
+                     ("kugelschreiber", "notizblock", "heft", "geschenkpapier", "klebeband")),
+    "elektro": ("Elektro & Multimedia", "sonstiger-einkauf",
+                ("ladekabel", "kopfhoerer", "gluehbirne", "leuchtmittel", "usb")),
+    # -- Tierbedarf --------------------------------------------------------------
+    "tiernahrung": ("Tiernahrung", "tierbedarf",
+                    ("katzenfutter", "hundefutter", "tierfutter", "nassfutter",
+                     "trockenfutter", "vogelfutter")),
+    "tierzubehoer": ("Tierzubehör", "tierbedarf", ("katzenstreu", "kleintierstreu")),
 }
 
 # The sections where a null brand is the final answer rather than a gap. You
@@ -444,15 +464,64 @@ def is_produce(category_key: str | None) -> bool:
     return bool(entry) and entry[1] in PRODUCE_SECTIONS
 
 
-NOT_GROCERY_BRANCHES: frozenset[str] = frozenset({"kein-lebensmitteleinkauf"})
+# What counts as groceries (Parham, 2026-10-16 and 2026-10-26): food and
+# drinks without alcohol, counted for everyone. Beside them, things close to
+# groceries that a market sells too, which a person may choose to count as
+# well; and everything else, kept on the receipt and never counted. A line
+# with no known category counts as groceries: leaving money out needs a
+# reason, not the absence of one.
+GROCERY = "groceries"
+OTHER = "other"
+# The close kinds a person may switch on, as the You screen names them.
+CLOSE_KINDS: dict[str, str] = {
+    "vices": "Alcohol & tobacco",
+    "supplements": "Supplements",
+    "drugstore": "Drugstore & personal care",
+    "household": "Household & cleaning",
+    "pets": "Pet food & supplies",
+}
+_KIND_OF_BRANCH: dict[str, str] = {
+    "alkohol": "vices",
+    "drogerie": "drugstore",
+    "haushalt": "household",
+    "tierbedarf": "pets",
+    "kein-lebensmitteleinkauf": OTHER,
+}
+# Categories whose kind is not their branch's.
+_KIND_OF_CATEGORY: dict[str, str] = {
+    "tabak": "vices",
+    "nahrungsergaenzung": "supplements",
+    "make-up": "drugstore",
+    "medizinprodukte": "drugstore",
+}
+
+
+def spending_kind(category_key: str | None) -> str:
+    """`GROCERY`, one of `CLOSE_KINDS`, or `OTHER`."""
+    entry = CATEGORIES.get(category_key or "")
+    if not entry:
+        return GROCERY
+    if category_key in _KIND_OF_CATEGORY:
+        return _KIND_OF_CATEGORY[category_key]
+    return _KIND_OF_BRANCH.get(SECTIONS[entry[1]][1], GROCERY)
 
 
 def is_grocery(category_key: str | None) -> bool:
-    """False only for a category known not to be a grocery. An unknown or
-    missing category counts as grocery: leaving money out of the insights
-    needs a reason, not the absence of one."""
-    entry = CATEGORIES.get(category_key or "")
-    return not entry or SECTIONS[entry[1]][1] not in NOT_GROCERY_BRANCHES
+    """True for groceries proper, and for a line with no known category."""
+    return spending_kind(category_key) == GROCERY
+
+
+def is_counted(category_key: str | None, also: frozenset[str] = frozenset()) -> bool:
+    """True when a person's history counts this: groceries, and the close
+    kinds in `also` they chose to count as well."""
+    kind = spending_kind(category_key)
+    return kind == GROCERY or kind in also
+
+
+def never_counted(category_key: str | None) -> bool:
+    """True for what nobody counts (a café, a T-shirt): no exact product is
+    worth searching for."""
+    return spending_kind(category_key) == OTHER
 
 
 NOT_FOOD_BRANCHES: frozenset[str] = frozenset({"haushalt", "drogerie",

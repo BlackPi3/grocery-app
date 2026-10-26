@@ -25,6 +25,7 @@ from grocery_app.db.io import load_normalizer_inputs, receipt_to_dict, whose
 from grocery_app.db.models import (
     Check,
     Correction,
+    CountedKind,
     Job,
     LineGuess,
     LineResolution,
@@ -57,6 +58,9 @@ FAILED_JOBS_SHOWN_FOR = timedelta(hours=1)
 
 class Repository(Protocol):
     def purchases(self) -> dict[str, Any]:
+        ...
+
+    def counted_kinds(self) -> frozenset[str]:
         """The purchases.json document (contract 2), as a plain dict."""
         ...
 
@@ -133,6 +137,9 @@ class WriteRepository(Protocol):
         ...
 
     def edit_list(self, kind: str, edit: str) -> None:
+        ...
+
+    def set_counted_kinds(self, kinds: frozenset[str]) -> None:
         ...
 
     def share_receipt(self, receipt_id: int, shared: bool) -> bool:
@@ -230,6 +237,9 @@ class JsonRepository:
     def purchases(self) -> dict[str, Any]:
         return json.loads(self.purchases_path.read_text(encoding="utf-8"))
 
+    def counted_kinds(self) -> frozenset[str]:
+        return frozenset()
+
 
 class InMemoryRepository:
     """Holds one document; for tests and for serving a freshly built history."""
@@ -239,6 +249,9 @@ class InMemoryRepository:
 
     def purchases(self) -> dict[str, Any]:
         return self._purchases
+
+    def counted_kinds(self) -> frozenset[str]:
+        return frozenset()
 
 
 class PostgresRepository:
@@ -984,6 +997,22 @@ class PostgresRepository:
         """Keep one change to this person's list: a kind added or removed."""
         with self.session_factory() as session:
             session.add(ListEdit(user_id=self.user_id, kind=kind, edit=edit))
+            session.commit()
+
+    def counted_kinds(self) -> frozenset[str]:
+        """The close kinds this person counts beside groceries."""
+        mine = (CountedKind.user_id.is_(None) if self.user is None
+                else CountedKind.user_id == self.user_id)
+        with self.session_factory() as session:
+            return frozenset(session.scalars(select(CountedKind.kind).where(mine)))
+
+    def set_counted_kinds(self, kinds: frozenset[str]) -> None:
+        """Count exactly these close kinds beside groceries from now on."""
+        mine = (CountedKind.user_id.is_(None) if self.user is None
+                else CountedKind.user_id == self.user_id)
+        with self.session_factory() as session:
+            session.execute(delete(CountedKind).where(mine))
+            session.add_all(CountedKind(user_id=self.user_id, kind=k) for k in sorted(kinds))
             session.commit()
 
     def receipt_image(self, receipt_id: int) -> str | None:

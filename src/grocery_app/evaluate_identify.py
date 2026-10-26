@@ -36,7 +36,7 @@ from collections import Counter
 from collections.abc import Callable
 from typing import Any
 
-from grocery_app.categories import is_grocery
+from grocery_app.categories import never_counted
 from grocery_app.identify import Identity, line_vat_rates, paid, read_line
 from grocery_app.matcher import Decider
 from grocery_app.resolver import store_key
@@ -135,7 +135,7 @@ def evaluate_identify(truth_doc: dict[str, Any], identifier: Identifier,
               "dropped": [line["raw_name"] for line in lines
                           if line["identity"].get("dropped")]}
     if searching:
-        due = [line for line in lines if is_grocery(line["identity"]["category"])]
+        due = [line for line in lines if not never_counted(line["identity"]["category"])]
         report["search"] = {
             "due": len(due), "searched": sum(bool(line["identity"]["searched"]) for line in due),
             "not_searched": [line["raw_name"] for line in due if not line["identity"]["searched"]],

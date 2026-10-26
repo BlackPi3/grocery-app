@@ -35,6 +35,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from dev_inbox import TIMEOUT_S, server_and_token  # noqa: E402
 
+from grocery_app import categories  # noqa: E402
 from grocery_app.insights import build_insights, shelf_unit_price  # noqa: E402
 
 PAGE = ROOT / "src" / "grocery_app" / "api" / "review.html"
@@ -78,6 +79,13 @@ def handler(live: str, token: str, then: str | None = None) -> type[BaseHTTPRequ
                     return
                 doc = build_insights(json.loads(body))
                 self.send(200, "application/json", json.dumps(doc).encode())
+            elif path == "/v1/counted":
+                # A live server older than the route counts groceries only.
+                status, kind, body = fetch(path)
+                if status == 404:
+                    status, kind, body = 200, "application/json", json.dumps(
+                        {"kinds": [], "choices": categories.CLOSE_KINDS}).encode()
+                self.send(status, kind, body)
             elif path.startswith("/v1/products/") and path.endswith("/purchases"):
                 self.send(*with_shelf_prices(fetch(path), fetch("/v1/purchases")))
             else:
