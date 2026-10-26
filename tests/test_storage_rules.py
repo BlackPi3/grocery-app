@@ -415,7 +415,7 @@ def test_the_answer_reaches_every_line_of_that_product_for_everyone(history, ses
     mine = client.get("/v1/purchases", headers={"Authorization": "Bearer owner-secret"}).json()
     hers = client.get("/v1/purchases",
                       headers={"Authorization": f"Bearer {sara['password']}"}).json()
-    assert mine["contract_version"] == 10 and hers["contract_version"] == 10
+    assert mine["contract_version"] == 11 and hers["contract_version"] == 11
     lines = mine["purchases"] + hers["purchases"]
     by = {pid: [p for p in lines if p.get("product_id") == pid]
           for pid in ("p-0001", "p-0002", "p-0003", "p-0004")}
@@ -432,6 +432,6 @@ def test_the_file_pipeline_is_contract_ten_with_no_storage_made_up(data):
                                 data / "products" / "products.json",
                                 data / "products" / "resolution.json",
                                 None, data / "products")
-    assert purchases["contract_version"] == 10
+    assert purchases["contract_version"] == 11
     assert all(p.get("storage") is None and p.get("keeps_days") is None
                for p in purchases["purchases"]), "no answer in the catalog: nothing filled in"

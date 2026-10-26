@@ -893,7 +893,7 @@ def compare_month(rows: list[dict[str, Any]], month: str,
 def _not_grocery(rows: list[dict[str, Any]]) -> dict[str, Any]:
     by_category: dict[str, float] = defaultdict(float)
     for p in rows:
-        by_category[categories.label(p["category"])] += p.get("net_paid") or 0.0
+        by_category[categories.label(_kind_key(p))] += p.get("net_paid") or 0.0
     return {"lines": len(rows),
             "spend": round(sum(by_category.values(), 0.0), 2),
             "by_category": {c: round(v, 2) for c, v in
@@ -947,6 +947,13 @@ def coverage(purchases: dict[str, Any], rows: list[dict[str, Any]],
     }
 
 
+def _kind_key(p: dict[str, Any]) -> str | None:
+    """The category that says whether a line counts: its product's, else the
+    photo reading's guess for a line nothing placed (owner, 2026-10-26: a
+    skipped line counts only if its guess is groceries)."""
+    return p.get("category") or p.get("guessed_category")
+
+
 def build_insights(purchases: dict[str, Any], as_of: date | None = None,
                    today: date | None = None,
                    also: frozenset[str] = frozenset()) -> dict[str, Any]:
@@ -960,8 +967,8 @@ def build_insights(purchases: dict[str, Any], as_of: date | None = None,
     every = _product_rows(purchases.get("purchases", []))
     lines = [p for p in every if p.get("date")]
     undated = [p for p in every if not p.get("date")]
-    groceries = [p for p in lines if categories.is_counted(p.get("category"), also)]
-    left_out = [p for p in lines if not categories.is_counted(p.get("category"), also)]
+    groceries = [p for p in lines if categories.is_counted(_kind_key(p), also)]
+    left_out = [p for p in lines if not categories.is_counted(_kind_key(p), also)]
     # Prices are what the shop charged, whoever it was for; the rest is the
     # shopper's own shopping.
     rows = [p for p in groceries if not p.get("not_counted")]
