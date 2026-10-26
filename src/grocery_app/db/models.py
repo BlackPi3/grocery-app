@@ -530,10 +530,10 @@ class ListWord(Base):
 
 
 class ListEdit(Base):
-    """One change a person made to their shopping list: a kind added, or
-    removed for now (`shopping_list.with_edits`). Kept as it happened, never
-    updated: the list is worked out from these and the receipts. Goes with
-    their account."""
+    """One change a person made to their shopping list: a kind added or
+    removed for now, a line crossed off, words typed or deleted
+    (`shopping_list.with_edits`). Kept as it happened, never updated: the
+    list is worked out from these and the receipts. Goes with their account."""
 
     __tablename__ = "list_edits"
 
@@ -541,7 +541,7 @@ class ListEdit(Base):
     # Whose list: a user's, or the owner's when empty.
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    kind: Mapped[str] = mapped_column(String)  # a category key, `eier`
+    kind: Mapped[str] = mapped_column(String)  # an item key, `eier`, or typed words
     edit: Mapped[str] = mapped_column(String)  # shopping_list.EDITS
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

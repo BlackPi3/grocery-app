@@ -499,3 +499,15 @@ def test_an_item_whose_word_has_a_slash_can_be_edited(people, session):
     answer = client.put(f"/v1/list/{urllib.parse.quote(key, safe='')}", headers=OWNER,
                         json={"on_list": False})
     assert answer.status_code == 200, (key, answer.status_code)
+
+
+@needs_db
+def test_typed_words_that_name_a_bought_item_put_that_item_on(people, session):
+    """The paper list (owner, 2026-10-26): `h-milch` typed is the item H-Milch
+    the asker bought, with its usual product, not words of their own."""
+    repository, _ = people
+    offers_api.word_due(repository, Namer({"p-milch": "H-Milch"}), today(), Counter())
+    client = client_for(repository)
+    lines = client.post("/v1/list", headers=OWNER, json={"text": "h-MILCH"}).json()["lines"]
+    assert (lines[0]["kind"], lines[0]["typed"], lines[0]["added"]) == ("h-milch", False, True)
+    assert lines[0]["usual"]["product_id"] == "p-milch"

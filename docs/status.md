@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, cloud: picture web search off (owner, parked). Before that, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
+**Last updated:** 2026-10-26, cloud: picture web search off (owner, parked, #218); a test-teardown hang fixed (#218); the paper list and its Home line merged (#219). Before that, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
 
 ## Now
 
@@ -51,8 +51,8 @@ session (laptop or cloud) can pick up from here. How we work is in
      248-252 show finding cost but 0 searches): the first cause of the 175
      grey lines.
   3. **Skip, PR #215**: merged (owner's yes, 26 Oct).
-  4. **The list as a paper list** (item 4 below): agreed (owner, 26 Oct),
-     next.
+  4. **The list as a paper list** (item 4 below): merged as #219 (owner's
+     yes, 26 Oct).
   5. Waiting topics: fewer random checks (97% yes; some are on
      non-groceries, e.g. an Action glass carafe, and should not be asked);
      how much to trust an answer about an old receipt.
@@ -123,11 +123,31 @@ session (laptop or cloud) can pick up from here. How we work is in
      with no guess it still counts as groceries. Seen on the owner's
      cards: random checks on non-groceries (an Action glass carafe), worth
      dropping with the random-checks topic.
-  4. **The list as a paper list**: type an item (the list is the exception
-     to "never types", owner 2026-10-26), tap to cross off what is bought;
-     one add control on a suggestion (the circle; the right side only
-     Snooze); anything on the list can be snoozed; a typed line can be
-     deleted.
+  4. **The list as a paper list** (built, cloud 26 Oct, shown with the
+     demo's made-up receipts): type an item (the list is the exception to
+     "never types", owner 2026-10-26): "Add an item" at the end of Your list,
+     `POST /v1/list`; words naming an item bought (`eier`) or a category
+     put that on instead, any other words are a typed line (`write`). The
+     circle of a line on the list crosses it off (`cross`; a tap again,
+     `uncross`); a crossed line shows struck through for the rest of the
+     day and is gone the next. A receipt crosses off what it shows bought
+     the same way (owner: "when i upload a receipt ... you have to cross
+     them off"); a typed line is bought when each typed word ends a word of
+     the item, product or category (`Tomaten`: Rispentomaten; under 3
+     letters never). Until the receipt comes a cross counts as a buy (owner
+     agreed): the item is not suggested again as just bought. A suggestion's
+     only add control is its circle (a plus); the right side only Snooze.
+     Anything on the list can be snoozed, the person's own lines too (they
+     come back on the list; a typed line 1, 2, 4 days); a typed line has
+     Delete, with Undo. `PUT /v1/list/{kind}` takes `{"edit": ...}`
+     (`on_list` still accepted from a page kept on a phone). No migration:
+     the new edits are rows of `list_edits`. **A line on Home** (owner, 26
+     Oct: "notif for now should be a home line saying you crossed off but
+     didn't upload receipt"): "You crossed off 2 items today; no receipt
+     yet" with "Scan it" (the photo picker, as the +), while something was
+     crossed off in the last 3 days and no receipt is dated that day or
+     later (`shopping_list.unscanned`). A phone notification waits for the
+     iOS app.
   Waiting topics, not yet raised: how much to trust an answer about an old
   receipt; fewer random checks (100 of 103 answered yes, 97%: they only
   measure the app's error rate). Facts given to the owner: there are two

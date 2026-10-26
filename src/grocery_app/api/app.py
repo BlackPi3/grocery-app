@@ -113,6 +113,7 @@ from grocery_app.api.schemas import (
     LineCountedRequest,
     LineResolutionRequest,
     ListEditRequest,
+    ListWriteRequest,
     Me,
     NearbyDocument,
     NewUser,
@@ -726,16 +727,36 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
     # decoded however the page encoded it.
     @app.put("/v1/list/{kind:path}", response_model=ShoppingListDocument)
     def edit_list(request: Request, kind: str, body: ListEditRequest) -> ShoppingListDocument:
-        """Put an item on the list, or take it off for now (a snooze that
-        doubles each time it is taken off without a buy). Answers the new list."""
+        """Put an item on the list, take it off for now (a snooze that doubles
+        each time it is taken off without a buy), cross it off or back, or
+        delete a typed line. Answers the new list."""
         from grocery_app import categories
         from grocery_app.shopping_list import known, list_rows
 
         person = require_writes(request)
-        # An item the asker bought (`walnüsse`), or any category.
-        if kind not in categories.CATEGORIES and kind not in known(list_rows(person.purchases())):
+        # An item the asker bought (`walnüsse`), any category, or words the
+        # asker typed onto their list.
+        if kind not in categories.CATEGORIES \
+                and kind not in known(list_rows(person.purchases())) \
+                and not any(e["kind"] == kind and e["edit"] == "write"
+                            for e in person.list_edits()):
             raise HTTPException(status_code=422, detail=f"no kind {kind!r}")
-        person.edit_list(kind, "add" if body.on_list else "remove")
+        person.edit_list(kind, body.what)
+        return my_list(person)
+
+    @app.post("/v1/list", response_model=ShoppingListDocument)
+    def write_on_list(request: Request, body: ListWriteRequest) -> ShoppingListDocument:
+        """Words typed onto the list (`shopping_list` on the paper list): an
+        item the asker bought or a category, when they name one, else a line
+        of their own. Answers the new list."""
+        from grocery_app.shopping_list import list_rows, typed_key, written
+
+        person = require_writes(request)
+        text = written(body.text)
+        if not text:
+            raise HTTPException(status_code=422, detail="nothing typed")
+        key = typed_key(text, list_rows(person.purchases()))
+        person.edit_list(key or text, "add" if key else "write")
         return my_list(person)
 
     def counted(person: Repository) -> CountedKinds:
