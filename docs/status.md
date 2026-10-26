@@ -4,22 +4,20 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, cloud, session end: picture web search off (#218, parked); a test-teardown hang fixed (#218); Skip (#215), the paper list and its Home line (#219), asking less (#220) merged and live; `eval-trips` built (#221); the trip plan's objective and the rule "choose safely, observe, adapt" agreed (#222, #223). **Next session starts with "Next session, 2026-10-27" below.**
+**Last updated:** 2026-10-27, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
 
 ## Now
 
 - **Next session, 2026-10-27, in this order.**
-  1. **The trip plan's engine and its backtest** (agreed, see "The trip
-     plan's goal" and "The plan's objective" under the plan track below):
-     each trip goes to one shop, from the shops on the person's receipts,
-     chosen to cover the biggest share of the list at the lowest price;
-     small top-ups at a shop they use are fine; no price on time, no
-     question about travel; the receipts show whether the plan was
-     followed. Build the engine and a backtest on `evaluate_list`'s
-     pattern before any screen. Prices per shop come from step 4 (b)
-     (offers, ALDI SÜD's crawl, prices on anyone's receipts there).
-  2. **On the laptop only:** run `grocery-app eval-trips` on the owner's
-     `data/purchases.json` and bring him the table; check whether Vertex
+  1. **The trip plan's engine and its backtest: built** (cloud, 27 Oct; see
+     "The plan's engine" under the plan track below). Prices come only from
+     receipts so far, and on the demo the plan never leaves the base. Next
+     decision for the owner: which price source to add first (ALDI SÜD's
+     crawl, the week's offers, or everyone's receipts), each matched to a
+     kind like for like.
+  2. **On the laptop only:** run `grocery-app eval-trips` and `grocery-app
+     eval-plan` on the owner's `data/purchases.json` and bring him the
+     tables; check whether Vertex
      still answers 429 to large calls (item 1 below; the owner: "I'll do
      it later").
   3. Waiting a few days: whether the line searches (6-7 per new line) need
@@ -265,9 +263,30 @@ session (laptop or cloud) can pick up from here. How we work is in
   they use are fine. Their receipts say whether they followed it and where
   they went, and the next plan follows that. A shop not on their receipts
   is suggested only after one question, "Would you shop at this store?";
-  a no is final for that shop. **Next:** the plan's engine and its
-  backtest (on the laptop, with his receipts): which one shop each trip
-  goes to and what it would have saved.
+  a no is final for that shop.
+  **The plan's engine, built** (cloud, 2026-10-27; `grocery_app/trip_plan.py`,
+  `grocery-app plan`): the base is the shop on most receipts (not most
+  lines); a shop's price for a kind is the median of the last 5 paid prices
+  per kg, litre, piece or item there (paid: a discount always given is money
+  not spent; units never mix); a shop is a candidate when it prices more
+  than half the list (step 4's "most of the list"), the base always; what it
+  does not price is topped up at the base; the cheapest candidate goes,
+  compared like for like over the lines every candidate prices; an even
+  total stays at the base. Shops are chains as printed (`store_key`).
+  **Its backtest** (`evaluate_plan.py`, `grocery-app eval-plan`, trips every
+  7 days over 8 weeks by default, `--every`): on each trip's day only what
+  came before is known; what was bought in the stretch is costed where it
+  was bought and where planned, from the same price book. Three ways: always
+  the base, the plan on the list drafted that day, and hindsight (the plan
+  on what was bought). **On the demo's made-up receipts** (GLOBUS base, ALDI
+  SÜD, Lidl, Kaufland): the plan stays at GLOBUS on all 8 trips; no other
+  shop prices more than a third of a list, because a person buys only a few
+  things at a second shop. One shop a trip costs 0.73 EUR a week more than
+  the habit of picking those few things up elsewhere (-3%). So prices from
+  receipts alone can't move the plan; it needs a shop priced beyond what the
+  person bought there (ALDI SÜD's crawl, offers, everyone's receipts), each
+  matched to a kind like for like, not built. **Next:** the owner's numbers
+  (laptop), and his choice of the first price source.
 
 - Agreed (owner, 2026-10-25): **step 4, the list's cost at the shops near
   the person**, not only at those they go to ("the stores I buy from are
