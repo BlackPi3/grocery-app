@@ -159,7 +159,26 @@ def engine():
     engine = make_engine(DATABASE_URL)
     yield engine
     engine.dispose()
+    # A server thread a test started (offers, nearby, pictures) outlives it
+    # and keeps reading. Holding `users` while it waits for `receipts`, it
+    # hung the downgrade, which had `receipts` and wanted `users` (CI,
+    # 2026-10-26). Its connections are closed first; it reconnects later.
+    _close_other_connections(DATABASE_URL)
     downgrade(DATABASE_URL)
+
+
+def _close_other_connections(url):
+    from sqlalchemy import text
+
+    from grocery_app.db.session import make_engine
+
+    closer = make_engine(url)
+    with closer.connect() as connection:
+        connection.execute(text(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+            "WHERE datname = current_database() AND pid <> pg_backend_pid()"))
+        connection.commit()
+    closer.dispose()
 
 
 @pytest.fixture
