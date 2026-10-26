@@ -199,6 +199,7 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                pictures: Pictures | None = None, demo: bool = False,
                google: GoogleSignIn | None = None, readers: Executor | None = None,
                sorter: Any | None = None, forget_photos: bool = False,
+               reread: bool = False,
                offers: Any | None = None, offer_judge: Any | None = None,
                maps: Any | None = None) -> FastAPI:
     if demo:
@@ -224,6 +225,16 @@ def create_app(repository: Repository, image_store: ImageStore | None = None,
                 target=keep_sorting, args=(repository.session_factory, sorter),
                 name="sorting", daemon=True)
             app.state.sorting.start()
+        if reread and matcher is not None and identify is not None and uploads_available \
+                and not demo:
+            # Lines a failed search left waiting are read again, a few
+            # receipts every few minutes (`matching.keep_rereading`).
+            from grocery_app.api.matching import keep_rereading
+
+            app.state.rereading = threading.Thread(
+                target=keep_rereading, args=(repository.session_factory, matcher, identify),
+                name="rereading", daemon=True)
+            app.state.rereading.start()
         if offers is not None and writes_available and not demo:
             # The offers near the shops people visit, once a day (`api.offers`).
             from grocery_app.api.offers import keep_fetching
@@ -1058,7 +1069,7 @@ def default_app() -> FastAPI:
                       readers=reading_line(),
                       sorter=sorting_decider()
                       if type(repository).__name__ == "PostgresRepository" else None,
-                      forget_photos=True,
+                      forget_photos=True, reread=True,
                       offers=Marktguru()
                       if type(repository).__name__ == "PostgresRepository" else None,
                       offer_judge=offer_judge()

@@ -50,6 +50,7 @@ from grocery_app import identify as identifying
 from grocery_app import matcher as matching
 from grocery_app.db.io import load_normalizer_inputs, product_from_dict, receipt_to_dict
 from grocery_app.db.models import (
+    Job,
     LineResolution,
     Product,
     Question,
@@ -553,6 +554,87 @@ def keep_sorting(session_factory: Any, decider: Any,
                 sort_new_products(session_factory, decider, tried)
         except Exception:  # noqa: BLE001 - a category is never worth the server
             logging.getLogger(__name__).exception("sorting products failed")
+        time.sleep(every)
+
+
+# How often the server looks for lines a failed search left waiting, how many
+# receipts one pass reads again, and how often a receipt is tried before it
+# waits for the server's next start (each try is a reading and a search).
+REREAD_EVERY_SECONDS = 300
+REREAD_PER_PASS = 5
+REREAD_TRIES = 3
+
+
+def waiting_receipts(session: Session) -> list[int]:
+    """Receipts, oldest first, with a product line nothing placed, asked or
+    answered: its search failed (`identify.unsearched`), or matching stopped
+    part way. A receipt whose upload is still being read is not one.
+
+    The owner, 2026-10-26: 175 lines of old receipts uploaded at once stayed
+    grey, with nothing to tap and no question; "the next run reads it again"
+    had no next run but the CLI's `--retry-unsearched`.
+    """
+    from grocery_app.api.jobs import UNFINISHED
+
+    inputs = load_normalizer_inputs(session)
+    asked = {tuple(row) for row in session.execute(
+        select(Question.receipt_id, Question.position))} | {tuple(row) for row in session.execute(
+            select(LineResolution.receipt_id, LineResolution.position))}
+    busy = set(session.scalars(select(Job.receipt_id).where(
+        Job.status.in_(UNFINISHED), Job.receipt_id.is_not(None))))
+    waiting = []
+    for receipt in session.scalars(select(Receipt).where(Receipt.store.is_not(None))
+                                   .order_by(Receipt.id)):
+        if receipt.id in busy:
+            continue
+        doc = receipt_to_dict(receipt)
+        for position, line in enumerate(doc["lines"]):
+            if line.get("type", "product") != "product" or (receipt.id, position) in asked \
+                    or never_remembered(receipt.store, line["raw_name"]):
+                continue
+            record = normalize_receipt({**doc, "lines": [line]}, inputs["resolution"],
+                                       inputs["products"])[0]
+            if record["resolution"] == "none":
+                waiting.append(receipt.id)
+                break
+    return waiting
+
+
+def reread_waiting(session_factory: Any, match: LineMatcher, identify: LineIdentifier,
+                   tried: dict[int, int]) -> list[int]:
+    """One pass: the first `REREAD_PER_PASS` waiting receipts not yet tried
+    `REREAD_TRIES` times, matched again as a new upload's are. Says which."""
+    import logging
+
+    with session_factory() as session:
+        due = [r for r in waiting_receipts(session)
+               if tried.get(r, 0) < REREAD_TRIES][:REREAD_PER_PASS]
+    for receipt_id in due:
+        tried[receipt_id] = tried.get(receipt_id, 0) + 1
+        try:
+            with session_factory() as session:
+                match_receipt(session, receipt_id, match, identify, checkpoint=session.commit)
+                session.commit()
+        except Exception:  # noqa: BLE001 - one receipt never stops the others
+            logging.getLogger(__name__).exception("reading receipt %s again failed", receipt_id)
+    return due
+
+
+def keep_rereading(session_factory: Any, match: LineMatcher, identify: LineIdentifier,
+                   every: float = REREAD_EVERY_SECONDS) -> None:
+    """The server's thread for waiting lines: a pass, a pause, while it runs."""
+    import logging
+    import time
+
+    from grocery_app import spend
+
+    tried: dict[int, int] = {}
+    while True:
+        try:
+            with spend.tagged("finding"):
+                reread_waiting(session_factory, match, identify, tried)
+        except Exception:  # noqa: BLE001 - a waiting line is never worth the server
+            logging.getLogger(__name__).exception("reading waiting lines again failed")
         time.sleep(every)
 
 

@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, laptop: what counts as groceries live (#209); a Groceries row on the card waits for the owner's look; next, the stuck lines.
+**Last updated:** 2026-10-26, laptop: what counts as groceries live (#209, #211); stuck lines read again by the server (PR open, check-risky review); next, Skip.
 
 ## Now
 
@@ -14,7 +14,7 @@ session (laptop or cloud) can pick up from here. How we work is in
      owner's October counts 292 EUR of groceries). It follows ECOICOP 01
      (checked again 26 Oct: alcohol-free beer is 02, with alcohol). The
      card's first row is Groceries, On and locked (owner: so it doesn't
-     look as if groceries weren't counted). Every category has a kind (`categories.spending_kind`):
+     look as if groceries weren't counted; #211, live). Every category has a kind (`categories.spending_kind`):
      groceries (food and drinks without alcohol), counted for everyone; five
      kinds close to groceries, which a market sells too, counted only when
      the person switches them on (`CLOSE_KINDS`: alcohol & tobacco,
@@ -36,8 +36,13 @@ session (laptop or cloud) can pick up from here. How we work is in
      cards: the reader's search did not run (`identify.unsearched`), so
      nothing was saved or asked, and only the CLI's `--retry-unsearched`
      reads them again. They count as groceries meanwhile, which is how
-     Action and TEDi lines reached his spending. To build: the server reads
-     such lines again by itself. About $5-10 of searches at list price for
+     Action and TEDi lines reached his spending. Built: a server thread
+     (`matching.keep_rereading`, only where `create_app(reread=True)`, the
+     deployed server) finds receipts with a product line nothing placed,
+     asked or answered (`waiting_receipts`; not one whose upload is still
+     being read) and matches them again as a new upload's: 5 receipts every
+     5 minutes, oldest first, each at most 3 times per server start (a line
+     whose search keeps failing waits for the next start). About $5-10 of searches at list price for
      his 175, likely inside Google's free monthly searches (not checked).
   3. **"Skip" on a question** (owner's word: don't want to answer, or don't
      remember). A skipped line keeps the app's best guess, counts only if
