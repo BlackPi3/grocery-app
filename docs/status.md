@@ -8,7 +8,15 @@ session (laptop or cloud) can pick up from here. How we work is in
 
 ## Now
 
-- **Open, 2026-10-26 (owner: "a subject for a new session"), in this order:**
+- **Open, 2026-10-26 (owner: "a subject for a new session"), in this order.**
+  The owner continues in a cloud session, which has the repo and GitHub
+  but not `gcloud`, the live server's password or Vertex (see "Laptop
+  only"). There: item 1's live probe and item 2's live numbers cannot be
+  read, so ask the owner to run them on the laptop or bring the numbers;
+  item 2's code side (where searches are made, how many per line and per
+  picture, the caps) can be studied from the repo; items 3 and 4 can be
+  done in full, screens shown with made-up data (the demo seed or a test
+  database) instead of `scripts/preview.py`'s live data.
   1. **Gemini 429 since about 09:54 on 26 Oct: temporary or not?** Vertex
      (EU multi-region endpoint, `gemini-3.8-flash`) answers 429
      `RESOURCE_EXHAUSTED` to large calls; a tiny prompt passes from the
