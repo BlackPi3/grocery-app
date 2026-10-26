@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
+**Last updated:** 2026-10-26, cloud: picture web search off (owner, parked). Before that, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
 
 ## Now
 
@@ -37,13 +37,19 @@ session (laptop or cloud) can pick up from here. How we work is in
      console. The app works, but maybe it is working in an inefficient
      way"). October so far (`/v1/costs`): 122 USD at list price, billed
      about 52; finding (identify + search) 74, pictures 41, reading 4;
-     7,197 searches. Earlier finding (Parked, 2026-10-21): a picture costs
-     11-29 searches, placing a receipt's lines about 67. Also: the
-     searcher stops at 150 searches per server start
-     (`GROCERY_MAX_SEARCHES`), which the owner's batch of old receipts
-     passed, so its later lines were never searched (receipts 248-252
-     show finding cost but 0 searches): the first cause of the 175 grey
-     lines.
+     7,197 searches. From the code (cloud session, 26 Oct): one picture
+     request ("find the product page") runs 11-29 Google searches, and the
+     picture limit (300 per start) counted requests, not searches. **Done:
+     the picture web search is off** (owner, 26 Oct: "let's get rid of image
+     for now if it costs so much. and park it for later"):
+     `GROCERY_MAX_PICTURE_SEARCHES` defaults to 0, and 0 means no search.
+     Shop pages and Open Food Facts (free) still give pictures. Parked
+     below. Lines: each new line asks for 2-3 searches and gets about 6-7;
+     not changed yet. Also: the searcher stops at 150 searches per server
+     start (`GROCERY_MAX_SEARCHES`), which the owner's batch of old
+     receipts passed, so its later lines were never searched (receipts
+     248-252 show finding cost but 0 searches): the first cause of the 175
+     grey lines.
   3. **Skip, PR #215**, built and shown, waiting for the owner's yes.
   4. **The list as a paper list** (item 4 below), not started.
   5. Waiting topics: fewer random checks (97% yes; some are on
@@ -1087,6 +1093,12 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   `NOT_GROCERY_BRANCHES` in `categories.py` (they stay in the history) and
   add a pet food category; later an ECOICOP code under each category, for
   comparing with official food inflation per country.
+- (owner, 2026-10-26, parked) **Pictures from a web search.** Off since 26
+  Oct for cost (`GROCERY_MAX_PICTURE_SEARCHES` 0 by default): a product
+  with no shop page and no barcode gets no picture. To bring it back: ask
+  for one search per picture, count searches (not requests) against the
+  limit, set the variable, and run `forget_missing_pictures` so products
+  settled meanwhile are looked up again.
 - (owner, 2026-10-21, parked: "not in a position to make important design
   decisions") **Web searches cost more than reading.** The "unusual model
   spending" emails are our own alert (each $1 a day), not a Google limit.
