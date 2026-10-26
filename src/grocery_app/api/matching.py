@@ -100,6 +100,8 @@ def line_identifier(decider: matching.Decider,
                                      proposal.get("candidates") or None, others, paid,
                                      learned.get(store_key(store)), description,
                                      receipt.get("store_location"))
+    # The rereading looks at it: a searcher out of searches reads nothing.
+    read.searcher = searcher  # type: ignore[attr-defined]
     return read
 
 
@@ -578,6 +580,9 @@ REREAD_PER_PASS = 5
 # Kept on the receipt, so a server that stops and starts pays once.
 REREAD_WAITS = (timedelta(0), timedelta(hours=1), timedelta(days=1))
 REREAD_TRIES = len(REREAD_WAITS)
+# Searches the rereading leaves to uploads, of the searcher's limit per start:
+# a person's new receipt comes before an old line.
+REREAD_LEAVES_SEARCHES = 50
 # The first pass waits as resuming jobs do: a deploy runs the old server
 # for up to ten seconds beside the new one.
 REREAD_FIRST_AFTER_SECONDS = 30
@@ -627,30 +632,68 @@ def waiting_receipts(session: Session, now: datetime | None = None) -> list[int]
     return waiting
 
 
+def out_of_searches(identify: LineIdentifier) -> bool:
+    """Whether the server's searcher has made the searches the rereading may
+    use this start: its limit (`GROCERY_MAX_SEARCHES`) less what is left to
+    uploads (`REREAD_LEAVES_SEARCHES`)."""
+    searcher = getattr(identify, "searcher", None)
+    return searcher is not None and getattr(searcher, "searched", 0) >= getattr(
+        searcher, "max_searches", float("inf")) - REREAD_LEAVES_SEARCHES
+
+
+def turned_away(error: Exception) -> bool:
+    """Whether Gemini refused the call for want of capacity (429): no fault
+    of the line, and not billed. Seen on live, 2026-10-26, on five receipts
+    in a row."""
+    return "429" in str(error) or "RESOURCE_EXHAUSTED" in str(error)
+
+
 def reread_waiting(session_factory: Any, match: LineMatcher, identify: LineIdentifier,
                    now: datetime | None = None) -> list[int]:
-    """One pass: the first `REREAD_PER_PASS` waiting receipts, each try
-    counted on the receipt before it is made, matched again as a new
-    upload's are. Says which."""
+    """One pass: up to `REREAD_PER_PASS` waiting receipts, each try counted
+    on the receipt before it is made, matched again as a new upload's are.
+    Says which were tried.
+
+    A try that could not be made is given back and the pass ends: the
+    searcher out of searches for this start, or Gemini turning calls away.
+    Neither is the line's fault, and neither is paid for."""
     import logging
 
     from grocery_app import spend
 
     now = now or datetime.now(UTC)
+
+    def count(receipt_id: int, step: int) -> None:
+        with session_factory() as session:
+            receipt = session.get(Receipt, receipt_id)
+            receipt.reread_tries = (receipt.reread_tries or 0) + step
+            if step > 0:
+                receipt.reread_at = now
+            session.commit()
+
     with session_factory() as session:
         due = waiting_receipts(session, now)[:REREAD_PER_PASS]
-        for receipt in session.scalars(select(Receipt).where(Receipt.id.in_(due))):
-            receipt.reread_tries = (receipt.reread_tries or 0) + 1
-            receipt.reread_at = now
-        session.commit()
+    tried = []
     for receipt_id in due:
+        if out_of_searches(identify):
+            break
+        count(receipt_id, 1)
         try:
             with session_factory() as session, spend.tagged("finding"):
                 match_receipt(session, receipt_id, match, identify, checkpoint=session.commit)
                 session.commit()
-        except Exception:  # noqa: BLE001 - one receipt never stops the others
+        except Exception as error:  # noqa: BLE001 - one receipt never stops the others
+            if turned_away(error):
+                count(receipt_id, -1)
+                logging.getLogger(__name__).warning("Gemini is busy; reading again later")
+                break
             logging.getLogger(__name__).exception("reading receipt %s again failed", receipt_id)
-    return due
+        if out_of_searches(identify):
+            # The searches ran out part way: its last lines were not searched.
+            count(receipt_id, -1)
+            break
+        tried.append(receipt_id)
+    return tried
 
 
 def keep_rereading(session_factory: Any, match: LineMatcher, identify: LineIdentifier,

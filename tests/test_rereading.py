@@ -128,3 +128,77 @@ def test_only_a_server_told_to_starts_the_thread(engine, session, monkeypatch):
     with TestClient(create_app(repository, reread=True, **common)) as client:
         client.app.state.rereading.join(timeout=5)
     assert len(started) == 1
+
+
+def test_a_searcher_with_searches_to_spare_reads_on(factory, session):
+    add_receipt(session, "IMG_1.jpeg", ["XY EINS"])
+    reader = Reader()
+    reader.searcher = Searcher(searched=149 - matching.REREAD_LEAVES_SEARCHES)
+    reread_waiting(factory, TableMatcher({}), reader)
+    assert reader.calls == ["XY EINS"]
+
+
+class Searcher:
+    def __init__(self, searched=0, max_searches=150):
+        self.searched, self.max_searches = searched, max_searches
+
+
+def tries(session, receipt_id):
+    from grocery_app.db.models import Receipt
+
+    session.expire_all()
+    return session.get(Receipt, receipt_id).reread_tries
+
+
+def test_gemini_turning_calls_away_costs_no_try_and_ends_the_pass(factory, session):
+    """Live, 2026-10-26: Vertex answered 429 (RESOURCE_EXHAUSTED) on five
+    receipts in a row, and each lost a try for it."""
+    from grocery_app.matcher import DeciderError
+
+    first = add_receipt(session, "IMG_1.jpeg", ["XY EINS"])
+    second = add_receipt(session, "IMG_2.jpeg", ["XY ZWEI"])
+
+    class Busy(Reader):
+        def __call__(self, *args):
+            super().__call__(*args)
+            raise DeciderError('Gemini 429: {"status": "RESOURCE_EXHAUSTED"}')
+
+    reader = Busy()
+    assert reread_waiting(factory, TableMatcher({}), reader) == []
+    assert reader.calls == ["XY EINS"], "the pass ends: the next would be turned away too"
+    assert (tries(session, first), tries(session, second)) == (0, 0)
+
+
+def test_another_failure_still_counts_its_try(factory, session):
+    receipt = add_receipt(session, "IMG_1.jpeg", ["XY EINS"])
+
+    class Broken(Reader):
+        def __call__(self, *args):
+            raise ValueError("a bug")
+
+    reread_waiting(factory, TableMatcher({}), Broken())
+    assert tries(session, receipt) == 1
+
+
+def test_a_searcher_out_of_searches_reads_nothing_and_counts_no_try(factory, session):
+    """Out for the rereading: the last searches of a start are left to uploads."""
+    receipt = add_receipt(session, "IMG_1.jpeg", ["XY EINS"])
+    reader = Reader()
+    reader.searcher = Searcher(searched=150 - matching.REREAD_LEAVES_SEARCHES)
+    assert reread_waiting(factory, TableMatcher({}), reader) == []
+    assert reader.calls == [] and tries(session, receipt) == 0
+
+
+def test_searches_running_out_part_way_give_the_try_back(factory, session):
+    first = add_receipt(session, "IMG_1.jpeg", ["XY EINS"])
+    add_receipt(session, "IMG_2.jpeg", ["XY ZWEI"])
+
+    class Spends(Reader):
+        def __call__(self, *args):
+            self.searcher.searched += 1
+            return super().__call__(*args)
+
+    reader = Spends()
+    reader.searcher = Searcher(searched=149 - matching.REREAD_LEAVES_SEARCHES)
+    assert reread_waiting(factory, TableMatcher({}), reader) == []
+    assert reader.calls == ["XY EINS"] and tries(session, first) == 0

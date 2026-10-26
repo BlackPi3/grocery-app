@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, laptop: what counts as groceries live (#209, #211); stuck lines read again by the server (PR open, check-risky review); next, Skip.
+**Last updated:** 2026-10-26, laptop: what counts as groceries live (#209, #211); stuck lines read again (#212, live; a 429 and search-limit fix next); Skip in progress (branch `skip/guessed-category`, not pushed).
 
 ## Now
 
@@ -50,7 +50,15 @@ session (laptop or cloud) can pick up from here. How we work is in
      export's other receipts were not seen as busy while their job ran; an
      answer given while a receipt was read again could be overridden (each
      line is now checked just before it is read, `answered_since`); tries
-     counted per server start; no wait after a deploy; left-out lines read. About $5-10 of searches at list price for
+     counted per server start; no wait after a deploy; left-out lines read.
+     **Live 2026-10-26, nothing placed in its first passes:** Vertex answered
+     429 (`RESOURCE_EXHAUSTED`, shared capacity) on five receipts in a row,
+     each losing a try; and the searcher's limit of 150 searches per server
+     start (`GROCERY_MAX_SEARCHES`), which a batch of old receipts passes, is
+     the likely first cause of the 175 waiting lines. Now a 429 gives the
+     try back and ends the pass (a refused call is not billed), and the pass
+     stops when the searcher is 50 short of its limit (left to uploads),
+     giving back a try cut short. About $5-10 of searches at list price for
      his 175, likely inside Google's free monthly searches (not checked).
   3. **"Skip" on a question** (owner's word: don't want to answer, or don't
      remember). A skipped line keeps the app's best guess, counts only if
