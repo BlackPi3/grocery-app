@@ -226,6 +226,21 @@ session (laptop or cloud) can pick up from here. How we work is in
   laptop:** run it on his `data/purchases.json` and bring him the table;
   the demo has no storage data, so the cloud could not. Then: which shop
   for the trip (step 4 b, prices), and the plan's engine.
+  **The plan's objective (owner, 2026-10-26, later the same evening):**
+  "the objective here is optimizing cost given the constraints. reducing
+  number of trips isn't the goal": a shop close enough to walk to for
+  bread is no problem, and habits can change (a bread that keeps longer).
+  The plan catches "the biggest chunk of items in trips that saves the
+  most", but a plan that sends the person from shop to shop defeats the
+  purpose: "cost isn't just money. it's money + time + commute". So an
+  extra stop must save more than its time and travel. **Where the person
+  is:** not asked (owner first said to ask for the home address, then:
+  "knowing people's house isn't necessarily important. the place they shop
+  the most gives us what we need. they are near there"): the shop on most
+  of their receipts is their base, and the shops near it are the ones
+  that count (`nearby.py` already finds them). Proposed, not yet answered:
+  an extra stop is priced by its detour from the base in minutes, at a
+  default of 12 EUR an hour the person can change.
 
 - Agreed (owner, 2026-10-25): **step 4, the list's cost at the shops near
   the person**, not only at those they go to ("the stores I buy from are
