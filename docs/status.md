@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, cloud: picture web search off (owner, parked, #218); a test-teardown hang fixed (#218); the paper list and its Home line merged (#219). Before that, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
+**Last updated:** 2026-10-26, cloud: picture web search off (owner, parked, #218); a test-teardown hang fixed (#218); the paper list and its Home line merged (#219); asking less (fewer checks, nothing asked on old receipts). Before that, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
 
 ## Now
 
@@ -53,9 +53,20 @@ session (laptop or cloud) can pick up from here. How we work is in
   3. **Skip, PR #215**: merged (owner's yes, 26 Oct).
   4. **The list as a paper list** (item 4 below): merged as #219 (owner's
      yes, 26 Oct).
-  5. Waiting topics: fewer random checks (97% yes; some are on
-     non-groceries, e.g. an Action glass carafe, and should not be asked);
-     how much to trust an answer about an old receipt.
+  5. **Asking less** (owner, 26 Oct; built, cloud). Random checks: "what's
+     the point of random check at this moment? it has proved the app is
+     finding things alright. make far less frequent. not necessarily per
+     receipt": one a week per person at most (`checks.CHECK_EVERY`), one
+     line, only on groceries, shown for a week and then let go (the old
+     two-a-receipt backlog does not come back). Old receipts: "a receipt
+     older than 7 days don't bother. if there's a question make sure to ask
+     for next receipt that buys it and resolve both": a receipt printed more
+     than 7 days before its upload (`cards.too_old_to_ask`, the day in
+     Germany) asks nothing, no question and no check; its open lines wait.
+     A newer receipt with the same printed line at the same shop is asked
+     as usual, and the answer, kept for the shop and the printed line,
+     places the old line too. Not covered: a line the memory never keeps
+     (`never_remembered`, per-line names) stays open on an old receipt.
 
 
 - Agreed (owner, 2026-10-26, his list of problems after adding many old

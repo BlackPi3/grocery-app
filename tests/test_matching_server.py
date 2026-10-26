@@ -7,6 +7,8 @@ and listing is invented.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -19,6 +21,7 @@ from grocery_app.db.models import Check, Correction, Product, Question, Resoluti
 from grocery_app.db.session import make_session_factory
 from grocery_app.identify import PROMPT_VERSION
 from tests.conftest import DATABASE_URL as URL
+from tests.conftest import uploaded_when_printed
 
 pytestmark = pytest.mark.skipif(not URL, reason="DATABASE_URL not set")
 
@@ -59,6 +62,7 @@ def server(engine, session, data):
     import_data(session, data / "receipts" / "truth", data / "products" / "products.json",
                 data / "products" / "resolution.json", data / "absent.json", data / "products")
     session.commit()
+    uploaded_when_printed(session)
     client = TestClient(create_app(PostgresRepository(make_session_factory(engine))))
     return client, session
 
@@ -70,6 +74,8 @@ def add_receipt(session, source_image, raw_names, store="Musterladen"):
         "lines": [{"type": "deposit" if name == "Pfand" else "product", "raw_name": name,
                    "qty": 1, "gross": 1.19, "discount": 0.0, "net": 1.19, "tax_class": "A"}
                   for name in raw_names]})
+    # Uploaded the day it was printed: not an old receipt (`cards.too_old_to_ask`).
+    receipt.created_at = datetime(2026, 3, 1, 12, tzinfo=UTC)
     session.add(receipt)
     session.commit()
     return receipt.id
@@ -589,7 +595,7 @@ def test_every_product_gets_a_picture_kept_by_the_app_checked_products_first(ser
 
     client, session = server
     receipt = identified_receipt(session, ["Himbeeren 250g", "Schmand 200g"])
-    pick_checks(session, receipt)
+    pick_checks(session, receipt, n=2)
     session.commit()
     first, second = client.get("/v1/checks").json()["checks"]
     assert first.get("picture") is None, "no picture before the server has looked"
@@ -626,7 +632,7 @@ def test_a_spot_check_comes_with_its_picture_not_before_it(server, tmp_path):
 
     _, session = server
     receipt = identified_receipt(session, ["Himbeeren 250g", "Schmand 200g"])
-    pick_checks(session, receipt)
+    pick_checks(session, receipt, n=2)
     session.commit()
     factory = make_session_factory(session.get_bind())
     looks_up = PostgresRepository(factory, picture_wait=CHECK_WAITS_UP_TO)
@@ -773,18 +779,18 @@ def test_says_more_than_print():
         "a claim beside it still counts"
 
 
-def test_spot_checks_are_two_lines_the_app_placed_itself_chosen_once(server):
+def test_a_spot_check_is_one_line_the_app_placed_itself_chosen_once(server):
     from grocery_app.api.checks import pick_checks
     from grocery_app.db.models import Check
 
     _, session = server
     receipt = identified_receipt(session, ["Himbeeren 250g", "Schmand 200g", "Fladenbrot"],
                                  known=["MU Milch 1,5%"])
-    assert pick_checks(session, receipt) == 2
+    assert pick_checks(session, receipt) == 1
     assert pick_checks(session, receipt) == 0, "a receipt is picked for once"
     session.commit()
     checks = session.scalars(select(Check)).all()
-    assert len(checks) == 2
+    assert len(checks) == 1
     assert {c.raw_name for c in checks} <= {"Himbeeren 250g", "Schmand 200g", "Fladenbrot"}, \
         "never the line the shopper's memory placed"
     assert all(c.app_product_id.startswith("p-") for c in checks)
@@ -828,7 +834,7 @@ def test_answering_checks_gives_the_apps_mistake_rate(server):
 
     client, session = server
     receipt = identified_receipt(session, ["Himbeeren 250g", "Schmand 200g"])
-    pick_checks(session, receipt)
+    pick_checks(session, receipt, n=2)
     session.commit()
 
     body = client.get("/v1/checks").json()
@@ -1293,3 +1299,100 @@ def test_a_brand_one_letter_from_one_sold_here_but_seen_elsewhere_is_real(server
 
     assert (counts["identified"], counts["questions"]) == (1, 0), \
         "another shop lists MUSKA: a brand of its own, not a misread"
+
+
+# --- asking less (owner, 2026-10-26) ------------------------------------------------------
+
+def test_a_receipt_is_old_when_printed_more_than_a_week_before_its_upload():
+    from datetime import date
+
+    from grocery_app.api.cards import too_old_to_ask
+
+    uploaded = datetime(2026, 3, 9, 12, tzinfo=UTC)
+    assert not too_old_to_ask(date(2026, 3, 2), uploaded), "seven days: not old"
+    assert too_old_to_ask(date(2026, 3, 1), uploaded)
+    assert not too_old_to_ask(None, uploaded), "no printed date: asked as before"
+    late = datetime(2026, 3, 8, 23, 30, tzinfo=UTC)     # 00:30 on the 9th in Germany
+    assert too_old_to_ask(date(2026, 3, 1), late), "the day in Germany"
+
+
+def made_old(session, receipt_id, days=30):
+    from grocery_app.db.models import Receipt
+
+    receipt = session.get(Receipt, receipt_id)
+    receipt.created_at = receipt.created_at + timedelta(days=days)
+    session.commit()
+
+
+def test_an_old_receipt_asks_nothing_and_a_newer_one_asks_for_both(server):
+    """The owner, 2026-10-26: a receipt older than 7 days, "don't bother. if
+    there's a question make sure to ask for next receipt that buys it and
+    resolve both"."""
+    client, session = server
+    old = add_receipt(session, "IMG_40.jpeg", ["Rätselkäse"])
+    match_receipt(session, old, TableMatcher({}))
+    made_old(session, old)
+    session.commit()
+    asked = lambda: [(q["receipt_id"], q["raw_name"])                       # noqa: E731
+                     for q in client.get("/v1/questions").json()["questions"]
+                     if q["raw_name"] == "Rätselkäse"]
+    assert asked() == [], "an old receipt's line waits"
+
+    newer = add_receipt(session, "IMG_41.jpeg", ["Rätselkäse"])
+    match_receipt(session, newer, TableMatcher({}))
+    session.commit()
+    assert asked() == [(newer, "Rätselkäse")], "asked on the newer receipt"
+
+    client.put(f"/v1/receipts/{newer}/lines/0/resolution", json={"product_id": "p-0001"})
+    assert asked() == []
+    placed = client.get(f"/v1/receipts/{old}").json()["lines"][0]
+    assert placed["product_id"] == "p-0001", "the answer places the old line too"
+
+
+def checked_receipt(session, image, name):
+    from grocery_app.api.checks import pick_checks
+
+    receipt = add_receipt(session, image, [name])
+    match_receipt(session, receipt, TableMatcher({}),
+                  reads_as(**{name: {"name": name.split()[0], "brand": "Muster"}}))
+    session.commit()
+    picked = pick_checks(session, receipt)
+    session.commit()
+    return receipt, picked
+
+
+def test_one_spot_check_a_week_and_none_on_an_old_receipt(server):
+    """The owner, 2026-10-26: "what's the point of random check at this
+    moment? ... make far less frequent. not necessarily per receipt"."""
+    from grocery_app.db.models import Check
+
+    client, session = server
+    _, first = checked_receipt(session, "IMG_50.jpeg", "Himbeeren 250g")
+    _, second = checked_receipt(session, "IMG_51.jpeg", "Schmand 200g")
+    assert (first, second) == (1, 0), "one a week"
+    for check in session.scalars(select(Check)):
+        check.created_at -= timedelta(days=8)
+    session.commit()
+    assert client.get("/v1/checks").json()["checks"] == [], "unanswered for a week: let go"
+
+    old = add_receipt(session, "IMG_52.jpeg", ["Fladenbrot"])
+    made_old(session, old)
+    match_receipt(session, old, TableMatcher({}),
+                  reads_as(Fladenbrot={"name": "Fladenbrot", "brand": "Muster"}))
+    session.commit()
+    from grocery_app.api.checks import pick_checks
+    assert pick_checks(session, old) == 0, "never on an old receipt"
+    _, third = checked_receipt(session, "IMG_53.jpeg", "Schmand 200g")
+    assert third == 1, "a week on, the next one"
+
+
+def test_a_spot_check_is_only_ever_on_groceries(server):
+    """An Action glass carafe was asked about (owner, 2026-10-26)."""
+    from grocery_app.api.checks import pick_checks
+
+    _, session = server
+    receipt = add_receipt(session, "IMG_60.jpeg", ["Karaffe Glas 1l"])
+    match_receipt(session, receipt, TableMatcher({}), reads_as(**{"Karaffe Glas 1l": {
+        "name": "Karaffe", "brand": "Muster", "category": "deko-wohnen"}}))
+    session.commit()
+    assert pick_checks(session, receipt) == 0

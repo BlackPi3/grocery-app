@@ -217,6 +217,17 @@ def _close_other_connections(url):
     closer.dispose()
 
 
+def uploaded_when_printed(session):
+    """Every receipt as if uploaded at noon on the day it was printed: the
+    made-up receipts are dated months back, and one uploaded today would be
+    old, with nothing on it asked (`cards.too_old_to_ask`)."""
+    from sqlalchemy import text
+
+    session.execute(text("UPDATE receipts SET created_at = date + time '12:00' "
+                         "WHERE date IS NOT NULL"))
+    session.commit()
+
+
 @pytest.fixture
 def session(engine):
     from grocery_app.db.models import Base

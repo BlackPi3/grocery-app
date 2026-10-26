@@ -12,9 +12,28 @@ close to.
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any
 
 MOST_CARDS = 5
+# A receipt dated more than this many days before it was uploaded is old:
+# nothing on it is asked, neither a question nor a spot check (owner,
+# 2026-10-26: "a receipt older than 7 days don't bother"; a person does not
+# remember what a line was weeks ago). Its open lines wait for a newer
+# receipt with the same printed line at the same shop: that one is asked,
+# and the answer, kept for the shop and the printed line, places both.
+OLD_AFTER_DAYS = 7
+
+
+def too_old_to_ask(printed: date | None, uploaded: datetime | None) -> bool:
+    """Whether a receipt printed on `printed` and uploaded at `uploaded` is
+    old (`OLD_AFTER_DAYS`), by the day in Germany. One with no printed date
+    is not."""
+    if printed is None or uploaded is None:
+        return False
+    from grocery_app.offers import GERMANY
+
+    return (uploaded.astimezone(GERMANY).date() - printed).days > OLD_AFTER_DAYS
 
 
 def nearest_price(prices: list[float] | None, paid: float | None) -> float | None:
