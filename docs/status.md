@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, cloud: picture web search off (owner, parked, #218); a test-teardown hang fixed (#218); the paper list built, waiting for the owner's yes. Before that, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
+**Last updated:** 2026-10-26, cloud: picture web search off (owner, parked, #218); a test-teardown hang fixed (#218); the paper list and its Home line merged (#219). Before that, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
 
 ## Now
 
@@ -51,8 +51,8 @@ session (laptop or cloud) can pick up from here. How we work is in
      248-252 show finding cost but 0 searches): the first cause of the 175
      grey lines.
   3. **Skip, PR #215**: merged (owner's yes, 26 Oct).
-  4. **The list as a paper list** (item 4 below): built, shown to the
-     owner, waiting for his yes.
+  4. **The list as a paper list** (item 4 below): merged as #219 (owner's
+     yes, 26 Oct).
   5. Waiting topics: fewer random checks (97% yes; some are on
      non-groceries, e.g. an Action glass carafe, and should not be asked);
      how much to trust an answer about an old receipt.
