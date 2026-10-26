@@ -98,7 +98,9 @@ SEEN_BY = {"owner": {"A", "C"}, "sara": {"B", "C", "G"}, "lea": {"F"}, "old": se
 COUNTED = set().union(*SEEN_BY.values())
 
 RAW_LINES = ["GEHEIMKAESE NATUR", "ZAUBERSAFT ROT"]
-PRICES = ["3.71", "2.29"]
+# No secret may be a string a timestamp could hold: "6.0" was found inside
+# "11:18:06.025" on 26 Oct. Seconds stop at 59, so "65.62" never is one.
+PRICES = ["37.19", "28.43"]
 
 
 def add_receipt(session, shop_key, user_id, day, n):
@@ -107,7 +109,7 @@ def add_receipt(session, shop_key, user_id, day, n):
         "source_image": f"nearby-{shop_key}-{user_id}-{day}-{n}.jpeg",
         "transcribed_by": "llm",
         "store": store, "store_location": location, "date": day, "time": "10:00",
-        "currency": "EUR", "printed_total": 6.0,
+        "currency": "EUR", "printed_total": 65.62,
         "lines": [{"type": "product", "raw_name": raw, "qty": 1, "gross": float(price),
                    "discount": 0.0, "net": float(price), "tax_class": "A"}
                   for raw, price in zip(RAW_LINES, PRICES, strict=True)]})
@@ -128,7 +130,7 @@ def people(engine, session):
     session.commit()
     personal = ["Sara", "Lea", "Otto", "Probe", "example.com", "owner-secret",
                 sara["password"], lea["password"], old["password"],
-                *RAW_LINES, "GEHEIM", "ZAUBER", *PRICES, "6.0"]
+                *RAW_LINES, "GEHEIM", "ZAUBER", *PRICES, "65.62"]
     # User ids are small numbers, found inside any timestamp or coordinate:
     # they are checked as whole values (`no_user_id_in`), not as substrings.
     USER_IDS[:] = [str(i) for i in ids.values() if i is not None]
