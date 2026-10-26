@@ -775,6 +775,15 @@ class ListSnoozed(BaseModel):
     times: int = Field(description="Removals since it was last bought")
 
 
+class ListUnscanned(BaseModel):
+    """Lines the person crossed off with no receipt since (`shopping_list.unscanned`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    day: str = Field(description="The day of the latest cross")
+    items: int
+
+
 class ShoppingListDocument(BaseModel):
     """The asker's shopping list today, with their edits (`shopping_list.with_edits`)."""
 
@@ -783,6 +792,8 @@ class ShoppingListDocument(BaseModel):
     as_of: str
     lines: list[ListLine] = Field(description="What they added first, then the most urgent")
     snoozed: list[ListSnoozed]
+    unscanned: ListUnscanned | None = Field(
+        default=None, description="Crossed off lately, and no receipt since")
 
 
 class ListEditRequest(BaseModel):

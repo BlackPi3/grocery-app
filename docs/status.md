@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, cloud: picture web search off (owner, parked). Before that, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
+**Last updated:** 2026-10-26, cloud: picture web search off (owner, parked, #218); a test-teardown hang fixed (#218); the paper list built, waiting for the owner's yes. Before that, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
 
 ## Now
 
@@ -141,10 +141,13 @@ session (laptop or cloud) can pick up from here. How we work is in
      come back on the list; a typed line 1, 2, 4 days); a typed line has
      Delete, with Undo. `PUT /v1/list/{kind}` takes `{"edit": ...}`
      (`on_list` still accepted from a page kept on a phone). No migration:
-     the new edits are rows of `list_edits`. The owner's idea (26 Oct): a
-     reminder to scan the receipt when a list was crossed off and no
-     receipt came. The web app sends no notifications; proposed as one in
-     the iOS app, not yet answered.
+     the new edits are rows of `list_edits`. **A line on Home** (owner, 26
+     Oct: "notif for now should be a home line saying you crossed off but
+     didn't upload receipt"): "You crossed off 2 items today; no receipt
+     yet" with "Scan it" (the photo picker, as the +), while something was
+     crossed off in the last 3 days and no receipt is dated that day or
+     later (`shopping_list.unscanned`). A phone notification waits for the
+     iOS app.
   Waiting topics, not yet raised: how much to trust an answer about an old
   receipt; fewer random checks (100 of 103 answered yes, 97%: they only
   measure the app's error rate). Facts given to the owner: there are two

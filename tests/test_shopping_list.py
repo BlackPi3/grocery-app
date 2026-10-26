@@ -322,6 +322,22 @@ def test_crossing_off_a_suggested_item_counts_as_a_buy_until_the_receipt_comes()
     assert "quark" in listed(with_edits(STEADY, edits, today + timedelta(days=3)))
 
 
+def test_crosses_with_no_receipt_since_are_said_on_home_for_three_days():
+    """The owner, 2026-10-26: "a home line saying you crossed off but didn't
+    upload receipt". STEADY's last receipt is from day 56."""
+    edits = [edit("Kerzen", "write", DAY), edit("Kerzen", "cross", DAY),
+             edit("quark", "add", DAY), edit("quark", "cross", DAY),
+             edit("brot", "add", DAY), edit("brot", "cross", DAY),
+             edit("brot", "uncross", DAY)]
+    assert with_edits(STEADY, edits, DAY)["unscanned"] == {"day": DAY.isoformat(), "items": 2}
+    assert with_edits(STEADY, edits, DAY + timedelta(days=2))["unscanned"]["items"] == 2
+    assert with_edits(STEADY, edits, DAY + timedelta(days=3))["unscanned"] is None, \
+        "after three days the receipt is not coming"
+    scanned = STEADY + [row("milch", DAY)]
+    assert with_edits(scanned, edits, DAY)["unscanned"] is None, "a receipt of that day"
+    assert with_edits(STEADY, [], DAY)["unscanned"] is None
+
+
 def test_a_typed_line_can_be_snoozed():
     edits = [edit("Kerzen", "write", DAY), edit("Kerzen", "remove", DAY)]
     result = with_edits(STEADY, edits, DAY)
@@ -448,7 +464,7 @@ def test_typed_words_go_on_the_asker_list_and_only_theirs(two_lists):
     line = typed.json()["lines"][0]
     assert (line["kind"], line["typed"], line["added"]) == ("Geburtstags kerzen", True, True)
     milk = client.post("/v1/list", headers=OWNER, json={"text": "MILCH"}).json()["lines"]
-    assert [(l["kind"], l["typed"]) for l in milk][:2] == [
+    assert [(m["kind"], m["typed"]) for m in milk][:2] == [
         ("Geburtstags kerzen", True), ("milch", False)], "the item, not new words"
 
     assert client.put("/v1/list/Geburtstags kerzen", headers=hers,
@@ -687,6 +703,32 @@ def test_typing_crossing_off_and_deleting_on_the_page():
                       'PUT /v1/list/Kerzen {"edit":"cross"} | '
                       'PUT /v1/list/Kerzen {"edit":"uncross"} | toast Kerzen: deleted'), \
         "nothing typed sends nothing; a failed add keeps the words"
+
+
+def test_home_says_what_was_crossed_off_with_no_receipt_yet():
+    """One line on Home; its button opens the photo picker the + opens."""
+    from grocery_app.api.app import REVIEW_PAGE
+    from tests.test_api import run_page_function
+
+    page = REVIEW_PAGE.read_text(encoding="utf-8")
+    assert "const scan = scanNote(state.list && state.list.unscanned);" in page
+    out = run_page_function(page, "scanNote day", """
+        let picked = 0;
+        globalThis.document = { getElementById: id => ({ click: () => {
+          if (id === "add-file") picked += 1; } }) };
+        globalThis.el = (tag, attrs, ...kids) => ({ attrs, kids });
+        const text = note => note.kids[0].kids[0];
+        const at = d => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
+        console.log(scanNote(null));
+        console.log(text(scanNote({ day: at(0), items: 1 })));
+        console.log(text(scanNote({ day: at(-1), items: 4 })));
+        console.log(text(scanNote({ day: "2025-10-19", items: 2 })));
+        scanNote({ day: at(0), items: 1 }).kids[1].attrs.onclick();
+        console.log(picked);
+    """)
+    assert out == ["null", "You crossed off 1 item today; no receipt yet",
+                   "You crossed off 4 items yesterday; no receipt yet",
+                   "You crossed off 2 items on Sunday; no receipt yet", "1"]
 
 
 def test_the_swipe_hint_goes_once_the_person_has_added_or_snoozed():

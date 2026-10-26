@@ -110,6 +110,8 @@
     padding: 6px 4px 6px 12px; border-radius: 12px; font-size: 13px; color: var(--ink2);
     background: var(--card); border: 1px solid var(--border); }
   .failed-note .text { flex: 1; min-width: 0; }
+  .scan-note::before { background: var(--accent); }
+  .failed-note button.scan { color: var(--accent); font-size: 13px; font-weight: 600; }
   .failed-note .meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .failed-note button { border: 0; background: none; color: var(--muted); padding: 2px 10px;
     font-size: 17px; line-height: 1; }
@@ -1546,6 +1548,8 @@ function homeView() {
   const d = state.insights;
   const cards = failedNotes();
   if (!d) return [...cards, el("div", { class: "empty" }, "Loading…")];
+  const scan = scanNote(state.list && state.list.unscanned);
+  if (scan) cards.push(scan);
   const start = gettingStarted((state.receipts || []).length);
   if (start) cards.push(startCard(start));
   if (!d.months.length) return cards;
@@ -1563,6 +1567,24 @@ function homeView() {
   if (glance.length) cards.push(el("div", { class: "glance" }, glance));
   cards.push(insightsTile());
   return cards;
+}
+
+// Things crossed off the list and no receipt since (owner, 2026-10-26: "a
+// home line saying you crossed off but didn't upload receipt"): one line, and
+// a tap opens the photo picker, as the + does. It goes once a receipt of that
+// day or later is in (`shopping_list.unscanned`).
+function scanNote(unscanned) {
+  if (!unscanned) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+  const when = unscanned.day === today ? "today" : unscanned.day === yesterday ? "yesterday"
+    : "on " + day(unscanned.day).toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+  const n = unscanned.items;
+  return el("div", { class: "failed-note scan-note", role: "status" },
+    el("div", { class: "text" },
+       `You crossed off ${n} ${n === 1 ? "item" : "items"} ${when}; no receipt yet`),
+    el("button", { class: "scan", onclick: () => document.getElementById("add-file").click() },
+       "Scan it"));
 }
 
 // Insights, a tap away from Home, no longer a tab: the tab is the shopping
@@ -2929,7 +2951,7 @@ async function load({ jobs = true } = {}) {
     api("/v1/list").then(doc => {
       state.list = doc;
       saveCopy();
-      if (state.tab === "list") render();
+      if (state.tab === "list" || state.tab === "home") render();
     }).catch(() => { state.list = null; });
     // What this person counts beside groceries; none from an older server.
     api("/v1/counted").then(doc => {

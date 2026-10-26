@@ -75,6 +75,10 @@ types):
   bought.
 - **Anything on the list can be snoozed**, the person's own lines too: one
   of theirs comes back on their list when its snooze runs out.
+- **A list crossed off with no receipt since** is said on Home (`unscanned`,
+  owner, 2026-10-26: "you crossed off but didn't upload receipt"), for
+  `UNSCANNED_DAYS`: any receipt dated on or after the day of the crosses
+  ends it.
 """
 
 from __future__ import annotations
@@ -114,6 +118,9 @@ EDITS = ("add", "remove", "cross", "uncross", "write", "delete")
 TYPED_DAYS_PER_BUY = 2.0
 # Typed words shorter than this match too much to be crossed off by a receipt.
 MIN_TYPED_LETTERS = 3
+# Crosses with no receipt since are said on Home for this many days, today
+# included: past that the receipt is likely lost or not coming.
+UNSCANNED_DAYS = 3
 
 
 def item_key(p: dict[str, Any]) -> str:
@@ -419,7 +426,25 @@ def with_edits(rows: list[dict[str, Any]], edits: list[dict[str, Any]],
             if resting(line["kind"], line["name"], line["days_per_buy"]):
                 continue
         suggested.append({**line, "added": False, "crossed": False, "typed": False})
-    return {"as_of": today.isoformat(), "lines": mine + suggested, "snoozed": snoozed}
+    return {"as_of": today.isoformat(), "lines": mine + suggested, "snoozed": snoozed,
+            "unscanned": unscanned(edits, set(events), before, today)}
+
+
+def unscanned(edits: list[dict[str, Any]], lines: set[str], rows: list[dict[str, Any]],
+              today: date) -> dict[str, Any] | None:
+    """Lines the person crossed off in the last `UNSCANNED_DAYS` with no
+    receipt dated that day or later: `{"day", "items"}`, the day of the
+    latest cross, or None. A cross taken back (`uncross`) does not count."""
+    last: dict[str, dict[str, Any]] = {}
+    for e in edits:
+        if e["kind"] in lines and e["edit"] in ("cross", "uncross"):
+            last[e["kind"]] = e
+    receipt = max((date.fromisoformat(p["date"]) for p in rows), default=None)
+    since = today - timedelta(days=UNSCANNED_DAYS - 1)
+    days = [e["day"] for e in last.values()
+            if e["edit"] == "cross" and e["day"] >= since
+            and (receipt is None or receipt < e["day"])]
+    return {"day": max(days).isoformat(), "items": len(days)} if days else None
 
 
 def known(rows: list[dict[str, Any]]) -> set[str]:
