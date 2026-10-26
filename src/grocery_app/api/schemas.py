@@ -326,6 +326,8 @@ class Question(BaseModel):
         default_factory=list,
         description="What to ask with, one yes/no card at a time, first card first: the "
                     "price paid picks the order (`api.cards`)")
+    skipped_at: str | None = Field(
+        default=None, description="When the shopper last skipped it; skipped cards come last")
 
 
 class SpotCheck(BaseModel):
@@ -338,6 +340,8 @@ class SpotCheck(BaseModel):
     raw_name: str
     paid: float | None = Field(description="Shelf price paid, before discount (per kg if weighed)")
     app_product_id: str = Field(description="What the app said the line is")
+    skipped_at: str | None = Field(
+        default=None, description="When the shopper last skipped it; skipped cards come last")
     app_product: str | None = Field(description="That product's name")
     brand: str | None
     details: list[str]

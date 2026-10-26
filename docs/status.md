@@ -98,7 +98,16 @@ session (laptop or cloud) can pick up from here. How we work is in
   3. **"Skip" on a question** (owner's word: don't want to answer, or don't
      remember). A skipped line keeps the app's best guess, counts only if
      that guess is groceries; skipped does not mean never asked again (it
-     goes to the back).
+     goes to the back). Built (PR open, shown before merge): a Skip under
+     Yes/No on every card (questions and random checks); `PUT
+     /v1/receipts/{id}/lines/{pos}/skipped` keeps `skipped_at` (migration
+     0032) on the question or check; skipped cards come last, the longest
+     skipped first. A line nothing placed carries the photo reading's
+     category as `guessed_category` (purchases contract 11), and the
+     insights count it by that guess (a guessed T-shirt is not groceries);
+     with no guess it still counts as groceries. Seen on the owner's
+     cards: random checks on non-groceries (an Action glass carafe), worth
+     dropping with the random-checks topic.
   4. **The list as a paper list**: type an item (the list is the exception
      to "never types", owner 2026-10-26), tap to cross off what is bought;
      one add control on a suggestion (the circle; the right side only
