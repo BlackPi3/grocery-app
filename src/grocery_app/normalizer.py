@@ -520,6 +520,7 @@ def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str],
                       shelf_prices: dict[str, set[float]] | None = None,
                       authors: dict[tuple[str, str], str | None] | None = None,
                       uncounted: set[tuple[str, int, str]] | None = None,
+                      guesses: dict[tuple[str, int], str] | None = None,
                       ) -> list[dict[str, Any]]:
     """Every line of one receipt, in printed order.
 
@@ -527,6 +528,10 @@ def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str],
     (source_image, line_index, raw_name): bound to the text like a pinpoint,
     so a re-transcribed receipt cannot move the mark onto another line. Such
     a line is still read like any other and carries `not_counted`.
+
+    `guesses` are the photo reading's categories, by (source_image,
+    line_index). A product line nothing placed carries its guess as
+    `guessed_category`: whether it counts, never what it is.
     """
     image = receipt.get("source_image")
     records = []
@@ -540,6 +545,9 @@ def normalize_receipt(receipt: dict[str, Any], resolution: dict[tuple[str, str],
                                 pinpoint, shelf_prices, authors)
         if (image, index, line.get("raw_name")) in (uncounted or set()):
             record["not_counted"] = True
+        guess = (guesses or {}).get((image, index))
+        if guess and record["type"] == "product" and record["resolution"] == "none":
+            record["guessed_category"] = guess
         records.append(record)
     return records
 
@@ -627,6 +635,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
                        shelf_prices: dict[str, set[float]] | None = None,
                        authors: dict[tuple[str, str], str | None] | None = None,
                        uncounted: set[tuple[str, int, str]] | None = None,
+                       guesses: dict[tuple[str, int], str] | None = None,
                        ) -> dict[str, Any]:
     """The purchases.json contract from already-loaded inputs.
 
@@ -644,7 +653,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
         used_receipts += 1
         purchases.extend(normalize_receipt(receipt, resolution, products,
                                            line_resolutions, shelf_prices, authors,
-                                           uncounted))
+                                           uncounted, guesses))
 
     product_lines = [p for p in purchases if p["type"] == "product"]
     unresolved = sorted({p["raw_name"] for p in product_lines if p["resolution"] == "none"})
@@ -654,7 +663,7 @@ def assemble_purchases(receipts: list[dict[str, Any]],
     dates = sorted({r["date"] for r in receipts if r.get("date")})
 
     return {
-        "contract_version": 10,
+        "contract_version": 11,
         "meta": {
             "receipts": used_receipts,
             "date_range": [dates[0], dates[-1]] if dates else [],

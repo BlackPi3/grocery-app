@@ -18,7 +18,7 @@ def test_receipts_become_purchases_become_insights(data):
                                 data / "products" / "products.json",
                                 data / "products" / "resolution.json",
                                 None, data / "products")
-    assert purchases["contract_version"] == 10
+    assert purchases["contract_version"] == 11
     assert purchases["meta"]["receipts"] == 2
     assert purchases["meta"]["product_lines"] == 5
     assert purchases["meta"]["unresolved_items"] == ["Geheimnis"]
@@ -579,7 +579,7 @@ def test_a_products_item_word_crosses_from_the_tables_into_the_list(data, sessio
     session.commit()
     history = PostgresRepository(make_session_factory(session.get_bind())).purchases()
 
-    assert history["contract_version"] == 10
+    assert history["contract_version"] == 11
     items = {(p["product_id"], p.get("item")) for p in history["purchases"]
              if p["type"] == "product" and p["product_id"]}
     assert items == {("p-0001", "H-Milch"), ("p-0002", None)}
