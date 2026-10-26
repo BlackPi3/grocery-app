@@ -238,9 +238,17 @@ session (laptop or cloud) can pick up from here. How we work is in
   "knowing people's house isn't necessarily important. the place they shop
   the most gives us what we need. they are near there"): the shop on most
   of their receipts is their base, and the shops near it are the ones
-  that count (`nearby.py` already finds them). Proposed, not yet answered:
-  an extra stop is priced by its detour from the base in minutes, at a
-  default of 12 EUR an hour the person can change.
+  that count (`nearby.py` already finds them). **No price on time or
+  travel, no question about how they travel** (owner, same evening: "Let's
+  not ask everything"; "We can choose safely and observe and adapt"; now
+  a product rule in the working agreement). The plan starts safe: one shop
+  per trip, from the shops on their receipts, and small top-ups at a shop
+  they use are fine. Their receipts say whether they followed it and where
+  they went, and the next plan follows that. A shop not on their receipts
+  is suggested only after one question, "Would you shop at this store?";
+  a no is final for that shop. **Next:** the plan's engine and its
+  backtest (on the laptop, with his receipts): which one shop each trip
+  goes to and what it would have saved.
 
 - Agreed (owner, 2026-10-25): **step 4, the list's cost at the shops near
   the person**, not only at those they go to ("the stores I buy from are

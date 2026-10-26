@@ -166,6 +166,13 @@ These are the owner's decisions. Each one came from a real case.
 - **Questions are optional.** They wait behind a button with a badge, are
   never pushed in front of the user, and someone who doesn't answer is left
   alone.
+- **Choose safely, observe, adapt** (owner, 2026-10-26: "Remember why we
+  ask questions: to fit perfectly. That is annoying. We can choose safely
+  and observe and adapt."). Before adding a question or a setting, start
+  from a safe default and let what the person does (their receipts) correct
+  it. For the trip plan the one question is "Would you shop at this
+  store?", asked before suggesting a shop not on their receipts; a no is
+  final for that shop, whatever the reason.
 - **The owner sees it, then decides.** For a screen or an insight's look,
   build it and show it; his comments come on seeing it.
 - **No per-mistake rules.** Each improvement uses one of five levers:
