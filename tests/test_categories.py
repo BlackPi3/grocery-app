@@ -117,3 +117,39 @@ def test_keys_are_ascii_so_a_second_language_is_a_second_label():
         assert key.isascii(), key
     for key in list(categories.SECTIONS) + list(categories.BRANCHES):
         assert key.isascii(), key
+
+
+# --- what counts as groceries (owner, 2026-10-16 and 2026-10-26) ---------------
+
+@pytest.mark.parametrize("key, kind", [
+    ("aepfel", "groceries"), ("rotwein", "vices"), ("tabak", "vices"),
+    ("nahrungsergaenzung", "supplements"), ("duschgel", "drugstore"),
+    ("make-up", "drugstore"), ("toilettenpapier", "household"),
+    ("tiernahrung", "pets"), ("cafe-imbiss", "other"), ("kleidung", "other"),
+    ("spielwaren", "other")])
+def test_each_category_is_groceries_a_close_kind_or_other(key, kind):
+    assert categories.spending_kind(key) == kind
+
+
+def test_a_line_with_no_known_category_counts_as_groceries():
+    assert categories.spending_kind(None) == categories.GROCERY
+    assert categories.spending_kind("gibtsnicht") == categories.GROCERY
+
+
+def test_every_category_has_a_kind_the_screen_can_name():
+    names = {categories.GROCERY, categories.OTHER, *categories.CLOSE_KINDS}
+    assert {categories.spending_kind(k) for k in categories.CATEGORIES} == names
+
+
+def test_a_close_kind_counts_only_for_a_person_who_counts_it():
+    assert not categories.is_counted("rotwein")
+    assert categories.is_counted("rotwein", frozenset({"vices"}))
+    assert not categories.is_counted("rotwein", frozenset({"household"}))
+    assert categories.is_counted("aepfel") and not categories.is_counted(
+        "kleidung", frozenset(categories.CLOSE_KINDS)), "groceries always, other never"
+
+
+def test_only_what_nobody_counts_is_never_searched():
+    assert categories.never_counted("kleidung") and categories.never_counted("cafe-imbiss")
+    assert not categories.never_counted("nahrungsergaenzung"), "a person may count it"
+    assert not categories.never_counted(None)

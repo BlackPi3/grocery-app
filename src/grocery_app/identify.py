@@ -76,7 +76,7 @@ SEARCH_VERSION = "s2"
 # Every receipt so far is German; the address printed on it says where.
 SHOP_COUNTRY = "Germany"
 # A line that is not groceries (café, flowers, a carrier bag, a photo print:
-# `categories.is_grocery`) does not concern the insights: once a line reads as
+# `categories.never_counted`) does not concern the insights: once a line reads as
 # one, it is neither searched nor asked about (Parham, 2026-10-02: "you should
 # know it isn't groceries. not just for cafe").
 
@@ -644,7 +644,7 @@ def read_line(raw_name: str, store: str | None, reader: Decider,
     first = read()
     if searcher is None:
         return first
-    if first.category and not categories.is_grocery(first.category):
+    if first.category and categories.never_counted(first.category):
         first.can_tell = bool(first.name)
         first.choices = []
         first.reason = f"not groceries, so the exact item does not matter: {first.reason}"

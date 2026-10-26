@@ -245,8 +245,8 @@ def test_a_line_that_is_not_a_grocery_leaves_every_insight_but_is_counted():
             for d, net in (("2026-01-03", 8.0), ("2026-02-03", 9.0), ("2026-02-10", 9.0))]
     milk = [row("p-milk", d, 1.0, category="milch-joghurt") for d in ("2026-01-03", "2026-02-03")]
     out = build_insights({"meta": {}, "purchases": cafe + milk})
-    # The month view counts it on purpose: it asks what the money went on.
-    everywhere = str({k: v for k, v in out.items() if k not in ("coverage", "months")})
+    # Nor in the month view (owner, 2026-10-26: not in the person's spend).
+    everywhere = str({k: v for k, v in out.items() if k != "coverage"})
     assert "p-cafe" not in everywhere
     assert "p-milk" in everywhere
     assert out["budget_brand"]["overall"]["unknown"] == 2.0, "only the milk's money"
@@ -265,7 +265,7 @@ def test_a_line_the_shopper_does_not_count_leaves_their_numbers_but_not_the_pric
                                   ("2026-02-03", 7.0, "Musterladen"),
                                   ("2026-02-10", 6.5, "Beispielmarkt"))]
     milk = [row("p-milk", d, 1.0, category="milch") for d in ("2026-01-03", "2026-02-03")]
-    out = build_insights({"meta": {}, "purchases": wine + milk})
+    out = build_insights({"meta": {}, "purchases": wine + milk}, also=frozenset({"vices"}))
 
     for mine in ("repurchase", "basket_index", "budget_brand"):
         assert "p-wine" not in str(out[mine]), mine
@@ -276,6 +276,28 @@ def test_a_line_the_shopper_does_not_count_leaves_their_numbers_but_not_the_pric
     assert "p-wine" in str(out["price_changes"])
     (across,) = out["cross_store"]["products"]
     assert across["product_id"] == "p-wine"
+
+
+def test_a_kind_close_to_groceries_counts_only_when_the_person_counts_it():
+    """Owner, 2026-10-26: only groceries count by default; alcohol, household
+    and the like count when the person switches them on."""
+    wine = [row("p-wine", d, 6.0, unit=6.0, per="piece", category="rotwein", product="Rotwein")
+            for d in ("2026-01-03", "2026-02-03")]
+    milk = [row("p-milk", d, 1.0, category="milch") for d in ("2026-01-03", "2026-02-03")]
+    doc = {"meta": {}, "purchases": wine + milk}
+
+    plain = build_insights(doc)
+    assert "p-wine" not in str({k: v for k, v in plain.items() if k != "coverage"})
+    assert [m["spend"] for m in plain["months"]] == [1.0, 1.0]
+    assert plain["coverage"]["not_grocery"]["spend"] == 12.0
+
+    counted = build_insights(doc, also=frozenset({"vices"}))
+    assert [m["spend"] for m in counted["months"]] == [7.0, 7.0]
+    assert counted["coverage"]["spend"] == 14.0
+    assert counted["coverage"]["not_grocery"]["lines"] == 0
+
+    other = build_insights(doc, also=frozenset({"household"}))
+    assert [m["spend"] for m in other["months"]] == [1.0, 1.0], "another kind counts no wine"
 
 
 def test_an_unknown_or_missing_category_still_counts_as_a_grocery():
@@ -318,7 +340,7 @@ def test_the_basket_compares_a_product_in_the_same_form_and_unit():
 
 # --- the month view ------------------------------------------------------------
 # Parham, 2026-10-09: "what happened last month?" What the money went on, by
-# kind of thing, groceries or not.
+# kind of thing; since 2026-10-26 only what the person counts.
 
 def test_a_month_is_split_by_branch_with_its_products_most_money_first():
     rows = [row("p-1", "2026-09-02", 1.0, category="aepfel", product="Äpfel"),
@@ -333,14 +355,14 @@ def test_a_month_is_split_by_branch_with_its_products_most_money_first():
 
     assert october["month"] == "2026-10" and october["spend"] == 9.0
     assert september["month"] == "2026-09"
-    assert (september["spend"], september["receipts"], september["lines"]) == (16.5, 3, 5)
+    assert (september["spend"], september["receipts"], september["lines"]) == (8.5, 3, 4)
     assert [(b["branch"], b["spend"]) for b in september["branches"]] == [
-        ("Kein Lebensmitteleinkauf", 8.0), ("Getränke", 5.0), ("Obst & Gemüse", 3.0),
-        (None, 0.5)], "a café breakfast is money spent; a line with no category comes last"
-    produce = september["branches"][2]
+        ("Getränke", 5.0), ("Obst & Gemüse", 3.0), (None, 0.5)], \
+        "a café breakfast is not groceries; a line with no category comes last"
+    produce = september["branches"][1]
     assert produce["items"] == [{"product_id": "p-1", "product": "Äpfel", "brand": "Marke",
                                  "lines": 2, "spend": 3.0}]
-    assert september["branches"][3]["items"][0]["product"] == "XY Unklar"
+    assert september["branches"][2]["items"][0]["product"] == "XY Unklar"
 
 
 def test_a_line_the_shopper_left_out_is_not_in_the_month():
@@ -600,9 +622,9 @@ def test_why_a_month_is_off_its_usual_trips_same_things_and_different_things():
     rows = [bought("p-1", "2026-07-31", 9.00, "j1"),                    # history starts
             bought("p-1", "2026-08-02", 1.00, "a1"), bought("p-3", "2026-08-02", 3.00, "a1"),
             bought("p-1", "2026-09-03", 1.00, "s1"),
-            bought("p-2", "2026-09-20", 5.00, "s2", "duschgel"),        # after the 14th
+            bought("p-2", "2026-09-20", 5.00, "s2", "aepfel"),          # after the 14th
             bought("p-1", "2026-10-02", 1.20, "o1"),
-            bought("p-2", "2026-10-05", 4.00, "o2", "duschgel"),
+            bought("p-2", "2026-10-05", 4.00, "o2", "aepfel"),
             bought("p-1", "2026-10-09", 1.20, "o3")]
     october = build_insights({"meta": {}, "purchases": rows},
                              today=date(2026, 10, 14))["months"][0]
@@ -614,13 +636,13 @@ def test_why_a_month_is_off_its_usual_trips_same_things_and_different_things():
     assert why["parts"] == {"prices": 0.40,     # milk 1,20 against 1,00, twice
                             "amounts": 1.00,    # milk twice, usually once
                             "discounts": 0.0,
-                            "new": 4.00,        # the shower gel: September's came after the 14th
+                            "new": 4.00,        # the apples: September's came after the 14th
                             "skipped": -1.50}   # August's cheese, usually 3,00 / 2
     assert sum(why["parts"].values()) == pytest.approx(why["difference"])
     assert why["counts"] == {"new": 1, "skipped": 1, "same": 1}
-    (gel,) = why["details"]["new"]
-    assert (gel["branch"], gel["amount"], [i["product_id"] for i in gel["items"]]) == \
-        ("Drogerie & Kosmetik", 4.00, ["p-2"]), "a reason opens by part of the shop, then thing"
+    (apples,) = why["details"]["new"]
+    assert (apples["branch"], apples["amount"], [i["product_id"] for i in apples["items"]]) == \
+        ("Obst & Gemüse", 4.00, ["p-2"]), "a reason opens by part of the shop, then thing"
 
 
 def test_a_line_nothing_placed_is_a_thing_by_its_printed_name():

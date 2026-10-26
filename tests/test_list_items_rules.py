@@ -6,7 +6,7 @@ The rules, in words (owner, 2026-10-24):
    model for an item word for every grocery product that anyone (the owner or
    any user) has bought, at any time, that has no word yet
    (`products.offer_word` is empty). Not only the regulars. A non-grocery
-   product (a category whose `categories.is_grocery` is false, e.g. flowers)
+   product (a category `categories.never_counted` names, e.g. flowers)
    is never asked about. A product with no known category is never asked about.
 2. A product that has a word is never asked about again. A product given no
    usable word is asked at most `offer_match.MOST_ASKS` times per `asked`

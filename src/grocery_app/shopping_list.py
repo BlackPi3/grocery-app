@@ -315,5 +315,5 @@ def list_rows(purchases: dict[str, Any]) -> list[dict[str, Any]]:
     themselves, as for the insights (`insights.build_insights`). Household and
     toiletries stay: toilet paper belongs on a shopping list."""
     return [p for p in _product_rows(purchases.get("purchases", []))
-            if p.get("date") and categories.is_grocery(p.get("category"))
+            if p.get("date") and not categories.never_counted(p.get("category"))
             and not p.get("not_counted")]
