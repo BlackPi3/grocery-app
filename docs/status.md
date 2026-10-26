@@ -4,14 +4,17 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, laptop: what counts as groceries (PR open, shown to the owner before merge); then the owner's list of 26 Oct below.
+**Last updated:** 2026-10-26, laptop: what counts as groceries live (#209); a Groceries row on the card waits for the owner's look; next, the stuck lines.
 
 ## Now
 
 - Agreed (owner, 2026-10-26, his list of problems after adding many old
   receipts), **in this order, each its own PR**:
-  1. **What counts as groceries** (built, PR open, the You card shown before
-     merge). Every category has a kind (`categories.spending_kind`):
+  1. **What counts as groceries** (merged as #209, live 2026-10-26: the
+     owner's October counts 292 EUR of groceries). It follows ECOICOP 01
+     (checked again 26 Oct: alcohol-free beer is 02, with alcohol). The
+     card's first row is Groceries, On and locked (owner: so it doesn't
+     look as if groceries weren't counted). Every category has a kind (`categories.spending_kind`):
      groceries (food and drinks without alcohol), counted for everyone; five
      kinds close to groceries, which a market sells too, counted only when
      the person switches them on (`CLOSE_KINDS`: alcohol & tobacco,

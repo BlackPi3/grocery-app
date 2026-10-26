@@ -269,6 +269,7 @@
   .counted .line { align-items: center; }
   .counted .switch { margin: 0; }
   .counted .switch button { min-width: 52px; }
+  .counted .switch button:disabled { opacity: 0.55; }
   .viz .track { height: 12px; margin-top: 6px; }
   .vbar, .vbar.more { position: absolute; top: 0; bottom: 0; margin: 0; padding: 0;
     border-radius: 4px; font-size: 0; }
@@ -1358,8 +1359,14 @@ function countedCard() {
   const d = state.counted;
   if (!d) return null;
   const on = new Set(d.kinds);
+  // Groceries first, switched on for good (owner, 2026-10-26: "so that it
+  // doesn't seem like we are not even counting the groceries").
   return el("div", { class: "card counted" }, el("h2", {}, "What counts"),
-    el("div", { class: "meta" }, "Groceries always count. Also count:"),
+    el("div", { class: "line" },
+      el("div", {}, el("div", { class: "what" }, "Groceries"),
+        el("div", { class: "meta" }, "Food and drinks · always counted")),
+      el("div", { class: "switch" }, el("button", { class: "on", disabled: true,
+        "aria-pressed": "true" }, "On"))),
     Object.entries(d.choices).map(([kind, name]) => el("div", { class: "line" },
       el("div", { class: "what" }, name),
       el("div", { class: "switch" }, el("button", {
