@@ -230,6 +230,15 @@ def main() -> None:
     el.add_argument("--weeks", type=int, default=8)
     el.add_argument("--json", action="store_true")
 
+    et = subparsers.add_parser(
+        "eval-trips",
+        help="What trips every 3, 7, 10 or 14 days would have had to bring home, from "
+             "purchases.json: lines a trip, what would not keep, fridge room",
+    )
+    et.add_argument("--purchases", default="data/purchases.json")
+    et.add_argument("--weeks", type=int, default=8)
+    et.add_argument("--json", action="store_true")
+
     n = subparsers.add_parser(
         "enrich",
         help="Fill null product attributes from Open Food Facts, by barcode",
@@ -524,6 +533,15 @@ def main() -> None:
             print(json.dumps(report, indent=2, ensure_ascii=False))
         else:
             print(format_list_report(report))
+
+    if args.command == "eval-trips":
+        from grocery_app import evaluate_trips
+
+        report = evaluate_trips.backtest(list_rows(load_purchases(args.purchases)), args.weeks)
+        if args.json:
+            print(json.dumps(report, indent=2, ensure_ascii=False))
+        else:
+            print(evaluate_trips.format_report(report))
 
     if args.command == "enrich":
         from grocery_app.openfoodfacts import enrich

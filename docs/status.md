@@ -209,12 +209,23 @@ session (laptop or cloud) can pick up from here. How we work is in
   splits inside a category. One batch of 20 came back with nothing usable
   and is asked again next pass. The lactose-free milk says cupboard
   because its product is the wrong one (Parked, top).
-  **Next session, first:** the trip plan, starting from an open topic not
-  yet raised with the owner: he shops every 1-2 days (median gap 1 day,
-  118 shopping days, 6 lines a day, p90 18), so "until the next trip" is
-  usually tomorrow; the plan's horizon and "when" must work for that
-  rhythm as well as for weekly shoppers. Then the engine and its backtest
-  (on `evaluate_list`'s pattern) before any screen.
+  **The trip plan's goal (owner, 2026-10-26):** "my trips aren't
+  optimized. the whole point of planing is to optimize the trips so that i
+  instead of grocery shoping every other day, i shop only once a week or
+  once every two weeks at a place that saves me money and still satisfies
+  my needs. however [let's] not put too many constraints, but the goal is
+  planning." So the plan sets the rhythm; his receipts give what he uses,
+  not when he must shop (he shops every 1-2 days today). The spacing
+  "depends on my needs. we need to see what we can come up with": first
+  the numbers. **Built:** `grocery-app eval-trips` (`evaluate_trips.py`):
+  for trips every 3, 7, 10, 14 days over the last 8 weeks, what each trip
+  would have had to bring home (what was bought in its stretch): lines a
+  trip, the share that would not keep until the day it was actually bought
+  (`keeps_days`, by where kept), and the most fridge and freezer lines one
+  trip brings, beside the most ever brought home in one day. **Next, on the
+  laptop:** run it on his `data/purchases.json` and bring him the table;
+  the demo has no storage data, so the cloud could not. Then: which shop
+  for the trip (step 4 b, prices), and the plan's engine.
 
 - Agreed (owner, 2026-10-25): **step 4, the list's cost at the shops near
   the person**, not only at those they go to ("the stores I buy from are
