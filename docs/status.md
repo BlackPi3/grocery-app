@@ -4,9 +4,21 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-27, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
+**Last updated:** 2026-10-27, laptop: the server's rereading of waiting lines switched off (about $20 in a day on live, no line placed); Vertex 429s gone. Before that, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
 
 ## Now
+
+- **The server's rereading of waiting lines is off** (laptop, 27 Oct,
+  owner's yes). On live it spent about $14 on the evening of 26 Oct and $6
+  on the morning of 27 Oct (SPEND_ALERT logs, all `finding`; $23 of the
+  month's finding belongs to no receipt, which is where the rereading's
+  calls land), and the owner's grey lines went from 175 to 181 (the 6 new
+  ones from new uploads), all still without candidates or a question. The
+  searches ran, nothing was saved. Next: find why (needs a read of the live
+  database: `receipts.reread_tries`, `model_calls` by hour), fix, and
+  switch it on again (`reread=True` in `default_app`). The Vertex 429s are
+  gone (27 Oct: a 23,000-character prompt answered in 10 s; the last 429
+  at 20:30 on 26 Oct).
 
 - **Next session, 2026-10-27, in this order.**
   1. **The trip plan's engine and its backtest: built** (cloud, 27 Oct; see

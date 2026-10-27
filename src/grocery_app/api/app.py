@@ -1100,7 +1100,10 @@ def default_app() -> FastAPI:
                       readers=reading_line(),
                       sorter=sorting_decider()
                       if type(repository).__name__ == "PostgresRepository" else None,
-                      forget_photos=True, reread=True,
+                      # Off, owner 2026-10-27: on live it spent about $20 in a day
+                      # and placed none of the waiting lines; on again once the
+                      # cause is found.
+                      forget_photos=True, reread=False,
                       offers=Marktguru()
                       if type(repository).__name__ == "PostgresRepository" else None,
                       offer_judge=offer_judge()
