@@ -4,9 +4,21 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-26, laptop, session end: groceries defined and live (#209, #211); stuck lines read again by the server (#212, #214) but blocked by Gemini 429s; Skip waits for the owner's yes (#215). **Next session starts with "Open, 2026-10-26" below.**
+**Last updated:** 2026-10-27, laptop: the server's rereading of waiting lines is switched off (it spent about $20 in a day on live and placed no line); Skip (#215) merged 26 Oct; Gemini 429s gone. **Next: find why the rereading placed nothing.**
 
 ## Now
+
+- **Now, 2026-10-27: the rereading is off** (owner's yes). On live it
+  spent about $14 on the evening of 26 Oct and $6 on the morning of 27 Oct
+  (SPEND_ALERT logs, all `finding`; $23 of the month's finding belongs to no
+  receipt, which is where the rereading's calls land), and the owner's grey
+  lines went from 175 to 181 (the 6 new ones from new uploads), all still
+  without candidates or a question. The searches ran, nothing was saved.
+  Next: find why (needs a read of the live database: `receipts.reread_tries`,
+  `model_calls` by hour), fix, and switch it on again (`reread=True` in
+  `default_app`). Gemini 429s: gone by 27 Oct (a 23,000-character prompt
+  answered in 10 s; the last 429 at 20:30 on 26 Oct). Skip (#215) merged on
+  26 Oct.
 
 - **Open, 2026-10-26 (owner: "a subject for a new session"), in this order.**
   The owner continues in a cloud session, which has the repo and GitHub
@@ -44,7 +56,7 @@ session (laptop or cloud) can pick up from here. How we work is in
      passed, so its later lines were never searched (receipts 248-252
      show finding cost but 0 searches): the first cause of the 175 grey
      lines.
-  3. **Skip, PR #215**, built and shown, waiting for the owner's yes.
+  3. **Skip, PR #215**: merged 2026-10-26.
   4. **The list as a paper list** (item 4 below), not started.
   5. Waiting topics: fewer random checks (97% yes; some are on
      non-groceries, e.g. an Action glass carafe, and should not be asked);

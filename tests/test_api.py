@@ -153,6 +153,26 @@ def test_default_app_reads_the_path_from_the_environment(tmp_path, monkeypatch):
     assert TestClient(default_app()).get("/health").json()["receipts"] == 99
 
 
+def test_the_deployed_server_does_not_read_waiting_lines_again(tmp_path, monkeypatch):
+    """Owner, 2026-10-27: the rereading spent about $20 on live in a day and
+    placed no line, so the deployed server starts without it."""
+    import grocery_app.api.app as app_module
+
+    seen = {}
+
+    def create_app(*args, **kwargs):
+        seen.update(kwargs)
+        return "app"
+
+    path = tmp_path / "purchases.json"
+    save_json(PURCHASES, path)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("GROCERY_PURCHASES", str(path))
+    monkeypatch.setattr(app_module, "create_app", create_app)
+    assert default_app() == "app"
+    assert seen["reread"] is False
+
+
 def test_the_server_applies_the_migrations_as_it_starts(monkeypatch):
     """No separate `db upgrade` step before the server: every start is a wait
     for whoever opened the page, and two Python starts took longer than one.
