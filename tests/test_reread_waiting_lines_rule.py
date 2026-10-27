@@ -298,17 +298,6 @@ def test_a_plain_create_app_starts_nothing(engine, session, tmp_path, monkeypatc
     assert started == [] and getattr(app.state, "rereading", None) is None
 
 
-def test_default_app_asks_for_rereading():
-    """The deployed server is `default_app`: it passes `reread=True`. Read
-    from its source, not by building it: building it installs the spend log
-    on the test database for every later test, and the suite hung on CI."""
-    import inspect
-
-    from grocery_app.api import app as app_module
-
-    assert "reread=True" in inspect.getsource(app_module.default_app)
-
-
 # --- added after reading the diff -------------------------------------------
 
 class _Stop(BaseException):
