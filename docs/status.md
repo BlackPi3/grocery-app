@@ -4,21 +4,47 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-27, laptop: the server's rereading of waiting lines switched off (about $20 in a day on live, no line placed); Vertex 429s gone. Before that, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
+**Last updated:** 2026-10-27, laptop: the server's rereading of waiting lines switched off (#226; it worked, but its line searches cost too much); the line search investigated: about 10 Google searches a line where 1-2 found it, no location set, and Gemini's search sees less than a person's Google; Vertex 429s gone. Before that, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
 
 ## Now
 
-- **The server's rereading of waiting lines is off** (laptop, 27 Oct,
-  owner's yes). On live it spent about $14 on the evening of 26 Oct and $6
-  on the morning of 27 Oct (SPEND_ALERT logs, all `finding`; $23 of the
-  month's finding belongs to no receipt, which is where the rereading's
-  calls land), and the owner's grey lines went from 175 to 181 (the 6 new
-  ones from new uploads), all still without candidates or a question. The
-  searches ran, nothing was saved. Next: find why (needs a read of the live
-  database: `receipts.reread_tries`, `model_calls` by hour), fix, and
-  switch it on again (`reread=True` in `default_app`). The Vertex 429s are
-  gone (27 Oct: a 23,000-character prompt answered in 10 s; the last 429
-  at 20:30 on 26 Oct).
+- **The server's rereading of waiting lines is off** (#226, laptop, 27 Oct,
+  owner's yes). It worked: about 120 lines placed (mostly other users' old
+  Kaufland and Lidl receipts) and 9 questions, for about $20 (26 Oct
+  evening and 27 Oct morning). It goes oldest receipt first and had reached
+  receipt 123; 72 receipts still wait, 49 of them the owner's (about $30 at
+  today's search cost). Switch it on again (`reread=True` in `default_app`)
+  once the line search is fixed. The Vertex 429s are gone (last at 20:30
+  on 26 Oct).
+
+- **The line search (27 Oct, laptop; open, the owner's next subject).**
+  - Cost: each line's search is one Gemini call with Google Search
+    (`identify.search_line`). On live (557 saved searches): 10.6 searches a
+    line on average, median 8, up to 75; the answer first showed up after
+    search 1-2 in 59% of lines, by search 4 in 77%. 70% of the searches are
+    spelling variants and brand guesses, 15% chase the price paid. At
+    $0.014 a search that is about 84% of finding's cost. No thinking level
+    is set (Gemini's default, high). `GROCERY_MAX_SEARCHES` is checked only
+    before a call, so one line can run 75.
+  - Effort test (23 lines of the answer sheet, judged as `eval-identify`
+    does): high 9.9 searches and $0.15 a line, medium 7.4 / $0.12, low
+    6.2 / $0.10, low plus "search at most twice, stop when a page names the
+    product" 2.6 / $0.05. The same lines right and wrong in all four (7
+    right, 8-9 with less detail, 4-5 with a false detail, 0 wrong). Vertex
+    takes thinking levels low, medium and high (not minimal).
+  - A black box: the response holds the queries, redirect links with site
+    names, and Gemini's own answer, never the page text Google gave it
+    (asked to copy it word for word, Gemini is stopped: `RECITATION`).
+  - No location: s2 (2 Oct) only wrote "Germany" into the prompt. The real
+    setting is `toolConfig.retrievalConfig` (`latLng`, `languageCode
+    de_DE`). Without it, `aldi sued receipt Pud. C. / Seelen W` returned US
+    news about Aldi lawsuits; with it, only general aldi-sued.de pages
+    (home, contact, Prospekte), and "no result shows it" in 3 runs. The
+    owner finds Dr. Oetker Seelenwärmer as the first result on his phone's
+    Google. On live the searcher found it only at search 3, after Gemini
+    expanded "Seelen W" to "Seelenwärmer" from its own knowledge.
+  - Open: why does a person's Google decode a receipt fragment and Gemini's
+    search tool not? Not decided: how the search should work instead.
 
 - **Next session, 2026-10-27, in this order.**
   1. **The trip plan's engine and its backtest: built** (cloud, 27 Oct; see
@@ -29,15 +55,12 @@ session (laptop or cloud) can pick up from here. How we work is in
      kind like for like.
   2. **On the laptop only:** run `grocery-app eval-trips` and `grocery-app
      eval-plan` on the owner's `data/purchases.json` and bring him the
-     tables; check whether Vertex
-     still answers 429 to large calls (item 1 below; the owner: "I'll do
-     it later").
-  3. Waiting a few days: whether the line searches (6-7 per new line) need
-     cutting, after the picture search was turned off (item 2 below).
+     tables. (Vertex 429s: checked 27 Oct, gone.)
+  3. The line searches: measured 27 Oct, see "The line search" above.
   4. A stray branch `pictures/no-web-search` on GitHub (pushed by mistake,
      its delete was refused in the cloud): delete it.
 
-- **Open, 2026-10-26 (owner: "a subject for a new session"); items 3-5 done.**
+- **Open, 2026-10-26 (owner: "a subject for a new session"); items 3-5 done; item 1, the 429s, gone by 27 Oct; item 2, see "The line search" above.**
   The owner continues in a cloud session, which has the repo and GitHub
   but not `gcloud`, the live server's password or Vertex (see "Laptop
   only"). There: item 1's live probe and item 2's live numbers cannot be
