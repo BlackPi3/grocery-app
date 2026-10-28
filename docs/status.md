@@ -1136,6 +1136,17 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
 
 ## Parked (later, not now)
 
+- (owner, 2026-10-28) **A new receipt should clear the list.** When a
+  receipt arrives, check each line against the list and the suggestions;
+  anything just bought leaves both, so the app does not suggest what was
+  just bought.
+
+- (owner, 2026-10-28) **Two kinds of price change**: the same item at the
+  same shop over time, and similar items across shops. For now the first is
+  enough, and it is already what `insights.price_changes` does (shelf price,
+  one shop at a time); `cross_store` covers the second only for the same
+  product at two shops.
+
 - (owner, 2026-10-25) **A line that fits several products was matched to
   one without asking.** The owner's GLOBUS "BIO MILCH LACT.FREI" (11
   lines) carries the product "Bio H-Alpenmilch 1,5% Fett, Laktosefrei",
