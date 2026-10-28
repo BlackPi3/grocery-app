@@ -1113,6 +1113,17 @@ items are removed (see Now and git history).
 
 ### Reading and matching receipts
 
+- (2026-10-28, owner, important) **Is the memory (step 2) doing most of
+  the work?** People's shopping changes slowly, so as users keep uploading,
+  more and more lines should be known from the memory, with no model call.
+  Measure it: per user and per week, the share of lines the memory placed,
+  and whether it grows.
+- (2026-10-28, owner) **More shops' lists on the server, later:** ALDI SÜD's
+  fresh list (28 Oct), GLOBUS's full range, REWE's prices per store (the one
+  on the receipt), EDEKA's and Penny's products without prices, Netto's
+  (it refuses our client; the owner can download it by hand: food
+  `netto-online.de/lebensmittel/c-N01`, offers `/sale/c-S00`; it also sells
+  much that is not groceries).
 - (2026-10-28, owner) **Where Open Food Facts can help.** Used today
   for barcodes by name, filling categories from a barcode, and pictures;
   not as candidates in matching. To weigh: the own brands of shops with no
