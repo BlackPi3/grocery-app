@@ -1076,6 +1076,16 @@ items are removed (see Now and git history).
 
 ### Prices and shops
 
+- (2026-10-28, owner) **How much ALDI SÜD's prices changed.** The list
+  was downloaded again on 28 Oct; the one before (prices from 18 Sep) is kept
+  in `data/products/aldi-sued/history/2026-09-18-BC08/`. Compare the two: how
+  many of the prices changed in 40 days, and by how much. ALDI SÜD's prices
+  are national, not per branch: 292 of 293 products cost the same at three
+  branches in Saarland, Bayern and Rheinland-Pfalz (28 Oct); only the range
+  differs a little.
+- (2026-10-28, owner) **Kaufland's list, downloaded by the owner by hand.**
+  He offered. Check first that a page with the range and its prices exists:
+  on 18 Sep `filiale.kaufland.de` showed only the week's offers.
 - (2026-10-28) **Two kinds of price change**: the same item at the same
   shop over time, and similar items across shops. For now the first is
   enough, and it is what `insights.price_changes` already does (shelf
@@ -1103,6 +1113,16 @@ items are removed (see Now and git history).
 
 ### Reading and matching receipts
 
+- (2026-10-28, owner) **Where Open Food Facts can help.** Used today
+  for barcodes by name, filling categories from a barcode, and pictures;
+  not as candidates in matching. To weigh: the own brands of shops with no
+  list (Lidl, Kaufland, Netto, Penny, REWE), sizes, and Open Prices.
+- (2026-10-28) **Other chains' lists, checked with our named client.**
+  REWE: its online shop's product search answers (names, brands, shelves,
+  pictures; robots allow `/shop/`), prices only once a store is chosen,
+  not tried yet. EDEKA: 5,990 own-brand products with barcodes in its
+  sitemap, no prices. Penny: 449 range pages, no prices. Netto: refuses
+  our client (403).
 - (2026-10-25) **A line that fits several products was matched to one
   without asking.** GLOBUS "BIO MILCH LACT.FREI" (11 lines) carries "Bio
   H-Alpenmilch 1,5% Fett, Laktosefrei", but it is not H-Milch; he picked it
