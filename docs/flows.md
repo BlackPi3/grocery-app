@@ -55,7 +55,8 @@ shop sells five flavours of one pudding at the same price.
                               │ 4a FIRST READ                GEMINI │  line + candidates + rest of
                               │    → its own guess                  │  receipt → a guess
                               ├─────────────────────────────────────┤
-                              │    groceries?                  CODE │  no → stop here, no search
+                              │    a kind never counted?       CODE │  café, clothes: saved as read,
+                              │                                     │  no search
                               ├─────────────────────────────────────┤
                               │ 4b SEARCH           GEMINI + GOOGLE │  gets ONLY line, shop, price
                               │    Gemini picks the queries         │  ~10 searches = 84% of cost
@@ -86,3 +87,7 @@ What the drawing shows (2026-10-27/28, the line search investigation in
   searches from scratch for what the app already had.
 - Step 4b is the one step where the model has a free hand, and where 84% of a
   line's cost goes.
+- 3a finds candidates by three-letter groups: for a line of plums, 500 g,
+  it offered a plum tea, a margarine 500 g and a shampoo 500 ml.
+- 4a's guess is used only for the never-counted check and as a fallback
+  when the search fails.

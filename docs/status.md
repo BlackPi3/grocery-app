@@ -4,9 +4,92 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-27, laptop: the server's rereading of waiting lines switched off (#226; it worked, but its line searches cost too much); the line search investigated: about 10 Google searches a line where 1-2 found it, no location set, and Gemini's search sees less than a person's Google; Vertex 429s gone. Before that, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
+**Last updated:** 2026-10-28, laptop: the line search taken apart on the drawing board (`docs/flows.md`, #229); next is the **section-3 experiment** below (agreed, not started). ALDI SÜD's list downloaded again (3,451 products, laptop only). Before that, 2026-10-27, laptop: the server's rereading of waiting lines switched off (#226; it worked, but its line searches cost too much); the line search investigated: about 10 Google searches a line where 1-2 found it, no location set, and Gemini's search sees less than a person's Google; Vertex 429s gone. Before that, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
 
 ## Now
+
+- **NEXT: the section-3 experiment** (owner, 2026-10-28: "a very important
+  experiment"; agreed, not started). The steps are those of
+  `docs/flows.md`, section 1.
+  - **Problem.** A line the memory does not know should be placed in
+    section 3 (our own data, free) and rarely reach section 4 (the paid
+    web search). On live, of 673 printed names the app placed by itself,
+    135 were settled in section 3 and 538 in section 4 (all shops and
+    users, 28 Oct). Section 3 can fail in two places: **3a** (the right
+    product is not among the candidates, so 3b cannot pick it) or
+    **3b/3c** (it is among them, but the model is not sure or the price
+    does not single it out). Which happens more decides what to fix.
+  - **Method** (owner's idea): only shops whose range we hold, ALDI SÜD
+    and GLOBUS.
+    1. Collect every ALDI SÜD and GLOBUS line that section 4 placed, with
+       the product it settled on: the saved model calls in the live bucket,
+       `identified/gemini-gemini-3.8-flash/v9/` (4a and 4c readings; 4c's
+       prompt carries the search findings) and `.../-search/s2/` (4b). Older
+       versions (`v7`, `claude-code-sonnet/*`) hold earlier lines.
+    2. For each, find its 3b call, `matched/gemini-gemini-3.8-flash/v2/`:
+       its prompt holds the shop, the line and the numbered candidates.
+       Pair the two by shop and line text.
+    3. Look section 4's product up in the shop's list (ALDI SÜD:
+       `data/products/aldi-sued/crawl.json`, 28 Oct; GLOBUS:
+       `data/products/globus/crawl.json`, 9,700 products, 8 Sep). Count
+       only clear matches (brand and name words agree); list the doubtful
+       ones for the owner to glance at.
+    4. Sort every line: **3a failed** (in the list, not among the
+       candidates), **3b/3c failed** (among the candidates, not settled),
+       or **not in the list** (new, seasonal, or missing from our download).
+    5. Bring the owner the table, a few examples of each, and the doubtful
+       ones.
+    Free: no model calls, nothing written to the server; reading the bucket
+    with `gcloud storage` is enough (no database).
+  - **Seen already:** for a line of plums, 500 g, at ALDI SÜD, 3a's
+    candidates were a plum tea, a margarine 500 g, a conditioner and a
+    shampoo 500 ml: the three-letter groups matched "Pfl" and "500". For
+    the pudding line of 27 Oct (see "The line search" below) all five
+    flavours were candidates (3b/3c failed: five flavours at the same
+    price). One printed letter of it fits none of the five names; the
+    owner's answer key says "I think it's this one".
+  - **Decided for section 3 (owner, 28 Oct), to build after the experiment
+    shows where:**
+    - 3a matches the start of each printed word (`Pud` → Pudding, `W` → any
+      W-word), not three-letter groups. Owner: `Kühlschr.` is
+      `Kühlschrank` with the dot removed; a full word is an exact hit.
+    - Our catalog's candidates only from the line's shop, plus brand
+      products from anywhere; never another chain's own brand (avoids
+      wrong candidates; it saves no time, the comparison takes ms).
+    - GLOBUS also through our own copy of its full range, not only its
+      website search (owner: "a huge flaw").
+    - Price: out of 3a for now, stays as 3c's check (per item, per kg for
+      weighed goods, before discount). A range "up to double the paid
+      price" keeps 80% of ALDI's list ("half to double" 58%): it narrows
+      little and can shut out the right product (a discount over 50%, a
+      misread price, a bigger pack listed). The owner asked whether it
+      hurts at all: measure with and without it in the same test.
+    - How we know it worked: the right product among the candidates more
+      often, at no shop less; then a small paid run of 3b: more lines
+      settled in section 3, none wrongly. Check again on new receipts, so
+      it is not tuned to these lines.
+  - **After section 3: section 4** (the owner's next subject). Discussed,
+    not decided: 4a's guess is thrown away and 4b sees neither it nor 3a's
+    candidates; the owner: "if it improvises so well, why not improvise from
+    the start?" (guess first, then one search to check it); capping at 2
+    searches with a lower thinking level (tested 27 Oct: same answers, a
+    third of the cost). The "groceries?" step stops only kinds that never
+    count (café, clothes; the owner's rules of 2 Oct and 26 Oct), and such a
+    line is still saved to the memory. Then switch the rereading on again
+    (`reread=True`).
+  - **Search engines (owner, 28 Oct): no paying for one** (Serper, SerpApi,
+    Brave refused). No free legal way to Google's full results page: Google
+    and DuckDuckGo show bot checks to a script, and working around them is
+    off the table; Google's own search API takes no new customers and ends
+    1 Jan 2027. The Gemini API (an AI Studio key, not Vertex) reportedly
+    gives 5,000 free searches a month across Gemini 3.x, unverified; it is
+    not EU-only and a free plan may use our data, so the privacy page would
+    change.
+  - **ALDI SÜD's list** downloaded again 28 Oct on the laptop (3,451
+    products, all priced); the 18 Sep one (3,220) is kept in
+    `data/products/aldi-sued/history/2026-09-18-BC08/`. The live bucket
+    still holds the 18 Sep list; all lists go to the server together later
+    (owner). Its prices are national (292 of 293 the same at three branches).
 
 - **The server's rereading of waiting lines is off** (#226, laptop, 27 Oct,
   owner's yes). It worked: about 120 lines placed (mostly other users' old
