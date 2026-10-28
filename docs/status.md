@@ -45,6 +45,12 @@ session (laptop or cloud) can pick up from here. How we work is in
     expanded "Seelen W" to "Seelenwärmer" from its own knowledge.
   - Open: why does a person's Google decode a receipt fragment and Gemini's
     search tool not? Not decided: how the search should work instead.
+  - 28 Oct: the flow of a new line is drawn in `docs/flows.md` (section 1):
+    the search (4b) gets neither the first read's guess nor the matcher's
+    candidates. No paid search engines (owner). Proposed, not decided:
+    count how many searched lines already had their product among the
+    candidates, then choose between giving the search what the app knows,
+    guess-then-check, and capping it at 2 searches.
 
 - **Next session, 2026-10-27, in this order.**
   1. **The trip plan's engine and its backtest: built** (cloud, 27 Oct; see
@@ -260,7 +266,7 @@ session (laptop or cloud) can pick up from here. How we work is in
   baked salmon fillet fridge, likely frozen); the rest right, including
   splits inside a category. One batch of 20 came back with nothing usable
   and is asked again next pass. The lactose-free milk says cupboard
-  because its product is the wrong one (Parked, top).
+  because its product is the wrong one (Parked, "Reading and matching receipts").
   **The trip plan's goal (owner, 2026-10-26):** "my trips aren't
   optimized. the whole point of planing is to optimize the trips so that i
   instead of grocery shoping every other day, i shop only once a week or
@@ -998,130 +1004,26 @@ session (laptop or cloud) can pick up from here. How we work is in
   `demo_seed.sql`. Its log says why each search found nothing; if the 8 stay
   empty, the matching rule (`pictures.same_product`) is the next suspect.
 
-## Next build (agreed)
-
-1. ~~Redesign step 3.~~ Done: each receipt line shows an easy product name
-   and its deepest category (left out when it repeats the name). A line
-   nothing placed shows the reading's guess, marked, or the printed text in
-   grey. The brand, size, details, who said it and the printed line are the
-   owner's only; the receipt header says "6 items" (owner: "6 items: 2 you,
-   4 app").
-2. ~~Drill-down.~~ Done: the price that moved, your regular and a product
-   tile open the product's purchases (calendar of dots and a list), then the
-   receipt with the line marked (fix it there), then its photo
-   (`GET /v1/products/{id}/purchases`, `GET /v1/receipts/{id}/photo`, the
-   asker's receipts only; the demo shows only the made-up receipts' photos).
-3. ~~Google sign-in on the web.~~ Built, and **switched on 2026-10-13**. Who may sign up was decided by the lead while the owner was away, as
-   the safe default (reversible): **invite-only**; dropped 2026-10-14 by the
-   owner (see Now: a first sign-in makes the account). Passwords keep working. Sign-ins last 90 days (migration 0020,
-   `api/google_sign_in.py`). The owner's steps (details in
-   `docs/designs/backend-api.md`, "Switching on Sign in with Google"):
-   1. Google Cloud Console: an OAuth consent screen, then an OAuth client
-      (Web application) with the server's address as Authorized JavaScript
-      origin.
-   2. GitHub repo settings: variable `GOOGLE_CLIENT_ID`, secret
-      `GROCERY_OWNER_EMAIL`.
-   3. Run the deploy workflow.
-   4. Add each person as a test user while the consent screen is in Testing.
-   Done 2026-10-13: steps 1-3. The consent screen is in Testing (only its
-   test users can sign in).
-   No route removes a user yet (their receipts would go with them); a
-   removed user's sign-ins end with the row. Apple sign-in is deferred (it
-   needs the paid developer account).
-4. ~~Insights screen.~~ Done (2026-10-13): five cards, one question each,
-   with their coverage; every product opens the drill-down (see Now).
-
-## Open decisions (the owner's), as of 2026-10-16
+## Open decisions (the owner's)
 
 Direction (owner, 2026-10-16): the app does **one thing, groceries**, and
 its promise is **lowering grocery cost**, not tracking (people pay for money
 saved). Overall functions come before polishing the look. Other money areas
 (eating out, travel, vice) come later.
 
-- **Target group.** Destatis EVS 2023, food and non-alcoholic drinks only
-  (alcohol and tobacco taken out), per household per month: under €1,000
-  net ~€200, €2,600–3,600 ~€345, €3,600–5,000 ~€410, €5,000+ ~€525, all
-  ~€375. With alcohol and tobacco, by type: single €254, single parent
-  €416, couple €495, couple with children €658. Recommendation: families
-  with children on €2,600–5,000 net (big bill, still feel it), the owner as
-  first user. The owner's worry: tight-budget users may not pay, and the
-  app could cost more than it earns. Answer given: the savings must clearly
-  exceed a small price, and each user must cost very little (a cheap model
-  reads a receipt for well under a cent; most of today's cost is fixed
-  hosting). Unanswered.
-- **The offer test** is now offers step 1 (see Now): its numbers come from
-  matching (b) on the live server, which reads the real history.
-
-### Older open decisions (2026-10-14)
-
-- **Barcodes: keep exact-only (A)?** Asked 2026-10-13 after the first run
-  (see Now), unanswered. Recommendation: yes; the gap is the unknown size,
-  not the rule, so the next barcode step would be a size for products read
-  from a receipt (e.g. from the price paid). Then run `db barcodes` on live
-  and `--write` what it finds.
-0. **Ready for iOS criteria** (owner, 2026-10-13: "no hand database fixes"
-   is not needed, and "two weeks unchanged" was the lead's stand-in).
-   Proposed: the owner says the screens are settled, Google sign-in is on,
-   a second person uses it. Unanswered. Also: GDPR items (privacy page,
-   deleting users, what the owner sees of others) wait until the legal side
-   is clear (owner).
-
-**Next session:** the owner's backlog (below Parked), one item at a time,
-screens shown before merge (owner, 2026-10-14: "we should be building
-non-stop"). Proposed
-(2026-10-14, unanswered): no new features until the milestone, except
-privacy and account deletion, moved up before a second person.
-
-## Next build (agreed 2026-10-14): insights about the past, done right
-
-The owner: past and present first, no recommendations until the insights are
-complete ("this receipt at the other chain" is a recommendation: parked).
-A comparison must be like for like, and an insight must have one meaning.
-
-1. ~~**Home's month comparison, split into its causes.**~~ Built 2026-10-14,
-   then replaced on Home by the pace (see Now). Today Home sets
-   "October so far" (14 days) against all of September. Instead: the same
-   days of both months (1-14 Oct against 1-14 Sep), and the difference split
-   so every euro lands in one part: **different things** (bought in only one
-   of the two periods), **more or less of the same things** (bought in both,
-   in other amounts), and **prices** (the same things, priced now against
-   then; shelf price, see 2). Lines not placed on a product are their own
-   small amount. Example: "+40 € against 1-14 Sep: 25 € from things you
-   didn't buy then, 12 € from buying more of the same, 3 € from higher
-   prices." The owner: "do it, then I'll comment" (build it and show him;
-   he decides on seeing it).
-2. **Prices on the shelf price, and the price tile that rotates.**
-   - (Done, #148.) Price changes are measured on the **shelf price before printed
-     discounts** (`gross`), not on what was paid: on the owner's first 27
-     receipts, 109 of 237 product lines carry a printed discount, many 10%
-     (likely his GLOBUS staff discount), and today each counts as a price
-     change (`insights._paid_unit_price` uses `net_paid`).
-   - (Done, #150.) **A new insight: what discounts saved you** (owner: "tell me how much I
-     saved with the discount"; Kaufland's receipt prints it too), from the
-     printed discounts, per shop and per month.
-   - Home's price tile **rotates** through several products (auto-advance,
-     swipe back and forth, tap opens that product). Only real changes:
-     bought at least 3 times and moved at least 10% (live, 2026-10-14: 35
-     products changed, 21 of them on just two buys, e.g. Cola 1,07 -> 0,54,
-     an offer). Each says **when** and **how**: "went up 4 Jul and stayed",
-     "dropped once, then back (probably an offer, not counted)", "keeps
-     changing". No fixed window: the date of the change is the window.
-   - (Done, #152.) The product page opens with a **price line** (date
-     across, price up) over the whole history, the purchase list under it;
-     the calendar gets **weekday letters**.
-3. (Done, #152.) **Your regulars, rotating** like the price tile ("7× in
-   6 weeks").
-
-Research (private claude.ai pages, the owner's account): the landscape of
-apps and 75 open-source projects, with "Where your app wins",
-https://claude.ai/artifact/4hVAEvSZi814KQNWH3d8F6; the open-questions list,
-https://claude.ai/artifact/WHW7obc3X2YrQYAnpwvSJs.
-
-**The owner's to-dos** (none blocks building): use the app for two weeks
-with every receipt from the phone; a second person with real receipts;
-the demo pictures laptop run
-(above); the billing alert; two receipt questions on the open-questions
-list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
+- **Target group** (2026-10-16). Destatis EVS 2023, food and non-alcoholic
+  drinks only, per household per month: under €1,000 net ~€200,
+  €2,600–3,600 ~€345, €3,600–5,000 ~€410, €5,000+ ~€525, all ~€375. With
+  alcohol and tobacco, by type: single €254, single parent €416, couple
+  €495, couple with children €658. Recommendation: families with children
+  on €2,600–5,000 net (big bill, still feel it), the owner as first user.
+  The owner's worry: tight-budget users may not pay. Answer given: savings
+  must clearly exceed a small price, and each user must cost very little.
+  Unanswered.
+- **Barcodes: keep exact-only (A)?** (2026-10-13). Recommendation: yes; the
+  gap is the unknown size, not the rule, so the next step is a size for
+  products read from a receipt (e.g. from the price paid). Then run
+  `db barcodes` on live and `--write` what it finds. Unanswered.
 
 ## Milestone: Ready for iOS (target 2026-11-02)
 
@@ -1129,226 +1031,164 @@ list (`Kleenex Ultra Soft W`, `Volvic 1,5 L`).
   All screens are redesigned as of 2026-10-13 (Insights last); the two weeks
   run from there.
 - ~~2 weeks of real use with no database fix by hand.~~ Met (owner,
-  2026-10-25: no fix by hand for some time).
-- ~~Google sign-in on the web.~~ Works (2026-10-13, the owner's phone).
+  2026-10-25).
+- ~~Google sign-in on the web.~~ Works (2026-10-13).
 - ~~A second person using it with real receipts.~~ Met (owner,
   2026-10-25: many people use it now).
 
 ## Parked (later, not now)
 
-- (owner, 2026-10-25) **A line that fits several products was matched to
-  one without asking.** The owner's GLOBUS "BIO MILCH LACT.FREI" (11
-  lines) carries the product "Bio H-Alpenmilch 1,5% Fett, Laktosefrei",
-  but it is not H-Milch; he picked it as the nearest option, and the app
-  never offered the choice. He has never seen the app ask between two
-  products in practice. Look at why the line was not a question.
+Grouped by topic; the date and "owner" say who raised it and when. Built
+items are removed (see Now and git history).
 
-- (owner, 2026-10-25) **The list where the person already keeps one**: sync
-  it with the grocery list they use now (Reminders or whatever app), or let
-  our app be their grocery list app too.
+### The shopping list
 
-- (owner, 2026-10-25) **The security and privacy audit**, for when we start
-  publishing (Google sign-in out of Testing, the App Store). Many people
-  already use the app without it.
-
-- (owner, 2026-10-25) **What the users' usage has taught us so far**, other
-  than asking them: what their uploads, edits, snoozes and visits say about
-  how the app is used. Not looked at yet.
-
-- (Built 2026-10-26, see Now.) (owner, 2026-10-25) **Recognising what is not a grocery**: supplements,
-  alcohol, cigarettes, petrol, clothes. A person may upload such a receipt
-  and it is kept, but groceries are the focus. Today the code leaves out
-  only cafés and "Sonstiges" (`categories.NOT_GROCERY_BRANCHES`); alcohol is
-  a grocery branch, and supplements sit under Drogerie. Earlier direction
-  (2026-10-16): vice, beauty and supplements are not groceries; whether
-  that is the full definition is still open.
-
-- (owner, 2026-10-25) **A default lasting time per item, and learning from
-  snoozes**, for when a second person starts: a new person has no history,
-  and a snooze says the guess was too short, a buy sooner than guessed too
-  long. Tested on the owner's history
+- (2026-10-28) **A new receipt should clear the list.** When a receipt
+  arrives, check each line against the list and the suggestions; anything
+  just bought leaves both, so the app does not suggest what was just bought.
+- (2026-10-24) **What counts as something a person needs**: one rhythm does
+  not fit every kind (milk every 3 days, a cleaner every two months). Today
+  offers search products bought on 3+ days in 90 (16 of the list's 35
+  kinds), and the list needs a 25% chance this week, so a two-monthly kind
+  never shows even when due. The owner watches the current list meanwhile.
+  Offers for the whole list wait on it.
+- (2026-10-25) **A default lasting time per item, and learning from
+  snoozes**, for new people with no history: a snooze says the guess was
+  too short, a buy sooner than guessed too long. Tested
   (`docs/evaluations/2026-10-25-list-rules-compared.md`): defaults alone
   catch 32% at 18% right; added to his history mostly noise. The live rule
-  (often, and half its usual time passed) stays meanwhile: the least noise
-  of seven rules.
+  (often, and half its usual time passed) stays: the least noise of seven.
+- (2026-10-25) **A reason on a suggestion other than need**: the price
+  dropped, so a good time to buy if there is room. Belongs with offers on
+  the list (step 4).
+- (2026-10-24) **Adding a kind never bought**, without typing. Recommended:
+  the category tree, the person's own kinds first. The server already takes
+  any category (`PUT /v1/list/{kind}`); only the screen is missing.
+- (2026-10-24) **Splitting the list into several trips**: then where to
+  shop could change. For now one trip buys the whole list.
+- (2026-10-23) **How much fits at home**, fridge and cupboard apart: whether
+  it can be estimated at all, explained to the owner before the list gets a
+  size limit. Until then the list's length is its chance cut-off.
+- (2026-10-25) **Sync with the list the person already keeps** (Reminders
+  or another app), or let our app be their grocery list app too.
+- (2026-10-14) **"Due again soon" reads as a recommendation** made from two
+  or three buys. Rework or remove; the shopping list screen replaces it.
 
-- (owner, 2026-10-25) **A reason on a suggestion other than need**: the
-  price dropped, so it may be a good time to buy if there is room to store
-  it. Belongs with step 4, offers on the list.
+### Prices and shops
 
-- (owner, 2026-10-24) **Splitting the list into several trips**: then where
-  to shop could change. For now one trip buys the whole list.
-- (owner, 2026-10-24) **The Insights tile on Home turns too**, through
-  its insights, as the other tiles do.
-- (owner, 2026-10-24) **How Home's tiles respond to a tap**, to be reworked:
-  a tap does not open the very thing the tile shows (for instance, the
-  item a turning tile is on right now).
-- (owner, 2026-10-24) **What counts as something a person needs**: one
-  rhythm does not fit every kind (milk every 3 days, a cleaner every two
-  months). Today offers search products bought on 3+ days in 90 (16 of the
-  list's 35 kinds), and the list needs a 25% chance this week, so a
-  two-monthly kind never shows even when due. To be decided later; until
-  then the owner watches how the current list does. Offers for the whole
-  list wait on it.
-- (owner, 2026-10-24, "first let's focus on things we have a clue the user
-  needs") **Adding a kind never bought** to the shopping list, without
-  typing. Recommended when it comes back: the category tree, the person's
-  own kinds first. The server already takes any category
-  (`PUT /v1/list/{kind}`); only the screen is missing.
-- (owner, 2026-10-24, planned and parked until the shopping list is done)
-  **Questions that ask what is unclear, optional and rewarded.** Found on
-  `Käse Bedienung 4,14 €`: the card "Käse von der Bedientheke" only
-  reworded the line, so a Yes taught nothing. The owner's rules: questions
-  are optional (never bother the uninterested), answering and uploading are
-  visibly rewarded, and a confused question asks about the part that is
-  unclear, in steps, all taps. Old rules may change as the app grows: the
-  one-tap rule now holds for everyone else, not for those who choose to
-  answer. Plan:
-  1. Never show a card that only rewords its receipt line (no fact beyond
-     the paper). Small, for everyone.
-  2. Confused questions in steps. A counter line (`Bedienung`, `Theke`):
-     settled "from the counter", then **kind** (Gouda, …), **brand**,
-     **grams**. Kind and brand options come from a search of that shop's
-     counter range; gram options from the price paid over the chosen
-     product's €/kg. Stored on the line, so €/kg can be tracked.
-  3. Keep questions optional: the badge stays, nothing blocks or nags.
-  4. Rewards for answering and for uploading (merges the 2026-10-23 item
-     below): what the reward looks like is the owner's decision, to be
-     shown before merge.
-- (owner, 2026-10-23) **Adding receipts should feel rewarding**: a small
-  reward after an upload, so the person feels they achieved something.
-- (owner, 2026-10-23) **A prompt per user**, for the list or the reader: an
-  idea, for later.
-- (owner, 2026-10-23) **How much fits at home**, the fridge and the cupboard
-  apart: whether it can be estimated at all, to be explained to the owner
-  before the list gets a size limit. Until then the list's length is its
-  chance cut-off.
-
-- (Built 2026-10-26, see Now.) (owner, 2026-10-23, parked: "we need to be more focused now") **A
-  separate part for things people may mistake for groceries** (alcohol,
-  toiletries, household, supplements, pet food): decided in principle, built
-  later. The research below stays for then.
-  **What counts as groceries: ECOICOP 01?** ECOICOP is the EU's official list
-  of household spending (Eurostat's inflation index and every EU household
-  survey use it); the other EU lists (customs CN, CPA, NACE, FoodEx2, food
-  law 178/2002) sort for other jobs. 01 is food and non-alcoholic drinks
-  (baby food in; milk is a food). Out: alcohol, **alcohol-free beer and wine
-  too** (02), tobacco (02), cafés (11), vitamins and supplements (06),
-  personal care, tissues and toilet paper (13.1), cleaning products, foil,
-  kitchen paper, bin bags (05.6.1), pet food (09.3). Recommendation: yes.
-  The owner agreed with the idea but asked about Haushaltsartikel; not yet
-  answered. The change if yes: add `alkohol`, `drogerie`, `haushalt` to
-  `NOT_GROCERY_BRANCHES` in `categories.py` (they stay in the history) and
-  add a pet food category; later an ECOICOP code under each category, for
-  comparing with official food inflation per country.
-- (owner, 2026-10-26, parked) **Pictures from a web search.** Off since 26
-  Oct for cost (`GROCERY_MAX_PICTURE_SEARCHES` 0 by default): a product
-  with no shop page and no barcode gets no picture. To bring it back: ask
-  for one search per picture, count searches (not requests) against the
-  limit, set the variable, and run `forget_missing_pictures` so products
-  settled meanwhile are looked up again.
-- (owner, 2026-10-21, parked: "not in a position to make important design
-  decisions") **Web searches cost more than reading.** The "unusual model
-  spending" emails are our own alert (each $1 a day), not a Google limit.
-  One receipt on 21 Oct cost about $3.30: reading $0.05, placing lines
-  $1.10 (67 searches), pictures $2.19 (152 searches for 8 pictures; the
-  model runs 11 to 29 searches per "find the product page"). October to the
-  21st: $57 at list price, $48 of it 3,401 searches; if the 5,000 free
-  searches a month hold (not checked on Google's page) the real bill is
-  about $10. Proposed: pictures from the shop's site and Open Food Facts
-  before any web search, and one search asked for; a cap on searches per
-  receipt when placing lines. Nuance to settle: a cap leaves some lines or
-  pictures unfound.
-- (owner, 2026-10-15) **A map of the screens with a name for every place**,
-  so the owner can point at one ("Home → month tile → month page → Why").
-- (owner, 2026-10-15) **More colour and texture in the screens.**
-- (owner, 2026-10-15) **What the Why card says when the gap is small**, or
-  when a reason has nothing in it.
-
-**Backlog from the owner (2026-10-14, after seeing the price line), not
-agreed to build yet:**
-
-- **Three levels from the price tile.** A tap on Home's turning price tile
-  opens a page listing every move it turns through; a tap on one of those
-  opens the product. Today the tap goes straight to the one product shown.
-- **Long lists load in pages, as a standard.** The product page's purchase
-  list, and the Receipts screen, show the latest few and a "show more"; never
-  everything at once (thousands of buys, memory). Applies to every list.
-- **Calendar.** He did not see the days (the weekday letters were on the
-  open branch, not yet live); a day bought several times should be clearly
-  deeper in colour than a day bought once (it is, `b2`, but too faint).
-- ~~A found product with no category; "2 candidates" still showing.~~
-  Fixed, one cause (see Now).
-- **"Due again soon" reads as a recommendation**, made from two or three
-  buys: too little to say someone will buy it again. Rework or remove (it
-  conflicts with "insights before recommendations") The shopping
-  list (2026-10-23) replaces it when the list's screen comes (step 3).
-- **Which shop is cheaper for a kind of thing** (owner, 2026-10-14, from the
-  onions' price line: "milk products are cheaper at GLOBUS overall"). A chart
-  of where each shop lands, per category. Caution: a plain mean of a
-  category's prices compares different baskets (premium milk at one shop,
-  budget milk at another), so it needs like for like: the same products, or
-  the same kind, size and price tier, and prices close in time.
-- **"Same item at other shops" compares prices far apart in time.** Only
-  compare prices bought within a short window of each other, since the app
-  has no live prices.
-
-- A phone preview of a branch (owner, 2026-10-14: "having it deployed is
-  best, it can support many possibilities; backlog, not now"). A Cloud Run
-  service `grocery-preview` of its own, deployed by hand from a branch, on
-  the live data but looking only (no migrations, no jobs or pictures, every
-  write refused but signing in), a strip naming the branch. Needs: the
-  owner's OK on the risk (unmerged code reading live data, a second public
-  address), GitHub's deploy permission widened to hand-started runs, and the
-  preview address added to the Google sign-in client. A first version of
-  the server part is in a git stash (`preview-mode`) on the laptop. Until
-  then, screens are shown by screenshot (`scripts/preview.py --shot`), or a
-  short video for a flow.
-
-- Barcodes, the rest: a barcode photo from the user (after the milestone),
-  and a known size for products read from a receipt (see Now).
-- Attention follows seriousness and freshness (a level-4 line right after
-  the scan asks loudly; a random check waits). The levels it would use are
-  counted (`GET /v1/sureness`).
-- Lifestyle, personas (the owner's three, 2026-10-12: the trend lover, the
-  saver, the deal hunter; features are checked against who they serve), deals, dislikes, and zooming through time in insights
-  (Receipts zooms by month now; weeks and days are next there).
-- Cleanup: old English-named products, doubles from early catalog work.
-- Insight tiles people choose (owner, 2026-10-14): remove a tile, add
-  another from the insights there are. Worth building once there are more
-  insights than Home fits.
-- Offers not printed on the receipt (owner, 2026-10-14): a lower shelf
-  price, a near-expiry sticker, the shops' weekly offer lists; and an
-  optional "Was this on offer?" when a known product's price differs, asked
-  only behind the questions button with its badge, never forced, and never
-  again for someone who doesn't answer.
-- Health-related insights (owner, 2026-10-14): later.
-- "This receipt at the other chain" (2026-10-14): a recommendation, parked
-  until the insights are complete. Checked: under 5% of the owner's products
+- (2026-10-28) **Two kinds of price change**: the same item at the same
+  shop over time, and similar items across shops. For now the first is
+  enough, and it is what `insights.price_changes` already does (shelf
+  price, one shop at a time); `cross_store` covers the second only for the
+  same product at two shops.
+- (2026-10-14) **"Same item at other shops" compares prices far apart in
+  time.** Only compare prices bought within a short window of each other.
+- (2026-10-14) **Which shop is cheaper for a kind of thing** ("milk products
+  are cheaper at GLOBUS overall"): a chart per category. A plain mean
+  compares different baskets, so it needs like for like (same products, or
+  same kind, size and price tier) and prices close in time.
+- (2026-10-14) **"This receipt at the other chain"**: a recommendation,
+  parked until the insights are complete. Under 5% of the owner's products
   exist at the other chain as the same product, so it needs the closest
-  equivalent (same kind, size, price tier), the owner's call when it comes.
-- Fuel (owner, 2026-10-14): supermarkets often sit next to a petrol or
-  charging station, and filling up repeats like shopping. Track fuel
-  receipts and prices, so a later recommendation can weigh the station's
-  price too. Germany publishes every station's fuel prices live (the
-  Markttransparenzstelle, open through Tankerkönig).
-- Families (owner, 2026-10-14): connect people, so a household sees its
-  shopping together as well as each person's own.
-- A grocery budget (owner, 2026-10-13): set one for the month and see how far
-  off you are, or the app suggests one from past months. Serves the saver.
-- A privacy line on You (owner, 2026-10-14: parked, "we are making the app
-  better"). Proposed wording, true today: only you see your receipts in the
-  app; photos are read by Google's Gemini and stored in Frankfurt; the
-  developer may look at an upload to fix reading mistakes; nothing is sold.
-- ~~Privacy page and account deletion~~ (owner, 2026-10-13: backlog). Both
-  exist now (`/privacy`, `DELETE /v1/me`); the paragraph below is history.
-  The security and privacy audit waits for publishing (Parked, top).
-  Needed before Google sign-in leaves Testing: publishing asks for a homepage
-  and a privacy policy URL (`/privacy` on the server; Google may refuse a
-  `run.app` address, then a domain of our own, about 10 EUR a year). GDPR
-  starts with the second person's data: say what is stored, where (Frankfurt,
-  read by Gemini) and who sees it (the owner), and let a person delete their
-  account and receipts.
+  equivalent; the owner's call when it comes.
+- (2026-10-14) **Offers not printed on the receipt**: a lower shelf price, a
+  near-expiry sticker, weekly offer lists; and an optional "Was this on
+  offer?" when a known product's price differs, only behind the questions
+  button, never forced, never again for someone who doesn't answer.
+- (2026-10-14) **Fuel**: supermarkets often sit next to a petrol or charging
+  station. Track fuel receipts and prices so a recommendation can weigh the
+  station too (live prices: Markttransparenzstelle, via Tankerkönig).
+- (2026-10-13) **A grocery budget**: set one for the month, or the app
+  suggests one from past months. Serves the saver.
+
+### Reading and matching receipts
+
+- (2026-10-25) **A line that fits several products was matched to one
+  without asking.** GLOBUS "BIO MILCH LACT.FREI" (11 lines) carries "Bio
+  H-Alpenmilch 1,5% Fett, Laktosefrei", but it is not H-Milch; he picked it
+  as the nearest option and the app never offered the choice. Look at why
+  the line was not a question.
+- (2026-10-24, until the shopping list is done) **Questions that ask what is
+  unclear, optional and rewarded.** Found on `Käse Bedienung 4,14 €`: the
+  card only reworded the line, so a Yes taught nothing. Rules: questions
+  are optional, answering and uploading are visibly rewarded, a confused
+  question asks about the unclear part, in steps, all taps. Plan:
+  1. Never show a card that only rewords its receipt line.
+  2. Confused questions in steps: a counter line (`Bedienung`, `Theke`) is
+     "from the counter", then **kind**, **brand**, **grams** (options from a
+     search of that shop's counter range; grams from price over €/kg),
+     stored on the line.
+  3. Keep questions optional: the badge stays, nothing blocks or nags.
+  4. Rewards for answering and uploading, so adding receipts feels like an
+     achievement (2026-10-23); the look is the owner's call, shown before
+     merge.
+- (2026-10-14) **Attention follows seriousness and freshness**: a level-4
+  line right after the scan asks loudly; a random check waits. The levels
+  are counted (`GET /v1/sureness`).
+- **Barcodes, the rest**: a barcode photo from the user, and a known size
+  for products read from a receipt (see Open decisions).
+- (2026-10-23) **A prompt per user**, for the list or the reader: an idea.
+- **Cleanup**: old English-named products, doubles from early catalog work.
+
+### Cost of web searches
+
+- (2026-10-26) **Pictures from a web search** are off for cost
+  (`GROCERY_MAX_PICTURE_SEARCHES` 0 by default): a product with no shop page
+  and no barcode gets no picture. To bring it back: ask for one search per
+  picture, count searches (not requests) against the limit, set the
+  variable, and run `forget_missing_pictures`.
+- (2026-10-21, "not in a position to make important design decisions")
+  **Web searches cost more than reading.** One receipt on 21 Oct cost about
+  $3.30: reading $0.05, placing lines $1.10 (67 searches), pictures $2.19
+  (152 searches for 8 pictures). October to the 21st: $57 at list price,
+  $48 of it 3,401 searches; if 5,000 free searches a month hold, about $10.
+  The "unusual model spending" emails are our own $1/day alert. Proposed: a
+  cap on searches per receipt when placing lines (some lines then stay
+  unfound).
+
+### Screens
+
+- (2026-10-24) **The Insights tile on Home turns too**, as the other tiles do.
+- (2026-10-24) **How Home's tiles respond to a tap**: a tap does not open
+  the thing the tile shows right now.
+- (2026-10-14) **Three levels from the price tile**: a tap opens a page of
+  every move it turns through; a tap on one opens the product.
+- (2026-10-14) **Long lists load in pages, as a standard** (product
+  purchases, Receipts): the latest few and "show more".
+- (2026-10-14) **Calendar**: a day bought several times should be clearly
+  deeper in colour than a day bought once (`b2` is too faint).
+- (2026-10-14) **Insight tiles people choose**: remove one, add another;
+  once there are more insights than Home fits.
+- (2026-10-15) **A map of the screens with a name for every place**, so the
+  owner can point at one ("Home → month tile → month page → Why").
+- (2026-10-15) **More colour and texture in the screens.**
+- (2026-10-15) **What the Why card says when the gap is small**, or when a
+  reason has nothing in it.
+- (2026-10-14) **Zooming through time**: Receipts zooms by month; weeks and
+  days next. Also lifestyle, deals and dislikes, checked against the three
+  personas.
+
+### Before publishing, and later
+
+- (2026-10-25) **The security and privacy audit**, for when we publish
+  (Google sign-in out of Testing, the App Store). Publishing needs a
+  homepage and privacy policy URL (`/privacy` exists; Google may refuse a
+  `run.app` address, then a domain of our own, ~10 EUR a year).
+- (2026-10-14) **A privacy line on You.** Proposed, true today: only you see
+  your receipts; photos are read by Google's Gemini and stored in
+  Frankfurt; the developer may look at an upload to fix reading mistakes;
+  nothing is sold.
+- (2026-10-25) **What users' usage has taught us**: uploads, edits, snoozes
+  and visits. Not looked at yet.
+- (2026-10-14) **A phone preview of a branch**: a Cloud Run service
+  `grocery-preview` deployed by hand, on live data but read-only, with a
+  strip naming the branch. Needs the owner's OK on the risk, a wider GitHub
+  deploy permission, and the address in the Google sign-in client. A first
+  server part is in git stash `preview-mode` on the laptop. Meanwhile:
+  `scripts/preview.py --shot`.
+- (2026-10-14) **Families**: a household sees its shopping together as
+  well as each person's own.
+- (2026-10-14) **Health-related insights.**
 
 ## Gotchas
 
@@ -1384,4 +1224,6 @@ not have. Leave them for a laptop session:
 
 The open-questions page (a private claude.ai artifact, readable only by the
 owner's account) tracks every open item: https://claude.ai/artifact/WHW7obc3X2YrQYAnpwvSJs.
+Research on the app landscape and 75 open-source projects ("Where your app
+wins"): https://claude.ai/artifact/4hVAEvSZi814KQNWH3d8F6.
 If a session can't reach it, use this file instead.
