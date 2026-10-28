@@ -524,7 +524,7 @@ def test_the_list_reads_bottom_to_top_accepted_first_and_the_most_urgent_last():
         console.log(JSON.stringify(listParts(null, new Map())));
         const at = d => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
         console.log(backDay(at(1)));
-        console.log(backDay("2026-10-29"));
+        console.log(backDay("2099-10-29"));
     """)
     assert out == ["brot,quark", "milch", '{"accepted":[],"suggested":[]}',
                    "Back tomorrow", "Back Thu 29 Oct"]

@@ -3,6 +3,7 @@
 How the owner and the coding assistant work on this repo. It holds for every
 session, on the laptop or in the cloud. `CLAUDE.md` is the short version;
 this is the long one. The current state of the work is in `docs/status.md`.
+How the app works, drawn as boxes, is in `docs/flows.md`.
 
 ## Who does what
 
@@ -55,6 +56,9 @@ this is the long one. The current state of the work is in `docs/status.md`.
 - Commit in small, logical steps.
 - Every PR that changes the state of the work also updates `docs/status.md`,
   so any session can stop at any time without a wrap-up message.
+- Every PR that changes a step drawn in `docs/flows.md` redraws it. A new
+  flow the owner and the assistant talk through gets drawn there too (owner,
+  2026-10-28: "our drawing board").
 - At a milestone (something the owner could tell someone else: a new ability,
   or the app running somewhere new), update the dated **Stage** line and
   **Next** in `README.md`.
