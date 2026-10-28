@@ -77,6 +77,38 @@ def test_letters_find_a_truncated_name_that_whole_words_miss():
     assert similarity("JT Magerquark", "Jeden Tag Magerquark") > 0.8, "JT is expanded"
 
 
+def write_crawl(path, names):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({f"40000000001{i:02d}": {
+        "article_number": f"40000000001{i:02d}", "name": name, "brand": brand,
+        "price": 1.0 + i} for i, (brand, name) in enumerate(names)}), encoding="utf-8")
+
+
+def test_globus_candidates_come_from_our_copy_of_its_range(tmp_path):
+    """GLOBUS's website search is not asked (the owner, 2026-10-28: it is
+    bad); its range is our crawl, the same as ALDI SÜD's."""
+    write_crawl(tmp_path / "globus" / "crawl.json",
+                [("Golden Crown", "Mango, tiefgekühlt"), ("Golden Crown", "Heidelbeeren")])
+    shops = matcher.default_shops(tmp_path)
+    found = shops["globus"]("Gld Crown Mango 750g")
+    assert found[0]["name"] == "Mango, tiefgekühlt"
+    assert matcher.default_shops(tmp_path / "nothing")["globus"]("Mango") == [], \
+        "no crawl on disk is no listings, not a search over the network"
+
+
+def test_the_crawl_ranks_by_the_same_letter_similarity(tmp_path):
+    """Scored by substring per letter triple, for speed over 65,000 rows: the
+    order must be the one `similarity` gives, ties kept in the crawl's order."""
+    names = [("Reinex", "Kühlschrank Reiniger"), ("Reinex", "Kühlschrank Deo"),
+             ("Jeden Tag", "Magerquark"), ("Muster", "Kühlregal"), ("Reinex", "Kühlschrank Deo")]
+    write_crawl(tmp_path / "crawl.json", names)
+    for raw in ["Reinex Kühlschr. Deo", "JT Magerquark", "Kühl"]:
+        expected = sorted(range(len(names)), key=lambda i: -similarity(
+            raw, f"{names[i][0]} {names[i][1]}"))
+        got = matcher.crawl_source(tmp_path / "crawl.json")(raw)
+        assert [p["price"] - 1.0 for p in got] == expected[:matcher.TOP_SHOP]
+
+
 def test_a_shop_listing_we_already_hold_is_shown_once_as_our_product():
     """Search our own catalog first: a known product is never proposed twice."""
     found = candidates()

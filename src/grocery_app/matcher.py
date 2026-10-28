@@ -5,8 +5,8 @@ produce vocabulary knows a printed name, this runs a fixed sequence, the same
 every time:
 
 1. **Gather candidates**, real products only: our own catalog first, so a
-   known product is never proposed twice, then the shop's range (GLOBUS's own
-   site search, the ALDI SÜD crawl on disk).
+   known product is never proposed twice, then the shop's range (our copy of
+   GLOBUS's and ALDI SÜD's, crawled to disk).
 2. **The model picks one of them, or none**, and says how sure it is and why.
    It cannot invent a product, because a number outside the list is read as
    none. It is shown names, brands and sizes, and never a price: see 3.
@@ -33,6 +33,7 @@ than quietly spending money.
 from __future__ import annotations
 
 import hashlib
+import heapq
 import json
 import subprocess
 import tempfile
@@ -188,42 +189,44 @@ def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]]
     return found
 
 
-def globus_source(raw_name: str) -> list[dict[str, Any]]:
-    """GLOBUS's own search at the shopper's store, cached on disk and polite.
-
-    A listing the search page shows without a price gets it from its product
-    page, because the price is the second source a pick is accepted on.
-    """
-    from grocery_app.resolver import MARKET, MARKET_CACHE, search_candidates, shelf_price
-
-    listings = [c["product"] for c in search_candidates(raw_name, None, MARKET_CACHE,
-                                                        TOP_SHOP, market=MARKET)]
-    for listing in listings:
-        if listing.get("price") is None and listing.get("url"):
-            listing["price"] = shelf_price(listing["url"], MARKET_CACHE)
-    return listings
+def _padded(text: str) -> str:
+    """The text `_grams` takes its triples from: a triple is in it exactly when
+    it is a substring of this, so a long list is scored without a set per row."""
+    return " " + " ".join(fold(text).replace(".", " ").split()) + " "
 
 
 def crawl_source(crawl_path: str | Path) -> ShopSource:
-    """A shop with no search of its own: letter similarity over its crawl."""
-    listings: list[dict[str, Any]] | None = None
+    """A shop's range from our own copy of it: letter similarity over its crawl.
+
+    GLOBUS too, since 2026-10-28: its website search found the product for
+    fewer lines than its full range held (the owner: "globus's own search is
+    bad"). The crawl is read once; a row's text is folded once, so scoring
+    65,000 products is a substring test per letter triple, not a set each.
+    """
+    rows: list[tuple[str, dict[str, Any]]] | None = None
 
     def source(raw_name: str) -> list[dict[str, Any]]:
-        nonlocal listings
-        if listings is None:
+        nonlocal rows
+        if rows is None:
             path = Path(crawl_path)
-            listings = (list(json.loads(path.read_text(encoding="utf-8")).values())
+            listings = (json.loads(path.read_text(encoding="utf-8")).values()
                         if path.exists() else [])
-        scored = sorted(listings, key=lambda p: -similarity(
-            raw_name, f"{p.get('brand') or ''} {p.get('name') or ''}"))
-        return scored[:TOP_SHOP]
+            rows = [(_padded(f"{p.get('brand') or ''} {p.get('name') or ''}"), p)
+                    for p in listings]
+        wanted = _grams(expand_abbreviations(raw_name))
+        if not wanted:
+            return [p for _, p in rows[:TOP_SHOP]]
+        best = heapq.nlargest(TOP_SHOP, rows,
+                              key=lambda row: sum(g in row[0] for g in wanted))
+        return [p for _, p in best]
 
     return source
 
 
 def default_shops(products_dir: str | Path = "data/products") -> dict[str, ShopSource]:
     aldi = crawl_source(Path(products_dir) / "aldi-sued" / "crawl.json")
-    return {"globus": globus_source, "aldi süd": aldi, "aldi sued": aldi}
+    globus = crawl_source(Path(products_dir) / "globus" / "crawl.json")
+    return {"globus": globus, "aldi süd": aldi, "aldi sued": aldi}
 
 
 # --- 2. the model's pick --------------------------------------------------------
