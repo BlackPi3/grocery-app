@@ -9,7 +9,55 @@ session (laptop or cloud) can pick up from here. How we work is in
 ## Now
 
 - **NEXT: the section-3 experiment** (owner, 2026-10-28: "a very important
-  experiment"; agreed, not started). The steps are those of
+  experiment"; **run 28 Oct, laptop; result waits for the owner's decision on 3c**).
+  - **Done 28 Oct (owner: "upload globus to the server ... globus's own
+    search is bad"):** 3a takes GLOBUS's candidates from our copy of its
+    full range (`crawl_source`, as for ALDI SÜD), no longer from its website
+    search. The list (65,461 products, 28 Oct) is in the live bucket at
+    `products/globus/crawl.json`; about 0.1 s a line, ~200 MB. Its prices
+    are a 28 Oct snapshot, which matters while 3c checks prices. ALDI SÜD's
+    28 Oct list is not uploaded yet (overwriting the live one was blocked by
+    a permission check; the bucket keeps the 18 Sep list).
+  - **Result, the owner's receipts only** (second run, 28 Oct evening): 215
+    lines the live server sent to section 4 (a `v9` identify call; GLOBUS
+    207, ALDI SÜD 8). Section 3 had the exact product among the candidates
+    in 96 (3b picked it), the family in 33 (the line names no variant; 19
+    flavour/scent, 4 fat/sugar, 4 size, 4 no brand printed), the product
+    but 3b refused it in 8 (our catalog's coarse products labelled with
+    another printing, e.g. "Trauben" printed `Trauben Mix 500g`; or 3b
+    assumed a store brand: Lorenz Hot Paprika 0,99 € refused for `Chips Hot
+    Pap.150g`), a near sibling only in 8, nothing in 66, café 4.
+    3c: of 80 `high` picks none wrong; refused on price 49 (offers, prices
+    moved between purchase day and matching day, 1-cent gaps), no price to
+    compare 28 (catalog products without a shop price). Of 16 `medium`
+    picks about 4 wrong, all with big price gaps; the 4 whose price agreed
+    were right. So the price check only turned away right sure picks.
+    Not among the candidates (74 incl. siblings): in GLOBUS's full list
+    exactly 28 (e.g. Golden Crown Mango, Karlsberg Fresh 0,5 l), family
+    only 14, not listed 31 (flowers, party goods, gone), ALDI 2 (ALDI's
+    online list holds no fresh produce at all). GLOBUS's full range
+    downloaded 28 Oct (65,461 products, 147 shelves, laptop only; the 8 Sep
+    three-department list kept in `history/2026-09-08/`). Scripts and
+    tables in that session's scratchpad (`s3own.py`, `prices.py`,
+    `lookup.py`). The first run below counted all users and offline eval
+    lines, so its numbers are superseded.
+  - **First run** (217 lines section 4 placed: GLOBUS 201, ALDI SÜD 16; live
+    bucket, free; script and table in the session scratchpad, `s3.py`):
+    **A** 82 (38%): 3b picked with `high`, 3c refused on price; section 4
+    landed on the same product in nearly all (often with less detail), 3b
+    wrong in about 2 (`Naturjoghurt 600g` → MILSANI 4×150 g). Paid prices
+    are often offers (`London Bitter Lemon` paid 0,69, listed 0,89).
+    **B** 66 (30%): a product of the same family among the candidates, 3b
+    not sure; 23 of them the line does not say the variant (section 4 also
+    gives only the family), others had only a sibling (`GLOBUS Mozzarella`
+    → only Mango-Chili). **C** 69 (32%): nothing fitting among the
+    candidates; only ~5 checkable in our list (`Antje Butter`, `Zuckermais`,
+    `Zwetschgen`), because our GLOBUS download holds 3 departments only
+    (bread/breakfast, dairy, fruit-veg); many others GLOBUS surely sells
+    (Coca-Cola, KitKat, Thomy oil). So 3c's price check, not 3a, sends the
+    most lines to section 4. Limits: word matching, section 4's answer is
+    often a family name, first 3b call per line taken, no database.
+  - (Plan as agreed, kept:) The steps are those of
   `docs/flows.md`, section 1.
   - **Problem.** A line the memory does not know should be placed in
     section 3 (our own data, free) and rarely reach section 4 (the paid
