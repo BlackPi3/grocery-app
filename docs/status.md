@@ -4,12 +4,21 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-28, laptop: the line search taken apart on the drawing board (`docs/flows.md`, #229); next is the **section-3 experiment** below (agreed, not started). ALDI SÜD's list downloaded again (3,451 products, laptop only). Before that, 2026-10-27, laptop: the server's rereading of waiting lines switched off (#226; it worked, but its line searches cost too much); the line search investigated: about 10 Google searches a line where 1-2 found it, no location set, and Gemini's search sees less than a person's Google; Vertex 429s gone. Before that, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
+**Last updated:** 2026-10-30, laptop: 3c no longer refuses sure picks on price (offers). Before that, 2026-10-28: the line search taken apart on the drawing board (`docs/flows.md`, #229); next is the **section-3 experiment** below (agreed, not started). ALDI SÜD's list downloaded again (3,451 products, laptop only). Before that, 2026-10-27, laptop: the server's rereading of waiting lines switched off (#226; it worked, but its line searches cost too much); the line search investigated: about 10 Google searches a line where 1-2 found it, no location set, and Gemini's search sees less than a person's Google; Vertex 429s gone. Before that, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
 
 ## Now
 
 - **NEXT: the section-3 experiment** (owner, 2026-10-28: "a very important
-  experiment"; **run 28 Oct, laptop; result waits for the owner's decision on 3c**).
+  experiment"; **run 28 Oct, laptop; 3c fixed 30 Oct; 3a's fixes next**).
+  - **Done 30 Oct (owner: "fix 3c's leak now ... we need to stop money
+    loss"):** 3c accepts a pick 3b calls `high` unless the price paid is
+    a near variant's (plain picked, Bio costs the price paid). An offer
+    price, a moved price or no price no longer sends the line to section 4.
+    `medium` picks are still asked, as before. The 25 Sep set's wrong
+    medium pick (loose potatoes, price agreeing) is why. Families
+    (`family`) still need the price to be one of theirs. Watch: the
+    accepted picks whose price did not agree (`price_agrees` false) on
+    new receipts.
   - **Done 28 Oct (owner: "upload globus to the server ... globus's own
     search is bad"):** 3a takes GLOBUS's candidates from our copy of its
     full range (`crawl_source`, as for ALDI SÜD), no longer from its website
@@ -1244,6 +1253,9 @@ items are removed (see Now and git history).
 
 ### Reading and matching receipts
 
+- (2026-10-28, owner) **Letters a photo can misread.** `CHO` printed for
+  OHO, `?` for ü: section 3's search should allow letters that are easily
+  read as one another. Photos only; a digital receipt never has it.
 - (2026-10-28, owner, important) **Is the memory (step 2) doing most of
   the work?** People's shopping changes slowly, so as users keep uploading,
   more and more lines should be known from the memory, with no model call.

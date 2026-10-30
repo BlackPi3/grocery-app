@@ -47,7 +47,8 @@ shop sells five flavours of one pudding at the same price.
               │ 3b PICK ONE                  GEMINI │  numbered list: it can't invent;
               │                                     │  never sees prices
               ├─────────────────────────────────────┤
-              │ 3c ACCEPT?                     CODE │  price singles it out + "sure"
+              │ 3c ACCEPT?                     CODE │  "sure", unless the price paid is a
+              │                                     │  near variant's (offers don't block)
               └───────┬─────────────────────┬───────┘
                    yes│                   no│  (all 5 cost the same)
                       ▼                     ▼

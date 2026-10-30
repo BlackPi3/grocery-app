@@ -10,12 +10,15 @@ every time:
 2. **The model picks one of them, or none**, and says how sure it is and why.
    It cannot invent a product, because a number outside the list is read as
    none. It is shown names, brands and sizes, and never a price: see 3.
-3. **Accept or ask.** A pick is accepted only when a second, independent
-   source agrees with it: the price paid equals a price the product is listed
-   or was seen at, at the shopper's own store, and no variant of it costs the
-   same. The model must also call itself sure; on its own word alone nothing
-   is accepted. The model never saw prices, so the two cannot be one source counted
-   twice. Anything else is a question for the shopper.
+3. **Accept or ask.** A pick the model calls sure is accepted unless the
+   price paid points to a near variant of it instead (the Bio version is
+   listed at the price paid, the plain one picked). The price no longer has
+   to agree: paid prices are often offers, and listed prices move between
+   the purchase and the matching. On the owner's receipts (28 Oct) the price
+   check refused 49 sure picks and 28 more had no price to compare, all of
+   them right, and each refusal cost a paid web search. The model never saw
+   prices, so the two cannot be one source counted twice. Anything else is a
+   question for the shopper.
 
 4. **Create when the pick is new.** A shop listing the catalog does not hold
    becomes a product copied from the listing (`new_product`, step 4c).
@@ -332,22 +335,27 @@ ACCEPTED_CONFIDENCE = ("high",)
 SIBLING = 0.7
 
 
-def price_singles_out(line: dict[str, Any], pick: Candidate,
-                      candidates: list[Candidate]) -> bool:
-    """The price paid agrees with the pick, and with no variant of it.
+def price_names_a_variant(line: dict[str, Any], pick: Candidate,
+                          candidates: list[Candidate]) -> bool:
+    """A near variant of the pick is listed at the price paid.
 
     At the shopper's GLOBUS the plain and the Bio Mangostreifen both cost
-    3.29, so paying 3.29 says nothing about which it was, and the model had
-    picked the wrong one. A price is a second source only when it tells the
-    pick apart from its siblings, the same rule `normalizer.priced_like` uses
-    to narrow a family.
+    3.29, and the model had picked the wrong one. A price that fits a
+    sibling is the one thing that speaks against a sure pick.
     """
-    if not price_agrees(line, pick):
-        return False
-    return not any(other is not pick and price_agrees(line, other)
-                   and max(similarity(pick.name, other.name),
-                           similarity(other.name, pick.name)) >= SIBLING
-                   for other in candidates)
+    return any(other is not pick and price_agrees(line, other)
+               and max(similarity(pick.name, other.name),
+                       similarity(other.name, pick.name)) >= SIBLING
+               for other in candidates)
+
+
+def price_singles_out(line: dict[str, Any], pick: Candidate,
+                      candidates: list[Candidate]) -> bool:
+    """The price paid agrees with the pick, and with no variant of it: the
+    same rule `normalizer.priced_like` uses to narrow a family. Recorded on
+    every proposal, so an accepted pick the price did not confirm can be
+    looked at later."""
+    return price_agrees(line, pick) and not price_names_a_variant(line, pick, candidates)
 
 
 def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[str, Any]],
@@ -358,8 +366,10 @@ def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[st
 
     `verdict` is one of:
 
-    - `accept`: the model picked a product, is sure of it
-      (`ACCEPTED_CONFIDENCE`), and the price paid singles it out;
+    - `accept`: the model picked a product and is sure of it
+      (`ACCEPTED_CONFIDENCE`), and the price paid fits no near variant of it
+      better (`price_names_a_variant`). The price need not agree: offers and
+      moved prices made it refuse right picks (decided 2026-10-30);
     - `family`: the model is sure the line is one of several versions of a
       product it cannot tell apart (`JT Tortilla Wraps`: Classic or
       Mehrkorn), and the price paid is one of theirs. Recorded as the
@@ -373,7 +383,9 @@ def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[st
     agrees = decision.pick is not None and price_singles_out(line, decision.pick, candidates)
     sure = decision.confidence in ACCEPTED_CONFIDENCE
     family = sure and any(price_agrees(line, v) for v in decision.versions)
-    verdict = "accept" if agrees and sure else "family" if family else "ask"
+    accepted = (sure and decision.pick is not None
+                and not price_names_a_variant(line, decision.pick, candidates))
+    verdict = "accept" if accepted else "family" if family else "ask"
     chosen = ([decision.pick] if verdict == "accept" else
               decision.versions if verdict == "family" else [])
     return {
