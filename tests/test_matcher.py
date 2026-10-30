@@ -161,12 +161,31 @@ def test_a_pick_is_accepted_when_the_price_paid_agrees():
     assert proposal["pick"]["article"] == "4000000000011"
 
 
-def test_a_sure_model_is_still_asked_about_when_the_price_disagrees():
-    """The model's confidence is its own word for it, not a second source."""
-    proposal = propose(line("Reinex Kühlschr. Deo", 1.65), "Musterladen", PRODUCTS,
+@pytest.mark.parametrize("paid, why", [
+    (1.65, "an offer: the price paid is not the listed one"),
+    (None, "no price to compare"),
+])
+def test_a_sure_pick_is_accepted_when_the_price_does_not_agree(paid, why):
+    """Offers and moved prices refused right sure picks, and each refusal
+    cost a paid web search; the price no longer has to agree."""
+    proposal = propose(line("Reinex Kühlschr. Deo", paid), "Musterladen", PRODUCTS,
                        RESOLUTION, SHELF, INDEX, SHOPS, answering(1, "high"))
-    assert proposal["verdict"] == "ask" and proposal["price_agrees"] is False
-    assert proposal["pick"]["name"] == "Kühlschrank Deo", "the pick is kept, to ask about"
+    assert proposal["verdict"] == "accept", why
+    assert proposal["price_agrees"] is False, "kept, so it can be looked at later"
+
+
+def test_a_sure_pick_is_asked_about_when_the_price_paid_is_a_variants():
+    """The plain one picked, but the Bio one is what costs the price paid."""
+    shop = {"musterladen": lambda raw_name: [
+        {"article_number": "1", "name": "Mangostreifen", "brand": "Muster",
+         "pack_size": "0,1 kg", "price": 3.29},
+        {"article_number": "2", "name": "Bio Mangostreifen", "brand": "Muster",
+         "pack_size": "0,1 kg", "price": 3.59},
+    ]}
+    proposal = propose(line("MU Mangostreifen 100", 3.59), "Musterladen", PRODUCTS,
+                       RESOLUTION, SHELF, INDEX, shop, answering(1))
+    assert proposal["verdict"] == "ask"
+    assert proposal["pick"]["name"] == "Mangostreifen", "the pick is kept, to ask about"
 
 
 def test_a_pick_the_model_is_not_sure_of_is_asked_even_when_the_price_agrees():
@@ -326,8 +345,8 @@ def test_accepting_a_new_listing_creates_a_product_and_a_known_one_does_not():
     known = propose(line("Kleenex Ultra Soft W", 2.49), "Musterladen", PRODUCTS,
                     RESOLUTION, SHELF, INDEX, SHOPS, answering(3))
     assert known["verdict"] == "accept" and known["creates"] == [], "already ours"
-    asked = propose(line("Reinex Kühlschr. Deo", 1.65), "Musterladen", PRODUCTS,
-                    RESOLUTION, SHELF, INDEX, SHOPS, answering(1))
+    asked = propose(line("Reinex Kühlschr. Deo", 1.95), "Musterladen", PRODUCTS,
+                    RESOLUTION, SHELF, INDEX, SHOPS, answering(1, "medium"))
     assert asked["creates"] == [], "a question creates nothing until it is answered"
 
 
