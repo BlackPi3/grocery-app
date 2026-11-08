@@ -228,6 +228,45 @@ class StoreListing(Base):
                                                          server_default="[]")
 
 
+class ChainProduct(Base):
+    """What one chain sells, from its downloads (`grocery_app.chain_products`).
+
+    Never deleted: a product no longer listed has `gone_since`. Fields the
+    chains do not share stay in `extra`.
+    """
+
+    __tablename__ = "chain_products"
+    __table_args__ = (UniqueConstraint("chain", "article_number"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chain: Mapped[str] = mapped_column(String)  # `store_key` of the chain's name
+    article_number: Mapped[str] = mapped_column(String)
+    ean: Mapped[str | None] = mapped_column(String)
+    name: Mapped[str] = mapped_column(String)
+    brand: Mapped[str | None] = mapped_column(String)
+    pack_size: Mapped[str | None] = mapped_column(String)
+    category: Mapped[str | None] = mapped_column(String)
+    url: Mapped[str | None] = mapped_column(String)
+    extra: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
+    first_seen: Mapped[date] = mapped_column(Date)
+    last_seen: Mapped[date] = mapped_column(Date)
+    gone_since: Mapped[date | None] = mapped_column(Date)
+
+
+class ChainPrice(Base):
+    """A chain product's listed price from the day it was first seen at it:
+    an entry per change, never overwritten by a later download."""
+
+    __tablename__ = "chain_prices"
+    __table_args__ = (UniqueConstraint("chain_product_id", "seen_on"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chain_product_id: Mapped[int] = mapped_column(
+        ForeignKey("chain_products.id", ondelete="CASCADE"))
+    seen_on: Mapped[date] = mapped_column(Date)
+    price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+
+
 class LineResolution(Base):
     """The shopper's own answer for one line the receipt could not pin down."""
 

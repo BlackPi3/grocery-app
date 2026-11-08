@@ -73,8 +73,18 @@ They are JSON files today. Searching one means the server holds all of it in
 memory (about 200 MB for one chain); a database reads only what a search needs.
 High priority, right after section 3 is fixed.
 
-Proposed, not yet agreed: one table, extending `store_listings`, with fields
-the chains do not share kept as extra data.
+Built 2026-11-08 (the owner asleep, "continue with the next priority"; his to
+overrule): two new tables, `chain_products` and `chain_prices`, with fields the
+chains do not share kept as extra data, and `grocery-app db load-chain`, which
+writes only what changed. New tables rather than wider `store_listings`, as
+that was only proposed, its rows are all read in several places, and it needs a
+product of ours. Section 3 still searches the JSON files.
+
+Measured on the laptop, not the live database, GLOBUS's list, 60 real lines:
+a database search scored by the same letter groups gave top 8s with the same
+scores as the file search on all 60 (ties may fall in another order), in about
+the same time: 128 ms a search with one worker, 124 ms from the file. The live
+database is smaller and slower, so measure there before moving section 3.
 
 ## What must keep working
 
@@ -98,8 +108,9 @@ the chains do not share kept as extra data.
   date it was last seen. A product is marked gone only when the download was
   complete, so a failed page does not make a shelf look discontinued.
 
-Proposed, not yet agreed: a chain product row holds chain, branch if known, link to our product (empty until
-someone buys it), price history, last seen, source (download or receipt).
+A chain product row holds chain, article number, name, brand, pack size,
+category, url, first and last seen, gone since; prices are dated rows of their
+own. Not built, proposed only: branch, link to our product, source.
 
 ## Where things can be wrong
 
