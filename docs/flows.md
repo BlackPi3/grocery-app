@@ -43,11 +43,11 @@ shop sells five flavours of one pudding at the same price.
         ▼                     ▼
       done    ┌─────────────────────────────────────┐
               │ GUESS                        GEMINI │  1 call per receipt, all unknown lines:
-              │    the full name of each line       │  only searched with, never saved
+              │    1-3 full names for each line     │  only searched with, never saved
               ├─────────────────────────────────────┤
               │ 3a GATHER CANDIDATES           CODE │  shop's product list + our catalog,
               │    → the 5 flavours                 │  letter by letter, by the printed
-              │                                     │  text and again by the guess
+              │                                     │  text and again by each guess
               ├─────────────────────────────────────┤
               │ 3b PICK ONE                  GEMINI │  numbered list: it can't invent;
               │                                     │  never sees prices

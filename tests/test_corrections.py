@@ -529,7 +529,7 @@ def machine_held(session, source):
 
 def test_correcting_a_pick_only_the_guess_found_fires_the_trap(corrections, caplog):
     client, session, receipt_id = corrections
-    machine_held(session, "matcher v2 g1 guess")
+    machine_held(session, "matcher v2 g1 guess1")
     client.put(f"/v1/receipts/{receipt_id}/lines/0/resolution", json={"product_id": "p-0002"})
     assert f"GROCERY_TRAP guess-pick-corrected receipt={receipt_id} position=0" in caplog.text
 

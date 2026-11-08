@@ -90,9 +90,10 @@ def line_matcher(decider: matching.Decider, shops: dict[str, matching.ShopSource
 def matcher_source(proposal: dict[str, Any]) -> str:
     """How a line the matcher settled was found, kept on its resolution."""
     source = f"matcher {matching.PROMPT_VERSION}"
-    if not proposal.get("guess"):
+    if not proposal.get("guesses"):
         return source
-    found = "guess" if proposal.get("only_by_guess") else "printed"
+    needed = proposal.get("needed_guess")
+    found = f"guess{needed}" if needed else "printed"
     return f"{source} {matching.GUESS_VERSION} {found}"
 
 
@@ -424,7 +425,7 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
                     product_id=product_id, product_ids=[],
                     confirmed_by="identify", confirmed_at=date.today(),
                     source=(f"identify {identifying.PROMPT_VERSION}"
-                            + (f" {matching.GUESS_VERSION}" if proposal.get("guess") else ""))))
+                            + (f" {matching.GUESS_VERSION}" if proposal.get("guesses") else ""))))
                 inputs["resolution"][(shop, line["raw_name"])] = [product_id]
                 placed.setdefault(shop, set()).add(product_id)
                 if identity.brand:

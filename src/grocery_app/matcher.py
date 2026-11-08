@@ -39,6 +39,7 @@ import hashlib
 import heapq
 import json
 import logging
+import re
 import subprocess
 import tempfile
 import time
@@ -54,6 +55,7 @@ log = logging.getLogger(__name__)
 
 PROMPT_VERSION = "v2"
 GUESS_VERSION = "g1"
+MAX_GUESSES = 3
 TOP_SHOP = 8
 TOP_CATALOG = 5
 
@@ -82,7 +84,7 @@ class Candidate:
     shelf: str | None = None
     prices: list[float] = field(default_factory=list)
     printed_as: list[str] = field(default_factory=list)
-    # Which searches found it: "printed", "guess" or both. Never shown to the
+    # Which searches found it: "printed", "guess1", "guess2", ... Never shown to the
     # model; it is what says whether the guess found something the printed
     # text alone would have missed.
     found_by: list[str] = field(default_factory=list)
@@ -160,15 +162,15 @@ def catalog_candidate(product_id: str, products: dict[str, dict[str, Any]],
 def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]],
            resolution: dict[tuple[str, str], list[str]],
            shelf_prices: dict[str, set[float]], index: dict[str, str],
-           shops: dict[str, ShopSource], guess: str | None = None) -> list[Candidate]:
+           shops: dict[str, ShopSource], guesses: list[str] | None = None) -> list[Candidate]:
     """Every candidate for a line: the shop's listings, then our closest products.
 
     A shop listing that is already one of our products (its article number is
     banked, or is a product's barcode) is shown once, as that product, with
     the shop's price added to the prices it has been seen at.
 
-    With a `guess` at the line's full name (`guess_names`) both are searched
-    again by the guess, and what it adds comes after everything the printed
+    With `guesses` at the line's full name (`guess_names`) both are searched
+    again by each guess, and what they add comes after everything the printed
     text found, so nothing the printed text finds can drop off the list.
     """
     printed = printed_names(resolution)
@@ -214,11 +216,12 @@ def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]]
             mark(ours(product_id))
 
     search(raw_name, "printed")
-    if guess and guess.strip():
-        try:
-            search(guess, "guess")
-        except Exception:  # noqa: BLE001 - what the printed text found still stands
-            log.exception("searching by the guess failed")
+    for number, guess in enumerate(guesses or [], 1):
+        if guess.strip():
+            try:
+                search(guess, f"guess{number}")
+            except Exception:  # noqa: BLE001 - what the printed text found still stands
+                log.exception("searching by the guess failed")
     return found
 
 
@@ -265,17 +268,31 @@ def default_shops(products_dir: str | Path = "data/products") -> dict[str, ShopS
 # --- 1b. the model's guess at the full name -----------------------------------------
 
 GUESS_PROMPT = """\
-You are given lines printed on one German supermarket receipt. Tills cut and
-shorten names. For each numbered line, write the product's full name as the
-shop's website would most likely list it: the brand if the line shows one,
-the product, and its variant.
+You are given lines printed on one German supermarket receipt. A till prints
+a product's name in a short form. For each numbered line, give up to 3 guesses
+at the whole product name, best first, as the shop's website would most likely
+list it: the brand if the line shows one, the product, and its variant. Use
+the other lines of the receipt as context.
 
-- Write out what is cut or shortened: `Erdb.Frucht.Joghurt` is Erdbeer
-  Fruchtjoghurt. Use the other lines of the receipt as context.
-- Leave out sizes, weights, counts and till words such as `lose`, `Stk`, `kg`.
-- Give your best reading even when you are unsure. It is used only to search a
-  product list and is never saved as the answer.
-- When a line gives you nothing to go on, answer with an empty name."""
+How a till shortens a name:
+- It cuts the end off: `Haselnussschnitte Zar` is Haselnussschnitte Zartbitter.
+- It shortens each word: `Erdb.Frucht.Joghurt` is Erdbeer Fruchtjoghurt.
+- It glues words together: `BioApfelmusFein` is Bio Apfelmus Fein.
+- It loses letters: `?` stands for a letter it cannot print, often ä, ö, ü or
+  ß (`K?rbiskerne` is Kürbiskerne), and `ue` can be ü (`KUEMMEL` is Kümmel).
+- It uses a brand's initials. Write them out only if you know the brand. If you
+  do not, keep the initials as printed. Never invent a brand.
+- It adds sizes, weights, counts and till words such as `lose`, `Stk`, `Bund`,
+  `kg`, `3+1`. Leave all of these out.
+
+Your guesses:
+- Each guess is the whole line, never one word of it.
+- Give a second or third guess only when it is really different: another
+  product the line could be, or another word for the same thing (Karotten,
+  Möhren). Not the same words in another order. One guess is often enough.
+- Give your best reading even when you are unsure. The guesses are used only to
+  search a product list and are never saved as the answer.
+- When a line gives you nothing to go on, answer with no guesses."""
 
 GUESS_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -285,8 +302,8 @@ GUESS_SCHEMA: dict[str, Any] = {
             "items": {
                 "type": "object",
                 "properties": {"line": {"type": "integer", "minimum": 1},
-                               "name": {"type": "string"}},
-                "required": ["line", "name"],
+                               "names": {"type": "array", "items": {"type": "string"}}},
+                "required": ["line", "names"],
                 "additionalProperties": False,
             },
         },
@@ -298,15 +315,16 @@ GUESS_SCHEMA: dict[str, Any] = {
 
 def found_only_by_guess(source: str | None) -> bool:
     """A memory entry's `source` says the printed text alone would have missed it."""
-    return (source or "").startswith("matcher ") and (source or "").endswith(" guess")
+    return re.fullmatch(r"matcher .* guess\d*", source or "") is not None
 
 
 def guess_names(raw_names: list[str], store: str | None, others: list[str],
-                decider: Decider) -> dict[str, str]:
-    """The model's reading of each printed name in one call: name -> full name.
+                decider: Decider) -> dict[str, list[str]]:
+    """The model's readings of each printed name in one call: name -> up to
+    `MAX_GUESSES` whole names, best first.
 
     A guess only widens the search (`gather`): the list still holds real
-    products and 3b still picks. A number off the list or an empty name gives
+    products and 3b still picks. A number off the list or nothing usable gives
     no guess for that line, which is then searched by its printed text alone.
     """
     names = list(dict.fromkeys(raw_names))
@@ -318,14 +336,18 @@ def guess_names(raw_names: list[str], store: str | None, others: list[str],
                      f"Shop: {store or 'unknown'}\n\nThe whole receipt:\n{context}\n\n"
                      f"Lines to write out:\n{numbered}", GUESS_SCHEMA)
     rows = answer.get("guesses") if isinstance(answer, dict) else None
-    guesses: dict[str, str] = {}
+    guesses: dict[str, list[str]] = {}
     for row in rows if isinstance(rows, list) else []:
         if not isinstance(row, dict):
             continue
-        number, name = row.get("line"), row.get("name")
-        if isinstance(number, int) and 1 <= number <= len(names) \
-                and isinstance(name, str) and name.strip():
-            guesses[names[number - 1]] = name.strip()
+        number, written = row.get("line"), row.get("names")
+        if not (isinstance(number, int) and 1 <= number <= len(names)
+                and isinstance(written, list)):
+            continue
+        kept = list({fold(name): name.strip() for name in reversed(written)
+                     if isinstance(name, str) and name.strip()}.values())[::-1]
+        if kept:
+            guesses[names[number - 1]] = kept[:MAX_GUESSES]
     return guesses
 
 
@@ -455,11 +477,21 @@ def price_singles_out(line: dict[str, Any], pick: Candidate,
     return price_agrees(line, pick) and not price_names_a_variant(line, pick, candidates)
 
 
+def needed_guess(chosen: list[Candidate]) -> int | None:
+    """Which guess the answer needed, or None when the printed text found it.
+
+    For a family, the highest guess any version needed: without it the list
+    would not have held the whole family.
+    """
+    return max((min(int(how.removeprefix("guess")) for how in c.found_by)
+                for c in chosen if c.found_by and "printed" not in c.found_by), default=None)
+
+
 def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[str, Any]],
             resolution: dict[tuple[str, str], list[str]],
             shelf_prices: dict[str, set[float]], index: dict[str, str],
             shops: dict[str, ShopSource], decider: Decider,
-            guess: str | None = None) -> dict[str, Any]:
+            guesses: list[str] | None = None) -> dict[str, Any]:
     """What the matcher would do with one line. Writes nothing.
 
     `verdict` is one of:
@@ -477,7 +509,7 @@ def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[st
     """
     raw_name = line["raw_name"]
     candidates = gather(raw_name, store, products, resolution, shelf_prices, index, shops,
-                        guess)
+                        guesses)
     decision = decide(raw_name, store, candidates, decider)
     agrees = decision.pick is not None and price_singles_out(line, decision.pick, candidates)
     sure = decision.confidence in ACCEPTED_CONFIDENCE
@@ -498,9 +530,8 @@ def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[st
         "versions": [asdict(c) for c in decision.versions],
         "price_agrees": agrees,
         "verdict": verdict,
-        "guess": guess,
-        # The printed text alone would not have put this answer on the list.
-        "only_by_guess": any("printed" not in c.found_by for c in chosen),
+        "guesses": guesses or [],
+        "needed_guess": needed_guess(chosen),
         # What accepting would add to the catalog: a product copied from the
         # shop's listing for each chosen candidate that is not ours already.
         "creates": [new_product(asdict(c), "matcher") for c in chosen if not c.product_id],

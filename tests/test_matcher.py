@@ -404,13 +404,14 @@ BY_TEXT = {"Pud. V.": [DEO, REINIGER], "Vanille Pudding": [REINIGER, PUDDING]}
 SEARCHED = {"musterladen": lambda text: BY_TEXT.get(text, [])}
 
 
-def searched(guess=None):
-    return gather("Pud. V.", "Musterladen", PRODUCTS, RESOLUTION, SHELF, INDEX, SEARCHED, guess)
+def searched(*guesses):
+    return gather("Pud. V.", "Musterladen", PRODUCTS, RESOLUTION, SHELF, INDEX, SEARCHED,
+                  list(guesses))
 
 
 def test_the_guess_finds_what_the_printed_text_misses():
     found = {c.name: c.found_by for c in searched("Vanille Pudding")}
-    assert found["Vanille Pudding"] == ["guess"]
+    assert found["Vanille Pudding"] == ["guess1"]
 
 
 def test_nothing_the_printed_text_finds_drops_off_the_list():
@@ -420,16 +421,21 @@ def test_nothing_the_printed_text_finds_drops_off_the_list():
 
 def test_a_product_both_searches_find_is_listed_once_with_both_marks():
     found = [c for c in searched("Vanille Pudding") if c.name == "Kühlschrank Reiniger"]
-    assert [c.found_by for c in found] == [["printed", "guess"]]
+    assert [c.found_by for c in found] == [["printed", "guess1"]]
 
 
 def test_without_a_guess_everything_is_found_by_the_printed_text():
     assert all(c.found_by == ["printed"] for c in searched())
 
 
-@pytest.mark.parametrize("empty", [None, "", "   "])
+@pytest.mark.parametrize("empty", ["", "   "])
 def test_an_empty_guess_searches_nothing_more(empty):
     assert [c.name for c in searched(empty)] == [c.name for c in searched()]
+
+
+def test_a_second_guess_finds_what_the_first_missed():
+    found = {c.name: c.found_by for c in searched("Nichts davon", "Vanille Pudding")}
+    assert found["Vanille Pudding"] == ["guess2"]
 
 
 def test_the_model_is_not_told_which_search_found_a_product():
@@ -444,23 +450,27 @@ def test_the_guess_is_matched_loosely_not_word_for_word(tmp_path):
     assert matcher.crawl_source(path)("Pfefer schwarz")[0]["name"] == "Schwarzer Pfeffer gemahlen"
 
 
-def proposed(guess, listing_name):
+def proposed(guesses, listing_name):
     def decider(system, prompt, schema):
         number = next(i for i, row in enumerate(prompt.split("Products:\n")[1].splitlines(), 1)
                       if listing_name in row)
         return {"choice": number, "versions": [], "confidence": "high", "reason": "test"}
 
     return propose(line("Pud. V.", 1.49), "Musterladen", PRODUCTS, RESOLUTION, SHELF, INDEX,
-                   SEARCHED, decider, guess)
+                   SEARCHED, decider, guesses)
 
 
 def test_a_pick_only_the_guess_found_says_so():
-    proposal = proposed("Vanille Pudding", "Vanille Pudding")
-    assert (proposal["verdict"], proposal["only_by_guess"]) == ("accept", True)
+    proposal = proposed(["Vanille Pudding"], "Vanille Pudding")
+    assert (proposal["verdict"], proposal["needed_guess"]) == ("accept", 1)
+
+
+def test_a_pick_says_which_guess_it_needed():
+    assert proposed(["Nichts davon", "Vanille Pudding"], "Vanille Pudding")["needed_guess"] == 2
 
 
 def test_a_pick_the_printed_text_found_too_does_not():
-    assert proposed("Vanille Pudding", "Kühlschrank Reiniger")["only_by_guess"] is False
+    assert proposed(["Vanille Pudding"], "Kühlschrank Reiniger")["needed_guess"] is None
 
 
 def guessing(*rows):
@@ -468,33 +478,46 @@ def guessing(*rows):
 
     def decider(system, prompt, schema):
         asked.append(prompt)
-        return {"guesses": [{"line": n, "name": name} for n, name in rows]}
+        return {"guesses": [{"line": n, "names": names} for n, names in rows]}
 
     decider.asked = asked
     return decider
 
 
 def test_each_line_gets_its_own_guess_in_one_call():
-    decider = guessing((1, "Vanille Pudding"), (2, "Alpenmilch"))
+    decider = guessing((1, ["Vanille Pudding", "Dessert Vanille"]), (2, ["Alpenmilch"]))
     assert guess_names(["Pud. V.", "Alp.M."], "Musterladen", [], decider) == {
-        "Pud. V.": "Vanille Pudding", "Alp.M.": "Alpenmilch"}
+        "Pud. V.": ["Vanille Pudding", "Dessert Vanille"], "Alp.M.": ["Alpenmilch"]}
     assert len(decider.asked) == 1
 
 
 def test_the_guess_sees_the_rest_of_the_receipt():
-    decider = guessing((1, "Vanille Pudding"))
+    decider = guessing((1, ["Vanille Pudding"]))
     guess_names(["Pud. V."], "Musterladen", ["Pud. V.", "Vollmilch"], decider)
     assert "Vollmilch" in decider.asked[0]
 
 
-@pytest.mark.parametrize("number, name", [(0, "x"), (9, "x"), (1, ""), (1, "  ")])
-def test_a_number_off_the_list_or_an_empty_name_is_no_guess(number, name):
-    assert guess_names(["Pud. V."], None, [], guessing((number, name))) == {}
+@pytest.mark.parametrize("number, names", [(0, ["x"]), (9, ["x"]), (1, [""]), (1, ["  "]),
+                                           (1, [])])
+def test_a_number_off_the_list_or_an_empty_name_is_no_guess(number, names):
+    assert guess_names(["Pud. V."], None, [], guessing((number, names))) == {}
+
+
+def test_at_most_three_guesses_are_kept_best_first():
+    decider = guessing((1, ["a", "b", "c", "d"]))
+    assert guess_names(["Pud. V."], None, [], decider) == {"Pud. V.": ["a", "b", "c"]}
+
+
+def test_the_same_guess_twice_is_searched_once():
+    decider = guessing((1, ["Vanille Pudding", "vanille pudding", "Dessert"]))
+    assert guess_names(["Pud. V."], None, [], decider) == {
+        "Pud. V.": ["Vanille Pudding", "Dessert"]}
 
 
 def test_a_printed_name_twice_on_the_receipt_is_guessed_once():
-    decider = guessing((1, "Vanille Pudding"), (2, "wrong: no second line was asked"))
-    assert guess_names(["Pud. V.", "Pud. V."], None, [], decider) == {"Pud. V.": "Vanille Pudding"}
+    decider = guessing((1, ["Vanille Pudding"]), (2, ["wrong: no second line was asked"]))
+    assert guess_names(["Pud. V.", "Pud. V."], None, [], decider) == {
+        "Pud. V.": ["Vanille Pudding"]}
 
 
 def test_no_unknown_lines_means_no_call():
@@ -503,7 +526,8 @@ def test_no_unknown_lines_means_no_call():
     assert decider.asked == []
 
 
-@pytest.mark.parametrize("source, only", [("matcher v2 g1 guess", True),
+@pytest.mark.parametrize("source, only", [("matcher v2 g1 guess1", True),
+                                          ("matcher v2 g1 guess3", True),
                                           ("matcher v2 g1 printed", False),
                                           ("matcher v2", False), ("shopper-answer", False),
                                           (None, False)])

@@ -45,7 +45,7 @@ Drawn in `docs/flows.md`.
 | **Section 1** | Read the photo into lines. |
 | **Section 2** | Look the printed text up in the resolutions. |
 | **Section 3** | Match the line ourselves, against data we hold. |
-| **Guess** | The model's reading of a line's full name, one call per receipt. Only searched with, never saved as an answer. |
+| **Guess** | One of the model's readings of a line's full name, up to 3 per line, one call per receipt. Only searched with, never saved as an answer. |
 | **3a** | Gather candidates from the chain products and our products, by the printed text and by the guess. Code only. |
 | **Candidates** | The short list 3a hands to 3b. |
 | **3b** | The model picks one candidate, or none. Never sees prices. |

@@ -1415,7 +1415,7 @@ def picks_hafer(system, prompt, schema):
 def guessing_hafer(asked):
     def guesser(system, prompt, schema):
         asked.append(prompt)
-        return {"guesses": [{"line": 1, "name": "Hafer Drink"}]}
+        return {"guesses": [{"line": 1, "names": ["Hafer Drink"]}]}
     return guesser
 
 
@@ -1428,7 +1428,7 @@ def test_a_pick_only_the_guess_found_is_saved_and_marked(server):
     receipt = add_receipt(session, "IMG_7.jpeg", ["MU H.Dr."])
     match_receipt(session, receipt, line_matcher(picks_hafer, HAFER_SHOP, guessing_hafer([])))
     session.commit()
-    assert memory_source(session, "MU H.Dr.") == "matcher v2 g1 guess"
+    assert memory_source(session, "MU H.Dr.") == "matcher v2 g1 guess1"
 
 
 def test_a_receipt_is_guessed_in_one_call_for_only_its_unknown_lines(server):

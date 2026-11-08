@@ -88,7 +88,7 @@ class Guesser:
             raise self.error
         if self.reply is not UNSET:
             return self.reply
-        return {"guesses": [{"line": n, "name": self.table[raw]}
+        return {"guesses": [{"line": n, "names": [self.table[raw]]}
                             for n, raw in enumerate(lines_asked(prompt), 1)
                             if raw in self.table]}
 
@@ -289,7 +289,7 @@ def test_many_shop_results_for_the_guess_push_out_none_of_the_printed_text():
     shops = shop({"Reinex Deo": printed, "Vanille Pudding": guessed})
 
     without = gather("Reinex Deo", "Musterladen", {}, {}, {}, {}, shops)
-    widened = gather("Reinex Deo", "Musterladen", {}, {}, {}, {}, shops, "Vanille Pudding")
+    widened = gather("Reinex Deo", "Musterladen", {}, {}, {}, {}, shops, ["Vanille Pudding"])
     assert without, "the printed text must have found something for this to mean anything"
     assert keys(without) - keys(widened) == set()
 
@@ -311,7 +311,7 @@ def test_a_guess_equal_to_listings_from_the_catalog_and_shop_keeps_every_printed
     guessed = [listing(f"2{i:03d}", f"Reinex Deo Spray {i}") for i in range(MANY)]
     shops = shop({"Reinex Deo": printed, "Reinex Deo Spray": guessed})
     without = gather("Reinex Deo", "Musterladen", products, {}, {}, {}, shops)
-    widened = gather("Reinex Deo", "Musterladen", products, {}, {}, {}, shops, "Reinex Deo Spray")
+    widened = gather("Reinex Deo", "Musterladen", products, {}, {}, {}, shops, ["Reinex Deo Spray"])
     assert without
     assert keys(without) - keys(widened) == set()
 
@@ -319,7 +319,7 @@ def test_a_guess_equal_to_listings_from_the_catalog_and_shop_keeps_every_printed
 def test_two_articles_under_one_name_do_not_merge_away_the_printed_one():
     shops = shop({"Reinex Deo": [listing("1", "Reinex Deo")],
                   "Vanille": [listing("2", "Reinex Deo")]})
-    widened = gather("Reinex Deo", "Musterladen", {}, {}, {}, {}, shops, "Vanille")
+    widened = gather("Reinex Deo", "Musterladen", {}, {}, {}, {}, shops, ["Vanille"])
     assert "1" in {c.article for c in widened}
 
 
@@ -333,7 +333,7 @@ def test_the_crawl_keeps_the_printed_results_when_a_guess_is_searched_too(tmp_pa
                                 for i, (brand, name) in enumerate(rows)}), encoding="utf-8")
     shops = matching.default_shops(tmp_path)
     without = gather("Reinex Deo Kuehlschr", "GLOBUS", {}, {}, {}, {}, shops)
-    widened = gather("Reinex Deo Kuehlschr", "GLOBUS", {}, {}, {}, {}, shops, "Vanille Pudding")
+    widened = gather("Reinex Deo Kuehlschr", "GLOBUS", {}, {}, {}, {}, shops, ["Vanille Pudding"])
     assert without
     assert keys(without) - keys(widened) == set()
 
@@ -388,10 +388,10 @@ FAILURES = [
 EMPTY_OR_BROKEN_REPLIES = [
     None, [], "words", 7, {}, {"guesses": None}, {"guesses": "x"}, {"guesses": []},
     {"guesses": [None]}, {"guesses": ["x"]}, {"guesses": [{}]},
-    {"guesses": [{"line": 1}]}, {"guesses": [{"name": "x"}]},
-    {"guesses": [{"line": "one", "name": "x"}]}, {"guesses": [{"line": 1.5, "name": "x"}]},
-    {"guesses": [{"line": 1, "name": None}]}, {"guesses": [{"line": 1, "name": 7}]},
-    {"guesses": [{"line": 1, "name": ""}]}, {"guesses": [{"line": 99, "name": "x"}]},
+    {"guesses": [{"line": 1}]}, {"guesses": [{"names": ["x"]}]},
+    {"guesses": [{"line": "one", "names": ["x"]}]}, {"guesses": [{"line": 1.5, "names": ["x"]}]},
+    {"guesses": [{"line": 1, "names": None}]}, {"guesses": [{"line": 1, "names": 7}]},
+    {"guesses": [{"line": 1, "names": [""]}]}, {"guesses": [{"line": 99, "names": ["x"]}]},
 ]
 
 
