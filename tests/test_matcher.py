@@ -533,3 +533,58 @@ def test_no_unknown_lines_means_no_call():
                                           (None, False)])
 def test_the_source_tells_which_picks_only_the_guess_found(source, only):
     assert found_only_by_guess(source) is only
+
+
+# --- how long the list can get ---------------------------------------------------
+
+
+def listings(word, count):
+    return [{"article_number": f"{word}{i}", "name": f"{word} {i}", "brand": "Muster",
+             "pack_size": None, "price": 1.0, "url": None} for i in range(count)]
+
+
+def ours_named(word, count):
+    return {f"{word}-{i}": {"name": f"{word} {i}", "brand": "Muster", "category": None}
+            for i in range(count)}
+
+
+def long_list(shop_rows, catalog):
+    return gather("Printed", "Musterladen", catalog, {}, {}, {},
+                  {"musterladen": lambda text: shop_rows[text]} if shop_rows else {},
+                  ["Erste", "Zweite", "Dritte"])
+
+
+def test_the_list_stops_at_25_however_much_each_search_finds():
+    shop_rows = {word: listings(word, 8) for word in ("Printed", "Erste", "Zweite", "Dritte")}
+    catalog = {k: v for word in ("Printed", "Erste", "Zweite", "Dritte")
+               for k, v in ours_named(word, 5).items()}
+    assert len(long_list(shop_rows, catalog)) == 25
+
+
+def test_a_guess_adds_three_from_the_shop_and_one_of_ours():
+    shop_rows = {word: listings(word, 8) for word in ("Printed", "Erste", "Zweite", "Dritte")}
+    catalog = {k: v for word in ("Printed", "Erste") for k, v in ours_named(word, 5).items()}
+    found = long_list(shop_rows, catalog)
+    added = [c for c in found if c.found_by == ["guess1"]]
+    assert ([c.source for c in added].count("catalog"), len(added)) == (1, 4)
+
+
+def test_at_a_shop_with_no_list_a_guess_adds_four_of_ours():
+    catalog = {**ours_named("Printed", 5), **ours_named("Erste", 5)}
+    found = gather("Printed", "Anderswo", catalog, {}, {}, {}, {}, ["Erste"])
+    assert len([c for c in found if "printed" not in c.found_by]) == 4
+    assert len(found) == 9
+
+
+def test_the_cap_never_touches_what_the_printed_text_found():
+    shop_rows = {word: listings(word, 8) for word in ("Printed", "Erste", "Zweite", "Dritte")}
+    found = long_list(shop_rows, {})
+    assert [c.name for c in found if "printed" in c.found_by] == [f"Printed {i}" for i in range(8)]
+
+
+def test_a_guess_that_finds_what_is_listed_already_is_still_noted():
+    shared = listings("Printed", 8)
+    found = gather("Printed", "Musterladen", {}, {}, {}, {},
+                   {"musterladen": lambda text: shared}, ["Erste"])
+    assert all(c.found_by == ["printed", "guess1"] for c in found)
+    assert len(found) == 8, "nothing new, so the cap adds and removes nothing"

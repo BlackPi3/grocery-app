@@ -124,8 +124,9 @@ session (laptop or cloud) can pick up from here. How we work is in
     to find the product. **The guess, built 8 Nov on the owner's call: test
     it live** (`docs/designs/guess-before-search.md`). One Gemini call per
     receipt writes out its unknown lines, up to 3 whole-line guesses each; 3a
-    searches by the printed text and by each guess; each candidate says which
-    search found it (`found_by`). Read the result from `resolutions.source`:
+    searches by the printed text and by each guess, each guess adding at most
+    4 new products (a list stops at 25; owner, the number not measured); each
+    candidate says which search found it (`found_by`). Read the result from `resolutions.source`:
     `matcher v2 g1 guess1`/`guess2`/`guess3` (only that guess found it), `matcher v2 g1 printed`, `matcher v2` (no guess made),
     `identify v9 g1` (went on to the paid search). `GROCERY_GUESS=off` stops
     it. A web search found no proven method for this exact task. Not tried

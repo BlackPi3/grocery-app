@@ -56,6 +56,10 @@ log = logging.getLogger(__name__)
 PROMPT_VERSION = "v2"
 GUESS_VERSION = "g1"
 MAX_GUESSES = 3
+# What one guess may add to the list: its best products not already on it, most
+# from the shop's range. With the printed text's 13, a list stops at 25.
+GUESS_ADDS = 4
+GUESS_ADDS_FROM_SHOP = 3
 TOP_SHOP = 8
 TOP_CATALOG = 5
 
@@ -171,7 +175,9 @@ def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]]
 
     With `guesses` at the line's full name (`guess_names`) both are searched
     again by each guess, and what they add comes after everything the printed
-    text found, so nothing the printed text finds can drop off the list.
+    text found, so nothing the printed text finds can drop off the list. Each
+    guess adds at most `GUESS_ADDS` products, so the list stays short enough
+    for the model to choose from.
     """
     printed = printed_names(resolution)
     by_id: dict[str, Candidate] = {}
@@ -184,7 +190,10 @@ def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]]
             found.append(by_id[product_id])
         return by_id[product_id]
 
-    def search(text: str, how: str) -> None:
+    def search(text: str, how: str, adds: int | None = None,
+               adds_from_shop: int | None = None) -> None:
+        added = 0
+
         def mark(candidate: Candidate) -> None:
             if how not in candidate.found_by:
                 candidate.found_by.append(how)
@@ -195,6 +204,10 @@ def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]]
             price = listing.get("price")
             known = index.get(article) if article else None
             key = article or (listing.get("name"), listing.get("brand"), listing.get("pack_size"))
+            new = known not in by_id if known in products else key not in listed
+            if new and adds_from_shop is not None and added >= adds_from_shop:
+                continue
+            added += new
             if known in products:
                 candidate = ours(known)
                 candidate.article = candidate.article or article
@@ -213,13 +226,17 @@ def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]]
             mark(candidate)
 
         for _, product_id in catalog_candidates(text, products, printed):
+            new = product_id not in by_id
+            if new and adds is not None and added >= adds:
+                continue
+            added += new
             mark(ours(product_id))
 
     search(raw_name, "printed")
     for number, guess in enumerate(guesses or [], 1):
         if guess.strip():
             try:
-                search(guess, f"guess{number}")
+                search(guess, f"guess{number}", GUESS_ADDS, GUESS_ADDS_FROM_SHOP)
             except Exception:  # noqa: BLE001 - what the printed text found still stands
                 log.exception("searching by the guess failed")
     return found

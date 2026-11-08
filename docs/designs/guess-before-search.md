@@ -48,8 +48,9 @@ Each fires a `GROCERY_TRAP` log line, which emails the owner
 - `guess-pick-corrected`: a shopper overruled a product or family only the
   guess found.
 
-Up to 3 guesses can make the list up to 52 long, and a longer list could
-confuse 3b. Compare the corrections of `guess` and
+A longer list could confuse 3b, so it is capped: the printed text's up to 13
+stay, and each guess adds at most its best 4 new products (3 from the chain
+products, the rest ours), so a list stops at 25. The number is not measured. Compare the corrections of `guess` and
 `printed` lines; many on `guess` lines would show it.
 
 ## Limits
