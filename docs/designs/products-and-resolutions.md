@@ -82,7 +82,9 @@ product of ours. Section 3 still searches the JSON files.
 
 Measured on the laptop, not the live database, GLOBUS's list, 60 real lines:
 a database search scored by the same letter groups gave top 8s with the same
-scores as the file search on all 60 (ties may fall in another order).
+scores as the file search on all 60 (ties may fall in another order), in about
+the same time: 128 ms a search with one worker, 124 ms from the file. The live
+database is smaller and slower, so measure there before moving section 3.
 
 ## What must keep working
 

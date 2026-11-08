@@ -4,9 +4,19 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-11-08, laptop: no code changed since #234. Offline test of 3a (6 Nov) and how the data should connect agreed (`docs/designs/products-and-resolutions.md`); new `docs/glossary.md`; traps made a rule. Before that, 2026-10-30, laptop: 3c no longer refuses sure picks on price (offers). Before that, 2026-10-28: the line search taken apart on the drawing board (`docs/flows.md`, #229); next is the **section-3 experiment** below (agreed, not started). ALDI SÜD's list downloaded again (3,451 products, laptop only). Before that, 2026-10-27, laptop: the server's rereading of waiting lines switched off (#226; it worked, but its line searches cost too much); the line search investigated: about 10 Google searches a line where 1-2 found it, no location set, and Gemini's search sees less than a person's Google; Vertex 429s gone. Before that, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
+**Last updated:** 2026-11-08, night, laptop: the guess is live (#235, deployed 8 Nov); chain products have a database table and a loader; section 3 still searches the files. Earlier 2026-11-08: no code changed since #234. Offline test of 3a (6 Nov) and how the data should connect agreed (`docs/designs/products-and-resolutions.md`); new `docs/glossary.md`; traps made a rule. Before that, 2026-10-30, laptop: 3c no longer refuses sure picks on price (offers). Before that, 2026-10-28: the line search taken apart on the drawing board (`docs/flows.md`, #229); next is the **section-3 experiment** below (agreed, not started). ALDI SÜD's list downloaded again (3,451 products, laptop only). Before that, 2026-10-27, laptop: the server's rereading of waiting lines switched off (#226; it worked, but its line searches cost too much); the line search investigated: about 10 Google searches a line where 1-2 found it, no location set, and Gemini's search sees less than a person's Google; Vertex 429s gone. Before that, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
 
 ## Now
+
+- **Chain products in the database (owner, 8 Nov: "the next priority"):**
+  tables `chain_products`, `chain_prices` (migration 0033) and `grocery-app db
+  load-chain --chain X --file crawl.json [--complete]`: only what changed is
+  written, a product is marked gone only with `--complete`, and more than 20%
+  missing at once marks nothing and fires `chain-download-shrank` (the laptop
+  run also stops with an error). Section 3 still reads the JSON files: moving it
+  waits, so that the guess test is not read through two changes at once.
+  Before that move, measure one search on the live database (db-f1-micro).
+  Not built: branch, link to our product. Older downloads in `history/` not loaded.
 
 - **NEXT: the section-3 experiment** (owner, 2026-10-28: "a very important
   experiment"; **run 28 Oct, laptop; 3c fixed 30 Oct; 3a's fixes next**).
@@ -121,8 +131,7 @@ session (laptop or cloud) can pick up from here. How we work is in
     resolutions. The 6 Nov numbers below are not a basis for building.
     **3a's list has no fixed length (owner, 8 Nov):** a family gets as many
     places as it needs. His main question: how to use the printed characters
-    to find the product. **The guess, built 8 Nov on the owner's call: test
-    it live** (`docs/designs/guess-before-search.md`). One Gemini call per
+    to find the product. **The guess, live since 8 Nov (#235), squash-merged to keep a real line out of `main`: read the labels after some receipts** (`docs/designs/guess-before-search.md`). One Gemini call per
     receipt writes out its unknown lines, up to 3 whole-line guesses each; 3a
     searches by the printed text and by each guess, each guess adding at most
     4 new products (a list stops at 25; owner, the number not measured); each
