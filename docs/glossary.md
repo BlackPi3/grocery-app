@@ -33,7 +33,7 @@ measured.
 | **Product** | One real thing that is sold. | a `products` row |
 | **Family** | Versions of one product that a line cannot tell apart, e.g. flavours. | `family`, `product_ids` |
 | **Our products** | Every product the app has identified from receipt lines, all chains, shared by all users. | `products` |
-| **Chain products** | What one chain sells, as its website showed on the day we downloaded it (GLOBUS and ALDI SÜD so far): "the GLOBUS products". Never complete; prices are as of that day. | JSON files today, `crawl.json` |
+| **Chain products** | What one chain sells, as its website showed on the day we downloaded it (GLOBUS and ALDI SÜD so far): "the GLOBUS products". Never complete; prices are as of that day. | `crawl.json` files, which section 3 searches; `chain_products`, `chain_prices` |
 | **Website** | The chain's live site. Not what section 3 searches. | |
 
 ## The steps

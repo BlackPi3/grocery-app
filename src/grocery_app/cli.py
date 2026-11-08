@@ -339,7 +339,7 @@ def main() -> None:
         help="The PostgreSQL store behind `serve` (needs the 'api' extra and DATABASE_URL)",
     )
     d.add_argument("action", choices=["upgrade", "import", "export", "match", "add-readings",
-                                      "answer", "reread", "categorize", "barcodes"],
+                                      "answer", "reread", "categorize", "barcodes", "load-chain"],
                    help="upgrade: apply the migrations; import: load the data/ files into "
                         "the tables (idempotent); export: write the tables out as files; "
                         "match: run the matcher over stored receipts (claude -p, on the "
@@ -357,6 +357,13 @@ def main() -> None:
                         "then match only their receipts again")
     d.add_argument("--write", action="store_true",
                    help="categorize, barcodes: save what was found rather than only show it")
+    d.add_argument("--chain", default=None,
+                   help="load-chain: the chain a download belongs to, e.g. GLOBUS")
+    d.add_argument("--file", default=None,
+                   help="load-chain: its download, a crawl.json")
+    d.add_argument("--complete", action="store_true",
+                   help="load-chain: the download holds the whole range, so a product "
+                        "missing from it is marked gone")
     d.add_argument("--product", action="append", default=[], metavar="ID",
                    help="reread: a product identify made (repeat for several)")
     d.add_argument("--url", default=None,
@@ -801,6 +808,24 @@ def main() -> None:
                       f"{summary[kind]['updated']} updated")
             for image in summary["line_resolutions_skipped"]:
                 print(f"  SKIPPED line answer for {image}: no such receipt")
+        if args.action == "load-chain":
+            from grocery_app import chain_products
+
+            if not args.chain or not args.file:
+                raise SystemExit("load-chain needs --chain and --file")
+            listings = json.loads(Path(args.file).read_text(encoding="utf-8"))
+            seen_on = chain_products.seen_on_of(listings.values())
+            if seen_on is None:
+                raise SystemExit(f"{args.file} says nowhere when it was downloaded")
+            with factory() as session:
+                counts = chain_products.load_download(session, args.chain, listings, seen_on,
+                                                      complete=args.complete)
+                session.commit()
+            print(f"{args.chain}, as of {seen_on}: {counts}")
+            if counts.get("refused_gone"):
+                raise SystemExit(f"{counts['refused_gone']} products missing: too many to be "
+                                 "real, so none was marked gone. Check the download.")
+            return
         if args.action == "add-readings":
             from grocery_app.db.io import import_receipts
 
