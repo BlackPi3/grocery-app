@@ -384,7 +384,7 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
                   if line.get("type", "product") == "product"]
         try:
             inputs["guesses"] = matching.guess_names(unknown, receipt.store, others, guesser)
-        except matching.DeciderError:
+        except Exception:  # noqa: BLE001 - a receipt stands without its guesses
             # The printed text is still searched; the line's source says so.
             inputs["guesses"] = {}
         if unknown and not inputs["guesses"]:

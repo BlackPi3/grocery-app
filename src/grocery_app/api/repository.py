@@ -668,12 +668,16 @@ class PostgresRepository:
             return self._receipt_view(session, self._get(session, receipt_id))
 
     @staticmethod
-    def _trap_guess_corrected(entry: Resolution | None, receipt_id: int, position: int) -> None:
-        """A shopper overruled a product only the model's guess had found."""
+    def _trap_guess_corrected(entry: Resolution | None, receipt_id: int, position: int,
+                              answer: str | None) -> None:
+        """A shopper overruled what only the model's guess had found: the
+        answer (None: "not that") is neither the product nor one of its family."""
         from grocery_app import matcher as matching
         from grocery_app import traps
 
-        if entry is not None and matching.found_only_by_guess(entry.source):
+        if entry is None or not matching.found_only_by_guess(entry.source):
+            return
+        if answer is None or answer not in {entry.product_id, *(entry.product_ids or [])}:
             traps.fire("guess-pick-corrected", receipt=receipt_id, position=position)
 
     def _remember(self, session: Session, receipt: Receipt, raw_name: str, position: int,
@@ -685,6 +689,7 @@ class PostgresRepository:
         if not receipt.store or never_remembered(receipt.store, raw_name):
             return None
         entry = self._memory_entry(session, receipt.store, raw_name)
+        self._trap_guess_corrected(entry, receipt.id, position, product_id)
         held = ({"product_id": entry.product_id, "product_ids": list(entry.product_ids or []),
                  "confirmed_by": entry.confirmed_by} if entry else None)
 
@@ -695,7 +700,6 @@ class PostgresRepository:
                                    machine_how=before["resolution"],
                                    machine_product_id=overruled,
                                    shopper_product_id=product_id))
-            self._trap_guess_corrected(entry, receipt.id, position)
 
         if memory.author_kind(confirmed_by) == "user":
             # Her answer stands for her line; what the owner told the memory
@@ -733,6 +737,7 @@ class PostgresRepository:
         if not receipt.store or never_remembered(receipt.store, raw_name):
             return None
         entry = self._memory_entry(session, receipt.store, raw_name)
+        self._trap_guess_corrected(entry, receipt.id, position, None)
         held = ({"product_id": entry.product_id, "product_ids": list(entry.product_ids or []),
                  "confirmed_by": entry.confirmed_by} if entry else None)
         overruled = memory.machine_answer(before, held)
@@ -741,7 +746,6 @@ class PostgresRepository:
                                    store=receipt.store, raw_name=raw_name,
                                    machine_how=before["resolution"],
                                    machine_product_id=overruled, shopper_product_id=None))
-            self._trap_guess_corrected(entry, receipt.id, position)
         if entry is None or memory.author_kind(entry.confirmed_by) != "machine" \
                 or not overruled:
             return None

@@ -38,6 +38,7 @@ from __future__ import annotations
 import hashlib
 import heapq
 import json
+import logging
 import subprocess
 import tempfile
 import time
@@ -48,6 +49,8 @@ from typing import Any
 
 from grocery_app import gemini
 from grocery_app.resolver import expand_abbreviations, fold, store_key
+
+log = logging.getLogger(__name__)
 
 PROMPT_VERSION = "v2"
 GUESS_VERSION = "g1"
@@ -212,7 +215,10 @@ def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]]
 
     search(raw_name, "printed")
     if guess and guess.strip():
-        search(guess, "guess")
+        try:
+            search(guess, "guess")
+        except Exception:  # noqa: BLE001 - what the printed text found still stands
+            log.exception("searching by the guess failed")
     return found
 
 
@@ -264,8 +270,8 @@ shorten names. For each numbered line, write the product's full name as the
 shop's website would most likely list it: the brand if the line shows one,
 the product, and its variant.
 
-- Write out what is cut or shortened: `Alp.Voll.Schokolinse` is Alpenvollmilch
-  Schokolinsen. Use the other lines of the receipt as context.
+- Write out what is cut or shortened: `Erdb.Frucht.Joghurt` is Erdbeer
+  Fruchtjoghurt. Use the other lines of the receipt as context.
 - Leave out sizes, weights, counts and till words such as `lose`, `Stk`, `kg`.
 - Give your best reading even when you are unsure. It is used only to search a
   product list and is never saved as the answer.
@@ -311,8 +317,11 @@ def guess_names(raw_names: list[str], store: str | None, others: list[str],
     answer = decider(GUESS_PROMPT,
                      f"Shop: {store or 'unknown'}\n\nThe whole receipt:\n{context}\n\n"
                      f"Lines to write out:\n{numbered}", GUESS_SCHEMA)
+    rows = answer.get("guesses") if isinstance(answer, dict) else None
     guesses: dict[str, str] = {}
-    for row in answer.get("guesses") or []:
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
         number, name = row.get("line"), row.get("name")
         if isinstance(number, int) and 1 <= number <= len(names) \
                 and isinstance(name, str) and name.strip():

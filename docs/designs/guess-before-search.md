@@ -28,7 +28,7 @@ Each candidate records which search found it, and each saved line says so in
 
 | `source` | Meaning |
 |---|---|
-| `matcher v2 g1 guess` | Only the guess found the answer: the old way would have missed it. |
+| `matcher v2 g1 guess` | Only the guess found the answer (for a family, at least one version): the old way would have missed it. |
 | `matcher v2 g1 printed` | The printed text found it too. |
 | `matcher v2` | No guess was made (switched off, or the call failed). |
 | `identify v9 g1` | Had a guess, still went on to the paid search. |
@@ -43,12 +43,18 @@ Each fires a `GROCERY_TRAP` log line, which emails the owner
 
 - `guess-gave-nothing`: a receipt had unknown lines and the guess call failed
   or named none of them.
-- `guess-pick-corrected`: a shopper overruled a product only the guess found.
+- `guess-pick-corrected`: a shopper overruled a product or family only the
+  guess found.
 
 A longer list could also confuse 3b. Compare the corrections of `guess` and
 `printed` lines; many on `guess` lines would show it.
 
 ## Limits
+
+- One call per receipt each time it is matched. A receipt matched again (a job
+  resumed after a restart, the rereading when it is on) makes another call,
+  a fraction of a cent, unless its unknown lines are unchanged and the saved
+  answer is reused.
 
 - Different words for one thing: a guess of `Karotten` does not find `Möhren`.
 - A chain's own initials may be unknown to the model.

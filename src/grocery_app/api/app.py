@@ -1185,7 +1185,7 @@ def guess_decider(kind: str | None = None,
     (`matcher.guess_names`). `GROCERY_GUESS=off` switches the step off."""
     from grocery_app import matcher as matching
 
-    if os.environ.get("GROCERY_GUESS") == "off":
+    if os.environ.get("GROCERY_GUESS", "").strip().lower() == "off":
         return None
     if matcher_kind(kind) == "gemini":
         return GeminiDecider(GEMINI_MODEL, "data/matched", matching.GUESS_VERSION, search=False)
