@@ -50,6 +50,7 @@ from grocery_app import gemini
 from grocery_app.resolver import expand_abbreviations, fold, store_key
 
 PROMPT_VERSION = "v2"
+GUESS_VERSION = "g1"
 TOP_SHOP = 8
 TOP_CATALOG = 5
 
@@ -78,6 +79,10 @@ class Candidate:
     shelf: str | None = None
     prices: list[float] = field(default_factory=list)
     printed_as: list[str] = field(default_factory=list)
+    # Which searches found it: "printed", "guess" or both. Never shown to the
+    # model; it is what says whether the guess found something the printed
+    # text alone would have missed.
+    found_by: list[str] = field(default_factory=list)
 
     def describe(self) -> str:
         """What the model is shown. Deliberately no price."""
@@ -152,15 +157,20 @@ def catalog_candidate(product_id: str, products: dict[str, dict[str, Any]],
 def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]],
            resolution: dict[tuple[str, str], list[str]],
            shelf_prices: dict[str, set[float]], index: dict[str, str],
-           shops: dict[str, ShopSource]) -> list[Candidate]:
+           shops: dict[str, ShopSource], guess: str | None = None) -> list[Candidate]:
     """Every candidate for a line: the shop's listings, then our closest products.
 
     A shop listing that is already one of our products (its article number is
     banked, or is a product's barcode) is shown once, as that product, with
     the shop's price added to the prices it has been seen at.
+
+    With a `guess` at the line's full name (`guess_names`) both are searched
+    again by the guess, and what it adds comes after everything the printed
+    text found, so nothing the printed text finds can drop off the list.
     """
     printed = printed_names(resolution)
     by_id: dict[str, Candidate] = {}
+    listed: dict[Any, Candidate] = {}
     found: list[Candidate] = []
 
     def ours(product_id: str) -> Candidate:
@@ -169,26 +179,40 @@ def gather(raw_name: str, store: str | None, products: dict[str, dict[str, Any]]
             found.append(by_id[product_id])
         return by_id[product_id]
 
-    shop = store_key(store)
-    for listing in (shops[shop](raw_name) if shop in shops else [])[:TOP_SHOP]:
-        article = str(listing.get("article_number") or "") or None
-        price = listing.get("price")
-        known = index.get(article) if article else None
-        if known in products:
-            candidate = ours(known)
-            candidate.article = candidate.article or article
-        else:
-            candidate = Candidate(source=shop, name=listing.get("name") or "",
-                                  brand=listing.get("brand"),
-                                  pack_size=listing.get("pack_size"),
-                                  article=article, url=listing.get("url"),
-                                  shelf=listing.get("category"))
-            found.append(candidate)
-        if price is not None and float(price) not in candidate.prices:
-            candidate.prices.append(float(price))
+    def search(text: str, how: str) -> None:
+        def mark(candidate: Candidate) -> None:
+            if how not in candidate.found_by:
+                candidate.found_by.append(how)
 
-    for _, product_id in catalog_candidates(raw_name, products, printed):
-        ours(product_id)
+        shop = store_key(store)
+        for listing in (shops[shop](text) if shop in shops else [])[:TOP_SHOP]:
+            article = str(listing.get("article_number") or "") or None
+            price = listing.get("price")
+            known = index.get(article) if article else None
+            key = article or (listing.get("name"), listing.get("brand"), listing.get("pack_size"))
+            if known in products:
+                candidate = ours(known)
+                candidate.article = candidate.article or article
+            elif key in listed:
+                candidate = listed[key]
+            else:
+                candidate = Candidate(source=shop, name=listing.get("name") or "",
+                                      brand=listing.get("brand"),
+                                      pack_size=listing.get("pack_size"),
+                                      article=article, url=listing.get("url"),
+                                      shelf=listing.get("category"))
+                listed[key] = candidate
+                found.append(candidate)
+            if price is not None and float(price) not in candidate.prices:
+                candidate.prices.append(float(price))
+            mark(candidate)
+
+        for _, product_id in catalog_candidates(text, products, printed):
+            mark(ours(product_id))
+
+    search(raw_name, "printed")
+    if guess and guess.strip():
+        search(guess, "guess")
     return found
 
 
@@ -230,6 +254,70 @@ def default_shops(products_dir: str | Path = "data/products") -> dict[str, ShopS
     aldi = crawl_source(Path(products_dir) / "aldi-sued" / "crawl.json")
     globus = crawl_source(Path(products_dir) / "globus" / "crawl.json")
     return {"globus": globus, "aldi süd": aldi, "aldi sued": aldi}
+
+
+# --- 1b. the model's guess at the full name -----------------------------------------
+
+GUESS_PROMPT = """\
+You are given lines printed on one German supermarket receipt. Tills cut and
+shorten names. For each numbered line, write the product's full name as the
+shop's website would most likely list it: the brand if the line shows one,
+the product, and its variant.
+
+- Write out what is cut or shortened: `Alp.Voll.Schokolinse` is Alpenvollmilch
+  Schokolinsen. Use the other lines of the receipt as context.
+- Leave out sizes, weights, counts and till words such as `lose`, `Stk`, `kg`.
+- Give your best reading even when you are unsure. It is used only to search a
+  product list and is never saved as the answer.
+- When a line gives you nothing to go on, answer with an empty name."""
+
+GUESS_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "guesses": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"line": {"type": "integer", "minimum": 1},
+                               "name": {"type": "string"}},
+                "required": ["line", "name"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["guesses"],
+    "additionalProperties": False,
+}
+
+
+def found_only_by_guess(source: str | None) -> bool:
+    """A memory entry's `source` says the printed text alone would have missed it."""
+    return (source or "").startswith("matcher ") and (source or "").endswith(" guess")
+
+
+def guess_names(raw_names: list[str], store: str | None, others: list[str],
+                decider: Decider) -> dict[str, str]:
+    """The model's reading of each printed name in one call: name -> full name.
+
+    A guess only widens the search (`gather`): the list still holds real
+    products and 3b still picks. A number off the list or an empty name gives
+    no guess for that line, which is then searched by its printed text alone.
+    """
+    names = list(dict.fromkeys(raw_names))
+    if not names:
+        return {}
+    numbered = "\n".join(f"{n}. `{name}`" for n, name in enumerate(names, 1))
+    context = "\n".join(f"- {other}" for other in others)
+    answer = decider(GUESS_PROMPT,
+                     f"Shop: {store or 'unknown'}\n\nThe whole receipt:\n{context}\n\n"
+                     f"Lines to write out:\n{numbered}", GUESS_SCHEMA)
+    guesses: dict[str, str] = {}
+    for row in answer.get("guesses") or []:
+        number, name = row.get("line"), row.get("name")
+        if isinstance(number, int) and 1 <= number <= len(names) \
+                and isinstance(name, str) and name.strip():
+            guesses[names[number - 1]] = name.strip()
+    return guesses
 
 
 # --- 2. the model's pick --------------------------------------------------------
@@ -361,7 +449,8 @@ def price_singles_out(line: dict[str, Any], pick: Candidate,
 def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[str, Any]],
             resolution: dict[tuple[str, str], list[str]],
             shelf_prices: dict[str, set[float]], index: dict[str, str],
-            shops: dict[str, ShopSource], decider: Decider) -> dict[str, Any]:
+            shops: dict[str, ShopSource], decider: Decider,
+            guess: str | None = None) -> dict[str, Any]:
     """What the matcher would do with one line. Writes nothing.
 
     `verdict` is one of:
@@ -378,7 +467,8 @@ def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[st
     - `ask`: anything else, with the candidates to ask about.
     """
     raw_name = line["raw_name"]
-    candidates = gather(raw_name, store, products, resolution, shelf_prices, index, shops)
+    candidates = gather(raw_name, store, products, resolution, shelf_prices, index, shops,
+                        guess)
     decision = decide(raw_name, store, candidates, decider)
     agrees = decision.pick is not None and price_singles_out(line, decision.pick, candidates)
     sure = decision.confidence in ACCEPTED_CONFIDENCE
@@ -399,6 +489,9 @@ def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[st
         "versions": [asdict(c) for c in decision.versions],
         "price_agrees": agrees,
         "verdict": verdict,
+        "guess": guess,
+        # The printed text alone would not have put this answer on the list.
+        "only_by_guess": any("printed" not in c.found_by for c in chosen),
         # What accepting would add to the catalog: a product copied from the
         # shop's listing for each chosen candidate that is not ours already.
         "creates": [new_product(asdict(c), "matcher") for c in chosen if not c.product_id],

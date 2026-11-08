@@ -240,3 +240,17 @@ def session(engine):
         for table in reversed(Base.metadata.sorted_tables):
             s.execute(table.delete())
         s.commit()
+
+
+def freeze_route_day(monkeypatch, day):
+    """The day a route takes as today, so a test's dated data never goes stale."""
+    from datetime import UTC, datetime
+
+    import grocery_app.api.app as app_module
+
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(day.year, day.month, day.day, 12, tzinfo=tz or UTC)
+
+    monkeypatch.setattr(app_module, "datetime", Frozen)

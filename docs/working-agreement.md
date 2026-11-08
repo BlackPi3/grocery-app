@@ -4,6 +4,8 @@ How the owner and the coding assistant work on this repo. It holds for every
 session, on the laptop or in the cloud. `CLAUDE.md` is the short version;
 this is the long one. The current state of the work is in `docs/status.md`.
 How the app works, drawn as boxes, is in `docs/flows.md`.
+The words we use are in `docs/glossary.md`.
+How something is meant to work, before it is built, is in `docs/designs/`.
 
 ## Who does what
 
@@ -12,6 +14,11 @@ How the app works, drawn as boxes, is in `docs/flows.md`.
   the tests and the commits.
 - Bring the owner decisions, not typing. Never route a question to the owner
   that a lookup, the catalog, a search or a model could answer.
+- Before an experiment, agree what question it answers, which lines it runs
+  on, and where the answer key comes from. Then run it.
+- A design is checked against every new example. If an example does not fit,
+  stop, fix the design in `docs/designs/` first, then the code. Every design
+  says what would show it is wrong, as a check that notifies the owner.
 - Agree on *what* before building *how*. A question answered with "proceed"
   approves that one thing, not a whole list of options.
 - When the owner asks a question, the answer is the deliverable. Do not start
@@ -76,6 +83,19 @@ How the app works, drawn as boxes, is in `docs/flows.md`.
   against a database named `grocery_test` (the fixtures reset its schema).
 - Never run the paid test while another pytest run is using `grocery_test`.
 - No known defect is left open while moving on.
+
+## Traps
+
+Tests check made-up data before a merge. Traps check real data after it.
+
+- Every code change states the rules its data must hold, and adds a check that
+  fires when one breaks. A change with no trap says why it needs none.
+- A trap notifies the owner. A log line nobody reads is not a trap.
+- A trap costs nothing to run: code only, no paid model.
+- A trap that has not been seen firing is not trusted. Prove it as a test is
+  proved: break the rule on made-up data and check that it fires.
+- When one fires: find out what went wrong, fix the design first, then the code,
+  and add a made-up version of the case as a test.
 
 ## Extra agents
 

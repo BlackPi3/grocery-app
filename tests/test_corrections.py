@@ -519,3 +519,23 @@ def test_none_of_these_is_one_answer_not_two(corrections):
     assert client.put(url, json={"none_of_these": True, "product_id": "p-0001"}) \
         .status_code == 422
     assert client.put(url, json={"none_of_these": False}).status_code == 422
+
+
+def machine_held(session, source):
+    entry = session.scalars(select(Resolution).where(Resolution.raw_name == "MU Milch 1,5%")).one()
+    entry.confirmed_by, entry.source = "matcher", source
+    session.commit()
+
+
+def test_correcting_a_pick_only_the_guess_found_fires_the_trap(corrections, caplog):
+    client, session, receipt_id = corrections
+    machine_held(session, "matcher v2 g1 guess")
+    client.put(f"/v1/receipts/{receipt_id}/lines/0/resolution", json={"product_id": "p-0002"})
+    assert f"GROCERY_TRAP guess-pick-corrected receipt={receipt_id} position=0" in caplog.text
+
+
+def test_correcting_a_pick_the_printed_text_found_fires_no_trap(corrections, caplog):
+    client, session, receipt_id = corrections
+    machine_held(session, "matcher v2 g1 printed")
+    client.put(f"/v1/receipts/{receipt_id}/lines/0/resolution", json={"product_id": "p-0002"})
+    assert "GROCERY_TRAP" not in caplog.text

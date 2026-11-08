@@ -18,7 +18,9 @@ from grocery_app.matcher import (
     ClaudeCodeDecider,
     DeciderError,
     decide,
+    found_only_by_guess,
     gather,
+    guess_names,
     new_product,
     paid_price,
     propose,
@@ -391,3 +393,119 @@ def test_a_family_needs_the_model_sure_and_the_price_one_of_theirs(numbers, paid
                        RESOLUTION, SHELF, INDEX, WRAPS, versions(numbers, confidence))
     assert proposal["verdict"] == "ask", why
     assert proposal["creates"] == []
+
+
+# --- the model's guess ----------------------------------------------------------
+
+PUDDING = {"article_number": "4000000000044", "name": "Vanille Pudding", "brand": "Muster",
+           "pack_size": "500 g", "price": 1.49, "url": "https://musterladen.example/pudding"}
+DEO, REINIGER = LISTINGS[0], LISTINGS[1]
+BY_TEXT = {"Pud. V.": [DEO, REINIGER], "Vanille Pudding": [REINIGER, PUDDING]}
+SEARCHED = {"musterladen": lambda text: BY_TEXT.get(text, [])}
+
+
+def searched(guess=None):
+    return gather("Pud. V.", "Musterladen", PRODUCTS, RESOLUTION, SHELF, INDEX, SEARCHED, guess)
+
+
+def test_the_guess_finds_what_the_printed_text_misses():
+    found = {c.name: c.found_by for c in searched("Vanille Pudding")}
+    assert found["Vanille Pudding"] == ["guess"]
+
+
+def test_nothing_the_printed_text_finds_drops_off_the_list():
+    without = [c.name for c in searched()]
+    assert [c.name for c in searched("Vanille Pudding")][:len(without)] == without
+
+
+def test_a_product_both_searches_find_is_listed_once_with_both_marks():
+    found = [c for c in searched("Vanille Pudding") if c.name == "Kühlschrank Reiniger"]
+    assert [c.found_by for c in found] == [["printed", "guess"]]
+
+
+def test_without_a_guess_everything_is_found_by_the_printed_text():
+    assert all(c.found_by == ["printed"] for c in searched())
+
+
+@pytest.mark.parametrize("empty", [None, "", "   "])
+def test_an_empty_guess_searches_nothing_more(empty):
+    assert [c.name for c in searched(empty)] == [c.name for c in searched()]
+
+
+def test_the_model_is_not_told_which_search_found_a_product():
+    assert "guess" not in searched("Vanille Pudding")[-1].describe()
+
+
+def test_the_guess_is_matched_loosely_not_word_for_word(tmp_path):
+    """A misspelt guess in another word order still finds the product."""
+    path = tmp_path / "crawl.json"
+    write_crawl(path, [("Muster", "Schwarzer Pfeffer gemahlen"), ("Muster", "Rote Grütze"),
+                       ("Muster", "Zimt gemahlen")])
+    assert matcher.crawl_source(path)("Pfefer schwarz")[0]["name"] == "Schwarzer Pfeffer gemahlen"
+
+
+def proposed(guess, listing_name):
+    def decider(system, prompt, schema):
+        number = next(i for i, row in enumerate(prompt.split("Products:\n")[1].splitlines(), 1)
+                      if listing_name in row)
+        return {"choice": number, "versions": [], "confidence": "high", "reason": "test"}
+
+    return propose(line("Pud. V.", 1.49), "Musterladen", PRODUCTS, RESOLUTION, SHELF, INDEX,
+                   SEARCHED, decider, guess)
+
+
+def test_a_pick_only_the_guess_found_says_so():
+    proposal = proposed("Vanille Pudding", "Vanille Pudding")
+    assert (proposal["verdict"], proposal["only_by_guess"]) == ("accept", True)
+
+
+def test_a_pick_the_printed_text_found_too_does_not():
+    assert proposed("Vanille Pudding", "Kühlschrank Reiniger")["only_by_guess"] is False
+
+
+def guessing(*rows):
+    asked = []
+
+    def decider(system, prompt, schema):
+        asked.append(prompt)
+        return {"guesses": [{"line": n, "name": name} for n, name in rows]}
+
+    decider.asked = asked
+    return decider
+
+
+def test_each_line_gets_its_own_guess_in_one_call():
+    decider = guessing((1, "Vanille Pudding"), (2, "Alpenmilch"))
+    assert guess_names(["Pud. V.", "Alp.M."], "Musterladen", [], decider) == {
+        "Pud. V.": "Vanille Pudding", "Alp.M.": "Alpenmilch"}
+    assert len(decider.asked) == 1
+
+
+def test_the_guess_sees_the_rest_of_the_receipt():
+    decider = guessing((1, "Vanille Pudding"))
+    guess_names(["Pud. V."], "Musterladen", ["Pud. V.", "Vollmilch"], decider)
+    assert "Vollmilch" in decider.asked[0]
+
+
+@pytest.mark.parametrize("number, name", [(0, "x"), (9, "x"), (1, ""), (1, "  ")])
+def test_a_number_off_the_list_or_an_empty_name_is_no_guess(number, name):
+    assert guess_names(["Pud. V."], None, [], guessing((number, name))) == {}
+
+
+def test_a_printed_name_twice_on_the_receipt_is_guessed_once():
+    decider = guessing((1, "Vanille Pudding"), (2, "wrong: no second line was asked"))
+    assert guess_names(["Pud. V.", "Pud. V."], None, [], decider) == {"Pud. V.": "Vanille Pudding"}
+
+
+def test_no_unknown_lines_means_no_call():
+    decider = guessing()
+    assert guess_names([], "Musterladen", ["Vollmilch"], decider) == {}
+    assert decider.asked == []
+
+
+@pytest.mark.parametrize("source, only", [("matcher v2 g1 guess", True),
+                                          ("matcher v2 g1 printed", False),
+                                          ("matcher v2", False), ("shopper-answer", False),
+                                          (None, False)])
+def test_the_source_tells_which_picks_only_the_guess_found(source, only):
+    assert found_only_by_guess(source) is only

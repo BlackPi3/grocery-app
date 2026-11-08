@@ -4,7 +4,7 @@ Where the work stands, kept current by every PR that changes it, so that any
 session (laptop or cloud) can pick up from here. How we work is in
 `docs/working-agreement.md`.
 
-**Last updated:** 2026-10-30, laptop: 3c no longer refuses sure picks on price (offers). Before that, 2026-10-28: the line search taken apart on the drawing board (`docs/flows.md`, #229); next is the **section-3 experiment** below (agreed, not started). ALDI SÜD's list downloaded again (3,451 products, laptop only). Before that, 2026-10-27, laptop: the server's rereading of waiting lines switched off (#226; it worked, but its line searches cost too much); the line search investigated: about 10 Google searches a line where 1-2 found it, no location set, and Gemini's search sees less than a person's Google; Vertex 429s gone. Before that, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
+**Last updated:** 2026-11-08, laptop: no code changed since #234. Offline test of 3a (6 Nov) and how the data should connect agreed (`docs/designs/products-and-resolutions.md`); new `docs/glossary.md`; traps made a rule. Before that, 2026-10-30, laptop: 3c no longer refuses sure picks on price (offers). Before that, 2026-10-28: the line search taken apart on the drawing board (`docs/flows.md`, #229); next is the **section-3 experiment** below (agreed, not started). ALDI SÜD's list downloaded again (3,451 products, laptop only). Before that, 2026-10-27, laptop: the server's rereading of waiting lines switched off (#226; it worked, but its line searches cost too much); the line search investigated: about 10 Google searches a line where 1-2 found it, no location set, and Gemini's search sees less than a person's Google; Vertex 429s gone. Before that, cloud: the trip plan's engine and its backtest built (`grocery-app plan`, `eval-plan`); on the demo's receipts it never leaves the base, as receipts price too little of other shops. Before that, 26 Oct: picture web search off (#218, parked); Skip (#215), the paper list (#219), asking less (#220) live; `eval-trips` (#221); the plan's objective and "choose safely, observe, adapt" (#222, #223).
 
 ## Now
 
@@ -105,8 +105,57 @@ session (laptop or cloud) can pick up from here. How we work is in
     flavours were candidates (3b/3c failed: five flavours at the same
     price). One printed letter of it fits none of the five names; the
     owner's answer key says "I think it's this one".
+  - **Start here (next session, 3a):** settle, one at a time, before any
+    script: (1) 3a's job (proposal below), (2) which lines it is tested on,
+    (3) where the answer key comes from: real data only, and 3a's own past
+    picks are not proof. Then 3a's traps, then the test. It runs on the
+    laptop with no model: copy the bucket's `matched/` and `identified/` with
+    `gcloud storage rsync`, and the live database with `cloud-sql-proxy` and
+    `pg_dump` (password in the `database-url` secret), to the session
+    scratchpad, never the repo. `docs/glossary.md`, `docs/flows.md`, the new
+    design and the rule edits in `CLAUDE.md` and `docs/working-agreement.md`
+    are uncommitted (two files untracked): they go in with the next code PR.
+  - **8 Nov (owner):** how the data should connect is agreed, not built:
+    `docs/designs/products-and-resolutions.md`. Order: fix section 3, move
+    chain products into the database (high priority), record branches in the
+    resolutions. The 6 Nov numbers below are not a basis for building.
+    **3a's list has no fixed length (owner, 8 Nov):** a family gets as many
+    places as it needs. His main question: how to use the printed characters
+    to find the product. **The guess, built 8 Nov on the owner's call: test
+    it live** (`docs/designs/guess-before-search.md`). One Gemini call per
+    receipt writes out its unknown lines; 3a searches by the printed text and
+    by the guess; each candidate says which search found it (`found_by`).
+    Read the result from `resolutions.source`: `matcher v2 g1 guess` (only the
+    guess found it), `matcher v2 g1 printed`, `matcher v2` (no guess made),
+    `identify v9 g1` (went on to the paid search). `GROCERY_GUESS=off` stops
+    it. A web search found no proven method for this exact task. Not tried
+    yet: showing the model the chain's closest past lines as examples.
+    **Open:** 3a's job (proposed: hand 3b a short list
+    holding the right product, or all of a family's versions, whenever the
+    chain products or our products have it). With no
+    chain products, 844 3b calls: 722 none, 100 sure, 22 other; proposed: ask
+    the model only when one of our products closely matches.
+  - **3a measured offline, 6 Nov (laptop; owner: "list all the cases ...
+    run the tests locally", no model calls):** live bucket's model calls and
+    a read-only copy of the live database taken to the session scratchpad
+    (`pair.py`, `key.py`, `cases.py`, `bench.py`). Answer key: 176 lines
+    whose right product the memory ties to a shop-list entry, plus 51
+    section-4 lines whose answer points at 1-2 entries. Today's letter
+    triples put the right entry in the top 8 for 157/176 and 41/51; word
+    starts alone only 140/176 (triples already catch words inside longer
+    words, glued words, `?` for umlauts, one letter off). Triples + "size
+    agrees" as a tie-breaker: 163/176 (6 better, none worse), 41/51.
+    Remaining misses: many near-equal entries (Avocado, Lenor ... `O`),
+    unknown initials (`W&W`, `AKF`, `SL`), ranks 9-14 in ~8 lines. Caveat:
+    lines with no shop-list link are under-represented. Of the 176, 36
+    came from hand-loaded files, not the live server (real-data rule);
+    without them, 140 lines: today 124, word starts 111, + size 130. Of
+    the 140 only 21 are a shopper's answer; 111 are section 3's own picks,
+    which favours today's search.
   - **Decided for section 3 (owner, 28 Oct), to build after the experiment
     shows where:**
+    - (8 Nov: not built; the 6 Nov test put word starts below today's search
+      but leaned towards it, so this is open again.)
     - 3a matches the start of each printed word (`Pud` → Pudding, `W` → any
       W-word), not three-letter groups. Owner: `Kühlschr.` is
       `Kühlschrank` with the dot removed; a full word is an exact hit.

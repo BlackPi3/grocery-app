@@ -667,6 +667,15 @@ class PostgresRepository:
             session.commit()
             return self._receipt_view(session, self._get(session, receipt_id))
 
+    @staticmethod
+    def _trap_guess_corrected(entry: Resolution | None, receipt_id: int, position: int) -> None:
+        """A shopper overruled a product only the model's guess had found."""
+        from grocery_app import matcher as matching
+        from grocery_app import traps
+
+        if entry is not None and matching.found_only_by_guess(entry.source):
+            traps.fire("guess-pick-corrected", receipt=receipt_id, position=position)
+
     def _remember(self, session: Session, receipt: Receipt, raw_name: str, position: int,
                   product_id: str, confirmed_by: str,
                   before: dict[str, Any]) -> dict[str, Any] | None:
@@ -686,6 +695,7 @@ class PostgresRepository:
                                    machine_how=before["resolution"],
                                    machine_product_id=overruled,
                                    shopper_product_id=product_id))
+            self._trap_guess_corrected(entry, receipt.id, position)
 
         if memory.author_kind(confirmed_by) == "user":
             # Her answer stands for her line; what the owner told the memory
@@ -731,6 +741,7 @@ class PostgresRepository:
                                    store=receipt.store, raw_name=raw_name,
                                    machine_how=before["resolution"],
                                    machine_product_id=overruled, shopper_product_id=None))
+            self._trap_guess_corrected(entry, receipt.id, position)
         if entry is None or memory.author_kind(entry.confirmed_by) != "machine" \
                 or not overruled:
             return None

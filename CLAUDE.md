@@ -75,6 +75,11 @@ Every change goes through a pull request with green CI (`ruff check src tests` a
 `pytest`). New behaviour comes with tests on made-up data; a change that touches a
 seam between stages extends `tests/test_pipeline.py`.
 
+Code ships with traps. Tests check made-up data before a merge; traps check real
+data after it. Every change states the rules its data must hold and adds a check
+that fires and notifies the owner when one breaks, so nothing goes wrong silently.
+Details in `docs/working-agreement.md`.
+
 No test may call a paid model: `create_app` takes the extractor as an argument with
 no default, so forgetting it is a 503 rather than a charge. The one test that does
 make a real call is marked `paid` and deselected by default. Run it before merging
