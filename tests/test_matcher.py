@@ -565,7 +565,7 @@ def test_a_guess_adds_three_from_the_shop_and_one_of_ours():
     shop_rows = {word: listings(word, 8) for word in ("Printed", "Erste", "Zweite", "Dritte")}
     catalog = {k: v for word in ("Printed", "Erste") for k, v in ours_named(word, 5).items()}
     found = long_list(shop_rows, catalog)
-    added = [c for c in found if c.found_by == ["guess1"]]
+    added = [c for c in found if c.found_by[0] == "guess1"]
     assert ([c.source for c in added].count("catalog"), len(added)) == (1, 4)
 
 
