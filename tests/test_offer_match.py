@@ -261,12 +261,14 @@ def test_an_offer_long_after_the_coming_week_is_not_judged_yet(shoppers):
 
 
 @db
-def test_a_person_sees_their_own_offers_and_no_one_elses(shoppers):
+def test_a_person_sees_their_own_offers_and_no_one_elses(shoppers, monkeypatch):
     from fastapi.testclient import TestClient
 
     from grocery_app.api.app import create_app
     from grocery_app.api.offers import judge_due
+    from tests.conftest import freeze_route_day
 
+    freeze_route_day(monkeypatch, TODAY)
     repository, sara = shoppers
     _fetched(repository, [milk_offer(1, 0.79), milk_offer(2, 1.29), milk_offer(4, 0.69)])
     judge_due(repository, FakeJudge({("p-0001", "1"): "same_product",

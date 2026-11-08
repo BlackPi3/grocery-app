@@ -14,12 +14,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from grocery_app.api.app import create_app
-from grocery_app.api.matching import match_receipt
+from grocery_app.api.matching import line_matcher, match_receipt
 from grocery_app.api.repository import PostgresRepository
 from grocery_app.db.io import receipt_from_dict
 from grocery_app.db.models import Check, Correction, Product, Question, Resolution, StoreListing
 from grocery_app.db.session import make_session_factory
 from grocery_app.identify import PROMPT_VERSION
+from grocery_app.matcher import DeciderError
 from tests.conftest import DATABASE_URL as URL
 from tests.conftest import uploaded_when_printed
 
@@ -1396,3 +1397,83 @@ def test_a_spot_check_is_only_ever_on_groceries(server):
         "name": "Karaffe", "brand": "Muster", "category": "deko-wohnen"}}))
     session.commit()
     assert pick_checks(session, receipt) == 0
+
+
+# --- the model's guess, on a stored receipt -------------------------------------
+
+HAFER = {"article_number": "4000000000099", "name": "Hafer Drink", "brand": "Muster",
+         "pack_size": "1 l", "price": 1.19, "url": "https://musterladen.example/hafer"}
+HAFER_SHOP = {"musterladen": lambda text: [HAFER] if text == "Hafer Drink" else []}
+
+
+def picks_hafer(system, prompt, schema):
+    rows = prompt.split("Products:\n")[1].splitlines()
+    number = next((i for i, row in enumerate(rows, 1) if "Hafer Drink" in row), 0)
+    return {"choice": number, "versions": [], "confidence": "high", "reason": "test"}
+
+
+def guessing_hafer(asked):
+    def guesser(system, prompt, schema):
+        asked.append(prompt)
+        return {"guesses": [{"line": 1, "names": ["Hafer Drink"]}]}
+    return guesser
+
+
+def memory_source(session, raw_name):
+    return session.scalars(select(Resolution).where(Resolution.raw_name == raw_name)).one().source
+
+
+def test_a_pick_only_the_guess_found_is_saved_and_marked(server):
+    _, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MU H.Dr."])
+    match_receipt(session, receipt, line_matcher(picks_hafer, HAFER_SHOP, guessing_hafer([])))
+    session.commit()
+    assert memory_source(session, "MU H.Dr.") == "matcher v2 g1 guess1"
+
+
+def test_a_receipt_is_guessed_in_one_call_for_only_its_unknown_lines(server):
+    _, session = server
+    asked = []
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MU H.Dr.", "MU Milch 1,5%"])
+    match_receipt(session, receipt, line_matcher(picks_hafer, HAFER_SHOP, guessing_hafer(asked)))
+    assert len(asked) == 1
+    assert "1. `MU H.Dr.`" in asked[0] and "2." not in asked[0].split("Lines to write out:")[1]
+
+
+def test_without_a_guesser_the_line_is_marked_as_the_old_method(server):
+    _, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MU H.Dr."])
+    shops = {"musterladen": lambda text: [HAFER]}
+    match_receipt(session, receipt, line_matcher(picks_hafer, shops))
+    session.commit()
+    assert memory_source(session, "MU H.Dr.") == "matcher v2"
+
+
+def failing(system, prompt, schema):
+    raise DeciderError("refused")
+
+
+def test_a_failed_guess_still_searches_the_printed_text_and_fires_the_trap(server, caplog):
+    _, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MU H.Dr."])
+    shops = {"musterladen": lambda text: [HAFER]}
+    match_receipt(session, receipt, line_matcher(picks_hafer, shops, failing))
+    session.commit()
+    assert memory_source(session, "MU H.Dr.") == "matcher v2"
+    assert f"GROCERY_TRAP guess-gave-nothing receipt={receipt} lines=1" in caplog.text
+
+
+def test_a_guess_that_names_nothing_fires_the_trap(server, caplog):
+    _, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MU H.Dr."])
+    empty = lambda system, prompt, schema: {"guesses": []}  # noqa: E731
+    match_receipt(session, receipt, line_matcher(picks_hafer, HAFER_SHOP, empty))
+    assert "GROCERY_TRAP guess-gave-nothing" in caplog.text
+
+
+def test_a_receipt_with_nothing_unknown_is_not_guessed_and_fires_no_trap(server, caplog):
+    _, session = server
+    asked = []
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MU Milch 1,5%"])
+    match_receipt(session, receipt, line_matcher(picks_hafer, HAFER_SHOP, guessing_hafer(asked)))
+    assert asked == [] and "GROCERY_TRAP" not in caplog.text

@@ -48,6 +48,7 @@ from sqlalchemy.orm import Session
 
 from grocery_app import identify as identifying
 from grocery_app import matcher as matching
+from grocery_app import traps
 from grocery_app.db.io import load_normalizer_inputs, product_from_dict, receipt_to_dict
 from grocery_app.db.models import (
     Job,
@@ -70,14 +71,30 @@ LineMatcher = Callable[[dict[str, Any], str | None, dict[str, Any]], dict[str, A
 LineIdentifier = Callable[..., identifying.Identity]
 
 
-def line_matcher(decider: matching.Decider,
-                 shops: dict[str, matching.ShopSource]) -> LineMatcher:
-    """`matcher.propose`, bound to a decider and the shops to search."""
+def line_matcher(decider: matching.Decider, shops: dict[str, matching.ShopSource],
+                 guesser: matching.Decider | None = None) -> LineMatcher:
+    """`matcher.propose`, bound to a decider and the shops to search.
+
+    With a `guesser`, `match_receipt` first has it write out the receipt's
+    unknown lines in one call (`matcher.guess_names`).
+    """
     def match(line: dict[str, Any], store: str | None,
               inputs: dict[str, Any]) -> dict[str, Any]:
         return matching.propose(line, store, inputs["products"], inputs["resolution"],
-                                inputs["shelf_prices"], inputs["index"], shops, decider)
+                                inputs["shelf_prices"], inputs["index"], shops, decider,
+                                (inputs.get("guesses") or {}).get(line["raw_name"]))
+    match.guesser = guesser  # type: ignore[attr-defined]
     return match
+
+
+def matcher_source(proposal: dict[str, Any]) -> str:
+    """How a line the matcher settled was found, kept on its resolution."""
+    source = f"matcher {matching.PROMPT_VERSION}"
+    if not proposal.get("guesses"):
+        return source
+    needed = proposal.get("needed_guess")
+    found = f"guess{needed}" if needed else "printed"
+    return f"{source} {matching.GUESS_VERSION} {found}"
 
 
 def line_identifier(decider: matching.Decider,
@@ -353,13 +370,31 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
     placed = placed_at(session, inputs)
     seen = brands_seen(placed, inputs["products"])
 
+    def unplaced(position: int, line: dict[str, Any]) -> bool:
+        record = normalize_receipt({**doc, "lines": [line]}, inputs["resolution"],
+                                   inputs["products"])[0]
+        return (record["resolution"] == "none" and line.get("type", "product") == "product"
+                and not never_remembered(receipt.store, line["raw_name"])
+                and position not in asked)
+
+    guesser = getattr(match, "guesser", None)
+    if guesser is not None:
+        unknown = [line["raw_name"] for position, line in enumerate(doc["lines"])
+                   if unplaced(position, line)]
+        others = [line["raw_name"] for line in doc["lines"]
+                  if line.get("type", "product") == "product"]
+        try:
+            inputs["guesses"] = matching.guess_names(unknown, receipt.store, others, guesser)
+        except Exception:  # noqa: BLE001 - a receipt stands without its guesses
+            # The printed text is still searched; the line's source says so.
+            inputs["guesses"] = {}
+        if unknown and not inputs["guesses"]:
+            traps.fire("guess-gave-nothing", receipt=receipt_id, lines=len(unknown))
+
     for position, line in enumerate(doc["lines"]):
         # Read again each time: an answer saved for an earlier line of this
         # receipt may already place this one.
-        record = normalize_receipt({**doc, "lines": [line]}, inputs["resolution"],
-                                   inputs["products"])[0]
-        if record["resolution"] != "none" or line.get("type", "product") != "product" \
-                or never_remembered(receipt.store, line["raw_name"]) or position in asked:
+        if not unplaced(position, line):
             continue
         if answered_since(session, receipt_id, position):
             # Answered or asked while the lines before were read: theirs.
@@ -389,7 +424,8 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
                     store=receipt.store, raw_name=line["raw_name"], line_type="product",
                     product_id=product_id, product_ids=[],
                     confirmed_by="identify", confirmed_at=date.today(),
-                    source=f"identify {identifying.PROMPT_VERSION}"))
+                    source=(f"identify {identifying.PROMPT_VERSION}"
+                            + (f" {matching.GUESS_VERSION}" if proposal.get("guesses") else ""))))
                 inputs["resolution"][(shop, line["raw_name"])] = [product_id]
                 placed.setdefault(shop, set()).add(product_id)
                 if identity.brand:
@@ -418,7 +454,7 @@ def match_receipt(session: Session, receipt_id: int, match: LineMatcher,
             product_id=None if family else ids[0], product_ids=ids if family else [],
             status="ambiguous_on_receipt" if family else None,
             confirmed_by="matcher", confirmed_at=date.today(),
-            source=f"matcher {matching.PROMPT_VERSION}"))
+            source=matcher_source(proposal)))
         inputs["resolution"][(shop, line["raw_name"])] = ids
         placed.setdefault(shop, set()).update(ids)
         seen.setdefault(shop, set()).update(

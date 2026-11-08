@@ -18,6 +18,7 @@ public).
 ## Contents
 
 1. [A line the app has not seen before](#1-a-line-the-app-has-not-seen-before)
+2. [How the data connects](#2-how-the-data-connects)
 
 ## 1. A line the app has not seen before
 
@@ -41,8 +42,12 @@ shop sells five flavours of one pudding at the same price.
      yes│                   no│
         ▼                     ▼
       done    ┌─────────────────────────────────────┐
+              │ GUESS                        GEMINI │  1 call per receipt, all unknown lines:
+              │    1-3 full names for each line     │  only searched with, never saved
+              ├─────────────────────────────────────┤
               │ 3a GATHER CANDIDATES           CODE │  shop's product list + our catalog,
-              │    → the 5 flavours                 │  letter by letter
+              │    → the 5 flavours                 │  letter by letter, by the printed
+              │                                     │  text and again by each guess
               ├─────────────────────────────────────┤
               │ 3b PICK ONE                  GEMINI │  numbered list: it can't invent;
               │                                     │  never sees prices
@@ -77,6 +82,7 @@ Where each step lives:
 |---|---|
 | 1 | `extract.py` |
 | 2 | `normalizer.py`, `memory.py` |
+| guess | `matcher.py`: `guess_names`; called in `api/matching.py` |
 | 3a–3c | `matcher.py`: `gather`, `propose` |
 | 4a–4c | `identify.py`: `read_line` (4a and 4c are `identify`, 4b is `search_line`) |
 | saving, questions | `api/matching.py` |
@@ -92,3 +98,30 @@ What the drawing shows (2026-10-27/28, the line search investigation in
   it offered a plum tea, a margarine 500 g and a shampoo 500 ml.
 - 4a's guess is used only for the never-counted check and as a fallback
   when the search fails.
+
+## 2. How the data connects
+
+Words as in `docs/glossary.md`. As it works today, drawn 2026-11-08; how it
+should work is in `docs/designs/products-and-resolutions.md`.
+
+```
+ RECEIPT   chain + branch, date
+    │ has many
+    ▼
+  LINE     printed text, price
+    │ looked up in
+    ▼
+ RESOLUTION   chain + printed text → product
+    │ points to
+    ▼
+ OUR PRODUCTS   what we identified: our words, our categories, no price
+    ▲
+    │ a product is made from a chain product the first
+    │ time a line is matched to it
+    │
+ CHAIN PRODUCTS   what a chain sells: its words, its shelves, its price
+    ▲
+    │ download, dated
+    │
+ CHAIN'S WEBSITE
+```

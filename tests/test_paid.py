@@ -55,7 +55,8 @@ def test_a_real_photo_becomes_a_real_receipt(engine, session, tmp_path):
         PostgresRepository(make_session_factory(engine)),
         DiskImageStore(tmp_path / "uploads"),
         configured_extractor(),
-        line_matcher(matching.ClaudeCodeDecider(), matching.default_shops()),
+        line_matcher(matching.ClaudeCodeDecider(), matching.default_shops(),
+                     matching.ClaudeCodeDecider()),
         line_identifier(identify_decider(), identify_searcher()),
     ))
 

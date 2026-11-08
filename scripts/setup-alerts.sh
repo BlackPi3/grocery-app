@@ -5,12 +5,13 @@
 #
 #   GROCERY_PROJECT=<gcp project id> GROCERY_ALERT_EMAIL=<address> scripts/setup-alerts.sh
 #
-# Two alerts, on both servers (the real one and the demo):
+# Three alerts, on both servers (the real one and the demo):
 # - Spending: the server logs SPEND_ALERT when a day's model calls pass
 #   another dollar (grocery_app/spend.py); any such line is an email.
 # - Traffic: more than 2,000 requests to one server in an hour. The page asks
 #   every 3 s while a receipt is read (about 1,200 an hour), so ordinary use
 #   stays below it.
+# - Traps: a check on real data broke (grocery_app/traps.py logs GROCERY_TRAP).
 # Google's billing budget (Console -> Billing -> Budgets & alerts) is the
 # backstop for everything else on the bill; only the account owner can set it.
 set -eu
@@ -49,6 +50,22 @@ policy "Grocery: unusual model spending" <<EOF
     "displayName": "SPEND_ALERT in a server's log",
     "conditionMatchedLog": {
       "filter": "resource.type=\"cloud_run_revision\" AND textPayload:\"SPEND_ALERT\""
+    }
+  }],
+  "alertStrategy": {"notificationRateLimit": {"period": "3600s"}, "autoClose": "86400s"},
+  "notificationChannels": ["$channel"]
+}
+EOF
+
+policy "Grocery: a trap fired" <<EOF
+{
+  "displayName": "Grocery: a trap fired",
+  "documentation": {"content": "A check on real data broke. The log line names the rule and where to look; see Traps in docs/working-agreement.md.", "mimeType": "text/markdown"},
+  "combiner": "OR",
+  "conditions": [{
+    "displayName": "GROCERY_TRAP in a server's log",
+    "conditionMatchedLog": {
+      "filter": "resource.type=\"cloud_run_revision\" AND textPayload:\"GROCERY_TRAP\""
     }
   }],
   "alertStrategy": {"notificationRateLimit": {"period": "3600s"}, "autoClose": "86400s"},

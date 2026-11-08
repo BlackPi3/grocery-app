@@ -1085,7 +1085,7 @@ def default_app() -> FastAPI:
         from grocery_app import spend
 
         spend.install(spend.database_sink(repository.session_factory))
-    matcher = line_matcher(matcher_decider(), matching.default_shops())
+    matcher = line_matcher(matcher_decider(), matching.default_shops(), guess_decider())
     # Identify runs only on uploads, which need PostgreSQL: a server that only
     # serves purchases.json needs no reader and no key.
     identifier = (line_identifier(identify_decider(), identify_searcher())
@@ -1176,6 +1176,19 @@ def matcher_decider(kind: str | None = None,
     if matcher_kind(kind) == "gemini":
         return GeminiDecider(GEMINI_MODEL, "data/matched", matching.PROMPT_VERSION,
                              search=False)
+    return ClaudeCodeDecider(model)
+
+
+def guess_decider(kind: str | None = None,
+                  model: str = "sonnet") -> ClaudeCodeDecider | GeminiDecider | None:
+    """Who writes out a receipt's unknown lines before they are searched
+    (`matcher.guess_names`). `GROCERY_GUESS=off` switches the step off."""
+    from grocery_app import matcher as matching
+
+    if os.environ.get("GROCERY_GUESS", "").strip().lower() == "off":
+        return None
+    if matcher_kind(kind) == "gemini":
+        return GeminiDecider(GEMINI_MODEL, "data/matched", matching.GUESS_VERSION, search=False)
     return ClaudeCodeDecider(model)
 
 

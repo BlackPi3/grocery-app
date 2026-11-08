@@ -608,7 +608,11 @@ def test_no_token_is_401(town):
 
 
 @needs_db
-def test_each_person_sees_their_own_regulars_at_their_own_shops_at_their_own_prices(town):
+def test_each_person_sees_their_own_regulars_at_their_own_shops_at_their_own_prices(town,
+                                                                                     monkeypatch):
+    from tests.conftest import freeze_route_day
+
+    freeze_route_day(monkeypatch, TODAY)
     repository, sara = town
     _judged(repository)
     client = TestClient(create_app(repository, token="owner-secret"))
