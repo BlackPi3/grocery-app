@@ -47,11 +47,12 @@ FREE_SEARCHES_PER_MONTH = 5000
 
 PURPOSES = ("reading", "finding", "pictures", "other")
 
-# A day's model calls past this, in dollars, is unusual (Parham, 2026-10-12:
+# A day's model calls past this, in dollars, is unusual (the owner, 2026-10-12:
 # guests and a second user are in, "we don't want to bleed money without
-# knowing"). October's first twelve days cost $0.91 in all; a dollar in one
-# day is about ten normal days. Each further dollar is said again.
-ALERT_EVERY_USD = 1.0
+# knowing"). Each further step is said again. Raised from $1 on 2026-11-09: one
+# receipt with several new lines can pass a dollar, so nearly every upload
+# sent an email (150 in 30 days).
+ALERT_EVERY_USD = 10.0
 ALERT_MARK = "SPEND_ALERT"  # what the log-based alert in Cloud Monitoring matches
 
 _purpose: ContextVar[str | None] = ContextVar("spend_purpose", default=None)

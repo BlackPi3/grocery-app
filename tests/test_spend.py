@@ -160,6 +160,26 @@ def test_a_day_past_each_spend_mark_says_so_once(engine, session, monkeypatch, c
 
 
 @pytestmark_db
+def test_an_ordinary_day_sends_no_alert_and_ten_dollars_does(engine, session, monkeypatch, caplog):
+    """2026-11-09: one receipt can pass a dollar, so a dollar said nothing."""
+    monkeypatch.delenv("GROCERY_SPEND_ALERT_USD", raising=False)
+    write = spend.database_sink(make_session_factory(engine))
+
+    def costing(dollars):  # output tokens only, at $4.125 a million
+        return spend.call_record("gemini-3.8-flash", {"usageMetadata": {
+            "candidatesTokenCount": round(dollars / 4.125 * 1e6)}})
+
+    def alerts():
+        return [r.getMessage() for r in caplog.records if spend.ALERT_MARK in r.getMessage()]
+
+    for dollars in (3.0, 3.0, 3.0):  # 9.0, a busy day
+        write(costing(dollars))
+    assert alerts() == []
+    write(costing(1.5))  # 10.5
+    assert len(alerts()) == 1 and "$10.50 today" in alerts()[0]
+
+
+@pytestmark_db
 def test_past_the_free_searches_the_rest_are_billed_shared_over_every_search(
         engine, session, tmp_path, monkeypatch):
     monkeypatch.setattr(spend, "FREE_SEARCHES_PER_MONTH", 3)
