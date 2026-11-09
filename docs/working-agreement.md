@@ -90,7 +90,8 @@ Tests check made-up data before a merge. Traps check real data after it.
 
 - Every code change states the rules its data must hold, and adds a check that
   fires when one breaks. A change with no trap says why it needs none.
-- A trap notifies the owner. A log line nobody reads is not a trap.
+- A trap is in the code and writes a log line we can go through later, to see
+  how the code behaves in edge cases (owner, 2026-11-09). It sends no email.
 - A trap costs nothing to run: code only, no paid model.
 - A trap that has not been seen firing is not trusted. Prove it as a test is
   proved: break the rule on made-up data and check that it fires.

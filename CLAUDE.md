@@ -77,7 +77,7 @@ seam between stages extends `tests/test_pipeline.py`.
 
 Code ships with traps. Tests check made-up data before a merge; traps check real
 data after it. Every change states the rules its data must hold and adds a check
-that fires and notifies the owner when one breaks, so nothing goes wrong silently.
+that writes a log line when one breaks, so we can go through them later.
 Details in `docs/working-agreement.md`.
 
 No test may call a paid model: `create_app` takes the extractor as an argument with

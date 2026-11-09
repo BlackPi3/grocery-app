@@ -7,7 +7,7 @@
 #
 # Three alerts, on both servers (the real one and the demo):
 # - Spending: the server logs SPEND_ALERT when a day's model calls pass
-#   another dollar (grocery_app/spend.py); any such line is an email.
+#   another $10 (grocery_app/spend.py); any such line is an email.
 # - Traffic: more than 2,000 requests to one server in an hour. The page asks
 #   every 3 s while a receipt is read (about 1,200 an hour), so ordinary use
 #   stays below it.

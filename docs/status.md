@@ -17,6 +17,9 @@ session (laptop or cloud) can pick up from here. How we work is in
   waits, so that the guess test is not read through two changes at once.
   Before that move, measure one search on the live database (db-f1-micro).
   Not built: branch, link to our product. Older downloads in `history/` not loaded.
+  **Merged and deployed (#236); the live tables are still empty:** loading the
+  two lists from the laptop was refused by a permission check on 9 Nov (it needs
+  the live database's password), and waits for the owner's yes.
 
 - **NEXT: the section-3 experiment** (owner, 2026-10-28: "a very important
   experiment"; **run 28 Oct, laptop; 3c fixed 30 Oct; 3a's fixes next**).
