@@ -549,6 +549,8 @@ def propose(line: dict[str, Any], store: str | None, products: dict[str, dict[st
         "verdict": verdict,
         "guesses": guesses or [],
         "needed_guess": needed_guess(chosen),
+        # No guess would have put this answer on the list.
+        "printed_only": any(c.found_by == ["printed"] for c in chosen),
         # What accepting would add to the catalog: a product copied from the
         # shop's listing for each chosen candidate that is not ours already.
         "creates": [new_product(asdict(c), "matcher") for c in chosen if not c.product_id],

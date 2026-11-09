@@ -1477,3 +1477,26 @@ def test_a_receipt_with_nothing_unknown_is_not_guessed_and_fires_no_trap(server,
     receipt = add_receipt(session, "IMG_7.jpeg", ["MU Milch 1,5%"])
     match_receipt(session, receipt, line_matcher(picks_hafer, HAFER_SHOP, guessing_hafer(asked)))
     assert asked == [] and "GROCERY_TRAP" not in caplog.text
+
+
+def picks(name):
+    def decider(system, prompt, schema):
+        rows = prompt.split("Products:\n")[1].splitlines()
+        return {"choice": next(i for i, row in enumerate(rows, 1) if name in row),
+                "versions": [], "confidence": "high", "reason": "test"}
+    return decider
+
+
+@pytest.mark.parametrize("printed_finds, guess_finds, label", [
+    ([HAFER], [], "matcher v2 g1 printed-only"),
+    ([HAFER], [HAFER], "matcher v2 g1 both"),
+    ([], [HAFER], "matcher v2 g1 guess1"),
+])
+def test_a_saved_line_says_which_search_found_it(server, printed_finds, guess_finds, label):
+    _, session = server
+    receipt = add_receipt(session, "IMG_7.jpeg", ["MU H.Dr."])
+    shops = {"musterladen": lambda text: guess_finds if text == "Hafer Drink" else printed_finds}
+    match_receipt(session, receipt,
+                  line_matcher(picks("Hafer Drink"), shops, guessing_hafer([])))
+    session.commit()
+    assert memory_source(session, "MU H.Dr.") == label

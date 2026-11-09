@@ -15,11 +15,13 @@ session (laptop or cloud) can pick up from here. How we work is in
   missing at once marks nothing and fires `chain-download-shrank` (the laptop
   run also stops with an error). Section 3 still reads the JSON files: moving it
   waits, so that the guess test is not read through two changes at once.
-  Before that move, measure one search on the live database (db-f1-micro).
   Not built: branch, link to our product. Older downloads in `history/` not loaded.
-  **Merged and deployed (#236); the live tables are still empty:** loading the
-  two lists from the laptop was refused by a permission check on 9 Nov (it needs
-  the live database's password), and waits for the owner's yes.
+  **Merged and deployed (#236); loaded on live 9 Nov (owner's yes):** GLOBUS
+  65,461 and ALDI SÜD 3,451 products (both 28 Oct downloads), 59,737 prices, 32
+  MB. One search scored by letter groups took 1.3 s on the live database (5
+  tries, from the laptop, 20 groups), against 0.12 s from the file on the
+  laptop: section 3 cannot simply move as it is, it would need an index or a
+  narrower search first.
 
 - **NEXT: the section-3 experiment** (owner, 2026-10-28: "a very important
   experiment"; **run 28 Oct, laptop; 3c fixed 30 Oct; 3a's fixes next**).
@@ -139,7 +141,7 @@ session (laptop or cloud) can pick up from here. How we work is in
     searches by the printed text and by each guess, each guess adding at most
     4 new products (a list stops at 25; owner, the number not measured); each
     candidate says which search found it (`found_by`). Read the result from `resolutions.source`:
-    `matcher v2 g1 guess1`/`guess2`/`guess3` (only that guess found it), `matcher v2 g1 printed`, `matcher v2` (no guess made),
+    `matcher v2 g1 guess1`/`guess2`/`guess3` (only that guess found it), `matcher v2 g1 both`, `printed-only` (no guess would have found it; `printed` on lines of 8-9 Nov means either), `matcher v2` (no guess made),
     `identify v9 g1` (went on to the paid search). `GROCERY_GUESS=off` stops
     it. A web search found no proven method for this exact task. Not tried
     yet: showing the model the chain's closest past lines as examples.

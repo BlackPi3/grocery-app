@@ -31,7 +31,9 @@ Each candidate records which search found it, and each saved line says so in
 | `source` | Meaning |
 |---|---|
 | `matcher v2 g1 guess1`, `guess2`, `guess3` | Only that guess found the answer (for a family, the highest any version needed): the old way would have missed it. |
-| `matcher v2 g1 printed` | The printed text found it too. |
+| `matcher v2 g1 both` | Both the printed text and a guess found it. |
+| `matcher v2 g1 printed-only` | Only the printed text found it: no guess would have. This is what says whether the printed-text search is still worth having. |
+| `matcher v2 g1 printed` | Saved between 8 and 9 Nov, before the two above: the printed text found it, a guess maybe too. |
 | `matcher v2` | No guess was made (switched off, or the call failed). |
 | `identify v9 g1` | Had a guess, still went on to the paid search. |
 
