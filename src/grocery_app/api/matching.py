@@ -93,7 +93,8 @@ def matcher_source(proposal: dict[str, Any]) -> str:
     if not proposal.get("guesses"):
         return source
     needed = proposal.get("needed_guess")
-    found = f"guess{needed}" if needed else "printed"
+    found = (f"guess{needed}" if needed
+             else "printed-only" if proposal.get("printed_only") else "both")
     return f"{source} {matching.GUESS_VERSION} {found}"
 
 

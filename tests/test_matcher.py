@@ -473,6 +473,16 @@ def test_a_pick_the_printed_text_found_too_does_not():
     assert proposed(["Vanille Pudding"], "Kühlschrank Reiniger")["needed_guess"] is None
 
 
+def test_a_pick_both_searches_found_is_not_only_printed():
+    proposal = proposed(["Vanille Pudding"], "Kühlschrank Reiniger")
+    assert (proposal["needed_guess"], proposal["printed_only"]) == (None, False)
+
+
+def test_a_pick_no_guess_found_is_only_printed():
+    proposal = proposed(["Vanille Pudding"], "Kühlschrank Deo")
+    assert (proposal["needed_guess"], proposal["printed_only"]) == (None, True)
+
+
 def guessing(*rows):
     asked = []
 

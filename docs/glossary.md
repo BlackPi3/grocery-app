@@ -26,6 +26,38 @@ Avoid "shop" and "store" alone: they hide whether the chain or the branch is mea
 Do not assume two branches of a chain share a till function. That is to be
 measured.
 
+## What a till does to a name
+
+The ways a till turns a product into printed text, seen on real receipts
+(checked 2026-11-09 against the printed lines we hold). One line often does
+several at once. Examples are made up. "Letter counting" is whether 3a's search
+(three-letter pieces) can still find the product from the printed text; it comes
+from how that search works and is not measured.
+
+| Name | What the till does | Example | Letter counting |
+|---|---|---|---|
+| **Cut** | Stops at its width, often mid-word. | `Muster Haselnussschn` | Yes |
+| **Dotted** | Shortens one word and marks it with a dot. | `Kirschkonf.` | Yes |
+| **All-dotted** | Shortens every word. | `Erdb.Frucht.Jog.250` | Partly: little left of each word |
+| **Blend** | Joins the first letters of the parts of a name. | `SchoKek` for Schoko Kekse | No |
+| **Glued** | Leaves out the space. | `BioApfelmusFein` | Yes |
+| **Lost letter** | Prints `?` for a letter it cannot print. | `K?rbiskerne` | Partly: loses the pieces around it |
+| **Spelled-out umlaut** | Writes `ue` for ü, `ae` for ä. | `KUEMMEL` | Yes |
+| **Capitals** | Prints everything in capitals. | `APFELMUS FEIN` | Yes |
+| **Till spelling** | Spells a word its own way. | `Choco` for Schoko | Partly |
+| **Initials** | Gives a brand or own label as letters. | `MU Milch` | No, unless we hold those initials |
+| **Short brand** | Cuts the brand's name. | `MUST.Milch` | Partly |
+| **Size** | Adds weight, volume or count. | `500g`, `10er`, `3+1` | Hurts: matches anything of that size |
+| **Till word** | Adds how it is sold. | `lose`, `Stk`, `Bund` | Hurts a little |
+| **Tail code** | Adds a code or stray digits at the end; some carry meaning (`FH`), some are unknown. | `Eier 10er FH` | Hurts a little |
+| **Other order** | Puts the words in another order than the website. | `Bananen Bio` | Yes |
+| **Other word** | Uses another word for the thing. | `Möhren` where the chain lists Karotten | No |
+| **No product word** | Prints the brand or flavour, not what it is. | `Muster Avocado` for tortilla chips | No |
+| **Kind only** | Prints only the kind of thing. | `Juice` | No: no product to find |
+
+Not the till: a **misread** is our own reading of the photo getting a letter
+wrong. Letter counting copes partly, like a lost letter.
+
 ## What we know about products
 
 | Word | Meaning | In the code today |
